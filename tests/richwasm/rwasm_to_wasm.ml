@@ -44,8 +44,8 @@ let%expect_test "simple cases" =
       (type $t1 (func (param i32) (result i32)))
       (type $t2 (func (param i32 i32 i32)))
       (type $t3 (func (param i32)))
-      (type $t4 (func (result i32)))
-      (type $t5 (func))
+      (type $t4 (func))
+      (type $t5 (func (result i32)))
       (memory $richwasm.mmmem (import "richwasm" "mmmem") 0)
       (memory $richwasm.gcmem (import "richwasm" "gcmem") 0)
       (global $richwasm.tablenext (import "richwasm" "tablenext") (mut i32))
@@ -57,7 +57,7 @@ let%expect_test "simple cases" =
       (func $richwasm.registerroot (import "richwasm" "registerroot") (type $t1) (param i32) (result i32))
       (func $richwasm.unregisterroot (import "richwasm" "unregisterroot") (type $t3) (param i32))
       (table $richwasm.table (import "richwasm" "table") 0 funcref)
-      (func $_start (export "_start") (type $t4) (result i32)
+      (func $_start (export "_start") (type $t5) (result i32)
         (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32)
         (i32.const -1)
         (i32.const 0)
@@ -116,7 +116,7 @@ let%expect_test "simple cases" =
           (drop
             (local.get $l7))
           (i32.const 3)))
-      (func $f8 (type $t5)
+      (func $f8 (type $t4)
         (global.set $g1
           (global.get $richwasm.tablenext))
         (global.set $richwasm.tablenext
@@ -156,8 +156,8 @@ let%expect_test "debug: boxed sum" =
       (type $t1 (func (param i32) (result i32)))
       (type $t2 (func (param i32 i32 i32)))
       (type $t3 (func (param i32)))
-      (type $t4 (func (result i32)))
-      (type $t5 (func))
+      (type $t4 (func))
+      (type $t5 (func (result i32)))
       (type $t6 (func (result i32 i32 i32)))
       (memory $richwasm.mmmem (import "richwasm" "mmmem") 0)
       (memory $richwasm.gcmem (import "richwasm" "gcmem") 0)
@@ -170,7 +170,7 @@ let%expect_test "debug: boxed sum" =
       (func $richwasm.registerroot (import "richwasm" "registerroot") (type $t1) (param i32) (result i32))
       (func $richwasm.unregisterroot (import "richwasm" "unregisterroot") (type $t3) (param i32))
       (table $richwasm.table (import "richwasm" "table") 0 funcref)
-      (func $_start (export "_start") (type $t4) (result i32)
+      (func $_start (export "_start") (type $t5) (result i32)
         (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32) (local $l10 i32) (local $l11 i32) (local $l12 i32) (local $l13 i32) (local $l14 i32) (local $l15 i32) (local $l16 i32) (local $l17 i32) (local $l18 i32) (local $l19 i32) (local $l20 i32) (local $l21 i32) (local $l22 i32) (local $l23 i32) (local $l24 i32) (local $l25 i32)
         (i32.const 7)
         (i32.const 0)
@@ -303,7 +303,7 @@ let%expect_test "debug: boxed sum" =
             (br_if $B5))
           (local.get $l24)
           (nop)))
-      (func $f8 (type $t5)
+      (func $f8 (type $t4)
         (global.set $g1
           (global.get $richwasm.tablenext))
         (global.set $richwasm.tablenext

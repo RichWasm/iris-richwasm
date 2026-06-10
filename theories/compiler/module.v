@@ -99,7 +99,7 @@ Definition rt_globals : list W.module_glob :=
     |}
   ].
 
-Definition user_mr : module_runtime :=
+Definition user_mr (num_user_fun_imps : nat) : module_runtime :=
   {|
     mr_mmmem := W.Mk_memidx 0;
     mr_gcmem := W.Mk_memidx 1;
@@ -109,26 +109,28 @@ Definition user_mr : module_runtime :=
     mr_func_free := W.Mk_funcidx 4;
     mr_func_registerroot := W.Mk_funcidx 5;
     mr_func_unregisterroot := W.Mk_funcidx 6;
-    mr_func_user := W.Mk_funcidx 7; (* TODO: depends on user imports *)
+    mr_func_user := W.Mk_funcidx 7;
     mr_global_table_off := W.Mk_globalidx 1;
     mr_global_user := W.Mk_globalidx 2
   |}.
 
-Definition compile_user_func (wt : list W.function_type) (mf : module_function) :
+Definition compile_user_func
+  (mr : module_runtime) (wt : list W.function_type) (mf : module_function) :
   error + list W.function_type * W.module_func :=
   tf ← try_option EFail (translate_func_type [] mf.(mf_type));
   let '(wt', tid) := insert_type wt tf in
   fe ← try_option EFail (fe_of_module_func mf);
-  '((), wt'', wl, body) ← run_codegen (compile_instrs user_mr fe mf.(mf_body)) wt [];
+  '((), wt'', wl, body) ← run_codegen (compile_instrs mr fe mf.(mf_body)) wt [];
   ls ← try_option EFail (mapM (eval_rep EmptyEnv) mf.(mf_locals));
   let ls' := flat_map (map translate_arep) ls ++ wl in
   inr (option_list wt' ++ wt'', W.Build_module_func (W.Mk_typeidx tid) ls' body).
 
-Definition compile_user_funcs (wt : list W.function_type) (mfs : list module_function) :
+Definition compile_user_funcs
+  (mr : module_runtime) (wt : list W.function_type) (mfs : list module_function) :
   error + list W.function_type * list W.module_func :=
   foldlM
     (fun '(wt', defs) mf =>
-       '(wt'', def) ← compile_user_func (wt ++ wt') mf;
+       '(wt'', def) ← compile_user_func mr (wt ++ wt') mf;
        inr (wt' ++ wt'', defs ++ [def]))
     ([], []) mfs.
 
@@ -137,10 +139,10 @@ Definition user_export (func_user : nat) (exp : module_export) : W.module_export
   let d := W.MED_func (W.Mk_funcidx (func_user + exp.(me_desc))) in
   W.Build_module_export s d.
 
-Definition user_table_func (tab : list nat) :
+Definition user_table_func (mr : module_runtime) (tab : list nat) :
   W.module_func :=
-  let es1 := table_alloc (W.Mk_globalidx 0) user_mr.(mr_global_table_off) (length tab) in
-  let table_set i fid := call_table_set user_mr.(mr_global_table_off) (W.Mk_funcidx 0) i (funcimm user_mr.(mr_func_user) + fid) in
+  let es1 := table_alloc (W.Mk_globalidx 0) mr.(mr_global_table_off) (length tab) in
+  let table_set i fid := call_table_set mr.(mr_global_table_off) (W.Mk_funcidx 0) i (funcimm mr.(mr_func_user) + fid) in
   let es2 := flatten (imap table_set tab) in
   W.Build_module_func (W.Mk_typeidx 4) [] (es1 ++ es2).
 
@@ -154,10 +156,11 @@ Definition user_table_export (func_user : nat) (off : nat) : W.module_export :=
 
 Definition compile_module (m : module) : error + W.module :=
   '(tfs_imp, imps) ← try_option EFail (user_func_imports rt_types m.(m_imports));
-  '(tfs_def, defs) ← compile_user_funcs (rt_types ++ tfs_imp) m.(m_functions);
-  let exps := map (user_export (funcimm user_mr.(mr_func_user))) m.(m_exports) in
-  let exps_tab := map (user_table_export (funcimm user_mr.(mr_func_user))) m.(m_table) in
-  let start_func := user_table_func m.(m_table) in
+  let mr := user_mr (length imps) in
+  '(tfs_def, defs) ← compile_user_funcs mr (rt_types ++ tfs_imp) m.(m_functions);
+  let exps := map (user_export (funcimm mr.(mr_func_user))) m.(m_exports) in
+  let exps_tab := map (user_table_export (funcimm mr.(mr_func_user))) m.(m_table) in
+  let start_func := user_table_func mr m.(m_table) in
   inr {|
       W.mod_types := rt_types ++ tfs_imp ++ tfs_def;
       W.mod_funcs := defs ++ [start_func];
@@ -166,7 +169,7 @@ Definition compile_module (m : module) : error + W.module :=
       W.mod_globals := rt_globals;
       W.mod_elem := [];
       W.mod_data := [];
-      W.mod_start := Some (W.Build_module_start (W.Mk_funcidx (funcimm user_mr.(mr_func_user) + length defs)));
+      W.mod_start := Some (W.Build_module_start (W.Mk_funcidx (funcimm mr.(mr_func_user) + length imps + length defs)));
       W.mod_imports := rt_imports ++ imps;
       W.mod_exports := exps ++ exps_tab
     |}.
