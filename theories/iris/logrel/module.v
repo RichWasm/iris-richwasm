@@ -36,7 +36,7 @@ Section Fundamental.
     compile_module m = inr m' ->
     ⊢ module_interp rti sr mt m'.
   Proof.
-    iIntros (Hmt Hm ???) "Hmod Himps %Hlen_exps Hexps Hfr Hrun".
+    iIntros (Hmt Hm ????) "Hmod Hrt Himps %Hlen_exps Hexps Hfr Hrun".
     apply bind_inr in Hm as ([wt imps] & Himps_try & Hm).
     destruct (user_imports rt_types m.(module.m_imports)) as [[wt' imps']|] eqn:Himps;
       last inversion Himps_try.

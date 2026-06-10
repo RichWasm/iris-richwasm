@@ -1282,6 +1282,30 @@ Section module.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
+  Definition rt_export (n : string) (d : module_export_desc) : datatypes.module_export :=
+    {| modexp_name := String.list_byte_of_string n; modexp_desc := d |}.
+
+  (* TODO: Somewhere, there should be an axiom that states that the runtime
+           module exists and exports the following with the specs in runtime.v.
+   *)
+  (* TODO: Does this need the ↦[wf] resources for RT functions?
+           instance_interp will put them in invariants so they can't be returned
+           after instantiation. *)
+  Definition rt_exports : list (N -> iProp Σ) :=
+    [
+      fun j => j ↪[vis] rt_export "mmmem" (MED_mem (W.Mk_memidx sr.(sr_mem_mm)));
+      fun j => j ↪[vis] rt_export "gcmem" (MED_mem (W.Mk_memidx sr.(sr_mem_gc)));
+      fun j => ∃ idx, j ↪[vis] rt_export "tablenext" (MED_global idx);
+      fun j => ∃ idx, j ↪[vis] rt_export "tableset" (MED_func idx);
+      fun j => j ↪[vis] rt_export "mmalloc" (MED_func (W.Mk_funcidx sr.(sr_func_mmalloc)));
+      fun j => j ↪[vis] rt_export "gcalloc" (MED_func (W.Mk_funcidx sr.(sr_func_gcalloc)));
+      fun j => j ↪[vis] rt_export "setflag" (MED_func (W.Mk_funcidx sr.(sr_func_setflag)));
+      fun j => j ↪[vis] rt_export "free" (MED_func (W.Mk_funcidx sr.(sr_func_free)));
+      fun j => j ↪[vis] rt_export "registerroot" (MED_func (W.Mk_funcidx sr.(sr_func_registerroot)));
+      fun j => j ↪[vis] rt_export "unregisterroot" (MED_func (W.Mk_funcidx sr.(sr_func_unregisterroot)));
+      fun j => j ↪[vis] rt_export "table" (MED_table (W.Mk_tableidx sr.(sr_table)))
+    ]%I.
+
   Definition function_exports (js : list N) (ϕs : list function_type) : iProp Σ :=
     [∗ list] j;ϕ ∈ js;ϕs, ∃ n m cl,
       j ↪[vis] {| modexp_name := n; modexp_desc := MED_func (W.Mk_funcidx m) |} ∗
@@ -1289,18 +1313,20 @@ Section module.
         closure_interp rti sr ϕ senv_empty cl.
 
   Definition module_interp (mt : module_type) (module : W.module) : iProp Σ :=
-    ∀ i js_imp js_exp,
+    ∀ i js_rt js_imp js_exp,
       i ↪[mods] module -∗
+      ([∗ list] j;f ∈ js_rt;rt_exports, f j) -∗
       function_exports js_imp mt.(mt_imports) -∗
       ⌜length js_exp = length mt.(mt_exports)⌝ -∗
       ([∗ list] j ∈ js_exp, ∃ x, j ↪[vis] x) -∗
       ↪[frame] empty_frame -∗
       ↪[RUN] -∗
-      WP ([ID_instantiate js_exp i js_imp], []) : host_expr @ top
+      WP ([ID_instantiate js_exp i (js_rt ++ js_imp)], []) : host_expr @ top
          {{ v, ⌜v = immHV []⌝ ∗
                  ↪[frame] empty_frame ∗
                  ↪[RUN] ∗
                  i ↪[mods] module ∗
+                 ([∗ list] j;f ∈ js_rt;rt_exports, f j) ∗
                  function_exports js_imp mt.(mt_imports) ∗
                  function_exports js_exp mt.(mt_exports) }}.
 
