@@ -34,7 +34,6 @@
   EqDec
   eqtype
   Floats
-  Functor
   IEEE754_extra
   instruction
   IntDef

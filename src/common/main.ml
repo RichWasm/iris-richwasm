@@ -5,11 +5,9 @@ let elaborate = Elaborate.elab_module
 
 let compile modul =
   let open Richwasm_extract.Module0 in
-  let compiled = compile_module modul in
-  let compiled' = run_modgen compiled in
-  match compiled' mod_empty with
+  match compile_module modul with
   | Coq_inl err -> Error err
-  | Coq_inr (_, modul) -> Ok modul
+  | Coq_inr modul -> Ok modul
 
 let wasm_serialize = Richwasm_extract.Binary_format_printer.binary_of_module
 let wasm_ugly_printer = Wasm_ugly_printer.ugly_module
