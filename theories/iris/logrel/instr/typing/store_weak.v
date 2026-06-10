@@ -21,42 +21,6 @@ Section store_weak.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  (* TEMPORARY. COPIED FROM LOAD_COPY *)
-  Lemma sum_list_with_list_sum {A} {f : A -> nat} {xs : list A} :
-    sum_list_with f xs = list_sum (map f xs).
-  Proof. Admitted.
-
-  (* TEMPORARY. This is a copy. *)
-  Lemma rep_ref_kind_ptr_TEMP F κ μ β τ ρ ξ :
-    has_kind F (RefT κ μ β τ) (VALTYPE ρ ξ) ->
-    ρ = AtomR PtrR /\ exists ξ', κ = VALTYPE (AtomR PtrR) ξ'.
-  Proof.
-    intros Hkind.
-    remember (RefT κ μ β τ) as ref.
-    remember (VALTYPE ρ ξ) as val.
-    revert Heqval Heqref.
-    revert ρ ξ.
-    induction Hkind using has_kind_ind'; intros; try congruence.
-    - subst κ0.
-      split; try congruence.
-      inversion Heqref; eauto.
-    - subst κ0.
-      split; try congruence.
-      inversion Heqref; eauto.
-    - subst κ0.
-      split; try congruence.
-      inversion Heqref; eauto.
-  Qed.
-
-  (* TEMPORARY. COPIED FROM LOAD_COPY *)
-  Lemma atom_interp_ptr_shaped ptr v :
-    atom_interp (PtrA ptr) v -∗
-    ∃ n n32, ⌜N_i32_repr n n32⌝ ∗
-             ⌜v = VAL_int32 n32⌝ ∗
-             ⌜ptr_shaped ptr n⌝ ∗
-             ∃ rp, ⌜repr_root_pointer rp n⌝ ∗ root_pointer_interp rp ptr.
-  Proof. Admitted.
-
   Lemma wp_store_w_strict μ t off wt wl wt' wl' es ret :
     run_codegen (store_w mr μ t off) wt wl = inr (ret, wt', wl', es) ->
     ret = () /\
@@ -205,18 +169,6 @@ Section store_weak.
                Hlocsθ_ws Hlocsθ_new).
     - iModIntro. iApply ("HΦ" with "[$] [$]"); iFrame.
   Qed.
-
-  (* TEMPORARY: COPIED FROM LOAD_COPY *)
-  Lemma has_kind_ref_ty F κ κ' μ β τ :
-    has_kind F (RefT κ μ β τ) κ' ->
-    ∃ σ ξ,
-      has_kind F τ (MEMTYPE σ ξ).
-  Proof. Admitted.
-  Lemma mono_size_eval_emp_Some σ :
-    is_mono_size σ ->
-    is_Some (eval_size EmptyEnv σ).
-  Proof. Admitted.
-
 
   Lemma wp_store_mm_MAYBE a_idx off ιs vs_idx wt wl ret wt' wl' es :
     run_codegen (memory.store mr MemMM a_idx off vs_idx ιs) wt wl = inr (ret, wt', wl', es) ->
@@ -438,150 +390,6 @@ Section store_weak.
     do 5 eexists.
     done.
   Qed.
-
-  (* move this somewhere else, dk where though *)
-  Lemma atom_interp_to_weak_memMM o v θ:
-    rt_token rti sr θ -∗ atom_interp o v -∗
-    rt_token rti sr θ ∗ atom_interp_weak θ MemMM o v.
-  Proof.
-    iIntros "Hrt Ha".
-    cbn.
-    unfold atom_interp_weak.
-    destruct o; try (by iFrame).
-    destruct p.
-    - cbn. unfold root_pointer_interp.
-      iFrame.
-      iDestruct "Ha" as "(%n0 & %n32 & %Nrepr & -> & (%rp & %Hrepr & Ha))".
-      destruct rp; [| destruct μ; try done].
-      iDestruct "Ha" as "<-".
-      inversion Hrepr; subst.
-      iExists ((2 * n1)%N), n32.
-      iSplitR; [done| iSplitR; [done|]].
-      iPureIntro. constructor.
-    - cbn.
-      unfold root_pointer_interp.
-      iDestruct "Ha" as "(%n0 & %n32 & %Nrepr & -> & (%rp & %Hrepr & Ha))".
-      destruct rp; try done; destruct μ0; destruct μ; try done.
-      + iAssert (⌜θ !! ℓ = Some (MemMM, a)⌝)%I with "[Hrt Ha]" as "%Hθℓ". {
-          iDestruct "Hrt" as "(%rm & %lm & %hm & Haddr & _)".
-          iPoseProof (ghost_map_lookup with "[$] [$]") as "%Hθℓ".
-          done.
-        }
-        iFrame.
-        iExists n0, n32.
-        iSplitR; [done| iSplitR; [done|]].
-        inversion Hrepr; subst.
-        iPureIntro.
-        by constructor.
-        (* WORRY: ℓ ↦addr is left here *)
-        (* but actually probably fine lol *)
-      + iFrame.
-        iExists n0, n32.
-        iSplitR; [done| iSplitR; [done|]].
-        iFrame.
-        iPureIntro.
-        done.
-  Qed.
-
-  Lemma atoms_interp_to_weak_memMM os vs θ:
-    rt_token rti sr θ -∗ atoms_interp os vs -∗
-    rt_token rti sr θ ∗ ([∗ list] o;v ∈ os;vs, atom_interp_weak θ MemMM o v).
-  Proof.
-    generalize dependent vs.
-    induction os.
-    - iIntros (vs) "Hrt Has".
-      iFrame.
-    - iIntros (vs) "Hrt Has".
-      destruct vs as [|v vs]; [done|].
-      iPoseProof (big_sepL2_cons with "[$Has]") as "[Hov Has]".
-      iPoseProof (atom_interp_to_weak_memMM with "[$Hrt] [$Hov]") as "[Hrt Hweak]".
-      rewrite big_sepL2_cons.
-      iEval (cbn -[atom_interp]) in "Has".
-      iPoseProof (IHos with "[$Hrt] [$Has]") as "[Hrt Hweaks]".
-      iFrame.
-  Qed.
-
-  Lemma has_arep_means_equal_lengths ιs os:
-    Forall2 has_arep ιs os ->
-    length (concat (map serialize_atom os)) = length (concat (map arep_flags ιs)).
-  Proof.
-    generalize dependent os.
-    induction ιs as [|ι ιs].
-    - intros.
-      destruct os; [|apply Forall2_nil_cons_inv in H; done].
-      by cbn.
-    - intros os Hareps.
-      destruct os as [| o os]; [apply Forall2_cons_nil_inv in Hareps; done|].
-      apply Forall2_cons in Hareps as (Harep & Hareps).
-      cbn.
-      rewrite !length_app.
-      specialize (IHιs os Hareps).
-      assert (length (serialize_atom o) = length (arep_flags ι)). {
-        destruct ι; destruct o; try done.
-      }
-      lia.
-  Qed.
-
-  Lemma forall_ptr_atom_to_word_ref_flag_interp ξ os:
-    Forall (forall_ptr_atom (ref_flag_ptr_interp ξ)) os ->
-    Forall (forall_ptr_word (ref_flag_ptr_interp ξ)) (concat (map serialize_atom os)).
-  Proof.
-    intros Hatom.
-    induction os as [|o os].
-    - done.
-    - apply Forall_cons in Hatom as (Ho & Hatom).
-      apply IHos in Hatom.
-      cbn.
-      rewrite Forall_app.
-      split; try done.
-      clear Hatom IHos.
-      destruct o; cbn in *; try (apply Forall_singleton; cbn in *; done).
-      + apply Forall_cons.
-        cbn.
-        split; [done|].
-        apply Forall_singleton.
-        cbn; done.
-      + apply Forall_cons.
-        cbn.
-        split; [done|].
-        apply Forall_singleton.
-        cbn; done.
-  Qed.
-
-  Lemma has_areps_imp_word_has_flag ιs os:
-    has_areps ιs (SAtoms os) ->
-    Forall2 word_has_flag (concat (map arep_flags ιs)) (flat_map serialize_atom os).
-  Proof.
-    generalize dependent ιs.
-    induction os as [|o os].
-    - intros ιs Hareps.
-      inversion Hareps.
-      destruct H as [toinvert Harepp].
-      inversion toinvert; subst.
-      apply Forall2_nil_inv_r in Harepp; subst; done.
-    - intros ιs Hareps.
-      inversion Hareps.
-      destruct H as [toinvert Harepp].
-      inversion toinvert; subst; clear toinvert.
-      destruct ιs as [|ι ιs]; [apply Forall2_nil_cons_inv in Harepp; done|].
-      cbn.
-      inversion Harepp; subst.
-      assert (length (arep_flags ι) = length (serialize_atom o)). {
-        destruct ι; destruct o; try done.
-      }
-      apply Forall2_app.
-      + destruct ι; destruct o; try done; cbn; try (apply Forall2_cons; cbn; done).
-        * apply Forall2_cons. cbn.
-          split; [done|].
-          apply Forall2_cons; cbn; done.
-        * apply Forall2_cons. cbn.
-          split; [done|].
-          apply Forall2_cons; cbn; done.
-      + apply IHos.
-        exists os; done.
-  Qed.
-
-
 
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
@@ -1048,8 +856,13 @@ Section store_weak.
           rewrite !H1.
           rewrite H1 in Hrefflag.
 
-          (* I think I finally got to lemma stage *)
-          by apply has_areps_imp_word_has_flag.
+          (* dealing with Is_true and is_true lol *)
+          eapply Forall2_impl.
+          1: by apply has_areps_imp_word_has_flag.
+          intros.
+          cbn in H0.
+          apply Is_true_true.
+          done.
         }
         (* future note: show that fs = concat map arep_flags ιs? at some point *)
 
@@ -1155,28 +968,9 @@ Section store_weak.
          - f_locs fr_caseptr !! .. = n32. This is then just the minimum
            requirement of relating fr_caseptr and fr'
        *)
-
-      iAssert (⌜((off + length (flat_map arep_flags ιs))%nat ≤
-                     Wasm_int.Int32.modulus)%Z⌝%I) with "[Hℓ_newws]" as "%H1". {
-        (* an idea for how to do this *)
-        rewrite Hflaglengths.
-        assert (length (update_path_words off ws (concat (map serialize_atom os2))) = length ws). {
-          apply update_path_words_size.
-          by rewrite Hos2sz.
-        }
-        iAssert ((⌜((length (update_path_words off ws (concat (map serialize_atom os2))))%N
-                      ≤ Wasm_int.Int32.modulus)%Z⌝)%I) with "[Hℓ_newws]" as "%pls". {
-          (* THIS IS THE BIG QUESTION *)
-          (* does ℓ ↦heap ws imply that length of ws is less than modulus *)
-          (* acutally no I think this strat won't work lol *)
-          admit.
-        }
-        (* well it def gotta be... but I'm not sure what forces it to be true *)
-        admit.
-      }
       assert (H3: f_locs fr_store !! localimm (prelude.W.Mk_localidx ptr_local) =
                     Some (VAL_int32 n32)) by (cbn; by apply list_lookup_insert_eq).
-      specialize (Hptr_flags_spec ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto)).
+      specialize (Hptr_flags_spec ltac:(auto) ltac:(auto) ltac:(auto)).
 
       (* Time for the case pointer spec! *)
       iApply (Hptr_flags_spec with "[$] [$] [] [$] [$] [$] [] [-]").

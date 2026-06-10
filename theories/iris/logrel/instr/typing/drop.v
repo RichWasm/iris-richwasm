@@ -22,6 +22,15 @@ Section drop.
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IDrop ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
+  Proof.
+    intros * Hty Hcg.
+    iIntros (se fr os vs evs θ B R).
+    repeat iIntros "@".
+    inv_cg_bind Hcg ρ wt1 wt1' wl1 wl1' es_nil es1 Htype_rep Hcg.
+    inv_cg_bind Hcg ιs wt2 wt2' wl2 wl2' es_nil' es_drops Heval_rep Hdrop.
+    (* TODO need lemma about drop1 *)
+    (* TODO need lemma about drop_ptr, which is just free/unreg depending on
+            what kind of pointer it's dealing with *)
   Admitted.
 
 End drop.

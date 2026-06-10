@@ -95,6 +95,121 @@ Section kinding.
     by eexists.
   Qed.
 
+  Lemma has_kind_ref_ty F κ κ' μ β τ :
+    has_kind F (RefT κ μ β τ) κ' ->
+    ∃ σ ξ,
+      has_kind F τ (MEMTYPE σ ξ).
+  Proof.
+    intros Hkind.
+    remember (RefT κ μ β τ) as τ0 eqn:Href.
+    revert Href.
+    revert κ μ.
+    induction Hkind; intros κ'' μ' Href;
+      try congruence.
+    - subst κ. inversion Href; subst.
+      by exists σ, ξ.
+    - subst κ.
+      inversion Href.
+      subst.
+      by exists σ, ξ.
+    - subst κ.
+      inversion Href.
+      subst.
+      by exists σ, ξ.
+  Qed.
+
+  Lemma eval_rep_empty_ok_Some ρ :
+    rep_ok kc_empty ρ ->
+    is_Some (eval_rep EmptyEnv ρ).
+  Proof.
+    intros Hok.
+    induction ρ using rep_ind.
+    - inversion Hok as [K n Hidx HK Hn| | |].
+      cbn in *; lia.
+    - inversion Hok as [|K ρs' Hρs HK Hρs'| |].
+      subst K ρs'.
+      pose proof (List.Forall_and H Hρs) as H'.
+      clear H Hρs.
+      apply Forall_impl with (Q := is_Some ∘ eval_rep EmptyEnv) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros ρ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| |K ρs' Hρs HK Hρs'|].
+      subst K ρs'.
+      pose proof (List.Forall_and H Hρs) as H'.
+      clear H Hρs.
+      apply Forall_impl with (Q := is_Some ∘ eval_rep EmptyEnv) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros ρ [Hsome ?]. by apply Hsome.
+    - done.
+  Qed.
+
+  Lemma eval_size_empty_ok_Some σ :
+    size_ok kc_empty σ ->
+    is_Some (eval_size EmptyEnv σ).
+  Proof.
+    induction σ using size_ind; intros Hok.
+    - inversion Hok. cbn in *; lia.
+    - inversion Hok as [|K σs' Hσs HK Hσs'| | |].
+      subst K σs'.
+      pose proof (List.Forall_and H Hσs) as H'.
+      clear H Hσs.
+      apply Forall_impl with (Q := is_Some ∘ eval_size EmptyEnv) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros σ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| |K σs' Hσs HK Hσs'| |].
+      subst K σs'.
+      pose proof (List.Forall_and H Hσs) as H'.
+      clear H Hσs.
+      apply Forall_impl with (Q := is_Some ∘ eval_size EmptyEnv) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros σ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| | |K ρ' Hok_ρ HK Hρ'|].
+      subst K ρ'.
+      apply fmap_is_Some.
+      by eapply eval_rep_empty_ok_Some.
+    - done.
+  Qed.
+
+  Lemma has_mono_size_inv F τ :
+    has_mono_size F τ ->
+    ∃ σ ξ k,
+      is_mono_size σ /\
+      has_kind F τ (MEMTYPE σ ξ) /\
+      eval_size EmptyEnv σ = Some k.
+  Proof.
+    intros Hmono.
+    inversion Hmono as [F' τ' σ ξ Hkind Hsz HF' Hτ'].
+    subst F' τ'.
+    pose proof Hsz as Hev.
+    unfold is_mono_size in Hev.
+    eapply eval_size_empty_ok_Some in Hev.
+    destruct Hev as [k Hev].
+    repeat eexists; eauto.
+  Qed.
+
+  Lemma mono_size_eval_emp_Some σ :
+    is_mono_size σ ->
+    is_Some (eval_size EmptyEnv σ).
+  Proof.
+    intros Hmono.
+    induction σ using size_ind; inversion Hmono; subst.
+    - cbn in H1; lia.
+    - cbn.
+      rewrite !Forall_forall in H H2.
+      assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done.
+      eapply mapM_is_Some_2, Forall_forall; intros; cbn.
+      eapply H; try eapply H2; eauto.
+    - cbn.
+      rewrite !Forall_forall in H H2.
+      assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done.
+      eapply mapM_is_Some_2, Forall_forall; intros; cbn.
+      eapply H; try eapply H2; eauto.
+    - cbn.
+      eapply eval_rep_empty_ok_Some in H1.
+      by destruct H1 as (rep & ->).
+    - done.
+  Qed.
+
   Lemma type_rep_has_kind_agree F τ ρ ξ :
     has_kind F τ (VALTYPE ρ ξ) ->
     type_rep F.(fc_type_vars) τ = Some ρ.

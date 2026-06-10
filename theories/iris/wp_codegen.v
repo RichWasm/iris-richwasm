@@ -21,6 +21,18 @@ Section CodeGen.
   Variable sr : store_runtime.
   Variable rti : rt_invariant Σ.
 
+  Lemma wp_assume b e wt wl ret wt' wl' es :
+    run_codegen (assume b e) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+    es = [] /\
+    is_true b.
+  Proof.
+    intros Hcg.
+    destruct b; by inversion Hcg.
+  Qed.
+
   Lemma wp_if_c {A B} s E tf (c1 : codegen A) (c2 : codegen B) wt wt' wl wl' es x y :
     run_codegen (if_c tf c1 c2) wt wl = inr (x, y, wt', wl', es) ->
     exists wt1 wt2 wl1 wl2 es1 es2,
@@ -1118,7 +1130,6 @@ Section CodeGen.
     wt' = [] /\
     wl' = [] /\
     ∀ Φ B R s E esv fr ℓ fs μ θ ta ta32,
-    (Z.of_nat i < Wasm_int.Int32.modulus)%Z →
     N_i32_repr ta ta32 ->
     repr_pointer θ (PtrHeap μ ℓ) ta ->
     has_values esv [VAL_int32 ta32] ->
@@ -1139,12 +1150,16 @@ Section CodeGen.
     intros Hcg.
     inv_cg_bind Hcg () ?wt ?wt ?wl ?wl ?es ?es Hcg1 Hcg2; subst.
     inv_cg_bind Hcg2 () ?wt ?wt ?wl ?wl ?es ?es Hcg2 Hcg3; subst.
-    inv_cg_emit Hcg1; subst.
+    inv_cg_bind Hcg3 () ?wt ?wt ?wl ?wl ?es ?es Hcg3 Hcg4; subst.
+    apply wp_assume in Hcg1.
+    destruct Hcg1 as (_ & -> & -> & -> & Hb).
+    apply Z.ltb_lt in Hb.
     inv_cg_emit Hcg2; subst.
     inv_cg_emit Hcg3; subst.
+    inv_cg_emit Hcg4; subst.
     clear_nils.
     do 3 split; first done.
-    intros ????????????? Hbound Haddr Hrepr_ptr Hhv.
+    intros ????????????? Haddr Hrepr_ptr Hhv.
     iIntros "Hroot Hframe Hrun %HE Htok Hrt Hsetflag HΦ".
 
     apply has_values_iff_to_consts in Hhv; subst.
@@ -1192,7 +1207,6 @@ Section CodeGen.
       inr(ret, wt', wl', es_set_ptr_flags) ->
     ret = () /\ wt' = [] /\ wl' = [] /\
     ∀ fr ta ta32 θ μ ℓ,
-      (Z.of_nat (i + length fs) ≤ Wasm_int.Int32.modulus)%Z ->
       N_i32_repr ta ta32 ->
       repr_pointer θ (PtrHeap μ ℓ) ta ->
       fr.(f_locs) !! (localimm a) = Some (VAL_int32 ta32) ->
@@ -1261,7 +1275,7 @@ Section CodeGen.
       repeat (split; first done).
 
       (* okay now I need to use cwp_seq -> cwp_local_get *)
-      intros * Hbound Hta Hrepr Hav.
+      intros * Hta Hrepr Hav.
       iIntros (s E B R Φ fsnew) "Hℓ Hrt %Hnsfun Hown Hfr Hrun Hinst HΦ".
       iApply (cwp_seq with "[Hfr Hrun]").
       {
@@ -1281,7 +1295,6 @@ Section CodeGen.
         (* where ta32 is the i32repr to ta *)
         (* and ta is the repr_pointer *)
         iApply (Hcg_f with "[$] [$] [$] [] [$] [$] [$]").
-        - rewrite length_cons in Hbound. lias.
         - done.
         - apply Hrepr.
         - by apply has_values_iff_to_consts.
@@ -1299,7 +1312,6 @@ Section CodeGen.
       cbn; clear_nils.
 
       iApply (Hsetflags_fs with "[$] [$] [] [$] [$] [$] [$]").
-      + rewrite length_cons in Hbound. lias.
       + exact Hta.
       + exact Hrepr.
       + exact Hav.

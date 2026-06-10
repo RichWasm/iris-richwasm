@@ -39,13 +39,17 @@ Section Compiler.
     emit (W.BI_store (base_mem_idx μ) t None align_word (byte_offset μ off)).
 
   Definition alloc (μ : base_memory) (n : nat) : codegen unit :=
-    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
+    let nZ := Z.of_nat n in
+    assume (nZ <? Wasm_int.Int32.modulus)%Z (EOffsetUnrepresentable n);;
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m nZ)));;
     emit (W.BI_call (base_mem_alloc μ)).
 
   Definition free : codegen unit := emit (W.BI_call (funcimm mr.(mr_func_free))).
 
   Definition setflag (i : nat) (f : pointer_flag) : codegen unit :=
-    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
+    let iZ := Z.of_nat i in
+    assume (iZ <? Wasm_int.Int32.modulus)%Z (EOffsetUnrepresentable i);;
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m iZ)));;
     emit (W.BI_const (W.VAL_int32 (i32_of_flag f)));;
     emit (W.BI_call (funcimm mr.(mr_func_setflag))).
 

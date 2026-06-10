@@ -368,14 +368,14 @@ Section case_ptr.
   Proof.
   Admitted.
 
-  Inductive ptr_shaped : pointer -> N -> Prop :=
-  | IntShaped :
-    ∀ n : N, ptr_shaped (PtrInt n) (2 * n)%N
-  | PtrShaped :
-    ∀ ℓ μ a,
-    (a `mod` 4 = 0)%N ->
-    a <> 0%N ->
-    ptr_shaped (PtrHeap μ ℓ) (tag_address μ a).
+  (* Inductive ptr_shaped : pointer -> N -> Prop := *)
+  (* | IntShaped : *)
+  (*   ∀ n : N, ptr_shaped (PtrInt n) (2 * n)%N *)
+  (* | PtrShaped : *)
+  (*   ∀ ℓ μ a, *)
+  (*   (a `mod` 4 = 0)%N -> *)
+  (*   a <> 0%N -> *)
+  (*   ptr_shaped (PtrHeap μ ℓ) (tag_address μ a). *)
 
   Lemma cwp_case_ptr {A B} (c1 : codegen B) (c2: base_memory -> codegen A) idx
     wt wt' wl wl' ts1 ts2 es x y z :

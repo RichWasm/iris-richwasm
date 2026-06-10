@@ -99,14 +99,14 @@ Section roots.
     ret = () /\
     wt' = [] /\
     wl' = [] /\
-      ∀ e evs ℓ ah ah32,
-        repr_pointer e (PtrHeap MemGC ℓ) ah ->
+      ∀ θ evs ℓ ah ah32,
+        repr_pointer θ (PtrHeap MemGC ℓ) ah ->
         N_i32_repr ah ah32 ->
         has_values evs [VAL_int32 ah32] ->
       ⊢ ∀ f B R s E Φ,
-        (∀ e' ar ar32,
+        (∀ ar ar32,
            ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ -∗
-           ar ↦root ℓ -∗ rt_token rti sr e' -∗ na_own logrel_nais E -∗
+           ar ↦root ℓ -∗ rt_token rti sr θ -∗ na_own logrel_nais E -∗
            ⌜N_i32_repr (tag_address MemGC ar) ar32⌝ -∗
            instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            Φ f [VAL_int32 ar32]) -∗
@@ -114,7 +114,7 @@ Section roots.
         ↪[RUN] -∗
         ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
         na_own logrel_nais E  -∗
-        rt_token rti sr e -∗
+        rt_token rti sr θ -∗
         instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
         CWP evs ++ es_register @ s; E UNDER B; R {{ Φ }}.
   Proof.
@@ -169,10 +169,9 @@ Section roots.
         has_values evs [VAL_int32 tar32] ->
       ⊢ ∀ f B R s E Φ ℓ,
         ar ↦root ℓ -∗
-        (∀ θ',
-           rt_token rti sr θ' -∗ na_own logrel_nais E -∗
-           instance_rt_func_interp mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot rti sr) f.(f_inst) -∗
-           Φ f []) -∗
+        (rt_token rti sr θ -∗ na_own logrel_nais E -∗
+         instance_rt_func_interp mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot rti sr) f.(f_inst) -∗
+         Φ f []) -∗
         ↪[frame] f -∗
         ↪[RUN] -∗
         ⌜↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E⌝ -∗
@@ -229,11 +228,11 @@ Section roots.
     ret = () /\
     wt' = [] /\
     wl' = [] /\
-    ∀ evs a n n32 rm e ℓ,
+    ∀ evs a n n32 rm θ ℓ,
       N_i32_repr n n32 →
       has_values evs [VAL_int32 n32] ->
       repr_root_pointer (RootHeap MemGC a) n ->
-      root_ok e rm ->
+      root_ok θ rm ->
       ⊢ ∀ s E B R Φ f Q,
         ↪[frame] f -∗
         ↪[RUN] -∗
@@ -241,15 +240,15 @@ Section roots.
         ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
         a ↦root ℓ -∗
         ghost_map_auth rw_root (1 / 2) rm -∗
-        root_memory sr e rm -∗
-        (a ↦root ℓ -∗ ghost_map_auth rw_root (1 / 2) rm -∗ root_memory sr e rm -∗ rt_token rti sr e ∗ Q) -∗
+        root_memory sr θ rm -∗
+        (a ↦root ℓ -∗ ghost_map_auth rw_root (1 / 2) rm -∗ root_memory sr θ rm -∗ rt_token rti sr θ ∗ Q) -∗
         na_own logrel_nais E -∗
         instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-        (∀ e' ar ar32,
+        (∀ ar ar32,
            ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ -∗
            ⌜N_i32_repr (tag_address MemGC ar) ar32⌝ -∗
            ar ↦root ℓ -∗
-           rt_token rti sr e' -∗
+           rt_token rti sr θ -∗
            Q -∗
            na_own logrel_nais E -∗
            instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
@@ -292,7 +291,7 @@ Section roots.
     cbn; iIntros (f' vs) "(-> & %ah & %ah32 & %Hah & %Hrep & -> & Htok & HQ) Hf Hrun".
     iApply (Hreg with "[HΦ HQ] [$Hf] [$Hrun] [] [$Hinv] [$Htok] [$Hreg]"); eauto.
     - by apply Is_true_true, has_values_to_consts.
-    - iIntros (ar ar32 e' Har) "Hroot' Htok' Hown %Harrep Hinst".
+    - iIntros (ar ar32 Har) "Hroot' Htok' Hown %Harrep Hinst".
       iApply ("HΦ" with "[//] [//] [$] [$] [$] [$] [$]").
   Qed.
 
@@ -310,7 +309,7 @@ Section roots.
           a ↦root ℓ -∗
           ghost_map_auth rw_root (1 / 2) rm -∗
           root_memory sr e rm -∗
-          ▷ (∀ ah ah32,
+          ▷^3 (∀ ah ah32,
                let f' := {| W.f_locs := <[localimm (Mk_localidx locidx):=VAL_int32 ah32]> (f_locs f);
                            W.f_inst := f_inst f |} in
               ⌜N_i32_repr ah ah32⌝ -∗
@@ -330,14 +329,18 @@ Section roots.
     clear_nils; subst.
     intros * Hn32 Hrep Hroot.
     iIntros (s E B R Φ f) "Hf Hrun %Hloc %Hmem Hroot Hrm Hrmem HΦ".
-    iApply (cwp_seq with "[Hf Hrun]").
+    iApply (cwp_seq with "[Hf Hrun HΦ]").
     {
-      iApply (cwp_local_get with "[] [$] [$]"); first eauto.
-      by instantiate (1 := (λ f' v', ⌜f' = f⌝ ∗ ⌜v' = [VAL_int32 n32]⌝)%I).
+      iApply (cwp_local_get with "[HΦ] [$] [$]"); first eauto.
+      iModIntro.
+      instantiate (1 := (λ f' v', ⌜f' = f⌝ ∗ ⌜v' = [VAL_int32 n32]⌝ ∗ _)%I).
+      iSplit; first done.
+      iSplit; first done.
+      iApply "HΦ".
     }
-    iIntros (f' vs) "[-> ->] Hf Hrun".
+    iIntros (f' vs) "(-> & -> & HΦ) Hf Hrun".
     rewrite app_assoc.
-    iApply (cwp_seq with "[-HΦ]").
+    iApply (cwp_seq with "[-]").
     {
       pose proof (wp_loadroot _ _ _ _ _ _ Hlr) as (_ & -> & -> & Hloadroot).
       iApply (Hloadroot with "[$] [$] [//] [$] [$] [$]").
@@ -345,7 +348,8 @@ Section roots.
       - apply Is_true_true, has_values_to_consts.
       - eauto.
       - eauto.
-      - iIntros "!>". iIntros (ah ah32) "%Hah32 %Hrepr Hroot Hrm Hrmem".
+      - iModIntro.
+        iIntros (ah ah32) "%Hah32 %Hrepr Hroot Hrm Hrmem".
         instantiate
           (1 := (λ f' vs',
              ∃ ah ah32,
@@ -362,7 +366,7 @@ Section roots.
         iSplit; first done.
         iNamedAccu.
     }
-    iIntros (f' vs') "(%ah & %ah32 & -> & -> & %Hah32 & %Hrepr & @ & @ & @) Hf Hrun".
+    iIntros (f' vs') "(%ah & %ah32 & -> & -> & %Hah32 & %Hrepr & @ & @ & @ & @) Hf Hrun".
     clear Hretval0 Hretval.
     iApply (cwp_local_set with "[-Hrun Hf] [$] [$]");
       first eauto using lookup_lt_Some.
