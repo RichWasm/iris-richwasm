@@ -370,6 +370,15 @@ Proof.
   lia.
 Qed.
 
+Lemma sum_list_with_list_sum {A} {f : A -> nat} {xs : list A} :
+  sum_list_with f xs = list_sum (map f xs).
+Proof.
+  induction xs.
+  - done.
+  - cbn.
+    by rewrite IHxs.
+Qed.
+
 Lemma sum_list_with_take_S_lookup {A} (f : A → nat) (l : list A) (i : nat) (x : A) :
   l !! i = Some x →
   sum_list_with f (list.take i l) + f x = sum_list_with f (list.take (S i) l).

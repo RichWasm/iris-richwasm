@@ -10,7 +10,7 @@ From RichWasm.named_props Require Export named_props custom_syntax.
 From RichWasm Require Export layout syntax typing util.
 Require Export RichWasm.wasm.operations.
 From RichWasm.compiler Require Export prelude codegen instruction module.
-From RichWasm.iris Require Export autowp memory logrel util.
+From RichWasm.iris Require Export autowp memory logrel util numerics.
 From RichWasm.iris.logrel Require Export util.
 From RichWasm.iris.language Require Export cwp logpred.
 Require Export RichWasm.iris.logrel.instr.kinding.
@@ -27,6 +27,15 @@ Section properties.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
+
+  Inductive ptr_shaped : pointer -> N -> Prop :=
+  | IntShaped :
+    ∀ n : N, ptr_shaped (PtrInt n) (2 * n)%N
+  | PtrShaped :
+    ∀ ℓ μ a,
+    (a `mod` 4 = 0)%N ->
+    a <> 0%N ->
+    ptr_shaped (PtrHeap μ ℓ) (tag_address μ a).
 
   Lemma has_areps_cons_l ιs ι o os:
     has_areps (ι :: ιs) (SAtoms (o :: os)) ->
@@ -1562,6 +1571,177 @@ Section properties.
       iPureIntro. simpl.
       split; first done.
       apply values_to_atoms_norefs.
+  Qed.
+
+  Lemma has_areps_imp_word_has_flag ιs os:
+    has_areps ιs (SAtoms os) ->
+    Forall2 word_has_flag (concat (map arep_flags ιs)) (flat_map serialize_atom os).
+  Proof.
+    generalize dependent ιs.
+    induction os as [|o os].
+    - intros ιs Hareps.
+      inversion Hareps.
+      destruct H as [toinvert Harepp].
+      inversion toinvert; subst.
+      apply Forall2_nil_inv_r in Harepp; subst; done.
+    - intros ιs Hareps.
+      inversion Hareps.
+      destruct H as [toinvert Harepp].
+      inversion toinvert; subst; clear toinvert.
+      destruct ιs as [|ι ιs]; [apply Forall2_nil_cons_inv in Harepp; done|].
+      cbn.
+      inversion Harepp; subst.
+      assert (length (arep_flags ι) = length (serialize_atom o)). {
+        destruct ι; destruct o; try done.
+      }
+      apply Forall2_app.
+      + destruct ι; destruct o; try done; cbn; try (apply Forall2_cons; cbn; done).
+        * apply Forall2_cons. cbn.
+          split; [done|].
+          apply Forall2_cons; cbn; done.
+        * apply Forall2_cons. cbn.
+          split; [done|].
+          apply Forall2_cons; cbn; done.
+      + apply IHos.
+        exists os; done.
+  Qed.
+
+  Lemma forall_ptr_atom_to_word_ref_flag_interp ξ os:
+    Forall (forall_ptr_atom (ref_flag_ptr_interp ξ)) os ->
+    Forall (forall_ptr_word (ref_flag_ptr_interp ξ)) (concat (map serialize_atom os)).
+  Proof.
+    intros Hatom.
+    induction os as [|o os].
+    - done.
+    - apply Forall_cons in Hatom as (Ho & Hatom).
+      apply IHos in Hatom.
+      cbn.
+      rewrite Forall_app.
+      split; try done.
+      clear Hatom IHos.
+      destruct o; cbn in *; try (apply Forall_singleton; cbn in *; done).
+      + apply Forall_cons.
+        cbn.
+        split; [done|].
+        apply Forall_singleton.
+        cbn; done.
+      + apply Forall_cons.
+        cbn.
+        split; [done|].
+        apply Forall_singleton.
+        cbn; done.
+  Qed.
+
+  Lemma has_arep_means_equal_lengths ιs os:
+    Forall2 has_arep ιs os ->
+    length (concat (map serialize_atom os)) = length (concat (map arep_flags ιs)).
+  Proof.
+    generalize dependent os.
+    induction ιs as [|ι ιs].
+    - intros.
+      destruct os; [|apply Forall2_nil_cons_inv in H; done].
+      by cbn.
+    - intros os Hareps.
+      destruct os as [| o os]; [apply Forall2_cons_nil_inv in Hareps; done|].
+      apply Forall2_cons in Hareps as (Harep & Hareps).
+      cbn.
+      rewrite !length_app.
+      specialize (IHιs os Hareps).
+      assert (length (serialize_atom o) = length (arep_flags ι)). {
+        destruct ι; destruct o; try done.
+      }
+      lia.
+  Qed.
+
+  Lemma atom_interp_to_weak_memMM o v θ:
+    rt_token rti sr θ -∗ atom_interp o v -∗
+    rt_token rti sr θ ∗ atom_interp_weak θ MemMM o v.
+  Proof.
+    iIntros "Hrt Ha".
+    cbn.
+    unfold atom_interp_weak.
+    destruct o; try (by iFrame).
+    destruct p.
+    - cbn. unfold root_pointer_interp.
+      iFrame.
+      iDestruct "Ha" as "(%n0 & %n32 & %Nrepr & -> & (%rp & %Hrepr & Ha))".
+      destruct rp; [| destruct μ; try done].
+      iDestruct "Ha" as "<-".
+      inversion Hrepr; subst.
+      iExists ((2 * n1)%N), n32.
+      iSplitR; [done| iSplitR; [done|]].
+      iPureIntro. constructor.
+    - cbn.
+      unfold root_pointer_interp.
+      iDestruct "Ha" as "(%n0 & %n32 & %Nrepr & -> & (%rp & %Hrepr & Ha))".
+      destruct rp; try done; destruct μ0; destruct μ; try done.
+      + iAssert (⌜θ !! ℓ = Some (MemMM, a)⌝)%I with "[Hrt Ha]" as "%Hθℓ". {
+          iDestruct "Hrt" as "(%rm & %lm & %hm & Haddr & _)".
+          iPoseProof (ghost_map_lookup with "[$] [$]") as "%Hθℓ".
+          done.
+        }
+        iFrame.
+        iExists n0, n32.
+        iSplitR; [done| iSplitR; [done|]].
+        inversion Hrepr; subst.
+        iPureIntro.
+        by constructor.
+        (* WORRY: ℓ ↦addr is left here *)
+        (* but actually probably fine lol *)
+      + iFrame.
+        iExists n0, n32.
+        iSplitR; [done| iSplitR; [done|]].
+        iFrame.
+        iPureIntro.
+        done.
+  Qed.
+
+  Lemma atoms_interp_to_weak_memMM os vs θ:
+    rt_token rti sr θ -∗ atoms_interp os vs -∗
+    rt_token rti sr θ ∗ ([∗ list] o;v ∈ os;vs, atom_interp_weak θ MemMM o v).
+  Proof.
+    generalize dependent vs.
+    induction os.
+    - iIntros (vs) "Hrt Has".
+      iFrame.
+    - iIntros (vs) "Hrt Has".
+      destruct vs as [|v vs]; [done|].
+      iPoseProof (big_sepL2_cons with "[$Has]") as "[Hov Has]".
+      iPoseProof (atom_interp_to_weak_memMM with "[$Hrt] [$Hov]") as "[Hrt Hweak]".
+      rewrite big_sepL2_cons.
+      iEval (cbn -[atom_interp]) in "Has".
+      iPoseProof (IHos with "[$Hrt] [$Has]") as "[Hrt Hweaks]".
+      iFrame.
+  Qed.
+
+  Lemma atom_interp_ptr_shaped ptr v :
+    atom_interp (PtrA ptr) v -∗
+    ∃ n n32, ⌜N_i32_repr n n32⌝ ∗
+             ⌜v = VAL_int32 n32⌝ ∗
+             ⌜ptr_shaped ptr n⌝ ∗
+             ∃ rp, ⌜repr_root_pointer rp n⌝ ∗ root_pointer_interp rp ptr.
+  Proof.
+    iIntros "Hat".
+    destruct ptr; cbn; unfold root_pointer_interp.
+    - iDestruct "Hat" as "(%n' & %n32 & %Hn32 & %Hv & (%rp & %Hrp & Hrpn))".
+      destruct rp; last (destruct μ; done).
+      iDestruct "Hrpn" as "->".
+      inversion Hrp; subst.
+      iExists _, _.
+      iSplit; first eauto.
+      iSplit; first eauto.
+      iSplit; first eauto using ptr_shaped.
+      iExists (RootInt n); eauto.
+    - iDestruct "Hat" as "(%n' & %n32 & %Hn32 & %Hv & (%rp & %Hrp & Hrpn))"; subst.
+      destruct rp; first done.
+      inversion Hrp; subst.
+      destruct μ0, μ; try done.
+      + iExists _, _.
+        repeat (iSplit; first eauto using ptr_shaped).
+        iExists _; eauto.
+      + iExists _, _.
+        repeat (iSplit; first eauto using ptr_shaped).
+        iExists _; eauto.
   Qed.
 
 End properties.

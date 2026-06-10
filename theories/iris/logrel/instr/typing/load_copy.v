@@ -23,61 +23,61 @@ Section load_copy.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma sum_list_with_list_sum {A} {f : A -> nat} {xs : list A} :
-    sum_list_with f xs = list_sum (map f xs).
-  Proof.
-    induction xs.
-    - done.
-    - cbn.
-      by rewrite IHxs.
-  Qed.
+  (* Lemma sum_list_with_list_sum {A} {f : A -> nat} {xs : list A} : *)
+  (*   sum_list_with f xs = list_sum (map f xs). *)
+  (* Proof. *)
+  (*   induction xs. *)
+  (*   - done. *)
+  (*   - cbn. *)
+  (*     by rewrite IHxs. *)
+  (* Qed. *)
 
   (* inversion lemma for learning about tau given a Ref k mu tau *)
-  Lemma has_kind_ref_ty F κ κ' μ β τ :
-    has_kind F (RefT κ μ β τ) κ' ->
-    ∃ σ ξ,
-      has_kind F τ (MEMTYPE σ ξ).
-  Proof.
-    intros Hkind.
-    remember (RefT κ μ β τ) as τ0 eqn:Href.
-    revert Href.
-    revert κ μ.
-    induction Hkind; intros κ'' μ' Href;
-      try congruence.
-    - subst κ. inversion Href; subst.
-      by exists σ, ξ.
-    - subst κ.
-      inversion Href.
-      subst.
-      by exists σ, ξ.
-    - subst κ.
-      inversion Href.
-      subst.
-      by exists σ, ξ.
-  Qed.
+  (* Lemma has_kind_ref_ty F κ κ' μ β τ : *)
+  (*   has_kind F (RefT κ μ β τ) κ' -> *)
+  (*   ∃ σ ξ, *)
+  (*     has_kind F τ (MEMTYPE σ ξ). *)
+  (* Proof. *)
+  (*   intros Hkind. *)
+  (*   remember (RefT κ μ β τ) as τ0 eqn:Href. *)
+  (*   revert Href. *)
+  (*   revert κ μ. *)
+  (*   induction Hkind; intros κ'' μ' Href; *)
+  (*     try congruence. *)
+  (*   - subst κ. inversion Href; subst. *)
+  (*     by exists σ, ξ. *)
+  (*   - subst κ. *)
+  (*     inversion Href. *)
+  (*     subst. *)
+  (*     by exists σ, ξ. *)
+  (*   - subst κ. *)
+  (*     inversion Href. *)
+  (*     subst. *)
+  (*     by exists σ, ξ. *)
+  (* Qed. *)
 
-  Lemma mono_size_eval_emp_Some σ :
-    is_mono_size σ ->
-    is_Some (eval_size EmptyEnv σ).
-  Proof.
-    intros Hmono.
-    induction σ using size_ind; inversion Hmono; subst.
-    - cbn in H1; lia.
-    - cbn.
-      rewrite !Forall_forall in H H2.
-      assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done.
-      eapply mapM_is_Some_2, Forall_forall; intros; cbn.
-      eapply H; try eapply H2; eauto.
-    - cbn.
-      rewrite !Forall_forall in H H2.
-      assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done.
-      eapply mapM_is_Some_2, Forall_forall; intros; cbn.
-      eapply H; try eapply H2; eauto.
-    - cbn.
-      eapply eval_rep_empty_ok_Some in H1.
-      by destruct H1 as (rep & ->).
-    - done.
-  Qed.
+  (* Lemma mono_size_eval_emp_Some σ : *)
+  (*   is_mono_size σ -> *)
+  (*   is_Some (eval_size EmptyEnv σ). *)
+  (* Proof. *)
+  (*   intros Hmono. *)
+  (*   induction σ using size_ind; inversion Hmono; subst. *)
+  (*   - cbn in H1; lia. *)
+  (*   - cbn. *)
+  (*     rewrite !Forall_forall in H H2. *)
+  (*     assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done. *)
+  (*     eapply mapM_is_Some_2, Forall_forall; intros; cbn. *)
+  (*     eapply H; try eapply H2; eauto. *)
+  (*   - cbn. *)
+  (*     rewrite !Forall_forall in H H2. *)
+  (*     assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done. *)
+  (*     eapply mapM_is_Some_2, Forall_forall; intros; cbn. *)
+  (*     eapply H; try eapply H2; eauto. *)
+  (*   - cbn. *)
+  (*     eapply eval_rep_empty_ok_Some in H1. *)
+  (*     by destruct H1 as (rep & ->). *)
+  (*   - done. *)
+  (* Qed. *)
 
   Lemma value_deser se κ τ ws :
     ⊢ value_interp rti sr se (SerT κ τ) (SWords ws) -∗
@@ -135,35 +135,35 @@ Section load_copy.
     by rewrite drop_0.
   Qed.
 
-  Lemma atom_interp_ptr_shaped ptr v :
-    atom_interp (PtrA ptr) v -∗
-    ∃ n n32, ⌜N_i32_repr n n32⌝ ∗
-             ⌜v = VAL_int32 n32⌝ ∗
-             ⌜ptr_shaped ptr n⌝ ∗
-             ∃ rp, ⌜repr_root_pointer rp n⌝ ∗ root_pointer_interp rp ptr.
-  Proof.
-    iIntros "Hat".
-    destruct ptr; cbn; unfold root_pointer_interp.
-    - iDestruct "Hat" as "(%n' & %n32 & %Hn32 & %Hv & (%rp & %Hrp & Hrpn))".
-      destruct rp; last (destruct μ; done).
-      iDestruct "Hrpn" as "->".
-      inversion Hrp; subst.
-      iExists _, _.
-      iSplit; first eauto.
-      iSplit; first eauto.
-      iSplit; first eauto using ptr_shaped.
-      iExists (RootInt n); eauto.
-    - iDestruct "Hat" as "(%n' & %n32 & %Hn32 & %Hv & (%rp & %Hrp & Hrpn))"; subst.
-      destruct rp; first done.
-      inversion Hrp; subst.
-      destruct μ0, μ; try done.
-      + iExists _, _.
-        repeat (iSplit; first eauto using ptr_shaped).
-        iExists _; eauto.
-      + iExists _, _.
-        repeat (iSplit; first eauto using ptr_shaped).
-        iExists _; eauto.
-  Qed.
+  (* Lemma atom_interp_ptr_shaped ptr v : *)
+  (*   atom_interp (PtrA ptr) v -∗ *)
+  (*   ∃ n n32, ⌜N_i32_repr n n32⌝ ∗ *)
+  (*            ⌜v = VAL_int32 n32⌝ ∗ *)
+  (*            ⌜ptr_shaped ptr n⌝ ∗ *)
+  (*            ∃ rp, ⌜repr_root_pointer rp n⌝ ∗ root_pointer_interp rp ptr. *)
+  (* Proof. *)
+  (*   iIntros "Hat". *)
+  (*   destruct ptr; cbn; unfold root_pointer_interp. *)
+  (*   - iDestruct "Hat" as "(%n' & %n32 & %Hn32 & %Hv & (%rp & %Hrp & Hrpn))". *)
+  (*     destruct rp; last (destruct μ; done). *)
+  (*     iDestruct "Hrpn" as "->". *)
+  (*     inversion Hrp; subst. *)
+  (*     iExists _, _. *)
+  (*     iSplit; first eauto. *)
+  (*     iSplit; first eauto. *)
+  (*     iSplit; first eauto using ptr_shaped. *)
+  (*     iExists (RootInt n); eauto. *)
+  (*   - iDestruct "Hat" as "(%n' & %n32 & %Hn32 & %Hv & (%rp & %Hrp & Hrpn))"; subst. *)
+  (*     destruct rp; first done. *)
+  (*     inversion Hrp; subst. *)
+  (*     destruct μ0, μ; try done. *)
+  (*     + iExists _, _. *)
+  (*       repeat (iSplit; first eauto using ptr_shaped). *)
+  (*       iExists _; eauto. *)
+  (*     + iExists _, _. *)
+  (*       repeat (iSplit; first eauto using ptr_shaped). *)
+  (*       iExists _; eauto. *)
+  (* Qed. *)
 
   Lemma values_interp_app se τs1 τs2 os1 os2 :
     values_interp rti sr se τs1 os1 -∗

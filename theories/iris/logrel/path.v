@@ -43,74 +43,74 @@ Section PathFacts.
 
   Notation 𝕍 := (value_interp rti sr se).
 
-  Lemma eval_rep_empty_ok_Some ρ :
-    rep_ok kc_empty ρ ->
-    is_Some (eval_rep EmptyEnv ρ).
-  Proof.
-    intros Hok.
-    induction ρ using rep_ind.
-    - inversion Hok as [K n Hidx HK Hn| | |].
-      cbn in *; lia.
-    - inversion Hok as [|K ρs' Hρs HK Hρs'| |].
-      subst K ρs'.
-      pose proof (List.Forall_and H Hρs) as H'.
-      clear H Hρs.
-      apply Forall_impl with (Q := is_Some ∘ eval_rep EmptyEnv) in H'.
-      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
-      + intros ρ [Hsome ?]. by apply Hsome.
-    - inversion Hok as [| |K ρs' Hρs HK Hρs'|].
-      subst K ρs'.
-      pose proof (List.Forall_and H Hρs) as H'.
-      clear H Hρs.
-      apply Forall_impl with (Q := is_Some ∘ eval_rep EmptyEnv) in H'.
-      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
-      + intros ρ [Hsome ?]. by apply Hsome.
-    - done.
-  Qed.
+  (* Lemma eval_rep_empty_ok_Some ρ : *)
+  (*   rep_ok kc_empty ρ -> *)
+  (*   is_Some (eval_rep EmptyEnv ρ). *)
+  (* Proof. *)
+  (*   intros Hok. *)
+  (*   induction ρ using rep_ind. *)
+  (*   - inversion Hok as [K n Hidx HK Hn| | |]. *)
+  (*     cbn in *; lia. *)
+  (*   - inversion Hok as [|K ρs' Hρs HK Hρs'| |]. *)
+  (*     subst K ρs'. *)
+  (*     pose proof (List.Forall_and H Hρs) as H'. *)
+  (*     clear H Hρs. *)
+  (*     apply Forall_impl with (Q := is_Some ∘ eval_rep EmptyEnv) in H'. *)
+  (*     + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some. *)
+  (*     + intros ρ [Hsome ?]. by apply Hsome. *)
+  (*   - inversion Hok as [| |K ρs' Hρs HK Hρs'|]. *)
+  (*     subst K ρs'. *)
+  (*     pose proof (List.Forall_and H Hρs) as H'. *)
+  (*     clear H Hρs. *)
+  (*     apply Forall_impl with (Q := is_Some ∘ eval_rep EmptyEnv) in H'. *)
+  (*     + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some. *)
+  (*     + intros ρ [Hsome ?]. by apply Hsome. *)
+  (*   - done. *)
+  (* Qed. *)
 
-  Lemma eval_size_empty_ok_Some σ :
-    size_ok kc_empty σ ->
-    is_Some (eval_size EmptyEnv σ).
-  Proof.
-    induction σ using size_ind; intros Hok.
-    - inversion Hok. cbn in *; lia.
-    - inversion Hok as [|K σs' Hσs HK Hσs'| | |].
-      subst K σs'.
-      pose proof (List.Forall_and H Hσs) as H'.
-      clear H Hσs.
-      apply Forall_impl with (Q := is_Some ∘ eval_size EmptyEnv) in H'.
-      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
-      + intros σ [Hsome ?]. by apply Hsome.
-    - inversion Hok as [| |K σs' Hσs HK Hσs'| |].
-      subst K σs'.
-      pose proof (List.Forall_and H Hσs) as H'.
-      clear H Hσs.
-      apply Forall_impl with (Q := is_Some ∘ eval_size EmptyEnv) in H'.
-      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
-      + intros σ [Hsome ?]. by apply Hsome.
-    - inversion Hok as [| | |K ρ' Hok_ρ HK Hρ'|].
-      subst K ρ'.
-      apply fmap_is_Some.
-      by eapply eval_rep_empty_ok_Some.
-    - done.
-  Qed.
+  (* Lemma eval_size_empty_ok_Some σ : *)
+  (*   size_ok kc_empty σ -> *)
+  (*   is_Some (eval_size EmptyEnv σ). *)
+  (* Proof. *)
+  (*   induction σ using size_ind; intros Hok. *)
+  (*   - inversion Hok. cbn in *; lia. *)
+  (*   - inversion Hok as [|K σs' Hσs HK Hσs'| | |]. *)
+  (*     subst K σs'. *)
+  (*     pose proof (List.Forall_and H Hσs) as H'. *)
+  (*     clear H Hσs. *)
+  (*     apply Forall_impl with (Q := is_Some ∘ eval_size EmptyEnv) in H'. *)
+  (*     + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some. *)
+  (*     + intros σ [Hsome ?]. by apply Hsome. *)
+  (*   - inversion Hok as [| |K σs' Hσs HK Hσs'| |]. *)
+  (*     subst K σs'. *)
+  (*     pose proof (List.Forall_and H Hσs) as H'. *)
+  (*     clear H Hσs. *)
+  (*     apply Forall_impl with (Q := is_Some ∘ eval_size EmptyEnv) in H'. *)
+  (*     + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some. *)
+  (*     + intros σ [Hsome ?]. by apply Hsome. *)
+  (*   - inversion Hok as [| | |K ρ' Hok_ρ HK Hρ'|]. *)
+  (*     subst K ρ'. *)
+  (*     apply fmap_is_Some. *)
+  (*     by eapply eval_rep_empty_ok_Some. *)
+  (*   - done. *)
+  (* Qed. *)
 
-  Lemma has_mono_size_inv F τ :
-    has_mono_size F τ ->
-    ∃ σ ξ k,
-      is_mono_size σ /\
-      has_kind F τ (MEMTYPE σ ξ) /\
-      eval_size EmptyEnv σ = Some k.
-  Proof.
-    intros Hmono.
-    inversion Hmono as [F' τ' σ ξ Hkind Hsz HF' Hτ'].
-    subst F' τ'.
-    pose proof Hsz as Hev.
-    unfold is_mono_size in Hev.
-    eapply eval_size_empty_ok_Some in Hev.
-    destruct Hev as [k Hev].
-    repeat eexists; eauto.
-  Qed.
+  (* Lemma has_mono_size_inv F τ : *)
+  (*   has_mono_size F τ -> *)
+  (*   ∃ σ ξ k, *)
+  (*     is_mono_size σ /\ *)
+  (*     has_kind F τ (MEMTYPE σ ξ) /\ *)
+  (*     eval_size EmptyEnv σ = Some k. *)
+  (* Proof. *)
+  (*   intros Hmono. *)
+  (*   inversion Hmono as [F' τ' σ ξ Hkind Hsz HF' Hτ']. *)
+  (*   subst F' τ'. *)
+  (*   pose proof Hsz as Hev. *)
+  (*   unfold is_mono_size in Hev. *)
+  (*   eapply eval_size_empty_ok_Some in Hev. *)
+  (*   destruct Hev as [k Hev]. *)
+  (*   repeat eexists; eauto. *)
+  (* Qed. *)
 
   Definition get_path_words (off sz : nat) (ws : list word) : list word :=
     firstn sz (skipn off ws).
