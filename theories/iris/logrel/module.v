@@ -21,12 +21,27 @@ Section Fundamental.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
+  Lemma bind_inr {A B C} (mx : A + B) (f : B -> A + C) (y : C) :
+    mx ≫= f = inr y ↔ ∃ x : B, mx = inr x /\ f x = inr y.
+  Proof.
+    split.
+    - intros H. destruct mx; first inversion H. by exists b.
+    - by intros (x & -> & Hfx).
+  Qed.
+
   Theorem fundamental_module m m' mt :
     has_module_type m mt ->
-    run_modgen (compile_module m) mod_empty = inr (tt, m') ->
+    compile_module m = inr m' ->
     ⊢ module_interp rti sr mt m'.
   Proof.
-    iIntros (Hmt Hmg ???) "Hmod Himps %Hlen_exps Hexps Hfr Hrun".
+    iIntros (Hmt Hm ???) "Hmod Himps %Hlen_exps Hexps Hfr Hrun".
+    apply bind_inr in Hm as ([wt imps] & Himps_try & Hm).
+    destruct (user_imports rt_types m.(module.m_imports)) as [[wt' imps']|] eqn:Himps;
+      last inversion Himps_try.
+    inversion Himps_try.
+    subst wt' imps'.
+    clear Himps_try.
+    apply bind_inr in Hm as ([wt' defs] & Hdefs & Hm).
     iApply (instantiation_spec_operational_start with "[$] [$] [-]").
     - admit.
     - admit.
