@@ -58,6 +58,9 @@ Section load_move.
     destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
     destruct Hcompile as (Hunr & Hloadmm & Hloadgc & -> & -> & Hspec).
     clear_nils.
+    (* TODO need a wp_load1_move_mm lemma *)
+    (* TODO need a wp_load_move_mm lemma *)
+    (* TODO need a path lemma? should be shared with store_strong. *)
   Admitted.
 
 End load_move.
