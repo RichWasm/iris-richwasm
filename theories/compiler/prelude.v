@@ -34,6 +34,7 @@ Inductive error :=
 | EInvalidInstrT (instr : string)
 | ECannotTranslateInstrT (instr : string)
 | EInvalidLocal (ctx : string) (fe : function_env) (i : nat)
+| EOffsetUnrepresentable (i : nat)
 | ETodo.
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=

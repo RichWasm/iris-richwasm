@@ -31,6 +31,11 @@ Instance Monad_codegen : Monad codegen := ltac:(typeclasses eauto).
 Instance MonadLaws_codegen : MonadLaws Monad_codegen.
 Admitted.
 
+Definition assume (cond : bool) (e : error) : codegen unit :=
+  if cond
+  then ret tt
+  else raise e.
+
 Definition run_codegen {A : Type} (c : codegen A) (wt : wtype_ctx) (wl : wlocal_ctx) :
   error + A * wtype_ctx * wlocal_ctx * W.expr :=
   match runWriterT (runAccumT c (wt, wl)) with

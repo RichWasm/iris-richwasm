@@ -968,28 +968,9 @@ Section store_weak.
          - f_locs fr_caseptr !! .. = n32. This is then just the minimum
            requirement of relating fr_caseptr and fr'
        *)
-
-      iAssert (⌜((off + length (flat_map arep_flags ιs))%nat ≤
-                     Wasm_int.Int32.modulus)%Z⌝%I) with "[Hℓ_newws]" as "%H1". {
-        (* an idea for how to do this *)
-        rewrite Hflaglengths.
-        assert (length (update_path_words off ws (concat (map serialize_atom os2))) = length ws). {
-          apply update_path_words_size.
-          by rewrite Hos2sz.
-        }
-        iAssert ((⌜((length (update_path_words off ws (concat (map serialize_atom os2))))%N
-                      ≤ Wasm_int.Int32.modulus)%Z⌝)%I) with "[Hℓ_newws]" as "%pls". {
-          (* THIS IS THE BIG QUESTION *)
-          (* does ℓ ↦heap ws imply that length of ws is less than modulus *)
-          (* acutally no I think this strat won't work lol *)
-          admit.
-        }
-        (* well it def gotta be... but I'm not sure what forces it to be true *)
-        admit.
-      }
       assert (H3: f_locs fr_store !! localimm (prelude.W.Mk_localidx ptr_local) =
                     Some (VAL_int32 n32)) by (cbn; by apply list_lookup_insert_eq).
-      specialize (Hptr_flags_spec ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto)).
+      specialize (Hptr_flags_spec ltac:(auto) ltac:(auto) ltac:(auto)).
 
       (* Time for the case pointer spec! *)
       iApply (Hptr_flags_spec with "[$] [$] [] [$] [$] [$] [] [-]").
