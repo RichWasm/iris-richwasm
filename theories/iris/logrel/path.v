@@ -1254,16 +1254,16 @@ Section PathFacts.
 
   Lemma resolves_path_inv_sep τ π τ__π pr :
     resolves_path τ π τ__π pr ->
-    ∀ F off ρ σ ξ σ' ξ' ξser ρ' ξser' sz,
+    ∀ F off σ_target σ ξ σ' ξ' ξser σ_expected ξser' sz,
       sem_env_interp F se ->
       path_offset (fe_of_context F) τ π = Some off ->
       Forall (has_mono_size F) pr.(pr_prefix) ->
       has_kind F τ (MEMTYPE σ ξ) ->
       has_kind F (pr.(pr_replaced)) (MEMTYPE σ' ξ') ->
-      has_kind F (pr.(pr_target)) (MEMTYPE (RepS ρ) ξser) ->
-      has_kind F (pr_expected pr τ__π) (MEMTYPE (RepS ρ') ξser') ->
-      eval_size EmptyEnv (RepS ρ) = Some sz ->
-      eval_size EmptyEnv (RepS ρ') = Some sz ->
+      has_kind F (pr.(pr_target)) (MEMTYPE σ_target ξser) ->
+      has_kind F (pr_expected pr τ__π) (MEMTYPE σ_expected ξser') ->
+      eval_size EmptyEnv σ_target = Some sz ->
+      eval_size EmptyEnv σ_expected = Some sz ->
       ⊢ ∀ ws,
         𝕍 τ (SWords ws) -∗
         ⌜off + sz <= length ws⌝ ∗
