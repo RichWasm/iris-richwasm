@@ -1260,9 +1260,12 @@ Section instr.
                 (∃ os', values_interp se τs2 os' ∗ atoms_interp os' vs') ∗
                 (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤ }})%I.
 
-  Definition has_func_type_sem (f : module_func) (ϕ : function_type) : iProp Σ :=
+  Definition has_func_type_sem
+    (mr : module_runtime) (M : module_ctx) (WT : wtype_ctx) (f : module_func) (ϕ : function_type) :
+    iProp Σ :=
     ∀ inst tf,
       ⌜inst.(inst_types) !! typeimm f.(modfunc_type) = Some tf⌝ -∗
+      instance_interp mr M WT inst -∗
       closure_interp ϕ senv_empty (FC_func_native inst tf f.(modfunc_locals) f.(modfunc_body)).
 
 End instr.
