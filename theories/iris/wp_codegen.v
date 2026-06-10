@@ -470,6 +470,24 @@ Section CodeGen.
     done.
   Qed.
 
+  Lemma cwp_set_locals_w_cg_state localidxs : ∀ wt wl v wt' wl' es,
+    run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
+    v = () /\
+    wt' = [] /\
+    wl' = [].
+  Proof.
+    unfold set_locals_w.
+    induction localidxs using rev_ind; intros * Hcg.
+    - inversion Hcg; done.
+    - cbn [compose] in Hcg.
+      rewrite rev_unit in Hcg.
+      eapply wp_mapM__cons in Hcg.
+      destruct Hcg as (ys_x & wt_x & wl_x & es_x & wt_xs & wl_xs & es_xs & Hx & Hxs & -> & -> & -> & ->).
+      apply IHlocalidxs in Hxs.
+      inv_cg_emit Hx.
+      done.
+  Qed.
+
   Lemma cwp_set_locals_w tys L R Φ s E fe wt wl i localidxs idxs v wt' wl' wlf es fr vs evs :
     has_values evs vs ->
     run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
@@ -767,6 +785,77 @@ Section CodeGen.
     by iSpecialize ("HΦ" $! f with "Hinv").
   Qed.
 
+  Lemma cwp_set_locals_w_non_fe' localidxs wt wl tys wlo v wt' wl' es :
+    run_codegen (set_locals_w localidxs) wt (wl ++ tys ++ wlo) = inr (v, wt', wl', es) ->
+    v = () ∧
+    wt' = [] /\
+    wl' = [] /\
+    forall evs vs fe wlf idxs fr Φ s E L R,
+      has_values evs vs ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ tys ++ wlo ++ wlf) fr ->
+      idxs = seq (fe_wlocal_offset fe + length wl) (length tys) ->
+      result_type_interp tys vs ->
+      localidxs = map W.Mk_localidx idxs ->
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
+            ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
+            Φ f []) -∗
+            CWP evs ++ es @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    pose proof Hcg as Hcg'.
+    eapply cwp_set_locals_w_cg_state in Hcg'.
+    split; first tauto.
+    split; first tauto.
+    split; first tauto.
+    intros * Hes Hwl Hidx Hres Hlocidx.
+    eapply cwp_set_locals_w with
+      (i := fe_wlocal_offset fe + length wl)
+      (wl := wl ++ tys ++ wlo)
+      (wlf := wlf); try done.
+      - by rewrite -!app_assoc.
+      - rewrite !length_app. rewrite !Nat.add_assoc. lia.
+  Qed.
+
+
+  Lemma cwp_save_stack_w' fe tys localidxs idxs wt wl wt' wl' wlf es :
+      run_codegen (save_stack_w fe tys) wt wl = inr (localidxs, wt', wl', es) ->
+      idxs = seq (fe_wlocal_offset fe + length wl) (length tys) ->
+      localidxs = map W.Mk_localidx idxs /\
+      wt' = [] /\
+      wl' = tys /\
+      ⊢ ∀ s E fr vs esv Φ L R,
+        ⌜has_values esv vs⌝ -∗
+        ⌜wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr⌝ -∗
+        ⌜result_type_interp tys vs⌝ -∗
+        ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
+            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
+            Φ f []) -∗
+        CWP (esv ++ es) @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros * Hcg ->.
+    unfold save_stack_w in Hcg.
+    inv_cg_bind Hcg res wt1 wt1' wl1 wl1' es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res2 wt2 wt2' wl2 wl2' es3 es4 Hcg2 Hcg3.
+    inv_cg_ret Hcg3; subst.
+    apply wp_wlallocs in Hcg1.
+    destruct Hcg1 as (Hres1 & Hwt1 & Hwl1 & Hes1); subst.
+    rewrite imap_seq in Hcg2.
+    rewrite imap_seq.
+    split; first done.
+    replace (wl ++ tys) with (wl ++ tys ++ []) in Hcg2 by (clear_nils; done).
+    eapply cwp_set_locals_w_non_fe' in Hcg2; try done; [].
+    destruct Hcg2 as (-> & -> & -> & Hcg2).
+    clear_nils.
+    intuition.
+    iIntros (s E fr vs esv Φ L R) "%Hesv %Hwl %Hres Hf Hr".
+    by iApply (Hcg2 with "[$]").
+  Qed.
 
   Lemma wp_get_locals vars vals E f :
     Forall2 (fun x v => f.(f_locs) !! x = Some v) vars vals ->

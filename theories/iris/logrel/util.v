@@ -284,4 +284,18 @@ Section util.
       by rewrite (eval_size_emptyenv _ _ Hsize).
   Qed.
 
+  Lemma eval_kind_flag (se : @semantic_env Σ) κ sk :
+    eval_kind se κ = Some sk ->
+    kind_ref_flag κ = skind_ref_flag sk.
+  Proof.
+    intros Hev.
+    destruct κ; cbn in *.
+    - apply bind_Some in Hev; destruct Hev as (? & ? & ?).
+      cbn in *; inversion H0.
+      done.
+    - apply bind_Some in Hev; destruct Hev as (? & ? & ?).
+      cbn in *; inversion H0.
+      done.
+  Qed.
+
 End util.

@@ -9,6 +9,7 @@ Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.path.
 Require Import RichWasm.iris.logrel.load.
 Require Import RichWasm.iris.logrel.roots.
+Require Import RichWasm.iris.logrel.copy.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -193,52 +194,6 @@ Section load_copy.
     rewrite length_take length_drop.
     f_equal; lia.
   Qed.
-
-  Lemma eval_kind_flag (se : @semantic_env Σ) κ sk :
-    eval_kind se κ = Some sk ->
-    kind_ref_flag κ = skind_ref_flag sk.
-  Proof.
-    intros Hev.
-    destruct κ; cbn in *.
-    - apply bind_Some in Hev; destruct Hev as (? & ? & ?).
-      cbn in *; inversion H0.
-      done.
-    - apply bind_Some in Hev; destruct Hev as (? & ? & ?).
-      cbn in *; inversion H0.
-      done.
-  Qed.
-
-  Lemma type_dup se F τ κ sv :
-    sem_env_interp F se ->
-    has_kind F τ κ ->
-    ref_flag_le (kind_ref_flag κ) GCRefs ->
-    let T := type_interp rti sr τ se sv in
-    T -∗ T ∗ T.
-  Proof.
-    intros Hse Hkind Hle.
-    assert (kind_ok (fc_kind_ctx F) κ) as Hok.
-    {
-      eapply has_kind_inv in Hkind.
-      by inversion Hkind.
-    }
-    pose proof Hok as Hok'.
-    eapply eval_kind_ok_Some in Hok'; eauto.
-    destruct Hok' as [sk Hev].
-    pose proof Hkind as Hkind'.
-    eapply (kinding_sound rti sr) in Hkind'; eauto.
-    unfold skind_has_stype in Hkind'.
-    destruct Hkind' as [Hrefflag _].
-    erewrite <- eval_kind_flag in Hrefflag; eauto.
-    eapply ref_flag_stype_interp_refine in Hrefflag; eauto.
-    cbn in Hrefflag.
-    specialize (Hrefflag sv).
-    rewrite value_interp_eq in Hrefflag.
-    intros T; unfold T.
-    rewrite type_interp_eq.
-    iIntros "#HT".
-    by iSplit.
-  Qed.
-
   Lemma forall_ptr_ser P o :
     forall_ptr_atom P o ->
     Forall (forall_ptr_word P) (serialize_atom o).
@@ -856,7 +811,6 @@ Section load_copy.
           eapply has_kind_agree in Hlek; [|clear Hlek; eauto].
           rewrite -Hlek in Hlegc.
           cbn in Hlegc.
-          apply Is_true_true.
           eapply ref_flag_le_trans; eauto.
         }
         iFrame.
@@ -1220,7 +1174,6 @@ Section load_copy.
           eapply has_kind_agree in Hlek; [|clear Hlek; eauto].
           rewrite -Hlek in Hlegc.
           cbn in Hlegc.
-          apply Is_true_true.
           eapply ref_flag_le_trans; eauto.
         }
         iFrame.
@@ -1591,8 +1544,7 @@ Section load_copy.
         {
           inversion Hcopyability as (k'' & Hk' & Hbd).
           eapply has_kind_agree in Hval; last apply Hk'.
-          rewrite -> Hval in Hbd.
-          by eapply Is_true_true.
+          by rewrite -> Hval in Hbd.
         }
         {
           rewrite type_interp_eq.
@@ -1922,8 +1874,7 @@ Section load_copy.
         {
           inversion Hcopyability as (k'' & Hk' & Hbd).
           eapply has_kind_agree in Hval; last apply Hk'.
-          rewrite -> Hval in Hbd.
-          by eapply Is_true_true.
+          by rewrite -> Hval in Hbd.
         }
         {
           iEval (rewrite type_interp_eq).
