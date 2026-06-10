@@ -20,8 +20,7 @@ Record module_runtime :=
     mr_func_registerroot : W.funcidx;
     mr_func_unregisterroot : W.funcidx;
     mr_func_user : W.funcidx;
-    mr_global_table_off : W.globalidx;
-    mr_global_user : W.globalidx }.
+    mr_global_table_off : W.globalidx }.
 
 Record function_env :=
   { fe_type_vars : list kind;
