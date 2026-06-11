@@ -1168,51 +1168,6 @@ Section CodeGen.
   Qed.
 
 
-  Lemma wp_map_gc_ptr_duproot ι idx wt wl res wt' wl' es:
-    run_codegen (map_gc_ptr ι idx (duproot mr)) wt wl = inr (res, wt', wl', es) ->
-    res = () /\ wt' = [] /\ wl' = [].
-  Proof.
-    unfold map_gc_ptr, ite_gc_ptr; intros Hcg.
-    destruct ι.
-    - apply wp_ignore in Hcg.
-      destruct Hcg as (-> & res' & Hcg).
-      admit.
-    - cbn; inv_cg_ret Hcg; done.
-    - cbn; inv_cg_ret Hcg; done.
-    - cbn; inv_cg_ret Hcg; done.
-    - cbn; inv_cg_ret Hcg; done.
-  Admitted.
-
-  Lemma wp_map_gc_ptrs_duproot ιs idxs wt wl res wt' wl' es_gcs:
-    run_codegen (map_gc_ptrs ιs idxs (duproot mr)) wt wl = inr (res, wt', wl', es_gcs) ->
-    res = () /\ wt' = [] /\ wl' = [].
-  Proof.
-    unfold map_gc_ptrs, util.mapM_.
-    intros Hcg.
-    apply wp_ignore in Hcg.
-    destruct Hcg as (-> & res' & Hcg).
-    remember (zip ιs idxs) as ιidxs.
-    revert Heqιidxs Hcg.
-    revert ιs idxs wt wl res' wt' wl' es_gcs.
-    induction ιidxs as [|[ι idx] ιidxs].
-    - intros.
-      apply wp_mapM_nil in Hcg.
-      destruct Hcg as (-> & -> & -> & ->).
-      done.
-    - intros.
-      destruct ιs as [|ι' ιs], idxs as [|idx' idxs]; inversion Heqιidxs.
-      subst ι' idx'.
-      apply wp_mapM_cons in Hcg.
-      destruct Hcg as (res & ?wt & ?wl & ?es & ?res & ?wt & ?wl & ?es & Hdup & Hcg & Heqs).
-      destruct Heqs as (-> & -> & -> & ->).
-      eapply IHιidxs in Hcg; eauto.
-      destruct Hcg as (_ & -> & ->).
-      split; auto.
-      apply wp_map_gc_ptr_duproot in Hdup.
-      destruct Hdup as (-> & -> & ->).
-      done.
-  Qed.
-
   Lemma cwp_setflag i fl wt wl wt' wl' es_setflag ret :
     run_codegen (setflag mr i fl) wt wl = inr (ret, wt', wl', es_setflag) ->
     ret = () /\
