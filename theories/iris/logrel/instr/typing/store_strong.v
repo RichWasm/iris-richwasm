@@ -21,6 +21,35 @@ Section store_strong.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  (* should probably go into pathing but for now here *)
+  Lemma resolves_path_implies_has_kind F τ π κser τval pr σ_rep ξ_rep ρ_τval ξ_τval :
+    resolves_path τ π (Some (SerT κser τval)) pr ->
+    has_kind F (pr_replaced pr) (MEMTYPE σ_rep ξ_rep) ->
+    has_kind F τval (VALTYPE ρ_τval ξ_τval) ->
+    has_kind F (SerT κser τval) (MEMTYPE (RepS ρ_τval) ξ_τval).
+  Proof.
+    intros Hresolves.
+    remember (Some (SerT κser τval)).
+    generalize dependent ξ_rep.
+    generalize dependent σ_rep.
+    induction Hresolves.
+    - inversion Heqo.
+    - intros.
+      inversion Heqo; subst; cbn.
+      intros.
+      inversion H; subst.
+      pose proof (has_kind_agree F _ _ _ H0 H3).
+      inversion H1; subst; done.
+    - intros * Hkindrep Hkindτval.
+      unfold pr' in Hkindrep; cbn in Hkindrep.
+      inversion Hkindrep; subst.
+      apply Forall3_app_inv_l in H2.
+      destruct H2 as (σs1 & σs2 & ξs1 & ξs2 & -> & -> & Hprefix & Hhottopic).
+      apply Forall3_cons_inv_l in Hhottopic.
+      destruct Hhottopic as (σ & σs2' & ξ & ξs2' & -> & -> & Hyay & Hrest).
+      eapply IHHresolves; done.
+  Qed.
+
 
   Lemma get_all_kinding_info_store_strong τ κ τval κ' π pr κser:
     let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ; τval]
@@ -48,6 +77,13 @@ Section store_strong.
             has_kind F (SerT κser τval) (MEMTYPE (RepS ρ_τval) ξ_τval) /\
             eval_size EmptyEnv σ_target = Some sz /\
             eval_size EmptyEnv (RepS ρ_τval) = Some sz /\
+            type_skind se τval = Some (SVALTYPE ιs ξ_τval) /\
+            sum_list_with arep_size ιs = sz /\
+            length (flat_map arep_flags ιs) = sz /\
+            κser = MEMTYPE (RepS ρ_τval) ξ_τval /\
+            eval_kind se κser = Some (SMEMTYPE sz ξ_τval) /\
+            κ' = (VALTYPE (AtomR PtrR) AnyRefs) /\
+            eval_kind se κ' = Some (SVALTYPE [PtrR] AnyRefs) /\
             True
       ).
   Proof.
@@ -125,23 +161,66 @@ Section store_strong.
 
 
     assert (has_kind F (SerT κser τval) (MEMTYPE (RepS ρ_τval) ξ_τval)). {
-      (* this is actually tricky because we don't know what κser is *)
-      (* so okay. We have very easily get the following: *)
-      apply KSer in H as Hser.
-      (* and now we just need to prove that κser = (SMEMTYPE ...) *)
-      (* aka that it is well formed *)
-      (* now we know it must be well formed because pr_replaced is well formed *)
-      (* and pr_replaced is a struct with SerT κser τval in it somewhere *)
-      (* but oh boy oh boy that seems rough *)
-      (* admit for now *)
-      admit.
+      by eapply resolves_path_implies_has_kind.
+    }
+
+    assert (κser = MEMTYPE (RepS ρ_τval) ξ_τval). {
+      inversion H5; subst.
+      done.
+    }
+    subst κser.
+
+    rewrite Hevalρ in Hevalrep.
+    inversion Hevalrep; subst ιs; clear Hevalrep.
+    pose proof (eval_rep_emptyenv _ _ Hevalρ se) as Hevalρse.
+
+    assert (type_skind se τval = Some (SVALTYPE ιs_τval ξ_τval)). {
+      eapply type_skind_has_kind_Some; try done.
+      cbn.
+      rewrite Hevalρse. cbn. done.
+    }
+
+    assert (sum_list_with arep_size ιs_τval = sz). {
+      (* I think this is the right lemma at least *)
+      unfold eval_size in H4.
+      rewrite Hevalρ in H4.
+      cbn in H4. inversion H4; subst.
+      by apply sum_list_with_list_sum.
+    }
+
+    assert (length (flat_map arep_flags ιs_τval) = sz). {
+      rewrite length_flat_map.
+      assert (∀ ι, length (arep_flags ι) = arep_size ι). {
+        intros ι; destruct ι; cbn; done.
+      }
+      setoid_rewrite H8.
+      rewrite <- sum_list_with_list_sum.
+      done.
+    }
+
+    assert (eval_kind se (MEMTYPE (RepS ρ_τval) ξ_τval) = Some (SMEMTYPE sz ξ_τval)). {
+      cbn.
+      rewrite Hevalρse.
+      cbn.
+      rewrite <- sum_list_with_list_sum.
+      subst; done.
+    }
+
+    (* a bit about the resulting reference now *)
+    inversion Hrep7. subst F0 τ0 ρ.
+    rename ξ1 into ξ_res.
+    rename ρ_boring into ρ_res.
+    inversion H10. subst κ0 F0 β τ0 ρ_res ξ_res κ'.
+    clear H13. clear σ ξ1.
+    assert (eval_kind se (VALTYPE (AtomR PtrR) AnyRefs) = Some (SVALTYPE [PtrR] AnyRefs)). {
+      cbn. done.
     }
 
 
+    exists σ_τ, ξ_τ, ξ_τval, σ_rep, ξ_rep, ξ_target, sz.
+    repeat split; try done.
 
-    repeat eexists; done.
-
-  Admitted.
+  Qed.
 
   (* Note: copied from store_weak *)
   Lemma wp_store_mm_MAYBE a_idx off ιs vs_idx wt wl ret wt' wl' es :
@@ -235,7 +314,7 @@ Section store_strong.
     iDestruct "Hvs1" as "(%v1 & -> & Hv1)".
     clear Hos1len.
     rewrite value_interp_eq.
-    iDestruct "Hos1" as (sκ Hsκ) "[%skindsv Ho1]".
+    iDestruct "Hos1" as (sκ_ref Hsκ_ref) "[%skindsv Ho1]".
 
     (* Summary:
        - o1 is the atom associated with the ref, and v1 is its associated value
@@ -251,24 +330,25 @@ Section store_strong.
 
     (** KINDING STUFF *)
 
-    pose proof (Hsκ) as Hevalκ.
-    cbn in Hevalκ.
+    pose proof (Hsκ_ref) as Hevalκ_ref.
+    cbn in Hevalκ_ref.
 
     (* Need to update the kinding quarantine in a bit
      *)
     pose proof
       (get_all_kinding_info_store_strong
          τ κ τval κ' π pr κser Hresolves
-         F se σ_target ρ_τval L ρ ιs off sκ
-         H Hoff Hmonosize Hsκ Hevalκ Hasflag Hsize Hrep Hevalσρ Htype Hρ Hιs
+         F se σ_target ρ_τval L ρ ιs off sκ_ref
+         H Hoff Hmonosize Hsκ_ref Hevalκ_ref Hasflag Hsize Hrep Hevalσρ Htype Hρ Hιs
       ) as AllKinding.
     destruct AllKinding as
       (σ_τ & ξ_τ & ξ_τval & σ_rep & ξ_rep & ξ_target & sz &
-         <- & Hkind_τval & Hkind_τ & Hkind_rep & Hkind_target & Hkind_sert &
-         Heval_σtgt & Heval_ρτval & _).
+         -> & Hkind_τval & Hkind_τ & Hkind_rep & Hkind_target & Hkind_sert &
+             Heval_σtgt & Heval_ρτval & Htypeskindτval & Hsumwith & Hlengthflags &
+             -> & Hevalκser & -> & Hevalκ' & _).
 
 
-    (** OTHER GENERAL FACTS THAT WE NEED FOR BOTH CASES **)
+    (** OTHER GENERAL FACTS THAT WE NEED **)
     (* NOTE: highly recommend folding as much of this section as possible *)
 
     (* for saving the stack, frame interp thingy*)
@@ -340,6 +420,11 @@ Section store_strong.
       by constructor.
     }
 
+    (* I'm renaming a few things bc it's confusing *)
+    rename os2 into os_τval.
+    rename vs2 into vs_τval.
+    rename ιs into ιs_τval.
+
 
 
     (* Summary:
@@ -355,35 +440,35 @@ Section store_strong.
 
 
     (** RESOURCE KINDING QUARANTINE **)
-    (* iAssert (⌜Forall2 has_arep ιs os2 /\ has_areps ιs (SAtoms os2) /\ *)
-    (*            Forall (forall_ptr_word (ref_flag_ptr_interp ξser)) *)
-    (*              (concat (map serialize_atom os2)) *)
-    (*              ⌝%I) *)
-    (*   with "[Hvs2 Hos2]" as "%KindingQuarantine". { *)
-    (*   rewrite value_interp_eq. *)
-    (*   iEval (cbn -[pre_type_interp type_skind]) in "Hos2". *)
-    (*   iDestruct "Hos2" as "(%sκ_temp & %Htypeskindtemp & %Harepsoon & pre)". *)
-    (*   iPureIntro. *)
-    (*   rewrite Htypeskindτval in Htypeskindtemp. *)
-    (*   inversion Htypeskindtemp. subst sκ_temp. *)
-    (*   destruct Harepsoon as (Hareps & Hforallatomref). *)
+    iAssert (⌜Forall2 has_arep ιs_τval os_τval /\ has_areps ιs_τval (SAtoms os_τval) /\
+               Forall (forall_ptr_word (ref_flag_ptr_interp ξ_τval))
+                 (concat (map serialize_atom os_τval))
+                 ⌝%I)
+      with "[Hvs2 Hos2]" as "%KindingQuarantine". {
+      rewrite value_interp_eq.
+      iEval (cbn -[pre_type_interp type_skind]) in "Hos2".
+      iDestruct "Hos2" as "(%sκ_temp & %Htypeskindtemp & %Harepsoon & pre)".
+      iPureIntro.
+      rewrite Htypeskindτval in Htypeskindtemp.
+      inversion Htypeskindtemp. subst sκ_temp.
+      destruct Harepsoon as (Hareps & Hforallatomref).
 
-    (*   repeat split. *)
-    (*   - unfold has_areps in Hareps. *)
-    (*     destruct Hareps as (os & toinvert & yes). *)
-    (*     inversion toinvert; subst; done. *)
-    (*   - done. *)
-    (*   - by apply forall_ptr_atom_to_word_ref_flag_interp. *)
-    (* } *)
-    (* destruct KindingQuarantine as (Harepιsos2 & Hareps & Hrefinterp). *)
-    (* assert (Hos2sz: length (concat (map serialize_atom os2)) = sz). { *)
-    (*   assert (length (concat (map serialize_atom os2)) = length (flat_map arep_flags ιs)). { *)
-    (*     rewrite flat_map_concat_map. *)
-    (*     apply has_arep_means_equal_lengths; done. *)
-    (*   } *)
-    (*   by etransitivity. *)
-    (* } *)
-    (* iDestruct (result_type_interp_of_atoms_interp with "Hvs2") as "%Hres_type_vs2"; try done. *)
+      repeat split.
+      - unfold has_areps in Hareps.
+        destruct Hareps as (os & toinvert & yes).
+        inversion toinvert; subst; done.
+      - done.
+      - by apply forall_ptr_atom_to_word_ref_flag_interp.
+    }
+    destruct KindingQuarantine as (Harepιsos2 & Hareps & Hrefinterp).
+    assert (Hos2sz: length (concat (map serialize_atom os_τval)) = sz). {
+      assert (length (concat (map serialize_atom os_τval)) = length (flat_map arep_flags ιs_τval)). {
+        rewrite flat_map_concat_map.
+        apply has_arep_means_equal_lengths; done.
+      }
+      by etransitivity.
+    }
+    iDestruct (result_type_interp_of_atoms_interp with "Hvs2") as "%Hres_type_vs2"; try done.
 
     (** TIME TO BOOGIE *)
     (* note: I think saving stack and local tee can happen before the split *)
@@ -396,10 +481,7 @@ Section store_strong.
     eapply cwp_save_stack_w in Hsave; auto.
     4: exact Hevs2.
     3: {
-      (* unfold translate_arep in Hres_type_vs2. *)
-      (* rewrite map_comp. done. *)
-      (* kinding quarantine here *)
-      admit.
+      rewrite map_comp; done.
     }
     2: exact Hwl.
     destruct Hsave as (Hval_localidxs_seq & -> & Hwl_save & Hsave).
@@ -413,12 +495,12 @@ Section store_strong.
       (* it looks like this is all just related to cwp_save_stack so should be the same *)
       (* possibility of it being incorrect *)
       instantiate (1 := λ fr' vs, (
-                                    ∃ val_idxs,
-                                      ⌜vs = [VAL_int32 n32]⌝ ∗
-                                              ⌜frame_rel (λ i, i ∉ val_idxs) fr fr'⌝ ∗
-                                              ⌜Forall2 (fun i v => f_locs fr' !! localimm i = Some v) val_localidxs vs2⌝ ∗
-                                              ⌜val_idxs = seq (fe_wlocal_offset fe + length wl) (length wl_save)⌝ ∗
-                                                            ⌜val_localidxs = map prelude.W.Mk_localidx val_idxs⌝
+          ∃ val_idxs,
+               ⌜vs = [VAL_int32 n32]⌝ ∗
+               ⌜frame_rel (λ i, i ∉ val_idxs) fr fr'⌝ ∗
+               ⌜Forall2 (fun i v => f_locs fr' !! localimm i = Some v) val_localidxs vs_τval⌝ ∗
+               ⌜val_idxs = seq (fe_wlocal_offset fe + length wl) (length wl_save)⌝ ∗
+               ⌜val_localidxs = map prelude.W.Mk_localidx val_idxs⌝
                                   )%I).
       iApply cwp_val_app; first done.
       iApply (Hsave with "[$] [$]").
@@ -434,9 +516,7 @@ Section store_strong.
     2, 3, 5: done.
     { subst val_idxs fe. by rewrite fe_wlocal_offset_length. }
     { subst wl_save.
-      (* kinding quarantine *)
-      (* by rewrite map_comp. *)
-      admit.
+      by rewrite map_comp.
     }
 
     iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved".
@@ -553,8 +633,8 @@ Section store_strong.
     (* THIS IS ALSO USING AN UNPROVED PATH LEMMA *)
     pose proof
       (resolves_path_inv_sep rti sr mr se
-         τ π (Some (SerT κser τval)) pr
-         Hresolves F off σ_target σ_τ ξ_τ σ_rep ξ_rep ξ_target (RepS ρ) ξ_τval sz
+         τ π (Some (SerT (MEMTYPE (RepS ρ_τval) ξ_τval) τval)) pr
+         Hresolves F off σ_target σ_τ ξ_τ σ_rep ξ_rep ξ_target (RepS ρ_τval) ξ_τval sz
          H Hoff Hmonosize Hkind_τ Hkind_rep Hkind_target Hkind_sert Heval_σtgt Heval_ρτval
       ) as Hpath_spec.
 
@@ -578,10 +658,10 @@ Section store_strong.
       specialize Hstore_spec with (f:=fr').
       specialize Hstore_spec with (a:=a%N).
       specialize Hstore_spec with (a32:=n32).
-      specialize Hstore_spec with (val_vs:=vs2).
+      specialize Hstore_spec with (val_vs:=vs_τval).
       specialize Hstore_spec with (θ:=θ).
       specialize Hstore_spec with (ℓ:=ℓ).
-      specialize Hstore_spec with (os:=os2).
+      specialize Hstore_spec with (os:=os_τval).
       specialize Hstore_spec with (ws:=ws).
 
 
@@ -605,47 +685,13 @@ Section store_strong.
            I think this will then be enough to apply the Hstore_spec.
        *)
 
-      (* this looks like a kinding quarantine zone but with resources lmao *)
-      (* note that I don't think this can go earlier because Htarget. I think. *)
-      (* some of these should be earlier ngl *)
-      iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w)
-                 (concat (map arep_flags ιs))
-                 (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". {
-        (* hm unsure how this will go *)
-        (* quarantine part 2 *)
-
-        (* rewrite Hιssz. *)
-        (* unfold get_path_words. *)
-        (* rewrite value_interp_eq. *)
-        (* iEval (cbn -[type_skind pre_type_interp]) in "Htarget". *)
-        (* iDestruct "Htarget" as "(%sκ & %Htemp & %Hyeah & Htype)". *)
-        (* rewrite Htypeskindsert in Htemp. *)
-        (* inversion Htemp; subst sκ. *)
-        (* destruct Hyeah as (_ & Hrefflag). *)
-        (* iEval (cbn) in "Htype". *)
-        (* (* I'm scared *) *)
-        (* iDestruct "Htype" as "(%os & %Hserialized & Htype)". *)
-        (* rewrite type_interp_eq. *)
-        (* iEval (cbn -[type_skind pre_type_interp]) in "Htype". *)
-        (* rewrite Htypeskindτval. *)
-        (* iDestruct "Htype" as "(%sκ & %toinvert & %Helpme & Htype)". *)
-        (* inversion toinvert; subst sκ. clear Htemp toinvert. *)
-        (* destruct Helpme as (Hosιs & Hptros). *)
-
-        (* iPureIntro. *)
-        (* inversion Hserialized. *)
-        (* rewrite !H1. *)
-        (* rewrite H1 in Hrefflag. *)
-
-        (* (* dealing with Is_true and is_true lol *) *)
-        (* eapply Forall2_impl. *)
-        (* 1: by apply has_areps_imp_word_has_flag. *)
-        (* intros. *)
-        (* cbn in H0. *)
-        (* apply Is_true_true. *)
-        (* done. *)
-        admit.
-      }
+      (* HUGE HUGE NOTE: THIS IS NOT TRUE FOR STORE STRONG!!!!! *)
+      (* IT IS TRUE FOR STORE WEAK *)
+      (* CURRENTLY STORE1_MM REQUIRES THIS SORT OF CONDITION *)
+      (* iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w) *)
+      (*            (concat (map arep_flags ιs_τval)) *)
+      (*            (take (sum_list_with arep_size ιs_τval) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". { *)
+      (* } *)
       (* future note: show that fs = concat map arep_flags ιs? at some point *)
 
       (* we need to transform atoms_interp to weak now! *)
@@ -659,12 +705,12 @@ Section store_strong.
       - iPureIntro. (* this is by Hsaved and the fact that ptr_local is after all val_idxs *)
         cbn.
         set (val_idx_upper_bound := (fe_wlocal_offset fe + length wl) +
-                                      (length (map translate_prim (map arep_to_prim ιs)))).
+                                      (length (map translate_prim (map arep_to_prim ιs_τval)))).
         assert (val_idx_upper_bound < ptr_local + 1). {
           subst val_idx_upper_bound ptr_local.
           cbn.
           repeat rewrite length_app.
-          assert (length wl_save = length (map translate_prim (map arep_to_prim ιs))). {
+          assert (length wl_save = length (map translate_prim (map arep_to_prim ιs_τval))). {
             rewrite Hwl_save; done.
           }
           rewrite H0.
@@ -681,10 +727,10 @@ Section store_strong.
         admit.
       - iPureIntro. cbn.
         rewrite Han. done.
-      - iPureIntro. (* kinding quarantine *)
-      (* related to ιs *)
-        admit.
-      - (* kinding quarantine *)
+      - iPureIntro.
+        rewrite Hsumwith.
+        done.
+      - (* NOT TRUE CANNOT BE PROVEN TODO *)
         admit.
       - unfold instance_interp.
         unfold base_mem_idx.
@@ -707,22 +753,19 @@ Section store_strong.
         iSplitR; first done.
         (* after we play around a bit more it'll be iAccu *)
         (* we need to use the continuation NOW *)
-        assert (Hos2sz: length (concat (map serialize_atom os2)) = sz) by admit.
-        (* above is resource quarantine *)
-        iSpecialize ("Hcontinuation" $! (concat (map serialize_atom os2)) Hos2sz).
-        iAssert (value_interp rti sr se (SerT κser τval) (SWords (concat (map serialize_atom os2))))
+        iSpecialize ("Hcontinuation" $! (concat (map serialize_atom os_τval)) Hos2sz).
+        iAssert (value_interp rti sr se (SerT (MEMTYPE (RepS ρ_τval) ξ_τval) τval)
+                   (SWords (concat (map serialize_atom os_τval))))
           with "[Hos2]" as "Hnewsert". {
           iEval (rewrite value_interp_eq).
           iEval (cbn).
           (* normal kinding quarantine *)
-          (* rewrite Hevalκser. *)
-          (* iExists (SMEMTYPE sz ξser). *)
-          (* iSplitR; first done. *)
-          (* iSplitR; first done. *)
-          (* iExists os2; iFrame. *)
-          (* rewrite flat_map_concat_map. *)
-          (* done. *)
-          admit.
+          iExists (SMEMTYPE sz ξ_τval).
+          iSplitR; first done.
+          iSplitR; first done.
+          iExists os_τval; iFrame.
+          rewrite flat_map_concat_map.
+          done.
         }
         iSpecialize ("Hcontinuation" with "[$Hnewsert]").
         (* why do we have the old value_interp still... this feels deeply deeply odd odd *)
@@ -838,19 +881,18 @@ Section store_strong.
       + iExists [[PtrA (PtrHeap MemMM ℓ)]].
         iEval (cbn); iSplitR; [done|iSplitL;[|done]].
         rewrite type_interp_eq; iEval (cbn).
-        (* normal kinding quarantine *)
-        (* rewrite evalμ. *)
-        (* iEval (cbn). *)
-
-        (* iExists (SVALTYPE [PtrR] ξ_ref). *)
-        (* iSplitR; [done|]. *)
-        (* iSplitR. *)
-        (* * iPureIntro. *)
-        (*   done. (* note: this won't be as clean in the GC case I think *) *)
-        (* * iExists ℓ, _, _. *)
-        (*   iFrame. *)
-        (*   done. *)
-        admit.
+        iExists (SVALTYPE [PtrR] AnyRefs).
+        iSplitR; [done|].
+        iSplitR.
+        * iPureIntro.
+          split.
+          -- unfold has_areps.
+             eexists; split; [done|].
+             apply Forall2_cons. done.
+          -- apply Forall_cons. done.
+        * iExists ℓ, _, _.
+          iFrame.
+          done.
       + iExists n, n32.
         iSplitR; [done| iSplitR; [done|]].
         iExists (RootHeap MemMM a).
