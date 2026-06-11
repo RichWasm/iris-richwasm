@@ -8,6 +8,15 @@ module type Runner1 = sig
     ?start_type:String.t -> String.t -> (String.t, String.t) Result.t
 end
 
+module type Runner2 = sig
+  (* [link] = module-1 export name imported by module 2 *)
+  val run_wasm :
+    ?start_type:String.t ->
+    link:String.t ->
+    String.t * String.t ->
+    (String.t, String.t) Result.t
+end
+
 module type Runner3 = sig
   (* [links] = (module-1 export name, module-2 export name) *)
   val run_wasm :
@@ -38,15 +47,36 @@ end) : Runner1 = struct
       ()
 end
 
+module DoubleRichWasm (Config : sig
+  val rw_runtime_path : string
+  val host_runtime_path : string
+end) : Runner2 = struct
+  let run_wasm ?start_type ~link (module1, module2) =
+    let open Config in
+    let env =
+      ("RW_RUNTIME_WASM_PATH", rw_runtime_path)
+      ::
+      (match start_type with
+      | Some t -> [ ("RW_START_TYPE", t) ]
+      | None -> [])
+    in
+    Process_utils.Process_capture.run_concat ~env:(`Extend env)
+      ~inputs:[ module1; module2 ] ~prog:"node"
+      ~args:
+        ((if inspect then [ "--inspect-wait" ] else [])
+        @ [ host_runtime_path; link ])
+      ()
+end
+
 module TripleRichWasm (Config : sig
   val rw_runtime_path : string
   val host_runtime_path : string
 end) : Runner3 = struct
   let run_wasm ~links:(link1, link2) (module1, module2, module3) =
     let open Config in
-    Process_utils.Process_capture_three.run_concat
+    Process_utils.Process_capture.run_concat
       ~env:(`Extend [ ("RW_RUNTIME_WASM_PATH", rw_runtime_path) ])
-      ~input1:module1 ~input2:module2 ~input3:module3 ~prog:"node"
+      ~inputs:[ module1; module2; module3 ] ~prog:"node"
       ~args:
         ((if inspect then [ "--inspect-wait" ] else [])
         @ [ host_runtime_path; link1; link2 ])
@@ -189,6 +219,20 @@ module EndToEnd = struct
       let open M in
       let* wasm, start_type = compile_to_wasm ~asprintf src in
       run_runtime ~run:(Runner.run_wasm ?start_type) wasm
+  end
+
+  module Make2 (Surface : SurfaceLang) (Runner : Runner2) = struct
+    include Make_common (Surface)
+
+    let run2
+        ?(asprintf : asprintf = { asprintf })
+        ~(link : String.t)
+        (src1 : String.t)
+        (src2 : String.t) : String.t M.t =
+      let open M in
+      let* wasm1, _ = compile_to_wasm ~asprintf ~prefix:"m1" src1 in
+      let* wasm2, start_type = compile_to_wasm ~asprintf ~prefix:"m2" src2 in
+      run_runtime ~run:(Runner.run_wasm ?start_type ~link) (wasm1, wasm2)
   end
 
   module Make3 (Surface : SurfaceLang) (Runner : Runner3) = struct

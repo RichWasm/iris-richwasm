@@ -16,7 +16,9 @@
  (section lib)
  (package iris-richwasm)
  (files
+  (host_common.ts as tests/host_common.ts)
   (host_single.ts as tests/host_single.ts)
+  (host_double.ts as tests/host_double.ts)
   (host_triple.ts as tests/host_triple.ts)
   (tableset.ts as tests/tableset.ts)
   (walker.ts as tests/walker.ts)))
