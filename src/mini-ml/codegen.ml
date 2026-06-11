@@ -28,7 +28,7 @@ module Res = ResultM (Err)
 
 let rep : Representation.t = Atom Ptr
 
-(* the kind of all mini-ml types: [VALTYPE ptr gcrefs] *)
+(** the kind of all mini-ml types: [VALTYPE ptr gcrefs] *)
 let kind : Kind.t = VALTYPE (rep, GCRefs)
 
 let rec type_subst var replacement tau =

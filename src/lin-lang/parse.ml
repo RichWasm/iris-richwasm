@@ -295,7 +295,7 @@ and parse_as_app (p : Path.t) : Sexp.t -> Expr.t Res.t = function
   | List [ l; r ] -> parse_expr p (List [ Atom "app"; l; r ] : Sexp.t)
   | x -> fail Err.(ExpectedExpr (p, x))
 
-(* comma-separated tuple eg. (1, 2, 3) *)
+(** comma-separated tuple eg. (1, 2, 3) *)
 and parse_as_tup (p : Path.t) : Sexp.t -> Expr.t Res.t =
   let open Res in
   let open Expr in

@@ -10,7 +10,7 @@ module Process_capture = struct
     }
   end
 
-  (* Spawn child with:
+  (** Spawn child with:
      - stdin  <- [input]   (fd 0)
      - stdout -> captured  (fd 1)
      - stderr -> captured  (fd 2)

@@ -9,7 +9,7 @@ module type Runner1 = sig
 end
 
 module type Runner2 = sig
-  (* [link] = module-1 export name imported by module 2 *)
+  (** [link] = module-1 export name imported by module 2 *)
   val run_wasm :
     ?start_type:String.t ->
     link:String.t ->
@@ -18,7 +18,7 @@ module type Runner2 = sig
 end
 
 module type Runner3 = sig
-  (* [links] = (module-1 export name, module-2 export name) *)
+  (** [links] = (module-1 export name, module-2 export name) *)
   val run_wasm :
     links:String.t * String.t ->
     String.t * String.t * String.t ->
@@ -86,7 +86,7 @@ end
 module UnnanotatedRW = Richwasm_common.Syntax
 module AnnotatedRW = Richwasm_common.Annotated_syntax
 
-(* Serialize [_start]'s result types (sexp) for the host walker; [None] if no [_start]. *)
+(** Serialize [_start]'s result types (sexp) for the host walker; [None] if no [_start]. *)
 let start_type_sexp (m : UnnanotatedRW.Module.t) : String.t option =
   let open UnnanotatedRW in
   let num_imports = List.length m.Module.imports in
