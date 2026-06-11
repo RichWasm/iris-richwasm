@@ -36,7 +36,7 @@ let%expect_test "test_one" =
     {|
   -------[one]-------
   (module
-    (func ((ref (base gc) imm (struct)) -> i31) (local ptr)
+    (func ((ref (base gc) imm (struct)) -> i31)
       i32.const 1
       tag
       local.get 0 move
@@ -77,7 +77,7 @@ let%expect_test "id_fun" =
           (ref (base gc) imm
             (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
           -> (var 0))
-        (local ptr ptr ptr)
+        (local ptr ptr)
       local.get 0 move
       copy
       local.set 0
@@ -125,7 +125,7 @@ let%expect_test "return_one" =
            (struct (ser (ref (base gc) imm (struct)))
              (ser (ref (base gc) imm (struct)))))
           -> i31)
-        (local ptr ptr ptr)
+        (local ptr ptr)
       local.get 0 move
       copy
       local.set 0
@@ -140,7 +140,7 @@ let%expect_test "return_one" =
       drop
       local.get 0 move
       drop)
-    (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
+    (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
       group 0
       new gc imm
       cast (ref (base gc) imm (struct))
@@ -243,7 +243,7 @@ let%expect_test "apply_id" =
           (ref (base gc) imm
             (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
           -> (var 0))
-        (local ptr ptr ptr)
+        (local ptr ptr)
       local.get 0 move
       copy
       local.set 0
@@ -259,7 +259,7 @@ let%expect_test "apply_id" =
       drop
       local.get 0 move
       drop)
-    (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
+    (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
       group 0
       new gc imm
       cast (ref (base gc) imm (struct))
@@ -327,6 +327,42 @@ let%expect_test "apply_id" =
     (export "id" (func 0))
     (export "_start" (func 1))) |}]
 
+let utuple_and_project =
+  Module.Module
+    ( [],
+      [],
+      Some
+        (Expr.Let
+           ( ("p", PreType.UProd [ PreType.Int; PreType.Int ]),
+             Expr.UTuple [ Expr.Int 42; Expr.Int 7 ],
+             Expr.Project (0, Expr.Var "p") )) )
+
+let%expect_test "utuple_and_project" =
+  run "utuple_and_project" utuple_and_project;
+  [%expect{|
+    -------[utuple_and_project]-------
+    (module
+      (func ((ref (base gc) imm (struct)) -> i31) (local (prod ptr ptr) ptr)
+        i32.const 42
+        tag
+        i32.const 7
+        tag
+        group 2
+        local.set 1
+        local.get 1 move
+        copy
+        local.set 1
+        ungroup
+        drop
+        local.set 2
+        local.get 2 move
+        local.get 1 move
+        drop
+        local.get 0 move
+        drop)
+      (table 0)
+      (export "_start" (func 0))) |}]
+
 let tuple_and_project =
   Module.Module
     ([], [], Some (Expr.Project (1, Expr.Tuple [ Expr.Int 42; Expr.Int 7 ])))
@@ -337,7 +373,7 @@ let%expect_test "tuple_and_project" =
     {|
   -------[tuple_and_project]-------
   (module
-    (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr)
+    (func ((ref (base gc) imm (struct)) -> i31) (local ptr)
       i32.const 42
       tag
       i32.const 7
@@ -376,7 +412,7 @@ let%expect_test "opt_case" =
     {|
   -------[opt_case]-------
   (module
-    (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
+    (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr)
       i32.const 42
       tag
       inject_new gc 1 (ref (base gc) imm (struct)) i31

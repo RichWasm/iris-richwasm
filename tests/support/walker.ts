@@ -242,8 +242,8 @@ export function decodeStartTypes(src: string): RWType[] {
 type RWValue =
   | { kind: "int"; value: number | bigint }
   | { kind: "float"; value: number }
-  | { kind: "tuple"; items: RWValue[] }
-  | { kind: "variant"; tag: number; payload: RWValue }
+  | { kind: "tuple"; boxed: boolean; items: RWValue[] }
+  | { kind: "variant"; boxed: boolean; tag: number; payload: RWValue }
   | {
       kind: "ref";
       mem: MemName;
@@ -427,6 +427,7 @@ function fromStack(type: RWType, cur: Cursor, env: TEnv, ctx: Ctx): RWValue {
     case "Prod":
       return {
         kind: "tuple",
+        boxed: false,
         items: type.items.map((it) => fromStack(unSer(it), cur, env, ctx)),
       };
 
@@ -434,6 +435,7 @@ function fromStack(type: RWType, cur: Cursor, env: TEnv, ctx: Ctx): RWValue {
       // Structs are memory types; only reached on the stack via odd inputs.
       return {
         kind: "tuple",
+        boxed: true,
         items: type.fields.map((f) => fromStack(unSer(f), cur, env, ctx)),
       };
 
@@ -490,16 +492,15 @@ function fromStackSum(
   ctx: Ctx,
 ): RWValue {
   const tag = cur.nextI32();
-  let payload: RWValue = { kind: "tuple", items: [] };
+  let payload: RWValue = { kind: "tuple", boxed: false, items: [] };
   for (let i = 0; i < cases.length; i++) {
     if (i === tag) {
       payload = fromStack(unSer(cases[i]!), cur, env, ctx);
     } else {
-      // skip this arm's atoms
       for (let w = 0; w < atomWidth(unSer(cases[i]!), env); w++) cur.nextAtom();
     }
   }
-  return { kind: "variant", tag, payload };
+  return { kind: "variant", boxed: false, tag, payload };
 }
 
 /** Reconstruct a *memory-position* (pointee) type at `base` in `mem`. */
@@ -516,6 +517,7 @@ function fromMem(
       const cur = memCursor(dv, base);
       return {
         kind: "tuple",
+        boxed: true,
         items: type.fields.map((f) => fromStack(unSer(f), cur, env, ctx)),
       };
     }
@@ -526,7 +528,7 @@ function fromMem(
       if (!arm)
         return { kind: "opaque", note: `variant tag ${tag} out of range` };
       const payload = fromStack(unSer(arm), memCursor(dv, base, 1), env, ctx);
-      return { kind: "variant", tag, payload };
+      return { kind: "variant", boxed: true, tag, payload };
     }
 
     case "Ser":
@@ -564,13 +566,20 @@ function followRef(
     return { kind: "opaque", note: `non-ptr ${atom} where ref expected` };
   }
 
-  // Zero-size pointees (unit / empty struct) are allocated with `gcalloc(0)`,
+  // Zero-size pointees (empty struct or prod) are allocated with `alloc(0)`,
   // which doesn't advance the bump pointer, so they alias whatever is allocated
   // next -- often their own container. They hold no data and no identity, so
   // never dereference them: doing so yields spurious cycles.
   const peeled = peelMem(refType.pointee, env);
-  if (peeled.t === "Struct" && peeled.fields.length === 0) {
-    const unit: RWValue = { kind: "tuple", items: [] };
+  if (
+    (peeled.t === "Struct" && peeled.fields.length === 0) ||
+    (peeled.t === "Prod" && peeled.items.length === 0)
+  ) {
+    const unit: RWValue = {
+      kind: "tuple",
+      boxed: peeled.t === "Struct",
+      items: [],
+    };
     if (refType.mut === "Imm") return unit;
     const z = resolvePtr(atom, rooted, ctx);
     return {
@@ -658,14 +667,18 @@ function render(value: RWValue, ctx: Ctx, opts: RenderOpts): string {
       return String(value.value);
     case "float":
       return String(value.value);
-    case "tuple":
+    case "tuple": {
+      const head = value.boxed ? "tup" : "tup#";
       return value.items.length === 0
-        ? "(tup)"
-        : `(tup ${value.items.map((v) => render(v, ctx, opts)).join(" ")})`;
-    case "variant":
+        ? `(${head})`
+        : `(${head} ${value.items.map((v) => render(v, ctx, opts)).join(" ")})`;
+    }
+    case "variant": {
+      const head = value.boxed ? "inj" : "inj#";
       return value.payload.kind === "tuple" && value.payload.items.length === 0
-        ? `(inj ${value.tag})`
-        : `(inj ${value.tag} ${render(value.payload, ctx, opts)})`;
+        ? `(${head} ${value.tag})`
+        : `(${head} ${value.tag} ${render(value.payload, ctx, opts)})`;
+    }
     case "ref": {
       const label = ctx.cycleIds.has(value.cellKey)
         ? `#${ctx.cycleIds.get(value.cellKey)}=`
@@ -728,6 +741,6 @@ export function renderStart(
   const body =
     values.length === 1
       ? render(values[0]!, ctx, renderOpts)
-      : `(tup ${values.map((v) => render(v, ctx, renderOpts)).join(" ")})`;
+      : `(tup# ${values.map((v) => render(v, ctx, renderOpts)).join(" ")})`;
   return body;
 }

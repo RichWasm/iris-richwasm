@@ -28,14 +28,21 @@ module Res = ResultM (Err)
 
 let rep : Representation.t = Atom Ptr
 
-(** the kind of all mini-ml types: [VALTYPE ptr gcrefs] *)
+(** the kind of mini-ml type binders: [VALTYPE ptr gcrefs]. Every type is
+    uniformly represented except unboxed tuples, which therefore cannot
+    instantiate type variables. *)
 let kind : Kind.t = VALTYPE (rep, GCRefs)
+
+let rec rep_of_type : Type.t -> Representation.t = function
+  | Prod ts -> Prod (List.map ~f:rep_of_type ts)
+  | _ -> rep
 
 let rec type_subst var replacement tau =
   let open Closed.PreType in
   match tau with
   | Int -> Int
   | Prod ts -> Prod (List.map ~f:(type_subst var replacement) ts)
+  | UProd ts -> UProd (List.map ~f:(type_subst var replacement) ts)
   | Sum ts -> Sum (List.map ~f:(type_subst var replacement) ts)
   | Ref t -> Ref (type_subst var replacement t)
   | Rec (v, _) when equal_string v var -> tau
@@ -62,6 +69,9 @@ let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
   | Tuple vs ->
       let* ts = mapM vs ~f:(type_of_e gamma) in
       ret (Prod ts)
+  | UTuple vs ->
+      let* ts = mapM vs ~f:(type_of_e gamma) in
+      ret (UProd ts)
   | Var v ->
       (match List.Assoc.find ~equal:equal_string gamma v with
       | Some t -> ret t
@@ -79,7 +89,7 @@ let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
   | Project (i, v) ->
       let* vt = type_of_e gamma v in
       (match vt with
-      | Prod ts -> ret (List.nth_exn ts i)
+      | Prod ts | UProd ts -> ret (List.nth_exn ts i)
       | _ -> fail (ProjectNonProd vt))
   | Op _ -> ret Int
   | If0 (_, e, _) -> type_of_e gamma e
@@ -116,6 +126,9 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
   | Prod ts ->
       let+ ts' = mapM ~f:r_ser ts in
       Ref (Base GC, Imm, Struct ts')
+  | UProd ts ->
+      let+ ts' = mapM ~f:r ts in
+      Prod ts'
   | Sum ts ->
       let+ ts' = mapM ~f:r_ser ts in
       Ref (Base GC, Imm, Variant ts')
@@ -151,25 +164,28 @@ let rec compile_expr delta gamma locals coderef_map e :
   let open Instruction in
   let unindexed = List.map ~f:(fun (n, t, _) -> (n, t)) gamma in
   let r = compile_expr delta gamma locals coderef_map in
+  let r_list locals vs =
+    foldM
+      ~f:(fun (instrs, locals, fx) item ->
+        let* v', locals', fx' =
+          compile_expr delta gamma locals coderef_map item
+        in
+        ret (instrs @ v', locals', fx @ fx'))
+      ~init:([], locals, []) vs
+  in
   let* t = type_of_e unindexed e in
   let* rw_t = compile_type delta t in
-  let rw_unit = Type.Prod [] in
   match e with
   | Int i ->
       let open NumType in
       ret ([ NumConst (Int I32, i); Tag ], locals, [])
   | Tuple vs ->
-      let* vs', locals', fx =
-        foldM
-          ~f:(fun (instrs, locals, fx) item ->
-            let* v', locals', fx' =
-              compile_expr delta gamma locals coderef_map item
-            in
-            ret (instrs @ v', locals', fx @ fx'))
-          ~init:([], locals, []) vs
-      in
+      let* vs', locals', fx = r_list locals vs in
       ret
         (vs' @ [ Group (List.length vs); New (GC, Imm); Cast rw_t ], locals', fx)
+  | UTuple vs ->
+      let* vs', locals', fx = r_list locals vs in
+      ret (vs' @ [ Group (List.length vs) ], locals', fx)
   | Inj (i, v, t) ->
       let* types =
         match t with
@@ -218,25 +234,39 @@ let rec compile_expr delta gamma locals coderef_map e :
           locals',
           fx_l @ fx_r )
   | Project (n, v) ->
+      let* vt = type_of_e unindexed v in
       let* v', locals', fx = r v in
       let temp_idx = List.length locals' in
-      let locals'' = locals' @ [ ("#temp", Prod []) ] in
-      let suffix =
-        [
-          Load (Path [ n ], Follow);
-          LocalSet temp_idx;
-          Drop;
-          LocalGet (temp_idx, Move);
-        ]
+      let locals'' = locals' @ [ ("#temp", rw_t) ] in
+      let* suffix =
+        match vt with
+        | Prod _ ->
+            ret
+              [
+                Load (Path [ n ], Follow);
+                LocalSet temp_idx;
+                Drop;
+                LocalGet (temp_idx, Move);
+              ]
+        | UProd ts ->
+            (* stash component [n], dropping the components above and below it *)
+            let drops i = List.init i ~f:(Fn.const Drop) in
+            ret
+              ([ Ungroup ]
+              @ drops (List.length ts - 1 - n)
+              @ [ LocalSet temp_idx ]
+              @ drops n
+              @ [ LocalGet (temp_idx, Move) ])
+        | _ -> fail (ProjectNonProd vt)
       in
-      ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_unit) ])
+      ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ])
   | New v ->
       let* v', locals', fx = r v in
       ret (v' @ [ New (GC, Mut) ], locals', fx)
   | Deref v ->
       let* v', locals', fx = r v in
       let temp_idx = List.length locals' in
-      let locals'' = locals' @ [ ("#temp", Prod []) ] in
+      let locals'' = locals' @ [ ("#temp", rw_t) ] in
       let suffix =
         [
           Load (Path [], Follow);
@@ -245,7 +275,7 @@ let rec compile_expr delta gamma locals coderef_map e :
           LocalGet (temp_idx, Move);
         ]
       in
-      ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_unit) ])
+      ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ])
   | Assign (re, v) ->
       let* re', locals', fx_re = r re in
       let* v', locals', fx_v = compile_expr delta gamma locals' coderef_map v in
@@ -253,7 +283,9 @@ let rec compile_expr delta gamma locals coderef_map e :
   | Fold (_, v) ->
       (* NOTE: fold/unfold are pure retyping coercions (shared [Atom Ptr] rep); [Fold] takes the whole [Rec _]. *)
       let* () =
-        match rw_t with Rec _ -> ret () | _ -> fail (FoldNonRec rw_t)
+        match rw_t with
+        | Rec _ -> ret ()
+        | _ -> fail (FoldNonRec rw_t)
       in
       let* v', locals', fx = r v in
       ret (v' @ [ Fold rw_t ], locals', fx)
@@ -353,7 +385,7 @@ let rec compile_expr delta gamma locals coderef_map e :
           LocalGet (tmp_local, Move);
         ]
       in
-      ret (v' @ suffix, locals' @ [ ("#cases-tmp", Prod []) ], fx_v @ fx)
+      ret (v' @ suffix, locals' @ [ ("#cases-tmp", rw_t) ], fx_v @ fx)
 
 let compile_fun coderef_map : Closed.Function.t -> Module.Function.t Res.t =
  fun (Function { name = _; foralls; arg = arg_name, arg_type; ret_type; body }) ->
@@ -374,7 +406,9 @@ let compile_fun coderef_map : Closed.Function.t -> Module.Function.t Res.t =
             ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
               [ arg_rw_type ],
               [ ret_rw_type ] );
-        locals = List.map ~f:(Fn.const rep) locals;
+        (* NOTE: declared locals come after the argument, whose slot the
+           function type already accounts for *)
+        locals = List.map ~f:(fun (_, t) -> rep_of_type t) (List.tl_exn locals);
         body = body' @ [ LocalGet (0, Move); Drop ];
       }
 

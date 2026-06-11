@@ -15,6 +15,7 @@ module Source = struct
           ret : Type.t;
         }
       | Prod of Type.t list
+      | UProd of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
@@ -29,6 +30,7 @@ module Source = struct
           ret : Type.t;
         }
       | Prod of Type.t list
+      | UProd of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
@@ -50,6 +52,7 @@ module Source = struct
       | Int of int
       | Var of Variable.t
       | Tuple of t list
+      | UTuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of {
           foralls : Variable.t list;
@@ -99,6 +102,7 @@ module Closed = struct
           ret : Type.t;
         }
       | Prod of Type.t list
+      | UProd of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
@@ -114,6 +118,7 @@ module Closed = struct
           ret : Type.t;
         }
       | Prod of Type.t list
+      | UProd of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
@@ -136,6 +141,7 @@ module Closed = struct
       | Int of int
       | Var of Variable.t
       | Tuple of t list
+      | UTuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Coderef of PreType.t * Variable.t
       | Pack of Type.t * t * Type.t

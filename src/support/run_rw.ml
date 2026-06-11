@@ -27,23 +27,26 @@ end
 
 let inspect = false
 
+let runtime_env ?start_type rw_runtime_path =
+  ("RW_RUNTIME_WASM_PATH", rw_runtime_path)
+  ::
+  (match start_type with
+  | Some t -> [ ("RW_START_TYPE", t) ]
+  | None -> [])
+
+let node_args ~host_runtime_path links =
+  (if inspect then [ "--inspect-wait" ] else []) @ (host_runtime_path :: links)
+
 module SingleRichWasm (Config : sig
   val rw_runtime_path : string
   val host_runtime_path : string
 end) : Runner1 = struct
   let run_wasm ?start_type (wasm : string) =
     let open Config in
-    let env =
-      ("RW_RUNTIME_WASM_PATH", rw_runtime_path)
-      ::
-      (match start_type with
-      | Some t -> [ ("RW_START_TYPE", t) ]
-      | None -> [])
-    in
-    Process_utils.Process_capture.run_concat ~env:(`Extend env) ~input:wasm
-      ~prog:"node"
-      ~args:
-        ((if inspect then [ "--inspect-wait" ] else []) @ [ host_runtime_path ])
+    Process_utils.Process_capture.run_concat
+      ~env:(`Extend (runtime_env ?start_type rw_runtime_path))
+      ~input:wasm ~prog:"node"
+      ~args:(node_args ~host_runtime_path [])
       ()
 end
 
@@ -53,18 +56,10 @@ module DoubleRichWasm (Config : sig
 end) : Runner2 = struct
   let run_wasm ?start_type ~link (module1, module2) =
     let open Config in
-    let env =
-      ("RW_RUNTIME_WASM_PATH", rw_runtime_path)
-      ::
-      (match start_type with
-      | Some t -> [ ("RW_START_TYPE", t) ]
-      | None -> [])
-    in
-    Process_utils.Process_capture.run_concat ~env:(`Extend env)
+    Process_utils.Process_capture.run_concat
+      ~env:(`Extend (runtime_env ?start_type rw_runtime_path))
       ~inputs:[ module1; module2 ] ~prog:"node"
-      ~args:
-        ((if inspect then [ "--inspect-wait" ] else [])
-        @ [ host_runtime_path; link ])
+      ~args:(node_args ~host_runtime_path [ link ])
       ()
 end
 
@@ -75,18 +70,18 @@ end) : Runner3 = struct
   let run_wasm ~links:(link1, link2) (module1, module2, module3) =
     let open Config in
     Process_utils.Process_capture.run_concat
-      ~env:(`Extend [ ("RW_RUNTIME_WASM_PATH", rw_runtime_path) ])
-      ~inputs:[ module1; module2; module3 ] ~prog:"node"
-      ~args:
-        ((if inspect then [ "--inspect-wait" ] else [])
-        @ [ host_runtime_path; link1; link2 ])
+      ~env:(`Extend (runtime_env rw_runtime_path))
+      ~inputs:[ module1; module2; module3 ]
+      ~prog:"node"
+      ~args:(node_args ~host_runtime_path [ link1; link2 ])
       ()
 end
 
 module UnnanotatedRW = Richwasm_common.Syntax
 module AnnotatedRW = Richwasm_common.Annotated_syntax
 
-(** Serialize [_start]'s result types (sexp) for the host walker; [None] if no [_start]. *)
+(** Serialize [_start]'s result types (sexp) for the host walker; [None] if no
+    [_start]. *)
 let start_type_sexp (m : UnnanotatedRW.Module.t) : String.t option =
   let open UnnanotatedRW in
   let num_imports = List.length m.Module.imports in
@@ -96,10 +91,10 @@ let start_type_sexp (m : UnnanotatedRW.Module.t) : String.t option =
         when String.equal e.Module.Export.name "_start" ->
           List.nth m.Module.functions (idx - num_imports)
           |> Option.map ~f:(fun (f : Module.Function.t) ->
-                 let (FunctionType.FunctionType (_, _, results)) =
-                   f.Module.Function.typ
-                 in
-                 Sexp.to_string ([%sexp_of: Type.t list] results))
+              let (FunctionType.FunctionType (_, _, results)) =
+                f.Module.Function.typ
+              in
+              Sexp.to_string ([%sexp_of: Type.t list] results))
       | _ -> None)
 
 module EndToEnd = struct
