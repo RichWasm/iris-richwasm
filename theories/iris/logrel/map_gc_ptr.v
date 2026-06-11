@@ -217,6 +217,7 @@ Section map_gc_ptr.
         "Hats'" ∷ ([∗ list] o; v' ∈ os; vs', ⌜atom_copyable o⌝ -∗ atom_interp o v') -∗
         "%Hinst" ∷ ⌜f_inst f' = f_inst f⌝ -∗
         "%Hupd" ∷ ⌜Forall2 (λ i v, f_locs f' !! i = Some v) (map localimm idxs) vs'⌝ -∗
+         (* this hypothesis should probably be phrased in terms of frame_rel. *)
         "%Hsame" ∷ ⌜∀ i, prelude.W.Mk_localidx i ∉ idxs → f_locs f' !! i = f_locs f !! i⌝ -∗
         Φ f' []) -∗
       CWP es @ s; E UNDER B; R {{ Φ }}.
