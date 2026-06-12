@@ -103,10 +103,10 @@ Section roots.
         repr_pointer θ (PtrHeap MemGC ℓ) ah ->
         N_i32_repr ah ah32 ->
         has_values evs [VAL_int32 ah32] ->
-      ⊢ ∀ f B R s E Φ,
+      ⊢ ∀ f B R s E lmask Φ,
         (∀ ar ar32,
            ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ -∗
-           ar ↦root ℓ -∗ rt_token rti sr θ -∗ na_own logrel_nais E -∗
+           ar ↦root ℓ -∗ rt_token rti sr lmask θ -∗ na_own logrel_nais E -∗
            ⌜N_i32_repr (tag_address MemGC ar) ar32⌝ -∗
            instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            Φ f [VAL_int32 ar32]) -∗
@@ -114,7 +114,7 @@ Section roots.
         ↪[RUN] -∗
         ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
         na_own logrel_nais E  -∗
-        rt_token rti sr θ -∗
+        rt_token rti sr lmask θ -∗
         instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
         CWP evs ++ es_register @ s; E UNDER B; R {{ Φ }}.
   Proof.
@@ -123,7 +123,7 @@ Section roots.
     inv_cg_emit Hcg; subst.
     repeat (split; first done).
     intros * Hptr Hrah Hevs.
-    iIntros (f B R s E Φ) "HΦ Hf Hrun %HE Htok Hrt Hreg".
+    iIntros (f B R s E lmask Φ) "HΦ Hf Hrun %HE Htok Hrt Hreg".
     apply Is_true_true in Hevs.
     rewrite (has_values_to_consts_inv _ _ Hevs).
     clear Hevs evs.
@@ -167,16 +167,16 @@ Section roots.
         repr_root_pointer (RootHeap MemGC ar) tar ->
         N_i32_repr tar tar32 ->
         has_values evs [VAL_int32 tar32] ->
-      ⊢ ∀ f B R s E Φ ℓ,
+      ⊢ ∀ f B R s E lmask Φ ℓ,
         ar ↦root ℓ -∗
-        (rt_token rti sr θ -∗ na_own logrel_nais E -∗
+        (rt_token rti sr lmask θ -∗ na_own logrel_nais E -∗
          instance_rt_func_interp mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot rti sr) f.(f_inst) -∗
          Φ f []) -∗
         ↪[frame] f -∗
         ↪[RUN] -∗
         ⌜↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E⌝ -∗
         na_own logrel_nais E  -∗
-        rt_token rti sr θ -∗
+        rt_token rti sr lmask θ -∗
         instance_rt_func_interp mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot rti sr) f.(f_inst) -∗
         CWP evs ++ es_unregister @ s; E UNDER B; R {{ Φ }}.
   Proof.
@@ -187,7 +187,7 @@ Section roots.
 
 
     intros * Hrootptr Hrtar Hevs.
-    iIntros (f B R s E Φ ℓ) "Hroot HΦ Hf Hrun %HE Htok Hrt Hreg".
+    iIntros (f B R s E lmask Φ ℓ) "Hroot HΦ Hf Hrun %HE Htok Hrt Hreg".
     apply Is_true_true in Hevs.
     rewrite (has_values_to_consts_inv _ _ Hevs).
     clear Hevs evs.
@@ -233,7 +233,7 @@ Section roots.
       has_values evs [VAL_int32 n32] ->
       repr_root_pointer (RootHeap MemGC a) n ->
       root_ok θ rm ->
-      ⊢ ∀ s E B R Φ f Q,
+      ⊢ ∀ s E lmask B R Φ f Q,
         ↪[frame] f -∗
         ↪[RUN] -∗
         ⌜inst_memory (f_inst f) !! memimm (mr_gcmem mr) = Some (sr_mem_gc sr)⌝ -∗
@@ -241,14 +241,14 @@ Section roots.
         a ↦root ℓ -∗
         ghost_map_auth rw_root (1 / 2) rm -∗
         root_memory sr θ rm -∗
-        (a ↦root ℓ -∗ ghost_map_auth rw_root (1 / 2) rm -∗ root_memory sr θ rm -∗ rt_token rti sr θ ∗ Q) -∗
+        (a ↦root ℓ -∗ ghost_map_auth rw_root (1 / 2) rm -∗ root_memory sr θ rm -∗ rt_token rti sr lmask θ ∗ Q) -∗
         na_own logrel_nais E -∗
         instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
         (∀ ar ar32,
            ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ -∗
            ⌜N_i32_repr (tag_address MemGC ar) ar32⌝ -∗
            ar ↦root ℓ -∗
-           rt_token rti sr θ -∗
+           rt_token rti sr lmask θ -∗
            Q -∗
            na_own logrel_nais E -∗
            instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
@@ -265,7 +265,7 @@ Section roots.
     repeat (split; first reflexivity).
     intros evs a n n32 rm e ℓ Hnrep Hevs Hreproot Hrootok.
     specialize (Hload evs a n n32 ℓ e rm Hnrep Hevs Hreproot Hrootok).
-    iIntros (s E B R Φ f Q) "Hf Hrun %Hmems %Hmask Htok Hrootm Hrootok Hclose Hinv Hreg HΦ".
+    iIntros (s E lmask B R Φ f Q) "Hf Hrun %Hmems %Hmask Htok Hrootm Hrootok Hclose Hinv Hreg HΦ".
     rewrite app_assoc.
     iApply (cwp_seq with "[-Hinv Hreg HΦ]").
     {
@@ -277,7 +277,7 @@ Section roots.
                              ⌜N_i32_repr ah' ah32'⌝ ∗
                              ⌜repr_pointer e (PtrHeap MemGC ℓ) ah'⌝ ∗
                              ⌜v' = [VAL_int32 ah32']⌝ ∗
-                             rt_token rti sr e ∗ Q
+                             rt_token rti sr lmask e ∗ Q
                          )%I).
       cbn.
       iSplit; auto.

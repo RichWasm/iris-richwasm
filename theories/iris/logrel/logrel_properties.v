@@ -785,7 +785,7 @@ Section properties.
     □ (∀ fr' vs',
        (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se F.(typing.fc_locals) L wl fr' ∗
           (∃ os', values_interp rti sr se τs os' ∗ atoms_interp os' vs') ∗
-          (∃ θ0, rt_token rti sr θ0) ∗ na_own logrel_nais ⊤) -∗
+          (∃ θ0, rt_token rti sr lpall θ0) ∗ na_own logrel_nais ⊤) -∗
        Φ fr' vs') -∗
     labels_interp rti sr se F.(typing.fc_locals) fr wl lmask F.(fc_labels) B -∗
     labels_interp rti sr se F.(typing.fc_locals) fr wl lmask
@@ -1653,9 +1653,9 @@ Section properties.
       lia.
   Qed.
 
-  Lemma atom_interp_to_weak_memMM o v θ:
-    rt_token rti sr θ -∗ atom_interp o v -∗
-    rt_token rti sr θ ∗ atom_interp_weak θ MemMM o v.
+  Lemma atom_interp_to_weak_memMM o v lmask θ:
+    rt_token rti sr lmask θ -∗ atom_interp o v -∗
+    rt_token rti sr lmask θ ∗ atom_interp_weak θ MemMM o v.
   Proof.
     iIntros "Hrt Ha".
     cbn.
@@ -1696,9 +1696,9 @@ Section properties.
         done.
   Qed.
 
-  Lemma atoms_interp_to_weak_memMM os vs θ:
-    rt_token rti sr θ -∗ atoms_interp os vs -∗
-    rt_token rti sr θ ∗ ([∗ list] o;v ∈ os;vs, atom_interp_weak θ MemMM o v).
+  Lemma atoms_interp_to_weak_memMM os vs lmask θ:
+    rt_token rti sr lmask θ -∗ atoms_interp os vs -∗
+    rt_token rti sr lmask θ ∗ ([∗ list] o;v ∈ os;vs, atom_interp_weak θ MemMM o v).
   Proof.
     generalize dependent vs.
     induction os.

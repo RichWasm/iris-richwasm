@@ -733,7 +733,7 @@ Section case.
                 frame_interp rti sr se F.(typing.fc_locals) L' _ fr' ∗
                 ∃ (os' : leibnizO (list atom)) (θ : address_map),
                 values_interp rti sr se [τ_res] os' ∗ atoms_interp os' vs' ∗
-                rt_token rti sr θ ∗ na_own logrel_nais ⊤
+                rt_token rti sr lpall θ ∗ na_own logrel_nais ⊤
               )%I).
               iDestruct (atoms_interp_length with "Hatoms") as "<-".
               iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.

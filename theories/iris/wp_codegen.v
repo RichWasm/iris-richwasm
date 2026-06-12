@@ -1218,8 +1218,9 @@ Section CodeGen.
     ret = () /\
     wt' = [] /\
     wl' = [] /\
-    ∀ Φ B R s E esv fr ℓ fs μ θ ta ta32,
+    ∀ Φ B R s E esv fr ℓ fs μ lmask θ ta ta32,
     N_i32_repr ta ta32 ->
+    ¬ lmask ℓ ->
     repr_pointer θ (PtrHeap μ ℓ) ta ->
     has_values esv [VAL_int32 ta32] ->
     ⊢ ℓ ↦layout fs -∗
@@ -1227,10 +1228,10 @@ Section CodeGen.
       ↪[RUN] -∗
       ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
       na_own logrel_nais E -∗
-      rt_token rti sr θ -∗
+      rt_token rti sr lmask θ -∗
       instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
       (
-         rt_token rti sr θ -∗ na_own logrel_nais E -∗
+         rt_token rti sr lmask θ -∗ na_own logrel_nais E -∗
          instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
          ℓ ↦layout <[ i := flag_of_i32 (i32_of_flag fl) ]> fs -∗
          Φ fr []) -∗
@@ -1248,7 +1249,7 @@ Section CodeGen.
     inv_cg_emit Hcg4; subst.
     clear_nils.
     do 3 split; first done.
-    intros ????????????? Haddr Hrepr_ptr Hhv.
+    intros ?????????????? Haddr Hrepr_ptr Hlmask Hhv.
     iIntros "Hroot Hframe Hrun %HE Htok Hrt Hsetflag HΦ".
 
     apply has_values_iff_to_consts in Hhv; subst.
@@ -1295,13 +1296,14 @@ Section CodeGen.
     run_codegen (set_pointer_flags mr a i fs) wt wl =
       inr(ret, wt', wl', es_set_ptr_flags) ->
     ret = () /\ wt' = [] /\ wl' = [] /\
-    ∀ fr ta ta32 θ μ ℓ,
+    ∀ fr ta ta32 lmask θ μ ℓ,
       N_i32_repr ta ta32 ->
+      ¬ lmask ℓ ->
       repr_pointer θ (PtrHeap μ ℓ) ta ->
       fr.(f_locs) !! (localimm a) = Some (VAL_int32 ta32) ->
     ⊢ ∀ s E B R Φ fsnew,
       ℓ ↦layout fsnew -∗ (* top level, fsnew=fs; but for induction, need fresh *)
-      rt_token rti sr θ -∗
+      rt_token rti sr lmask θ -∗
       (* N.of_nat (sr_func_setflag sr) ↦[wf] cl -∗ *)
       ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
       na_own logrel_nais E -∗
@@ -1315,7 +1317,7 @@ Section CodeGen.
             (map (λ '(ix, fx), <[ ix := flag_of_i32 (i32_of_flag fx)]>)
                   (zip (seq i (length fs)) fs)) ) fsnew
         -∗
-        rt_token rti sr θ -∗
+        rt_token rti sr lmask θ -∗
         ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
         na_own logrel_nais E -∗
         instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
@@ -1364,7 +1366,7 @@ Section CodeGen.
       repeat (split; first done).
 
       (* okay now I need to use cwp_seq -> cwp_local_get *)
-      intros * Hta Hrepr Hav.
+      intros * Hta Hlmask Hrepr Hav.
       iIntros (s E B R Φ fsnew) "Hℓ Hrt %Hnsfun Hown Hfr Hrun Hinst HΦ".
       iApply (cwp_seq with "[Hfr Hrun]").
       {
@@ -1385,6 +1387,7 @@ Section CodeGen.
         (* and ta is the repr_pointer *)
         iApply (Hcg_f with "[$] [$] [$] [] [$] [$] [$]").
         - done.
+        - done.
         - apply Hrepr.
         - by apply has_values_iff_to_consts.
         - done.
@@ -1402,6 +1405,7 @@ Section CodeGen.
 
       iApply (Hsetflags_fs with "[$] [$] [] [$] [$] [$] [$]").
       + exact Hta.
+      + exact Hlmask.
       + exact Hrepr.
       + exact Hav.
       + done.

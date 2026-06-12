@@ -53,7 +53,7 @@ Section loop.
     - instantiate (1 := fun fr' vs' =>
         (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se F.(typing.fc_locals) L (wl ++ wl2 ++ wlf) fr' ∗
            (∃ os', values_interp rti sr se τs1 os' ∗ atoms_interp os' vs') ∗
-           (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I).
+           (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I).
       by iFrame.
     - iIntros "!> !> %fr' %vs' Hfr Hrun (%Hrel & Hframe & (%os' & Hos & Hvs) & [%θ' Hrt] & Hown)".
       iApply (cwp_wand with "[-]");

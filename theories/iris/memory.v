@@ -34,6 +34,10 @@ Inductive word :=
 | WordPtr (p : pointer)
 | WordInt (n : N).
 
+Definition locpred : Type := location -> Prop.
+
+Definition lpall : locpred := const True.
+
 Definition address_map : Type := gmap location (base_memory * address).
 Definition root_map : Type := gmap address location.
 Definition layout_map : Type := gmap location (list pointer_flag).
@@ -194,14 +198,15 @@ Section Token.
   Definition root_memory (θ : address_map) (rm : root_map) : iProp Σ :=
     [∗ map] ar ↦ ℓ ∈ rm,
       ∃ ah ah32,
-        (*⌜θ !! ℓ = Some (MemGC, Z.to_N ah)⌝ ∗ TODO redundant/conflicting with repr_pointer below? *)
-          ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
+        ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
           ⌜N_i32_repr ah ah32⌝ ∗
           N.of_nat sr.(sr_mem_gc) ↦[wms][ar] bits (VAL_int32 ah32).
 
-  Definition heap_ok (θ : address_map) (lm : layout_map) (hm : heap_map) : Prop :=
-    map_Forall2 (const (Forall2 word_has_flag)) lm hm /\
-      map_Forall (fun ℓ => Forall (fun ℓ' => ℓ' ∈ dom hm) ∘ flat_map locations) hm /\
+  Definition layout_ok (lmask : locpred) (lm : layout_map) (hm : heap_map) : Prop :=
+    map_Forall2 (fun ℓ f w => lmask ℓ -> Forall2 word_has_flag f w) lm hm.
+
+  Definition heap_ok (θ : address_map) (hm : heap_map) : Prop :=
+    map_Forall (fun ℓ => Forall (fun ℓ' => ℓ' ∈ dom hm) ∘ flat_map locations) hm /\
       map_Forall2 (fun ℓ _ => Forall (fun ℓ' => ℓ' ∈ dom θ) ∘ flat_map locations) θ hm.
 
   Definition heap_memory (θ : address_map) (hm : heap_map) : iProp Σ :=
@@ -211,7 +216,7 @@ Section Token.
         rt_memaddr μ ↦[wms][a] flat_map serialise_i32 ns32 ∗
         words_interp θ μ ws ns.
 
-  Definition rt_token (θ : address_map) : iProp Σ :=
+  Definition rt_token (lmask : locpred) (θ : address_map) : iProp Σ :=
     ∃ rm lm hm,
       ghost_map_auth rw_addr (1/2) θ ∗
       ghost_map_auth rw_root (1/2) rm ∗
@@ -223,7 +228,8 @@ Section Token.
       own_addr_gc θ ∗
       ⌜root_ok θ rm⌝ ∗
       root_memory θ rm ∗
-      ⌜heap_ok θ lm hm⌝ ∗
+      ⌜layout_ok lmask lm hm⌝ ∗
+      ⌜heap_ok θ hm⌝ ∗
       heap_memory θ hm.
 
 End Token.
