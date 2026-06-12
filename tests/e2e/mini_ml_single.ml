@@ -111,16 +111,36 @@ let simple_tests =
       "(cases (inj 0 (tup) : (+ (*) int)) ((_ : (*)) 7) ((v : int) v))",
       i31 7 );
     ("unboxed tuple", "(tup# 1 2)", "(tup# 1 2)");
-    ("unboxed proj", "(proj 1 (tup# 42 7))", i31 7);
-    ("unboxed let", "(let (p : (# int int)) (tup# 1 2) (proj 0 p))", i31 1);
+    ("unboxed split", "(split# ((a : int) (b : int)) (tup# 42 7) b)", i31 7);
+    ( "unboxed split swapped",
+      "(split# ((a : int) (b : int)) (tup# 1 2) (tup# b a))",
+      "(tup# 2 1)" );
+    ( "unboxed let",
+      "(let (p : (# int int)) (tup# 1 2) (split# ((a : int) (b : int)) p a))",
+      i31 1 );
     ("unboxed in boxed", "(tup (tup# 1 2) 3)", "(tup (tup# 1 2) 3)");
     ("boxed in unboxed", "(tup# (tup 1 2) 3)", "(tup# (tup 1 2) 3)");
     ("unboxed ref", "(! (new (tup# 4 5)))", "(tup# 4 5)");
+    ( "unboxed nested split",
+      {|
+        (split# ((p : (# int int)) (c : int)) (tup# (tup# 1 2) 3)
+          (split# ((a : int) (b : int)) p
+            (op + a (op + b c))))
+      |},
+      i31 (1 + 2 + 3) );
     ( "unboxed fn arg",
-      "(app (fun () (x : (# int int)) : int (proj 0 x)) () (tup# 5 6))",
+      {|
+        (app (fun () (x : (# int int)) : int
+               (split# ((a : int) (b : int)) x a))
+          () (tup# 5 6))
+      |},
       i31 5 );
     ( "unboxed fn ret",
-      "(proj 1 (app (fun () (x : int) : (# int int) (tup# x 9)) () 4))",
+      {|
+        (split# ((a : int) (b : int))
+                (app (fun () (x : int) : (# int int) (tup# x 9)) () 4)
+          b)
+      |},
       i31 9 );
     ("list [1]", cons 1 nil, "(inj 1 (tup 1 (inj 0)))");
     ( "list [1;2]",

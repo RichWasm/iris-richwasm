@@ -41,6 +41,8 @@ let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   | Fold (_, v) -> fe v
   | Unfold v -> fe v
   | Let ((n, _), e1, e2) -> fe e1 @ fv ~bound:(n :: bound) e2
+  | Split (bs, e1, e2) ->
+      fe e1 @ fv ~bound:(List.map ~f:fst bs @ bound) e2
   | Cases (v, branches) ->
       fe v
       @ List.concat_map
@@ -58,7 +60,7 @@ let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
         else
           [ v ]
     | Prod ts | UProd ts | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
-    | Ref t -> ftv ~bound t
+    | Ref t | Lin t -> ftv ~bound t
     | Rec (v, t) -> ftv ~bound:(v :: bound) t
     | Fun { foralls; arg; ret } ->
         let bound = foralls @ bound in
@@ -86,6 +88,8 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   | Deref v -> r v
   | Assign (re, v) -> r re @ r v
   | Let (_, e1, e2) -> r e1 @ r e2
+  | Split (bs, e1, e2) ->
+      List.concat_map ~f:(fun (_, t) -> ftv ~bound t) bs @ r e1 @ r e2
   | Fold (_, v) -> r v
   | Unfold v -> r v
 
@@ -104,6 +108,7 @@ and cc_pt ?(pack = true) (pt : Source.PreType.t) =
   | UProd ts -> UProd (List.map ~f:cc_t ts)
   | Sum ts -> Sum (List.map ~f:cc_t ts)
   | Ref t -> Ref (cc_t t)
+  | Lin t -> Lin (cc_t t)
   | Rec (v, t) -> Rec (v, cc_t t)
   | Fun { foralls; arg; ret } ->
       if pack then
@@ -288,6 +293,11 @@ let rec cc_e
       let* e1', acc' = r acc e1 in
       let* e2', code = cc_e user_fns ((n, t) :: gamma) tagger acc' e2 in
       ret (Let ((n, t'), e1', e2'), code)
+  | Split (bs, e1, e2) ->
+      let bs' = List.map ~f:(fun (n, t) -> (n, cc_t t)) bs in
+      let* e1', acc' = r acc e1 in
+      let* e2', code = cc_e user_fns (bs @ gamma) tagger acc' e2 in
+      ret (Split (bs', e1', e2'), code)
   | Cases (v, branches) ->
       let* v', acc' = r acc v in
       let* branches_rev, code =

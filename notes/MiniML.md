@@ -14,6 +14,7 @@ System F with refs, universals, _no existentials_, products, sums.
     | (+ τ₁ ... τₙ)
     | (rec (x) τ)
     | (ref τ)
+    | (lin (ref τ))
 
 binop := + | - | * | /
 
@@ -26,7 +27,8 @@ e ::=
     | (app f (τ₁ ... τₙ) e)
     | (tup e₁ ... eₙ)
     | (tup# e₁ ... eₙ)
-    | (proj i e)
+    | (proj i e)                              ; boxed tuples only
+    | (split# ((x₁ : τ₁) ... (xₙ : τₙ)) e₁ e₂) ; unboxed tuples
     | (inj i e : τ)
     | (cases e ((x₁ : τ₁) e₁) ... ((xₙ : τₙ) eₙ))
     | (fold τ e)
@@ -91,4 +93,25 @@ Handle `NoCopy NoDrop` in the kind (not the default ML kind translation!), some 
 Unboxed tuples `(# τ₁ ... τₙ)` / `(tup# e₁ ... eₙ)` compile to RichWasm `Prod`
 instead of a boxed `Struct` -- which is a departure from the uniform `ptr`
 representation. We let the RichWasm typechecker police errors, and since they
-cannot instantiate type variables, polymorphism stays uniform.
+cannot instantiate type variables, polymorphism stays uniform. Their only
+eliminator is `split#` (binds every component); `proj` is boxed-only, since
+projection would have to drop the sibling components and drops are not policed
+by RichWasm (it is affine -- `drop` has no kind premise, only `copy` does).
+
+`(lin (ref τ))` is the linking annotation for a linear (MM, mutable) ref a
+foreign module lends us; mini-ml never allocates one. It compiles to
+`Ref (Base MM) Mut (Ser ⟦τ⟧)`. Operations, both threading the ref:
+
+-   `(! r) : (# (lin (ref τ)) τ)` -- a copy-load when `τ` is copyable; when the
+    payload is itself lin it elaborates to a load-move that leaves a `Span`
+    hole the next `assign` must refill (take/put).
+-   `(assign r v) : (lin (ref τ))` -- in-place store.
+
+Variables whose type is lin (or an unboxed tuple containing one) compile as a
+bare move instead of the usual move/copy/restore, so the local is left holding
+a plug and RichWasm rejects any reuse (see the `lin_reuse_rejected` example).
+Non-use merely leaks, which the affine model tolerates. Lin values cannot cross
+into anything boxed usefully (no flag-free elimination out of an imm GC struct;
+mut GC cells would need a swap operation we don't expose) and cannot
+instantiate `∀`s (binders are kinded `gcrefs`); RichWasm rejects all of these
+at their use sites rather than mini-ml eagerly at construction.

@@ -18,6 +18,7 @@ module Source = struct
       | UProd of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
+      | Lin of Type.t
       | Rec of Variable.t * Type.t
     [@@deriving sexp, eq]
   end = struct
@@ -33,6 +34,7 @@ module Source = struct
       | UProd of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
+      | Lin of Type.t
       | Rec of Variable.t * Type.t
     [@@deriving sexp, eq]
   end
@@ -69,6 +71,7 @@ module Source = struct
       | Deref of t
       | Assign of t * t
       | Let of Binding.t * t * t
+      | Split of Binding.t list * t * t
       | Fold of Type.t * t
       | Unfold of t
     [@@deriving sexp]
@@ -105,6 +108,7 @@ module Closed = struct
       | UProd of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
+      | Lin of Type.t
       | Rec of Variable.t * Type.t
       | Exists of Variable.t * Type.t
     [@@deriving sexp, eq]
@@ -121,6 +125,7 @@ module Closed = struct
       | UProd of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
+      | Lin of Type.t
       | Rec of Variable.t * Type.t
       | Exists of Variable.t * Type.t
     [@@deriving sexp, eq]
@@ -154,6 +159,7 @@ module Closed = struct
       | Deref of t
       | Assign of t * t
       | Let of Binding.t * t * t
+      | Split of Binding.t list * t * t
       | Fold of Type.t * t
       | Unfold of t
       | Unpack of Variable.t * Binding.t * t * t

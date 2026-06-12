@@ -10,6 +10,17 @@ let parse s =
   |> Sexp.to_string_hum
   |> Stdlib.print_endline
 
+(* errors carry parser paths, which are too brittle for goldens; just print the
+   constructor *)
+let parse_err s =
+  match from_string s with
+  | Ok _ -> Stdlib.print_endline "unexpected success"
+  | Error e ->
+      (match Err.sexp_of_t e with
+      | Sexp.List (Sexp.Atom name :: _) | Sexp.Atom name ->
+          Stdlib.print_endline name
+      | _ -> Stdlib.print_endline "unprintable error")
+
 let%expect_test "parse one" =
   parse "1";
   [%expect {| (Module () () ((Int 1))) |}]
@@ -32,9 +43,30 @@ let%expect_test "parse tuple" =
   [%expect {| (Module () () ((Project 1 (Tuple ((Int -1) (Int 1)))))) |}]
 
 let%expect_test "parse unboxed tuple" =
-  parse {|(let (p : (# int (* int int))) (tup# 1 (tup 2 3)) (proj 0 p))|};
+  parse
+    {|
+    (let (p : (# int (* int int))) (tup# 1 (tup 2 3))
+      (split# ((a : int) (b : (* int int))) p
+        a))
+    |};
   [%expect
     {|
   (Module () ()
    ((Let (p (UProd (Int (Prod (Int Int)))))
-     (UTuple ((Int 1) (Tuple ((Int 2) (Int 3))))) (Project 0 (Var p))))) |}]
+     (UTuple ((Int 1) (Tuple ((Int 2) (Int 3)))))
+     (Split ((a Int) (b (Prod (Int Int)))) (Var p) (Var a))))) |}]
+
+let%expect_test "parse lin" =
+  parse
+    {|
+    (import (mk : (() int -> (lin (ref int)))))
+    (assign (app mk () 5) 8)
+    |};
+  [%expect
+    {|
+  (Module ((Import (mk (Fun (foralls ()) (arg Int) (ret (Lin (Ref Int))))))) ()
+   ((Assign (Apply (Var mk) () (Int 5)) (Int 8)))) |}]
+
+let%expect_test "parse lin non-ref" =
+  parse_err {|(let (r : (lin int)) 1 2)|};
+  [%expect {| ExpectedLinRef |}]
