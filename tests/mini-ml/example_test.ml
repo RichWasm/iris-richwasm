@@ -119,25 +119,31 @@ let%expect_test "examples" =
         drop)
       (table 0)
       (export "_start" (func 0)))
-    -----------utuple_project-----------
+    -----------utuple_split-----------
     (module
-      (func ((ref (base gc) imm (struct)) -> i31) (local ptr)
+      (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr)
         i32.const 42
         tag
         i32.const 7
         tag
         group 2
         ungroup
+        local.set 2
         local.set 1
-        drop
+        local.get 2 move
+        copy
+        local.set 2
         local.get 1 move
+        drop
+        local.get 2 move
+        drop
         local.get 0 move
         drop)
       (table 0)
       (export "_start" (func 0)))
     -----------utuple_let-----------
     (module
-      (func ((ref (base gc) imm (struct)) -> i31) (local (prod ptr ptr) ptr)
+      (func ((ref (base gc) imm (struct)) -> i31) (local (prod ptr ptr) ptr ptr)
         i32.const 1
         tag
         i32.const 2
@@ -148,9 +154,15 @@ let%expect_test "examples" =
         copy
         local.set 1
         ungroup
-        drop
+        local.set 3
         local.set 2
         local.get 2 move
+        copy
+        local.set 2
+        local.get 2 move
+        drop
+        local.get 3 move
+        drop
         local.get 1 move
         drop
         local.get 0 move
@@ -218,7 +230,7 @@ let%expect_test "examples" =
           ((ref (base gc) imm
              (struct (ser (ref (base gc) imm (struct))) (ser (prod i31 i31))))
             -> i31)
-          (local ptr ptr (prod ptr ptr) (prod ptr ptr) ptr)
+          (local ptr ptr (prod ptr ptr) (prod ptr ptr) ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -239,9 +251,15 @@ let%expect_test "examples" =
         copy
         local.set 4
         ungroup
-        drop
+        local.set 6
         local.set 5
         local.get 5 move
+        copy
+        local.set 5
+        local.get 5 move
+        drop
+        local.get 6 move
+        drop
         local.get 4 move
         drop
         local.get 2 move
@@ -350,7 +368,8 @@ let%expect_test "examples" =
         drop
         local.get 0 move
         drop)
-      (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
+      (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr
+          ptr)
         group 0
         new gc imm
         cast (ref (base gc) imm (struct))
@@ -410,9 +429,476 @@ let%expect_test "examples" =
           drop
         end
         ungroup
+        local.set 7
         local.set 6
-        drop
+        local.get 7 move
+        copy
+        local.set 7
         local.get 6 move
+        drop
+        local.get 7 move
+        drop
+        local.get 0 move
+        drop)
+      (table 0 1)
+      (export "_start" (func 1)))
+    -----------lin_make-----------
+    (module
+      (import ((ref (base gc) imm
+                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                -> (ref (base mm) mut (ser i31))))
+      (func ((ref (base gc) imm (struct)) -> (ref (base mm) mut (ser i31))) (local
+          ptr ptr ptr ptr ptr)
+        group 0
+        new gc imm
+        cast (ref (base gc) imm (struct))
+        coderef 0
+        group 2
+        new gc imm
+        cast
+          (ref (base gc) imm
+            (struct (ser (ref (base gc) imm (struct)))
+              (ser
+                (coderef
+                  ((ref (base gc) imm
+                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                    -> (ref (base mm) mut (ser i31)))))))
+        pack (type (ref (base gc) imm (struct)))
+          (ref (base gc) imm
+            (struct (ser (var 0))
+              (ser
+                (coderef
+                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
+                    (ref (base mm) mut (ser i31)))))))
+        unpack (result (ref (base mm) mut (ser i31))) inferfx
+          local.set 1
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [0]) follow
+          local.set 2
+          drop
+          local.get 2 move
+          local.set 3
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [1]) follow
+          local.set 4
+          drop
+          local.get 4 move
+          local.set 5
+          local.get 3 move
+          copy
+          local.set 3
+          i32.const 5
+          tag
+          group 2
+          new gc imm
+          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
+          local.get 5 move
+          copy
+          local.set 5
+          call_indirect
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+          local.get 1 move
+          drop
+        end
+        local.get 0 move
+        drop)
+      (table 0 1)
+      (export "_start" (func 1)))
+    -----------lin_deref-----------
+    (module
+      (import ((ref (base gc) imm
+                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                -> (ref (base mm) mut (ser i31))))
+      (func
+          ((ref (base gc) imm (struct)) ->
+            (prod (ref (base mm) mut (ser i31)) i31))
+          (local ptr ptr ptr ptr ptr)
+        group 0
+        new gc imm
+        cast (ref (base gc) imm (struct))
+        coderef 0
+        group 2
+        new gc imm
+        cast
+          (ref (base gc) imm
+            (struct (ser (ref (base gc) imm (struct)))
+              (ser
+                (coderef
+                  ((ref (base gc) imm
+                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                    -> (ref (base mm) mut (ser i31)))))))
+        pack (type (ref (base gc) imm (struct)))
+          (ref (base gc) imm
+            (struct (ser (var 0))
+              (ser
+                (coderef
+                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
+                    (ref (base mm) mut (ser i31)))))))
+        unpack (result (ref (base mm) mut (ser i31))) inferfx
+          local.set 1
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [0]) follow
+          local.set 2
+          drop
+          local.get 2 move
+          local.set 3
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [1]) follow
+          local.set 4
+          drop
+          local.get 4 move
+          local.set 5
+          local.get 3 move
+          copy
+          local.set 3
+          i32.const 5
+          tag
+          group 2
+          new gc imm
+          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
+          local.get 5 move
+          copy
+          local.set 5
+          call_indirect
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+          local.get 1 move
+          drop
+        end
+        load (Path []) follow
+        group 2
+        local.get 0 move
+        drop)
+      (table 0 1)
+      (export "_start" (func 1)))
+    -----------lin_assign-----------
+    (module
+      (import ((ref (base gc) imm
+                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                -> (ref (base mm) mut (ser i31))))
+      (func ((ref (base gc) imm (struct)) -> (ref (base mm) mut (ser i31))) (local
+          ptr ptr ptr ptr ptr)
+        group 0
+        new gc imm
+        cast (ref (base gc) imm (struct))
+        coderef 0
+        group 2
+        new gc imm
+        cast
+          (ref (base gc) imm
+            (struct (ser (ref (base gc) imm (struct)))
+              (ser
+                (coderef
+                  ((ref (base gc) imm
+                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                    -> (ref (base mm) mut (ser i31)))))))
+        pack (type (ref (base gc) imm (struct)))
+          (ref (base gc) imm
+            (struct (ser (var 0))
+              (ser
+                (coderef
+                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
+                    (ref (base mm) mut (ser i31)))))))
+        unpack (result (ref (base mm) mut (ser i31))) inferfx
+          local.set 1
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [0]) follow
+          local.set 2
+          drop
+          local.get 2 move
+          local.set 3
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [1]) follow
+          local.set 4
+          drop
+          local.get 4 move
+          local.set 5
+          local.get 3 move
+          copy
+          local.set 3
+          i32.const 5
+          tag
+          group 2
+          new gc imm
+          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
+          local.get 5 move
+          copy
+          local.set 5
+          call_indirect
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+          local.get 1 move
+          drop
+        end
+        i32.const 8
+        tag
+        store (Path [])
+        local.get 0 move
+        drop)
+      (table 0 1)
+      (export "_start" (func 1)))
+    -----------lin_let-----------
+    (module
+      (import ((ref (base gc) imm
+                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                -> (ref (base mm) mut (ser i31))))
+      (func ((ref (base gc) imm (struct)) -> (ref (base mm) mut (ser i31))) (local
+          ptr ptr ptr ptr ptr ptr)
+        group 0
+        new gc imm
+        cast (ref (base gc) imm (struct))
+        coderef 0
+        group 2
+        new gc imm
+        cast
+          (ref (base gc) imm
+            (struct (ser (ref (base gc) imm (struct)))
+              (ser
+                (coderef
+                  ((ref (base gc) imm
+                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                    -> (ref (base mm) mut (ser i31)))))))
+        pack (type (ref (base gc) imm (struct)))
+          (ref (base gc) imm
+            (struct (ser (var 0))
+              (ser
+                (coderef
+                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
+                    (ref (base mm) mut (ser i31)))))))
+        unpack (result (ref (base mm) mut (ser i31))) inferfx
+          local.set 1
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [0]) follow
+          local.set 2
+          drop
+          local.get 2 move
+          local.set 3
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [1]) follow
+          local.set 4
+          drop
+          local.get 4 move
+          local.set 5
+          local.get 3 move
+          copy
+          local.set 3
+          i32.const 3
+          tag
+          group 2
+          new gc imm
+          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
+          local.get 5 move
+          copy
+          local.set 5
+          call_indirect
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+          local.get 1 move
+          drop
+        end
+        local.set 6
+        local.get 6 move
+        i32.const 9
+        tag
+        store (Path [])
+        local.get 6 move
+        drop
+        local.get 0 move
+        drop)
+      (table 0 1)
+      (export "_start" (func 1)))
+    -----------lin_roundtrip-----------
+    (module
+      (import ((ref (base gc) imm
+                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                -> (ref (base mm) mut (ser i31))))
+      (func
+          ((ref (base gc) imm (struct)) ->
+            (prod (ref (base mm) mut (ser i31)) i31))
+          (local ptr ptr ptr ptr ptr ptr ptr)
+        group 0
+        new gc imm
+        cast (ref (base gc) imm (struct))
+        coderef 0
+        group 2
+        new gc imm
+        cast
+          (ref (base gc) imm
+            (struct (ser (ref (base gc) imm (struct)))
+              (ser
+                (coderef
+                  ((ref (base gc) imm
+                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                    -> (ref (base mm) mut (ser i31)))))))
+        pack (type (ref (base gc) imm (struct)))
+          (ref (base gc) imm
+            (struct (ser (var 0))
+              (ser
+                (coderef
+                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
+                    (ref (base mm) mut (ser i31)))))))
+        unpack (result (ref (base mm) mut (ser i31))) inferfx
+          local.set 1
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [0]) follow
+          local.set 2
+          drop
+          local.get 2 move
+          local.set 3
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [1]) follow
+          local.set 4
+          drop
+          local.get 4 move
+          local.set 5
+          local.get 3 move
+          copy
+          local.set 3
+          i32.const 3
+          tag
+          group 2
+          new gc imm
+          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
+          local.get 5 move
+          copy
+          local.set 5
+          call_indirect
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+          local.get 1 move
+          drop
+        end
+        i32.const 8
+        tag
+        store (Path [])
+        load (Path []) follow
+        group 2
+        ungroup
+        local.set 7
+        local.set 6
+        local.get 6 move
+        local.get 7 move
+        copy
+        local.set 7
+        group 2
+        local.get 6 move
+        drop
+        local.get 7 move
+        drop
+        local.get 0 move
+        drop)
+      (table 0 1)
+      (export "_start" (func 1)))
+    -----------lin_reuse_rejected-----------
+    (module
+      (import ((ref (base gc) imm
+                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                -> (ref (base mm) mut (ser i31))))
+      (func
+          ((ref (base gc) imm (struct)) ->
+            (prod (ref (base mm) mut (ser i31)) (ref (base mm) mut (ser i31))))
+          (local ptr ptr ptr ptr ptr ptr)
+        group 0
+        new gc imm
+        cast (ref (base gc) imm (struct))
+        coderef 0
+        group 2
+        new gc imm
+        cast
+          (ref (base gc) imm
+            (struct (ser (ref (base gc) imm (struct)))
+              (ser
+                (coderef
+                  ((ref (base gc) imm
+                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
+                    -> (ref (base mm) mut (ser i31)))))))
+        pack (type (ref (base gc) imm (struct)))
+          (ref (base gc) imm
+            (struct (ser (var 0))
+              (ser
+                (coderef
+                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
+                    (ref (base mm) mut (ser i31)))))))
+        unpack (result (ref (base mm) mut (ser i31))) inferfx
+          local.set 1
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [0]) follow
+          local.set 2
+          drop
+          local.get 2 move
+          local.set 3
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [1]) follow
+          local.set 4
+          drop
+          local.get 4 move
+          local.set 5
+          local.get 3 move
+          copy
+          local.set 3
+          i32.const 3
+          tag
+          group 2
+          new gc imm
+          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
+          local.get 5 move
+          copy
+          local.set 5
+          call_indirect
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+          local.get 1 move
+          drop
+        end
+        local.set 6
+        local.get 6 move
+        i32.const 8
+        tag
+        store (Path [])
+        local.get 6 move
+        i32.const 9
+        tag
+        store (Path [])
+        group 2
+        local.get 6 move
+        drop
         local.get 0 move
         drop)
       (table 0 1)

@@ -8,7 +8,11 @@ module Err = struct
     | UnboundVar of string
     | ApplyNonClosure of Closed.PreType.t
     | ProjectNonProd of Closed.PreType.t
+    | ProjectUnboxed of Closed.PreType.t
+    | SplitNonUnboxed of Closed.PreType.t
+    | SplitMismatch of Closed.Type.t list * Closed.PreType.t list
     | DerefNonRef of Closed.PreType.t
+    | LinNonRef of Closed.PreType.t
     | UnfoldNonRec of Closed.PreType.t
     | EmptyCases
     | ApplyForallsLengthMismatch of int * int
@@ -30,12 +34,21 @@ let rep : Representation.t = Atom Ptr
 
 (** the kind of mini-ml type binders: [VALTYPE ptr gcrefs]. Every type is
     uniformly represented except unboxed tuples, which therefore cannot
-    instantiate type variables. *)
+    instantiate type variables; [lin] refs are uncopyable (anyrefs), so they
+    cannot either. *)
 let kind : Kind.t = VALTYPE (rep, GCRefs)
 
 let rec rep_of_type : Type.t -> Representation.t = function
   | Prod ts -> Prod (List.map ~f:rep_of_type ts)
   | _ -> rep
+
+(** whether the value itself is uncopyable, mirroring richwasm's kind flags:
+    [lin] is an mm ref (anyrefs) and unboxed tuples lub their components, while
+    boxed values are gc refs (gcrefs) no matter what their pointees hold. *)
+let rec contains_lin : Closed.PreType.t -> bool = function
+  | Lin _ -> true
+  | UProd ts -> List.exists ~f:contains_lin ts
+  | Int | Var _ | Code _ | Prod _ | Sum _ | Ref _ | Rec _ | Exists _ -> false
 
 let rec type_subst var replacement tau =
   let open Closed.PreType in
@@ -45,6 +58,7 @@ let rec type_subst var replacement tau =
   | UProd ts -> UProd (List.map ~f:(type_subst var replacement) ts)
   | Sum ts -> Sum (List.map ~f:(type_subst var replacement) ts)
   | Ref t -> Ref (type_subst var replacement t)
+  | Lin t -> Lin (type_subst var replacement t)
   | Rec (v, _) when equal_string v var -> tau
   | Rec (v, t) -> Rec (v, type_subst var replacement t)
   | Exists (v, _) when equal_string v var -> tau
@@ -89,7 +103,8 @@ let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
   | Project (i, v) ->
       let* vt = type_of_e gamma v in
       (match vt with
-      | Prod ts | UProd ts -> ret (List.nth_exn ts i)
+      | Prod ts -> ret (List.nth_exn ts i)
+      | UProd _ -> fail (ProjectUnboxed vt)
       | _ -> fail (ProjectNonProd vt))
   | Op _ -> ret Int
   | If0 (_, e, _) -> type_of_e gamma e
@@ -102,9 +117,17 @@ let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
       let* vt = type_of_e gamma v in
       (match vt with
       | Ref t -> ret t
+      (* reading a lin ref must give the (unboxed) ref back alongside the value *)
+      | Lin (Ref t) -> ret (UProd [ vt; t ])
       | _ -> fail (DerefNonRef vt))
-  | Assign _ -> ret (Prod [])
+  | Assign (re, _) ->
+      let* rt = type_of_e gamma re in
+      (* writing a lin ref must give the ref back; gc assigns return unit *)
+      (match rt with
+      | Lin _ -> ret rt
+      | _ -> ret (Prod []))
   | Let ((n, t), _, e) -> type_of_e ((n, t) :: gamma) e
+  | Split (bs, _, e) -> type_of_e (bs @ gamma) e
   | Fold (t, _) -> ret t
   | Unfold v ->
       let* vt = type_of_e gamma v in
@@ -135,6 +158,12 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
   | Ref t ->
       let+ t' = r t in
       Ref (Base GC, Mut, Ser t')
+  | Lin (Ref inner) ->
+      (* NOTE: deref dispatches on the payload flag: gcrefs payloads copy out;
+         lin payloads move out, leaving a span hole the next assign refills *)
+      let+ inner' = r inner in
+      Ref (Base MM, Mut, Ser inner')
+  | Lin t -> fail (LinNonRef t)
   | Rec (v, t) ->
       let+ t' = compile_type (v :: delta) t in
       Rec (kind, t')
@@ -205,10 +234,14 @@ let rec compile_expr delta gamma locals coderef_map e :
       ret (v' @ [ Pack (Type witness', raw_t) ], locals', fx)
   | Var v ->
       (match
-         List.find_map gamma ~f:(fun (name, _, i) ->
-             Option.some_if (equal_string name v) i)
+         List.find_map gamma ~f:(fun (name, t, i) ->
+             Option.some_if (equal_string name v) (t, i))
        with
-      | Some idx ->
+      | Some (t, idx) when contains_lin t ->
+          (* lin values are uncopyable; move out and leave the plug behind, so
+             richwasm rejects any second use *)
+          ret ([ LocalGet (idx, Move) ], locals, [])
+      | Some (_, idx) ->
           (* local.get sets the value to plug so we have to copy and put it back *)
           ret ([ LocalGet (idx, Move); Copy; LocalSet idx ], locals, [])
       | None -> fail (VarNotInGamma v))
@@ -235,48 +268,49 @@ let rec compile_expr delta gamma locals coderef_map e :
           fx_l @ fx_r )
   | Project (n, v) ->
       let* vt = type_of_e unindexed v in
-      let* v', locals', fx = r v in
-      let temp_idx = List.length locals' in
-      let locals'' = locals' @ [ ("#temp", rw_t) ] in
-      let* suffix =
+      let* () =
         match vt with
-        | Prod _ ->
-            ret
-              [
-                Load (Path [ n ], Follow);
-                LocalSet temp_idx;
-                Drop;
-                LocalGet (temp_idx, Move);
-              ]
-        | UProd ts ->
-            (* stash component [n], dropping the components above and below it *)
-            let drops i = List.init i ~f:(Fn.const Drop) in
-            ret
-              ([ Ungroup ]
-              @ drops (List.length ts - 1 - n)
-              @ [ LocalSet temp_idx ]
-              @ drops n
-              @ [ LocalGet (temp_idx, Move) ])
+        | Prod _ -> ret ()
+        | UProd _ -> fail (ProjectUnboxed vt)
         | _ -> fail (ProjectNonProd vt)
       in
-      ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ])
-  | New v ->
-      let* v', locals', fx = r v in
-      ret (v' @ [ New (GC, Mut) ], locals', fx)
-  | Deref v ->
       let* v', locals', fx = r v in
       let temp_idx = List.length locals' in
       let locals'' = locals' @ [ ("#temp", rw_t) ] in
       let suffix =
         [
-          Load (Path [], Follow);
+          Load (Path [ n ], Follow);
           LocalSet temp_idx;
           Drop;
           LocalGet (temp_idx, Move);
         ]
       in
       ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ])
+  | New v ->
+      let* v', locals', fx = r v in
+      ret (v' @ [ New (GC, Mut) ], locals', fx)
+  | Deref v ->
+      let* vt = type_of_e unindexed v in
+      let* v', locals', fx = r v in
+      (match vt with
+      | Lin _ ->
+          (* the copy-load leaves [ref; value]; pair them up unboxed *)
+          ret (v' @ [ Load (Path [], Follow); Group 2 ], locals', fx)
+      | _ ->
+          let temp_idx = List.length locals' in
+          let locals'' = locals' @ [ ("#temp", rw_t) ] in
+          let suffix =
+            [
+              Load (Path [], Follow);
+              LocalSet temp_idx;
+              Drop;
+              LocalGet (temp_idx, Move);
+            ]
+          in
+          ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ]))
   | Assign (re, v) ->
+      (* NOTE: the store leaves the ref on the stack, which for lin is exactly
+         the declared result *)
       let* re', locals', fx_re = r re in
       let* v', locals', fx_v = compile_expr delta gamma locals' coderef_map v in
       ret (re' @ v' @ [ Store (Path []) ], locals', fx_re @ fx_v)
@@ -336,6 +370,41 @@ let rec compile_expr delta gamma locals coderef_map e :
       ret
         ( e1' @ [ LocalSet var_idx ] @ e2' @ [ LocalGet (var_idx, Move); Drop ],
           locals''',
+          fx1 @ fx2 )
+  | Split (bs, e1, e2) ->
+      let* vt = type_of_e unindexed e1 in
+      let* components =
+        match vt with
+        | UProd ts -> ret ts
+        | _ -> fail (SplitNonUnboxed vt)
+      in
+      let binder_ts = List.map ~f:snd bs in
+      let* () =
+        if List.equal Closed.Type.equal binder_ts components then
+          ret ()
+        else
+          fail (SplitMismatch (binder_ts, components))
+      in
+      let* e1', locals', fx1 = r e1 in
+      let base_idx = List.length locals' in
+      let* bound_locals =
+        mapM bs ~f:(fun (n, t) ->
+            let+ t' = compile_type delta t in
+            (n, t'))
+      in
+      let gamma' =
+        List.mapi bs ~f:(fun i (n, t) -> (n, t, base_idx + i)) @ gamma
+      in
+      let* e2', locals'', fx2 =
+        compile_expr delta gamma' (locals' @ bound_locals) coderef_map e2
+      in
+      let idxs = List.mapi bs ~f:(fun i _ -> base_idx + i) in
+      ret
+        ( e1' @ [ Ungroup ]
+          @ List.rev_map ~f:(fun i -> LocalSet i) idxs
+          @ e2'
+          @ List.concat_map ~f:(fun i -> [ LocalGet (i, Move); Drop ]) idxs,
+          locals'',
           fx1 @ fx2 )
   | If0 (c, thn, els) ->
       let* c', locals', fx_c = r c in

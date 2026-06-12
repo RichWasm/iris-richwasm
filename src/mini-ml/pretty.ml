@@ -8,6 +8,7 @@ let rec pp_pretype ff pt =
   | Int -> fprintf ff "int"
   | Var v -> fprintf ff "'%s" v
   | Ref t -> fprintf ff "@[(ref@ %a)@]" pp_type t
+  | Lin t -> fprintf ff "@[(lin@ %a)@]" pp_type t
   | Prod ts -> fprintf ff "@[<hov 2>(*@ %a)@]" (pp_print_list pp_type) ts
   | UProd ts -> fprintf ff "@[<hov 2>(#@ %a)@]" (pp_print_list pp_type) ts
   | Sum ts -> fprintf ff "@[<hov 2>(+@ %a)@]" (pp_print_list pp_type) ts
@@ -64,6 +65,10 @@ let rec pp_expr ff e =
   | Let ((name, ty), v, body) ->
       fprintf ff "@[<hov 2>(let@ @[<hov 2>([:@ %s@ %a]@ %a)@]@,@[<v 2>%a@])@]"
         name pp_type ty pp_expr v pp_expr body
+  | Split (bs, v, body) ->
+      fprintf ff "@[<hov 2>(split#@ @[<hov 2>(%a)@]@ %a@,@[<v 2>%a@])@]"
+        (pp_print_list (fun ff (v, t) -> fprintf ff "[:@ %s@ %a]" v pp_type t))
+        bs pp_expr v pp_expr body
   | Fold (t, v) -> fprintf ff "@[<hov 2>(fold@ [%a]@ %a)@]" pp_type t pp_expr v
   | Unfold v -> fprintf ff "@[<hov 2>(unfold@ %a)@]" pp_expr v
 
