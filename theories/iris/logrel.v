@@ -874,13 +874,13 @@ Section instr.
           □ ▷ ∀ vs1 os1 θ,
             atoms_interp os1 vs1 -∗
             values_interp1 Ts1 se os1 -∗
-            rt_token rti sr θ -∗
+            rt_token rti sr lpall θ -∗
             na_own logrel_nais ⊤ -∗
             ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
             ↪[RUN] -∗
             let Φ := λne vs2,
               (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗
-              (∃ θ', rt_token rti sr θ') ∗
+              (∃ θ', rt_token rti sr lpall θ') ∗
               na_own logrel_nais ⊤
             in
             CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
@@ -900,10 +900,10 @@ Section instr.
     - do 2 f_equiv.
       by eapply translate_types.
     -
-      set (Φ1 := (λ vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
-      set (Φ2 := (λ vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se' os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
-      set (oΦ1 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
-      set (oΦ2 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se' os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (Φ1 := (λ vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗ (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (Φ2 := (λ vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se' os2) ∗ (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (oΦ1 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗ (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (oΦ2 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se' os2) ∗ (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I) in *.
       assert (HΦs : oΦ1 ≡{n}≡ oΦ2) by solve_proper.
       set (oL1 := [(length r0, λne _, oΦ1)] : label_ctxO).
       set (oL2 := [(length r0, λne _, oΦ2)] : label_ctxO).
@@ -1174,7 +1174,7 @@ Section instr.
        □ (∀ fr vs os θ,
             ⌜frame_rel lmask fr0 fr⌝ -∗
             frame_interp se ηss L WL fr -∗
-            rt_token rti sr θ -∗
+            rt_token rti sr lpall θ -∗
             na_own logrel_nais ⊤ -∗
             atoms_interp os vs -∗
             values_interp se τs os -∗
@@ -1208,7 +1208,7 @@ Section instr.
           □ ∀ vs os θ,
             atoms_interp os vs -∗
             values_interp se τr os -∗
-            rt_token rti sr θ -∗
+            rt_token rti sr lpall θ -∗
             na_own logrel_nais ⊤ -∗
             P vs
     | None => False
@@ -1250,7 +1250,7 @@ Section instr.
        "Hvs" ∷ atoms_interp os vs -∗
        "Hos" ∷ values_interp se τs1 os -∗
        "Hframe" ∷ frame_interp se F.(fc_locals) L WL fr -∗
-       "Hrt" ∷ rt_token rti sr θ -∗
+       "Hrt" ∷ rt_token rti sr lpall θ -∗
        "Hown" ∷ na_own logrel_nais ⊤ -∗
        "Hfr" ∷ ↪[frame] fr -∗
        "Hrun" ∷ ↪[RUN] -∗
@@ -1258,7 +1258,7 @@ Section instr.
            {{ fr'; vs',
               ⌜frame_rel lmask fr fr'⌝ ∗ frame_interp se F.(fc_locals) L' WL fr' ∗
                 (∃ os', values_interp se τs2 os' ∗ atoms_interp os' vs') ∗
-                (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤ }})%I.
+                (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤ }})%I.
 
   Definition has_func_type_sem
     (mr : module_runtime) (M : module_ctx) (WT : wtype_ctx) (f : module_func) (ϕ : function_type) :
