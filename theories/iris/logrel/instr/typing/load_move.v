@@ -17,6 +17,16 @@ Section load_move.
   Lemma something_about_setflags: False.
   Abort.
 
+  Lemma has_areps_one ι sv :
+    has_areps [ι] sv ->
+    ∃ o, sv = SAtoms [o] /\ has_arep ι o.
+  Proof.
+    unfold has_areps.
+    intros (os & -> & Harep).
+    inversion Harep; subst.
+    inversion H3; subst; eauto.
+  Qed.
+
   Lemma compat_load_move M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -48,16 +58,82 @@ Section load_move.
     inv_cg_emit Hemit.
     inv_cg_bind Hcompile () ?wt ?wt ?wl ?wl es_ptr_flags ?es_rest Hptr_flags Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl  es_case_ptr ?es_rest Hcompile Hignore.
-    cbn in Hignore; inversion Hignore; subst; clear Hignore.
+    inv_cg_ret Hignore; subst; clear_nils.
 
     (* Some clean up *)
     destruct u.
     destruct p as [[] []].
-    clear_nils.
     eapply cwp_case_ptr in Hcompile.
     destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
     destruct Hcompile as (Hunr & Hloadmm & Hloadgc & -> & -> & Hspec).
     clear_nils.
+    inv_cg_bind Hloadmm ?ret ?wt ?wt ?wl ?wl es_root_hp ?es_rest Hroot_hp Hload.
+    inv_cg_emit Hunr.
+    subst; clear_nils.
+    repeat match goal with
+           | x : () |- _ => destruct x
+           | eqn : () = () |- _ => clear eqn
+           end.
+    clear Hloadgc.
+
+    unfold have_instr_type_sem.
+    unfold ψ in *; clear ψ.
+    iIntros (se fr os vs evs θ B R).
+    repeat iIntros "@".
+
+    (* Opening up the val. interp *)
+    iEval (rewrite values_interp_one_eq value_interp_eq) in "Hos".
+    iDestruct "Hos" as "(%sk & %Hev & %Hsv & Href)".
+    iEval (cbn) in "Href".
+    cbn in Hev.
+
+    (* Recovering kind-related facts *)
+    repeat
+      match goal with
+      | H : has_instruction_type_ok _ _ _ |- _ => inversion H; clear H; subst
+      | H : has_mono_rep_instr _ _ |- _ => inversion H; clear H; subst
+      | H : Forall _ (_ :: _) |- _ => inversion H; clear H; subst
+      | H : Forall _ [] |- _ =>  clear H
+      | H : has_mono_rep _ _ |- _ => destruct H as (?ρ & ?Hrep & ?Hmono)
+      | H : has_rep _ _ _ |- _ => inversion H; subst; clear H
+      | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
+      | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
+      | H : has_kind ?F (RefT _ _ _ _) _ |- _ => inversion H; subst; clear H
+      | H : has_kind ?F ?t ?k,
+        H' : has_kind ?F ?t ?k' |- _ =>
+          pose proof (has_kind_agree F t k k' H H'); clear H'
+      end.
+    cbn in Hev; inversion Hev; subst; clear Hev.
+    destruct Hsv as [Hareps Hptrs].
+    eapply has_areps_one in Hareps.
+    destruct Hareps as (o & Ho & Harep).
+    inversion Ho; subst.
+    destruct o; try done.
+    iPoseProof (big_sepL2_cons_inv_l with "Hvs") as "(%v & %vs' & -> & Hv & Hvs)".
+    iPoseProof (big_sepL2_nil_inv_l with "Hvs") as "->"; iClear "Hvs".
+    iDestruct "Hv" as "(%n & %n32 & %Hn32 & -> & %rp & %Hrp & Hrp)".
+    iDestruct "Href" as "(%ℓ & %fs & %ws & %Hp & Hfs & Hws & Ht)".
+    inversion Hp; subst p; clear Hp.
+    destruct rp as [|[|]]; iEval (cbn) in "Hrp"; try done; [].
+    inversion Hrp.
+    apply has_values_to_consts_inv in Hevs; subst.
+    (* 1: storing locals *)
+    iEval (rewrite app_assoc).
+      set (Q := (λ f' v',
+                     ⌜f' = {| W.f_locs := <[(sum_list_with length (typing.fc_locals F) + length wl)%nat :=VAL_int32 n32]> (f_locs fr);
+                              W.f_inst := f_inst fr |}⌝ ∗
+                     ⌜v' = [VAL_int32 n32]⌝)%I : frame -> list value -> iProp Σ).
+    iApply (cwp_seq with "[Hfr Hrun]").
+    {
+      instantiate (1 := Q).
+      cbn.
+      iApply (cwp_local_tee with "[] [$] [$]").
+      { admit. }
+      done.
+    }
+    unfold Q; clear Q.
+    iIntros (f' vs') "[-> ->] Hf Hr".
+
     (* TODO need a wp_load1_move_mm lemma *)
     (* TODO need a wp_load_move_mm lemma *)
     (* TODO need a path lemma? should be shared with store_strong. *)
