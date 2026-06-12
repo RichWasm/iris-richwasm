@@ -9,6 +9,7 @@ let rec pp_pretype ff pt =
   | Var v -> fprintf ff "'%s" v
   | Ref t -> fprintf ff "@[(ref@ %a)@]" pp_type t
   | Prod ts -> fprintf ff "@[<hov 2>(*@ %a)@]" (pp_print_list pp_type) ts
+  | UProd ts -> fprintf ff "@[<hov 2>(#@ %a)@]" (pp_print_list pp_type) ts
   | Sum ts -> fprintf ff "@[<hov 2>(+@ %a)@]" (pp_print_list pp_type) ts
   | Rec (v, t) -> fprintf ff "@[<hov 2>(rec@ %s@ %a)]" v pp_type t
   | Fun { foralls; arg; ret } ->
@@ -33,6 +34,7 @@ let rec pp_expr ff e =
   | Int i -> fprintf ff "%i" i
   | Var v -> fprintf ff "%s" v
   | Tuple vs -> fprintf ff "@[<hov 2>(tuple@ %a)@]" (pp_print_list pp_expr) vs
+  | UTuple vs -> fprintf ff "@[<hov 2>(tup#@ %a)@]" (pp_print_list pp_expr) vs
   | Inj (case, v, t) ->
       fprintf ff "@[<hov 2>(inj@ %i@ %a@ %a)@]" case pp_expr v pp_type t
   | Fun { foralls; arg; ret_type; body } ->

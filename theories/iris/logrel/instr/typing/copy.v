@@ -1,6 +1,7 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.copy.
 Require Import RichWasm.iris.logrel.logrel_properties.
+Require Import RichWasm.iris.logrel.map_gc_ptr.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -14,6 +15,14 @@ Section copy.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
+
+  Lemma frame_rel_inst P f1 f2 :
+    frame_rel P f1 f2 ->
+    f_inst f1 = f_inst f2.
+  Proof.
+    unfold frame_rel.
+    tauto.
+  Qed.
 
   Lemma cwp_save_stack_w' fe tys localidxs idxs wt wl wt' wl' es :
       run_codegen (save_stack_w fe tys) wt wl = inr (localidxs, wt', wl', es) ->
@@ -159,32 +168,94 @@ Section copy.
     iIntros (f'' vs') "(-> & ->) Hf Hr".
 
     (* 3: map_gc_ptrs ... (duproot ...) *)
-    iEval (rewrite app_assoc).
-    iApply (cwp_seq with "[Hf Hr Hvs]").
+    iApply cwp_val_app; first eauto using has_values_to_consts.
+    (* decomposing the frame *)
+    iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
+    iDestruct "Hframe" as "(%oss & %vss_L & %vs_WL & %Hlocs & %Hhasp & %Hrest & [Hatsf Hlocsf])".
+    (*
+    apply Forall2_app_inv_l in Hrest.
+    destruct Hrest as (vsf1 & vsf' & Hvsf1 & Hvsf' & ->).
+    apply Forall2_app_inv_l in Hvsf'.
+    destruct Hvsf' as (vsf2 & vsf'' & Hvsf2 & Hvsf'' & ->).
+    pose proof (Forall2_Forall2_length _ _ Hhasp) as Hlenvss_L.
+    pose proof (Forall2_length _ _ _ Hvsf1) as Hlenvsf1.
+    pose proof (Forall2_length _ _ _ Hvsf2) as Hlenvsf2.
+    rewrite !length_map in Hlenvsf2.
+    *)
+    eapply wp_map_gc_ptrs_duproot in Hgcs;
+      [
+      | by rewrite !length_map length_seq
+      | erewrite NoDup_fmap; eauto using NoDup_seq;
+        intros ? ?; congruence ].
+    destruct Hgcs as (_ & -> & -> & Hgcs).
+    set (Q := (λ f0 (v0 : list value),
+                ∃ vs',
+                ⌜v0 = []⌝ ∗
+                "Htok" ∷ rt_token rti sr θ ∗
+                "HE" ∷ na_own logrel_nais ⊤ ∗
+                "Hats" ∷ ([∗ list] o;v ∈ os;vs, atom_interp o v) ∗
+                "Hats'" ∷ ([∗ list] o;v' ∈ os;vs', ⌜atom_copyable o⌝ -∗ atom_interp o v') ∗
+                "%Hinst" ∷ ⌜f_inst f0 = f_inst f'⌝ ∗
+                "%Hupd"
+                ∷ ⌜Forall2 (λ (i : prelude.W.immediate) (v : value), f_locs f0 !! i = Some v)
+                    (map localimm
+                        (map W.Mk_localidx
+                          (seq (fe_wlocal_offset fe + length wl) (length (map translate_prim (map arep_to_prim ιs))))))
+                    vs'⌝ ∗
+                "%Hsame" ∷ ⌜∀ i, Mk_localidx i ∉ map Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length (map translate_prim (map arep_to_prim ιs))))
+       → f_locs f0 !! i = f_locs f' !! i⌝)%I).
+    iApply (cwp_seq with "[Hf Hr Hvs Hrt Hown]").
     {
-      (* TODO need to finish map_gc_ptr_duproot in wp_codegen *)
-      admit.
+      instantiate (1 := Q).
+      rewrite -> !(frame_rel_inst _ _ _ Hfrel) in *.
+      iApply (Hgcs with "[$] [$] [$] [//] [$] [$]").
+      - iPureIntro.
+        unfold frame_rel in Hfrel.
+        destruct Hfrel as [Hfrel _].
+        rewrite Forall2_fmap_l.
+        eapply Forall2_impl; done.
+      - done.
+      - done.
+      - done.
+      - done.
+      - iIntros (vs' f''). repeat iIntros "@".
+        by iFrame.
     }
-    iIntros (f''' vs') "Hpost Hf Hr".
+    iIntros (f'' vs') "(%vsf' & -> & H) Hf Hr".
+    repeat iDestruct "H" as "[@ H]"; iDestruct "H" as "@".
 
     (* 4: restore_stack (second time) *)
 
-    iApply cwp_val_app; first apply has_values_to_consts.
+    assert (Hlenvsf': length ιs = length vsf').
+    {
+      apply Forall2_length in Hupd.
+      by rewrite !length_map length_seq in Hupd.
+    }
     eapply cwp_restore_stack_w in Hrestore2;
-      last (rewrite !length_map length_seq; eauto); [].
+      last (rewrite !length_map length_seq; apply Hlenvsf').
     destruct Hrestore2 as (_ & -> & -> & Hrestore2).
     iApply (cwp_wand with "[Hf Hr]").
     {
       iApply (Hrestore2 with "[$] [$]").
-      admit.
+      iPureIntro.
+      rewrite Forall2_fmap_l in Hupd.
+      eapply Forall2_impl; done.
     }
     iIntros (f v) "(-> & ->)".
     rewrite /fvs_combine.
     clear_nils.
     iFrame.
-    iSplitR; [|iSplitL "Hframe"].
-    - admit.
-    - admit.
+    iSplit; [|iSplit].
+    - (* frame_rel. *)
+      iPureIntro.
+      unfold lmask.
+      destruct Hfrel.
+      split; last congruence.
+      intros i Hmask.
+      unfold wlmask in Hmask.
+      admit.
+    - (* frame_interp *)
+      admit.
     - iExists (concat [os; os]).
       iSplitL "Hty' Hpty".
       + iExists [os; os].
@@ -197,6 +268,8 @@ Section copy.
       + cbn [concat]; clear_nils.
         cbn -[atom_interp].
         iApply big_sepL2_app_same_length; first tauto; [].
-        admit.
+        iFrame.
+        iApply (gcrefs_atoms_copyable with "[$Hats']"); eauto.
   Admitted.
+
 End copy.

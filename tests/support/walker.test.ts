@@ -129,7 +129,36 @@ describe("walker", () => {
         "((Prod ((Ser (Num (Int I32))) (Ser (Num (Int I32))) (Ser (Num (Int I32))))))",
         mems,
       ),
-      "(tup 1 2 3)",
+      "(tup# 1 2 3)",
+    );
+  });
+
+  it("unboxed sum: tag selects an arm, other arms' slots are skipped", () => {
+    const { mems } = setup();
+    // layout is `tag :: concat(all arms)`: tag 1, arm 0's slot, arm 1's value
+    assert.equal(
+      renderStart(
+        [1, 0, 7],
+        "((Sum ((Num (Int I32)) (Num (Int I32)))))",
+        mems,
+      ),
+      "(inj# 1 7)",
+    );
+  });
+
+  it("unboxed product inlined in a struct field", () => {
+    const { gc, mems, w, gcRoot } = setup();
+    const base = 65696;
+    w(gc, base + 0, tag(1));
+    w(gc, base + 4, tag(2));
+    w(gc, base + 8, tag(3));
+    assert.equal(
+      renderStart(
+        gcRoot(base),
+        "((Ref (Base GC) Imm (Struct ((Ser (Prod ((Ser I31) (Ser I31)))) (Ser I31)))))",
+        mems,
+      ),
+      "(tup (tup# 1 2) 3)",
     );
   });
 

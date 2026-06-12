@@ -10,6 +10,7 @@ System F with refs, universals, _no existentials_, products, sums.
     | x
     | ((x₁ ... xₙ) τ₁ -> τ₂)
     | (* τ₁ ... τₙ)
+    | (# τ₁ ... τₙ)
     | (+ τ₁ ... τₙ)
     | (rec (x) τ)
     | (ref τ)
@@ -24,6 +25,7 @@ e ::=
     | (lam (x₁ ... xₙ) (x : τ₁) : τ₂ e)
     | (app f (τ₁ ... τₙ) e)
     | (tup e₁ ... eₙ)
+    | (tup# e₁ ... eₙ)
     | (proj i e)
     | (inj i e : τ)
     | (cases e ((x₁ : τ₁) e₁) ... ((xₙ : τₙ) eₙ))
@@ -85,3 +87,8 @@ Use the boxed/unboxed difference between the two languages
 ## Linking types
 
 Handle `NoCopy NoDrop` in the kind (not the default ML kind translation!), some kind of foreign value annotation
+
+Unboxed tuples `(# τ₁ ... τₙ)` / `(tup# e₁ ... eₙ)` compile to RichWasm `Prod`
+instead of a boxed `Struct` -- which is a departure from the uniform `ptr`
+representation. We let the RichWasm typechecker police errors, and since they
+cannot instantiate type variables, polymorphism stays uniform.

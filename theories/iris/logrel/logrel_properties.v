@@ -28,6 +28,12 @@ Section properties.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Definition atom_copyable (o : atom) : Prop :=
+    match o with
+    | PtrA (PtrHeap MemMM ℓ) => False
+    | _ => True
+    end.
+
   Inductive ptr_shaped : pointer -> N -> Prop :=
   | IntShaped :
     ∀ n : N, ptr_shaped (PtrInt n) (2 * n)%N

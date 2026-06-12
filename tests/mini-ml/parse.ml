@@ -30,3 +30,11 @@ let%expect_test "parse id" =
 let%expect_test "parse tuple" =
   parse {|(proj 1 (tup -1 1))|};
   [%expect {| (Module () () ((Project 1 (Tuple ((Int -1) (Int 1)))))) |}]
+
+let%expect_test "parse unboxed tuple" =
+  parse {|(let (p : (# int (* int int))) (tup# 1 (tup 2 3)) (proj 0 p))|};
+  [%expect
+    {|
+  (Module () ()
+   ((Let (p (UProd (Int (Prod (Int Int)))))
+     (UTuple ((Int 1) (Tuple ((Int 2) (Int 3))))) (Project 0 (Var p))))) |}]

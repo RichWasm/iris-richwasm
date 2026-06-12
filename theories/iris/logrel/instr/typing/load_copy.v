@@ -374,30 +374,6 @@ Section load_copy.
         lia.
   Qed.
 
-  Lemma gcrefs_atoms_copyable F se ρ ξ ιs τ os vs :
-    has_kind F τ (VALTYPE ρ ξ) ->
-    ref_flag_le ξ GCRefs ->
-    eval_rep se ρ = Some ιs ->
-    ref_flag_atoms_interp ξ (SAtoms os) ->
-    Forall2 has_arep ιs os ->
-    ⊢ ([∗ list] o;v ∈ os;vs, ⌜atom_copyable o⌝ -∗ atom_interp o v) -∗
-      [∗ list] o;v ∈ os;vs, atom_interp o v.
-  Proof.
-    iIntros (Hkind Hle Hev Href Hrep) "Hos".
-    iApply big_sepL2_mono; last by iFrame.
-    intros k o v Ho Hv.
-    iIntros "Ho".
-    iApply "Ho".
-    iPureIntro.
-    eapply Forall2_lookup_r in Hrep; eauto.
-    destruct Hrep as (ι & Hι & Hrep).
-    unfold ref_flag_atoms_interp in Href; cbn in Href.
-    eapply Forall_lookup in Href; eauto.
-    destruct o; cbn in Href; try done.
-    eapply ref_flag_ptr_interp_le in Href; eauto.
-    destruct p as [| [|]]; done.
-  Qed.
-
   Lemma load_restore_frame wl wlf1 wlf2 se F L ah32 vn32 fr ptr_local vs ιs :
     let wls := wl ++ T_i32 :: wlf1 ++ map translate_arep ιs ++ wlf2 in
     "Hframe" ∷ frame_interp rti sr se (typing.fc_locals F) L wls fr -∗
@@ -949,8 +925,7 @@ Section load_copy.
           iSplitL "Haddr"; first (iExists _, _; eauto).
           iApply gcrefs_atoms_copyable; eauto.
           destruct Hcopyability as (κ' & Hcopyk & Hle).
-          pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
-          by eapply Is_true_true.
+          by pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
 
     - iDestruct "Href" as (ℓ fs ws Hsv) "(#Hinv & Hws)".
       inversion Hsv; subst p; clear Hsv.
@@ -1312,8 +1287,7 @@ Section load_copy.
           iSplitL "Haddr"; first (iExists _, _; eauto).
           iApply gcrefs_atoms_copyable; eauto.
           destruct Hcopyability as (κ' & Hcopyk & Hle).
-          pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
-          by eapply Is_true_true.
+          by pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
 
     - (* ref gc mut *)
       iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
@@ -1643,8 +1617,7 @@ Section load_copy.
               iFrame.
             + iApply gcrefs_atoms_copyable; eauto.
               destruct Hcopyability as (κ' & Hcopyk & Hle).
-              pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
-              by eapply Is_true_true.
+              by pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
         }
 
     - (* ref gc imm *)
@@ -1973,8 +1946,7 @@ Section load_copy.
               iFrame.
             + iApply gcrefs_atoms_copyable; eauto.
               destruct Hcopyability as (κ' & Hcopyk & Hle).
-              pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
-              by eapply Is_true_true.
+              by pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
         }
   Qed.
 

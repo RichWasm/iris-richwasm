@@ -178,7 +178,7 @@ let simple_tests =
               (Group 2))))))
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
-      "(tup (tup 1 2) (tup 1 2))" );
+      "(tup# (tup# 1 2) (tup# 1 2))" );
     ( "alloc tuple mm",
       {|
         ((imports ())
@@ -197,7 +197,7 @@ let simple_tests =
               (LocalGet 0 Move))))))
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
-      "(tup 1 2)" );
+      "(tup# 1 2)" );
     ( "alloc tuple gc",
       {|
         ((imports ())
@@ -216,5 +216,5 @@ let simple_tests =
               (LocalGet 0 Move))))))
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
-      "(tup 1 2)" );
+      "(tup# 1 2)" );
   ]

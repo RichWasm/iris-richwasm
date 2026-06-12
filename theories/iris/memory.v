@@ -234,6 +234,12 @@ Section Token.
 
 End Token.
 
+Ltac open_rt H :=
+  iDestruct H
+    as "(%rm & %lm & %hm &
+         Haddr & Hroot & Hlayout & Hheap & Hrti & %Hinj & Hownmm &
+         Howngc & %Hrootok & Hrootmem & %Hheapok & Hheapmem)".
+
 Section Rules.
 
   Context `{wasmG Σ}.

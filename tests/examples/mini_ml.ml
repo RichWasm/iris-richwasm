@@ -117,6 +117,16 @@ let simple =
     ("tuple", "(tup 1 2 3 4)");
     ("tuple_nested", "(tup (tup 1 2) (tup 3 4))");
     ("tuple_project", "(proj 1 (tup 42 7))");
+    ("utuple", "(tup# 1 2)");
+    ("utuple_project", "(proj 1 (tup# 42 7))");
+    ("utuple_let", "(let (p : (# int int)) (tup# 1 2) (proj 0 p))");
+    ("utuple_in_tuple", "(tup (tup# 1 2) 3)");
+    ("utuple_of_tuple", "(tup# (tup 1 2) 3)");
+    ("utuple_ref", "(! (new (tup# 1 2)))");
+    ( "utuple_fn",
+      "(app (fun () (x : (# int int)) : int (proj 0 x)) () (tup# 5 6))" );
+    ( "utuple_ret",
+      "(proj 1 (app (fun () (x : int) : (# int int) (tup# x 9)) () 4))" );
     ("sum_unit", "(inj 0 (tup) : (+ (*)))");
     ("sum_option", "(inj 1 15 : (+ (*) int))");
     ("basic_if", "(if 0 1 2)");

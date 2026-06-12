@@ -13,12 +13,6 @@ Require Import RichWasm.iris.logrel.roots.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Ltac open_rt H :=
-  iDestruct H
-    as "(%rm & %lm & %hm &
-         Haddr & Hroot & Hlayout & Hheap & Hrti & %Hinj & Hownmm &
-         Howngc & %Hrootok & Hrootmem & %Hheapok & Hheapmem)".
-
 Section load.
 
   Context `{!logrel_na_invs Σ}.
@@ -311,12 +305,6 @@ Section load.
     cbn.
     rewrite list_lookup_insert_ne; [done | lia].
   Qed.
-
-  Definition atom_copyable (o : atom) : Prop :=
-    match o with
-    | PtrA (PtrHeap MemMM ℓ) => False
-    | _ => True
-    end.
 
   Definition mk_load1_post o v v' : iProp Σ :=
     (∃ e', rt_token rti sr e' ∗

@@ -80,6 +80,14 @@ let rec parse_type p : Sexp.t -> Source.PreType.t Res.t =
         |> Res.all
       in
       ret @@ Prod ts'
+  | List (Atom "#" :: ts) ->
+      let* ts' =
+        ts
+        |> List.mapi ~f:(fun i ->
+            parse_type (Path.add p ~tag:"uprod" ~field:("t" ^ Int.to_string i)))
+        |> Res.all
+      in
+      ret @@ UProd ts'
   | List (Atom "+" :: ts) ->
       let* ts' =
         ts
@@ -125,6 +133,14 @@ let rec parse_expr p : Sexp.t -> Source.Expr.t Res.t =
         |> Res.all
       in
       ret @@ Tuple es'
+  | List (Atom "tup#" :: es) ->
+      let* es' =
+        es
+        |> List.mapi ~f:(fun i ->
+            parse_expr (Path.add p ~tag:"utuple" ~field:("v" ^ Int.to_string i)))
+        |> Res.all
+      in
+      ret @@ UTuple es'
   | List [ Atom "inj"; Atom i; e; Atom ":"; t ] ->
       let* i' =
         match Int.of_string_opt i with

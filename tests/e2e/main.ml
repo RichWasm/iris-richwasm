@@ -83,14 +83,19 @@ let color_asprintf_term_width
 type run_env = {
   rw_runtime : string;
   host_single : string;
+  host_double : string;
   host_triple : string;
 }
 
-let run ({ rw_runtime; host_single; host_triple } : run_env) =
+let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
   let open Alcotest in
   let module SingleRW = Run_rw.SingleRichWasm (struct
     let rw_runtime_path = rw_runtime
     let host_runtime_path = host_single
+  end) in
+  let module DoubleRW = Run_rw.DoubleRichWasm (struct
+    let rw_runtime_path = rw_runtime
+    let host_runtime_path = host_double
   end) in
   let module TripleRW = Run_rw.TripleRichWasm (struct
     let rw_runtime_path = rw_runtime
@@ -135,6 +140,29 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
       ( "richwasm-single",
         Richwasm_single.simple_tests |> List.map ~f:(simple_mapper (module RW))
       );
+      ( "interop-noglue",
+        [
+          test_case "mini-ml -> mini-ml" `Quick (fun () ->
+              let module Double = EndToEnd.Make2 (MM) (DoubleRW) in
+              let module1 =
+                {|
+                  (export (add1 : (() int -> int))
+                    (fun () (x : int) : int (op + x 1)))
+                |}
+              in
+              let module2 =
+                {|
+                  (import (add1 : (() int -> int)))
+
+                  (app add1 () 5)
+                |}
+              in
+              let result, logs =
+                Double.run2 ~asprintf ~link:"add1" module1 module2
+                |> Double.M.run
+              in
+              check_result "6" Double.E2Err.pp logs result);
+        ] );
       ( "interop-glue",
         [
           test_case "numeric interop (ll -> ml)" `Quick (fun () ->

@@ -28,8 +28,8 @@ let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
         []
       else
         [ v ]
-  | Tuple vs -> List.concat_map ~f:fv vs
-  | Inj (_, v, _) -> fv v
+  | Tuple vs | UTuple vs -> List.concat_map ~f:fe vs
+  | Inj (_, v, _) -> fe v
   | Fun { arg = n, _; body; _ } -> fv ~bound:(n :: bound) body
   | Apply (f, _, arg) -> fe f @ fe arg
   | Project (_, v) -> fe v
@@ -57,8 +57,7 @@ let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
           []
         else
           [ v ]
-    | Prod ts -> List.concat_map ~f:(ftv ~bound) ts
-    | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
+    | Prod ts | UProd ts | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
     | Ref t -> ftv ~bound t
     | Rec (v, t) -> ftv ~bound:(v :: bound) t
     | Fun { foralls; arg; ret } ->
@@ -75,7 +74,8 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   | Fun { foralls; arg = _, t; ret_type; body } ->
       (* TODO: do both of these have to be here? *)
       ftv (Fun { foralls; arg = t; ret = ret_type }) @ ftv_e ~bound:foralls body
-  | Int _ | Var _ | Tuple _ -> []
+  | Int _ | Var _ -> []
+  | Tuple vs | UTuple vs -> List.concat_map ~f:r vs
   | Apply (f, ts, arg) -> r f @ List.concat_map ~f:(ftv ~bound) ts @ r arg
   | Project (_, v) -> r v
   | Op (_, left, right) -> r left @ r right
@@ -101,6 +101,7 @@ and cc_pt ?(pack = true) (pt : Source.PreType.t) =
   | Int -> Int
   | Var v -> Var v
   | Prod ts -> Prod (List.map ~f:cc_t ts)
+  | UProd ts -> UProd (List.map ~f:cc_t ts)
   | Sum ts -> Sum (List.map ~f:cc_t ts)
   | Ref t -> Ref (cc_t t)
   | Rec (v, t) -> Rec (v, cc_t t)
@@ -132,6 +133,16 @@ let rec cc_e
   let open Closed.Function in
   let open Closed.Expr in
   let r = cc_e user_fns gamma tagger in
+  let r_list acc vs =
+    let* vs_rev, code =
+      foldM
+        ~f:(fun (vs, extra) v ->
+          let* converted, code = r extra v in
+          ret (converted :: vs, code))
+        ~init:([], acc) vs
+    in
+    ret (List.rev vs_rev, code)
+  in
   match e with
   | Int i -> ret (Int i, acc)
   | Var v ->
@@ -162,14 +173,11 @@ let rec cc_e
         | Some t -> fail (UserFnNotFunction (v, t))
         | None -> fail (UnboundIdent v))
   | Tuple vs ->
-      let* vs, code =
-        foldM
-          ~f:(fun (vs, extra) v ->
-            let* converted, code = r extra v in
-            ret (converted :: vs, code))
-          ~init:([], acc) vs
-      in
-      ret (Tuple (List.rev vs), code)
+      let* vs', code = r_list acc vs in
+      ret (Tuple vs', code)
+  | UTuple vs ->
+      let* vs', code = r_list acc vs in
+      ret (UTuple vs', code)
   | Inj (i, v, t) ->
       let* v, code = r acc v in
       ret (Inj (i, v, cc_t t), code)
