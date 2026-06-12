@@ -191,7 +191,7 @@ Section copy.
     set (Q := (λ f0 (v0 : list value),
                 ∃ vs',
                 ⌜v0 = []⌝ ∗
-                "Htok" ∷ rt_token rti sr θ ∗
+                "Htok" ∷ rt_token rti sr lpall θ ∗
                 "HE" ∷ na_own logrel_nais ⊤ ∗
                 "Hats" ∷ ([∗ list] o;v ∈ os;vs, atom_interp o v) ∗
                 "Hats'" ∷ ([∗ list] o;v' ∈ os;vs', ⌜atom_copyable o⌝ -∗ atom_interp o v') ∗

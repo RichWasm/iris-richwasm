@@ -33,13 +33,13 @@ Section map_gc_ptr.
   Lemma wp_map_gc_ptr_duproot ι idx wt wl res wt' wl' es:
     run_codegen (map_gc_ptr ι idx (duproot mr)) wt wl = inr (res, wt', wl', es) ->
     res = () /\ wt' = [] /\ wl' = [] /\
-    ∀ s E B R Φ f o v θ,
+    ∀ s E B R Φ f o v lmask θ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hr" ∷ ↪[RUN] -∗
       "HE" ∷ na_own logrel_nais E -∗
       "Hfunc" ∷ instance_rt_func_interp (mr_func_registerroot mr) (sr_func_registerroot sr) (runtime.spec_registerroot rti sr)
     (f_inst f) -∗
-      "Htok" ∷ rt_token rti sr θ -∗
+      "Htok" ∷ rt_token rti sr lmask θ -∗
       "Hat" ∷ atom_interp o v -∗
       "%Hi" ∷ ⌜f_locs f !! (localimm idx) = Some v⌝ -∗
       "%Harep" ∷ ⌜has_arep ι o⌝ -∗
@@ -48,7 +48,7 @@ Section map_gc_ptr.
       "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
       "HΦ" ∷ (∀ v',
         let f' := {| W.f_locs := <[localimm idx:=v']> (f_locs f); W.f_inst := f_inst f |} in
-        "Htok" ∷ rt_token rti sr θ -∗
+        "Htok" ∷ rt_token rti sr lmask θ -∗
         "HE" ∷ na_own logrel_nais E -∗
         "Hat" ∷ atom_interp o v -∗
         "Hat'" ∷ (⌜atom_copyable o⌝ -∗ atom_interp o v') -∗
@@ -197,13 +197,13 @@ Section map_gc_ptr.
     NoDup idxs ->
     run_codegen (map_gc_ptrs ιs idxs (duproot mr)) wt wl = inr (res, wt', wl', es) ->
     res = () /\ wt' = [] /\ wl' = [] /\
-    ∀ s E B R Φ f os vs θ,
+    ∀ s E B R Φ f os vs lmask θ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hr" ∷ ↪[RUN] -∗
       "HE" ∷ na_own logrel_nais E -∗
       "#Hfunc" ∷ instance_rt_func_interp (mr_func_registerroot mr) (sr_func_registerroot sr) (runtime.spec_registerroot rti sr)
     (f_inst f) -∗
-      "Htok" ∷ rt_token rti sr θ -∗
+      "Htok" ∷ rt_token rti sr lmask θ -∗
       "Hat" ∷ ([∗ list] o; v ∈ os; vs, atom_interp o v) -∗
       "%Hi" ∷ ⌜Forall2 (λ idx v, f_locs f !! idx = Some v) (map localimm idxs) vs⌝ -∗
       "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
@@ -211,7 +211,7 @@ Section map_gc_ptr.
       "%Hmm" ∷ ⌜inst_memory (f_inst f) !! memimm (mr_mmmem mr) = Some (sr_mem_mm sr)⌝ -∗
       "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
       "HΦ" ∷ (∀ (vs' : list value) f',
-        "Htok" ∷ rt_token rti sr θ -∗
+        "Htok" ∷ rt_token rti sr lmask θ -∗
         "HE" ∷ na_own logrel_nais E -∗
         "Hats" ∷ ([∗ list] o; v ∈ os; vs, atom_interp o v) -∗
         "Hats'" ∷ ([∗ list] o; v' ∈ os; vs', ⌜atom_copyable o⌝ -∗ atom_interp o v') -∗
