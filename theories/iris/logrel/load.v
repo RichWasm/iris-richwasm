@@ -306,8 +306,8 @@ Section load.
     rewrite list_lookup_insert_ne; [done | lia].
   Qed.
 
-  Definition mk_load1_post o v v' : iProp Σ :=
-    (∃ e', rt_token rti sr e' ∗
+  Definition mk_load1_post lmask o v v' : iProp Σ :=
+    (∃ e', rt_token rti sr lmask e' ∗
            atom_interp o v ∗
            atom_interp o v')%I.
 
@@ -424,7 +424,7 @@ Section load.
       heap_memory sr θ hm ∗
       ghost_map_auth rw_heap 1 hm.
 
-  Definition rt_token_nophys (θ : address_map) hm : iProp Σ :=
+  Definition rt_token_nophys (lmask : locpred) (θ : address_map) hm : iProp Σ :=
     ∃ rm lm,
       ghost_map_auth rw_root (1/2) rm ∗
       ghost_map_auth rw_layout (1/2) lm ∗
@@ -434,23 +434,24 @@ Section load.
       own_addr_gc θ ∗
       ⌜root_ok θ rm⌝ ∗
       root_memory sr θ rm ∗
-      ⌜heap_ok θ lm hm⌝.
+      ⌜layout_ok lmask lm hm⌝ ∗
+      ⌜heap_ok θ hm⌝.
 
-  Lemma rt_token_getheap θ :
-    rt_token rti sr θ -∗
+  Lemma rt_token_getheap lmask θ :
+    rt_token rti sr lmask θ -∗
     ∃ hm,
       rt_token_phys θ hm ∗
-      rt_token_nophys θ hm.
+      rt_token_nophys lmask θ hm.
   Proof.
     iIntros "Hrt".
     open_rt "Hrt".
     by iFrame.
   Qed.
 
-  Lemma rt_token_putheap θ hm :
-    rt_token_nophys θ hm -∗
+  Lemma rt_token_putheap lmask θ hm :
+    rt_token_nophys lmask θ hm -∗
     rt_token_phys θ hm -∗
-    rt_token rti sr θ.
+    rt_token rti sr lmask θ.
   Proof.
     iIntros "Hnph Hph".
     iDestruct "Hnph" as "(%rm & %lm & Hnoheap)".
@@ -459,23 +460,23 @@ Section load.
     by iFrame.
   Qed.
 
-  Lemma virt_to_phys_acc ℓ μ a θ ws :
+  Lemma virt_to_phys_acc ℓ μ a lmask θ ws :
     let R ns ns32 :=
       (⌜Forall2 N_i32_repr ns ns32⌝ ∗
        rt_memaddr sr μ↦[wms][a]flat_map serialise_i32 ns32 ∗
        words_interp θ μ ws ns)%I in
-    ⊢ rt_token rti sr θ -∗
+    ⊢ rt_token rti sr lmask θ -∗
       ℓ ↦heap ws -∗
       ℓ ↦addr (μ, a) -∗
       ∃ hm,
-        rt_token_nophys θ hm ∗
+        rt_token_nophys lmask θ hm ∗
         (∃ ns ns32, R ns ns32) ∗
         (∀ ns' ns32',
           R ns' ns32' -∗
-          rt_token_nophys θ hm -∗
+          rt_token_nophys lmask θ hm -∗
           ℓ ↦heap ws ∗
           ℓ ↦addr (μ, a) ∗
-          rt_token rti sr θ).
+          rt_token rti sr lmask θ).
   Proof.
     iIntros (R) "Hrt Hpt Ha".
     open_rt "Hrt".
@@ -497,22 +498,22 @@ Section load.
 
   (* This variant of virt_to_phys_acc does not need an addr points-to and instead expects
      you to already know θ !! ℓ = Some (MemGC, a). *)
-  Lemma virt_to_phys_acc_gc ℓ a θ ws :
+  Lemma virt_to_phys_acc_gc ℓ a lmask θ ws :
     let R ns ns32 :=
       (⌜Forall2 N_i32_repr ns ns32⌝ ∗
        rt_memaddr sr MemGC↦[wms][a]flat_map serialise_i32 ns32 ∗
        words_interp θ MemGC ws ns)%I in
-    ⊢ rt_token rti sr θ -∗
+    ⊢ rt_token rti sr lmask θ -∗
       ℓ ↦heap ws -∗
       ⌜θ !! ℓ = Some (MemGC, a)⌝ -∗
       ∃ hm,
-        rt_token_nophys θ hm ∗
+        rt_token_nophys lmask θ hm ∗
         (∃ ns ns32, R ns ns32) ∗
         (∀ ns' ns32',
           R ns' ns32' -∗
-          rt_token_nophys θ hm -∗
+          rt_token_nophys lmask θ hm -∗
           ℓ ↦heap ws ∗
-          rt_token rti sr θ).
+          rt_token rti sr lmask θ).
   Proof.
     iIntros (R) "Hrt Hpt %Ha".
     open_rt "Hrt".
@@ -576,25 +577,25 @@ Section load.
       lia.
   Qed.
 
-  Lemma virt_to_phys_slice_acc off sz ℓ μ a θ ws :
+  Lemma virt_to_phys_slice_acc off sz ℓ μ a lmask θ ws :
     let slice {A} (x : list A) := take sz (drop off x) in
     let R ns ns32 :=
       (⌜Forall2 N_i32_repr ns ns32⌝ ∗
        rt_memaddr sr μ↦[wms][a + 4 * N.of_nat off]flat_map serialise_i32 ns32 ∗
        words_interp θ μ (slice ws) ns)%I in
     ⊢ ⌜off + sz <= length ws⌝ -∗
-      rt_token rti sr θ -∗
+      rt_token rti sr lmask θ -∗
       ℓ ↦heap ws -∗
       ℓ ↦addr (μ, a) -∗
       ∃ hm,
-        rt_token_nophys θ hm ∗
+        rt_token_nophys lmask θ hm ∗
         (∃ ns ns32, R ns ns32) ∗
         (∀ ns' ns32',
           R ns' ns32' -∗
-          rt_token_nophys θ hm -∗
+          rt_token_nophys lmask θ hm -∗
           ℓ ↦heap ws ∗
           ℓ ↦addr (μ, a) ∗
-          rt_token rti sr θ).
+          rt_token rti sr lmask θ).
   Proof.
     iIntros (slice R) "%Hlenbdd Hrt Hpt Ha".
     open_rt "Hrt".
@@ -662,24 +663,24 @@ Section load.
     iFrame.
   Qed.
 
-  Lemma virt_to_phys_slice_acc_gc off sz ℓ μ a θ ws :
+  Lemma virt_to_phys_slice_acc_gc off sz ℓ μ a lmask θ ws :
     let slice {A} (x : list A) := take sz (drop off x) in
     let R ns ns32 :=
       (⌜Forall2 N_i32_repr ns ns32⌝ ∗
        rt_memaddr sr μ↦[wms][a + 4 * N.of_nat off]flat_map serialise_i32 ns32 ∗
        words_interp θ μ (slice ws) ns)%I in
     ⊢ ⌜off + sz <= length ws⌝ -∗
-      rt_token rti sr θ -∗
+      rt_token rti sr lmask θ -∗
       ℓ ↦heap ws -∗
       ⌜θ !! ℓ = Some (μ, a)⌝ -∗
       ∃ hm,
-        rt_token_nophys θ hm ∗
+        rt_token_nophys lmask θ hm ∗
         (∃ ns ns32, R ns ns32) ∗
         (∀ ns' ns32',
           R ns' ns32' -∗
-          rt_token_nophys θ hm -∗
+          rt_token_nophys lmask θ hm -∗
           ℓ ↦heap ws ∗
-          rt_token rti sr θ).
+          rt_token rti sr lmask θ).
   Proof.
     iIntros (slice R) "%Hlenbdd Hrt Hpt %Ha".
     open_rt "Hrt".
