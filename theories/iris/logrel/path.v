@@ -826,6 +826,28 @@ Section PathFacts.
       eapply skind_mem_words_len in H; congruence.
   Qed.
 
+  Lemma has_kind_struct_inv {F κ σfull ξfull τs1 τ τs2} :
+    has_kind F (StructT κ (τs1 ++ τ :: τs2)) (MEMTYPE σfull ξfull) ->
+    ∃ σs ξs1 ξ ξs2 σs1 σ σs2,
+      κ = MEMTYPE σfull ξfull /\
+      σfull = ProdS σs /\
+      σs = σs1 ++ σ :: σs2 /\
+      ξfull = ref_flag_lub (ξs1 ++ ξ :: ξs2) /\
+        has_kind F τ (MEMTYPE σ ξ) /\
+        Forall3 (λ τ σ ξ, has_kind F τ (MEMTYPE σ ξ)) τs1 σs1 ξs1 /\
+        Forall3 (λ τ σ ξ, has_kind F τ (MEMTYPE σ ξ)) τs2 σs2 ξs2.
+  Proof.
+    intros Hkind.
+    inversion Hkind.
+    subst.
+    apply Forall3_app_inv_l in H1.
+    destruct H1 as (σs1 & σ2 & ξs1 & ξ2 & -> & -> & Hprefix & Hrest).
+    subst.
+    apply Forall3_cons_inv_l in Hrest.
+    destruct Hrest as (σ & σs2 & ξ & ξs2 & -> & -> & Hyay & Htail).
+    repeat eexists; try done.
+  Qed.
+
   Lemma type_interp_struct_inv {F σs ξ τs1 τ τs2 ws} :
     sem_env_interp F se ->
     has_kind F (StructT (MEMTYPE (ProdS σs) ξ) (τs1 ++ τ :: τs2)) (MEMTYPE (ProdS σs) ξ) ->
@@ -1252,6 +1274,111 @@ Section PathFacts.
         iExists _; eauto.
   Qed.
 
+  Lemma has_kind_forall3_memtype_agree F τs:
+    ∀ σs σs' ξs ξs',
+      Forall3 (λ τ σ ξ, has_kind F τ (MEMTYPE σ ξ)) τs σs ξs ->
+      Forall3 (λ τ σ ξ, has_kind F τ (MEMTYPE σ ξ)) τs σs' ξs' ->
+      σs = σs' /\ ξs = ξs'.
+  Proof.
+    induction τs as [|τ τs]; intros * H1 H2.
+    - inversion H1; subst.
+      inversion H2; subst.
+      done.
+    - apply Forall3_cons_inv_l in H1 as
+          (σ & σs0 & ξ & ξs0 & -> & -> & Hkind_τ & Hkind1).
+      apply Forall3_cons_inv_l in H2 as
+          (σ' & σs0' & ξ' & ξs0' & -> & -> & Hkind_τ' & Hkind2).
+      specialize (IHτs _ _ _ _ Hkind1 Hkind2) as (-> & ->).
+      pose proof (has_kind_agree _ _ _ _ Hkind_τ' Hkind_τ) as toinvert.
+      inversion toinvert; subst; clear toinvert.
+      done.
+  Qed.
+
+  Lemma resolves_path_eval_size F τ π τ__π pr :
+    sem_env_interp F se ->
+    resolves_path τ π τ__π pr ->
+    ∀ σ__τ ξ__τ σᵣ ξᵣ σₜ ξₜ σₑ ξₑ sz nt,
+    has_kind F τ (MEMTYPE σ__τ ξ__τ) ->
+    has_kind F (pr_replaced pr) (MEMTYPE σᵣ ξᵣ) ->
+    has_kind F (pr_expected pr τ__π) (MEMTYPE σₑ ξₑ) ->
+    has_kind F (pr_target pr) (MEMTYPE σₜ ξₜ) ->
+    eval_size EmptyEnv σₜ = Some sz ->
+    eval_size EmptyEnv σₑ = Some sz ->
+    eval_size se σ__τ = Some nt ->
+    eval_size se σᵣ = Some nt.
+  Proof.
+    intros Hse Hresolves.
+    induction Hresolves;
+      intros * Hkind_τ Hkind_rep Hkind_exp Hkind_tgt Heval_tgt Heval_exp Heval_τ;
+      cbn in *.
+    - pose proof (has_kind_agree _ _ _ _ Hkind_τ Hkind_rep) as H1.
+      inversion H1; subst; done.
+    - pose proof (has_kind_agree _ _ _ _ Hkind_τ Hkind_tgt) as H1.
+      inversion H1; subst; clear H1 Hkind_tgt.
+      pose proof (has_kind_agree _ _ _ _ Hkind_rep Hkind_exp) as H1.
+      inversion H1; subst; clear H1 Hkind_exp.
+      apply (@eval_size_emptyenv _ _ se) in Heval_tgt.
+      apply (@eval_size_emptyenv _ _ se) in Heval_exp.
+      rewrite Heval_tgt in Heval_τ; inversion Heval_τ; subst.
+      done.
+    - apply has_kind_struct_inv in Hkind_τ.
+      destruct Hkind_τ as
+        (σs & ξs1 & ξ_τ & ξs2 & σs1 & σ_τ & σs2 & -> & -> & -> & -> &
+        Hkind_τ & Hkind_pref & Hkind_suff).
+      apply has_kind_struct_inv in Hkind_rep.
+      destruct Hkind_rep as
+        (σs & ξs1' & ξ_rep & ξs2' & σs1' & σ_rep & σs2' & -> & -> & -> & -> &
+        Hkind_rep & Hkind_pref' & Hkind_suff').
+      (* similar lemma to below *)
+      pose proof (has_kind_forall3_memtype_agree _ _ _ _ _ _
+                    Hkind_pref Hkind_pref') as (<- & <-).
+      pose proof (has_kind_forall3_memtype_agree _ _ _ _ _ _
+                    Hkind_suff Hkind_suff') as (<- & <-).
+      rename τs0 into τs1. rename τs' into τs2.
+      (* we can't specialize IHHresolves quiteee yet we still need eval_size σ_τ *)
+      cbn in Heval_τ.
+      apply fmap_Some in Heval_τ.
+      destruct Heval_τ as (nts & Hevals & Hnt).
+      rewrite option_mapM_app in Hevals.
+      apply bind_Some in Hevals.
+      destruct Hevals as (nts1 & Hnts1 & Hevals).
+      change (?x::?y) with ([x] ++ y) in *.
+      rewrite option_mapM_app in Hevals.
+      apply bind_Some in Hevals.
+      destruct Hevals as (nts2 & Hevals & Hnts).
+      cbn in Hevals.
+      apply bind_Some in Hevals.
+      destruct Hevals as (nt_τ & Heval_τ & Hevals).
+      apply bind_Some in Heval_τ.
+      destruct Heval_τ as (nt__τ & Heval_τ & toinvert).
+      inversion toinvert; subst; clear toinvert.
+      apply bind_Some in Hevals.
+      destruct Hevals as (nts₂ & Hnts2 & toinvert).
+      inversion toinvert; subst; clear toinvert.
+      inversion Hnts; subst; clear Hnts.
+
+      (* IH time *)
+      assert (pr_expected pr' τ__π = pr_expected pr τ__π). {
+        destruct τ__π; done.
+      }
+      rewrite H in Hkind_exp.
+      specialize (IHHresolves _ _ _ _ _ _ _ _ _ _
+                    Hkind_τ Hkind_rep Hkind_exp Hkind_tgt Heval_tgt Heval_exp Heval_τ).
+
+      (* I think now we're safe *)
+      cbn.
+      rewrite option_mapM_app.
+      rewrite Hnts1.
+      change (?x::?y) with ([x] ++ y) in *.
+      rewrite option_mapM_app.
+      rewrite Hnts2.
+      cbn.
+      rewrite IHHresolves.
+      cbn.
+      done.
+  Qed.
+
+
   Lemma resolves_path_inv_sep τ π τ__π pr :
     resolves_path τ π τ__π pr ->
     ∀ F off σ_target σ ξ σ' ξ' ξser σ_expected ξser' sz,
@@ -1273,7 +1400,273 @@ Section PathFacts.
            𝕍 (pr_expected pr τ__π) (SWords ws') -∗
            𝕍 (pr_replaced pr) (SWords (update_path_words off ws ws'))).
   Proof.
-  Admitted.
+    intros * Hresolves.
+    induction Hresolves.
+    (* there will be some repetition with the above case but that's okay *)
+    - intros * Hse Hoff Hmono Hkind_τ Hkind_rep Hkind_target Hkind_exp Heval_target Heval_expected.
+      cbn in *.
+      (* let me do some has_kind_agrees *)
+      pose proof (has_kind_agree _ _ _ _ Hkind_rep Hkind_target) as H1.
+      inversion H1; subst; clear H1; clear Hkind_target.
+      pose proof (has_kind_agree _ _ _ _ Hkind_rep Hkind_τ) as H1.
+      inversion H1; subst; clear H1; clear Hkind_τ.
+      pose proof (has_kind_agree _ _ _ _ Hkind_rep Hkind_exp) as H1.
+      inversion H1; subst; clear H1; clear Hkind_exp.
+      clear Heval_expected.
+      rename Hkind_rep into Hkind. rename Heval_target into Heval.
+
+      (* nice okay let's go *)
+      assert (off = 0). {
+        destruct τ; inversion Hoff; done.
+      }
+      subst; clear Hoff.
+      cbn.
+      (* get_path_words_all soon *)
+      iIntros (ws) "Hws".
+      iPoseProof (type_interp_len _ _ _ _ _ _ Hse with "Hws") as "%Hsz";
+        [|by eapply eval_size_emptyenv, Heval|].
+      eapply Hkind.
+      subst sz.
+      iSplit; first done.
+      rewrite get_path_words_all.
+      iFrame.
+      iIntros (ws') "%Hlen Hty".
+      rewrite update_path_words_all; eauto.
+
+    - intros * Hse Hoff Hmono Hkind_τ Hkind_rep Hkind_target Hkind_exp Heval_target Heval_expected.
+      cbn in *.
+
+      pose proof (has_kind_agree _ _ _ _ Hkind_τ Hkind_target) as H1.
+      inversion H1; subst; clear H1; clear Hkind_target.
+      pose proof (has_kind_agree _ _ _ _ Hkind_rep Hkind_exp) as H1.
+      inversion H1; subst; clear H1; clear Hkind_exp.
+
+      rename Hkind_rep into Hkind_τ'. rename σ_target into σ_τ. rename ξser into ξ_τ.
+      rename σ_expected into σ_τ'. rename ξser' into ξ_τ'.
+
+      assert (off = 0). {
+        destruct τ; inversion Hoff; done.
+      }
+      subst; clear Hoff.
+      cbn.
+
+      iIntros (ws) "Hws".
+      iPoseProof (type_interp_len _ _ _ _ _ _ Hse with "Hws") as "%Hsz";
+        [|by eapply eval_size_emptyenv, Heval_target|].
+      eapply Hkind_τ.
+      subst sz.
+      iSplit; first done.
+      rewrite get_path_words_all.
+      iFrame.
+      iIntros (ws') "%Hlen Hty".
+      rewrite update_path_words_all; eauto.
+
+    - (* I wonder how much of this can be copied... *)
+      intros * Hse Hoff Hmono Hkind_τ Hkind_rep Hkind_target Hkind_exp Heval_target Heval_expected.
+      rename σ' into σ_rep. rename ξ' into ξ_rep.
+      cbn.
+      cbn in Hoff.
+      eapply bind_Some in Hoff; destruct Hoff as (σs & Htsz & Hoff).
+      eapply bind_Some in Hoff; destruct Hoff as (ns & Hevsz & Hoff).
+      eapply bind_Some in Hoff; destruct Hoff as (τ' & Hfind & Hoff).
+      eapply bind_Some in Hoff; destruct Hoff as (k & Hpoff & Hsum).
+      inversion Hsum; subst off. clear Hsum.
+
+
+      assert (τ' = τ).
+      {
+        replace i with (length τs0) in Hfind by eauto.
+        rewrite list_lookup_middle in Hfind; congruence.
+      }
+      subst τ'.
+      inversion Hkind_τ; subst.
+      rename H2 into Hkinds.
+      iIntros (ws) "Hws".
+
+      iPoseProof (type_interp_struct_inv Hse Hkind_τ with "Hws")
+        as "(%wss1& %wst& %wss2& %rs1& %rt& %rs2& %σs1& %σt& %σs2& %ns1& %nt& %ns2& Hstruct)".
+      iDestruct "Hstruct" as
+        "(%Hws & %Hle1 & %Hlet & %Hle2 & Hstruct)".
+      iDestruct "Hstruct" as
+        "(%Htsk & %Hl1 & %Hl2 & %Htsk1 & %Htsk2 & %Hσs' & %Hevt & %Hev1 & %Hev2 & Hws1 & Hws2 & Hwst)".
+      subst.
+      assert (length τs0 = length σs1). {
+        eapply length_mapM in Hev1, Htsk1.
+        rewrite Hev1.
+        rewrite length_map length_zip -Hl1 Nat.min_id in Htsk1.
+        done.
+      }
+      assert (length τs' = length σs2). {
+        eapply length_mapM in Hev2, Htsk2.
+        rewrite Hev2.
+        rewrite length_map length_zip -Hl2 Nat.min_id in Htsk2.
+        done.
+      }
+      assert (length τs0 = length ns1). {
+        apply length_mapM in Hev1.
+        congruence.
+      }
+
+      iPoseProof (big_sepL2_length with "Hws1") as "%Hwss1ts1".
+      iPoseProof (big_sepL2_length with "Hws2") as "%Hwss2ts2".
+      pose proof (inv_Forall3_elt_lm Hkinds ltac:(done) ltac:(done))
+        as (ξs1 & ξ & ξs2 & Hlen_ξs1 & Hlen_ξs2 & -> & Hkinds1 & Hkind & Hkinds2).
+      iPoseProof (type_interps_lens with "Hws1") as "%Hlen1"; eauto.
+      iPoseProof (type_interps_lens with "Hws2") as "%Hlen2"; eauto.
+
+      assert (σs1 = σs). {
+        rewrite take_app_length in Htsz.
+        eapply has_kinds_mem_size_agree; eauto.
+      }
+      subst.
+
+      rewrite Forall_app in Hmono.
+      destruct Hmono as [Hps Hms'].
+      pose proof Hkind_τ as Ht'.
+      eapply type_kind_has_kind_agree in Ht' as h. 2: eauto.
+      subst κ0. clear h.
+      inversion Hkind_τ; subst.
+      rename H4 into Hfields.
+      rename H5 into Heq_lub.
+      subst κ0.
+      assert (ξs = ξs1 ++ ξ :: ξs2). {
+        (* use Hkinds and Hfields *)
+        (* I'mma do it a bit funnily why not *)
+        assert (Forall3 (λ τ σ ξ, has_kind F τ (MEMTYPE σ ξ)) [τ] [σt] [ξ])
+          by (constructor; [done | by constructor]).
+        pose proof (Forall3_app _ _ _ _ _ _ _ H2 Hkinds2).
+        pose proof (Forall3_app _ _ _ _ _ _ _ Hkinds1 H3).
+        pose proof (has_kind_forall3_memtype_agree _ _ _ _ _ _
+          Hfields H4) as (h & ->).
+        done.
+      }
+      subst ξs.
+
+      (* right here, we need to do a bit of magic on pr_replaced pr' *)
+      (* bc it wasn't necessary in the simpler case *)
+      pose proof Hkind_rep as Hkind_rep_mini.
+      unfold pr'; cbn in Hkind_rep_mini.
+
+      (* we need a simple struct inversion *)
+      (* idk if we'll need all of it but yaknow *)
+      (* def at least pr_replaced pr *)
+      apply has_kind_struct_inv in Hkind_rep_mini as
+          (σs_replaced & ξs0' & ξ' & ξs' & σs0' & σ' & σs' & -> & -> & -> & Hsmalls &
+                  Hkind_prmini & Hprprefix2 & Hprsuffix2).
+      (* idk how nessecary but *)
+
+      pose proof (has_kind_forall3_memtype_agree _ _ _ _ _ _
+                    Hkinds1 Hprprefix2) as (-> & ->).
+      pose proof (has_kind_forall3_memtype_agree _ _ _ _ _ _
+                    Hkinds2 Hprsuffix2) as (-> & ->).
+
+      pose proof Hse as IH'.
+      eapply IHHresolves in IH'; eauto.
+      iPoseProof (IH' with "Hwst") as "[%Hlen [Ht0 Hcont]]".
+      rewrite !length_app !length_concat.
+      assert (ns = map length wss1).
+      {
+        erewrite eval_sizes_emptyenv in Hev1; eauto.
+        by inversion Hev1.
+      }
+      subst ns.
+
+  (* quickly just for myself:
+     -
+   *)
+      iSplitR; first (iPureIntro; lia).
+      setoid_rewrite get_path_words_field; eauto.
+      iFrame.
+      cbn.
+
+      (* NOTE: here is where things will start to get different from the easy case *)
+      iIntros (ws') "%Hlenws Hws'".
+      subst sz.
+      setoid_rewrite update_path_words_field; eauto.
+      iSpecialize ("Hcont" with "[//] Hws'").
+
+      iEval (cbn; rewrite value_interp_eq).
+      iExists _.
+      iPoseProof "Hcont" as "Hcont'".
+      iEval (rewrite type_interp_eq) in "Hcont'".
+      iDestruct "Hcont'" as "(%skpr & %Htskr & %Hsv & Hval)".
+      assert (Hevskr : eval_kind se (MEMTYPE σt ξ') = Some (SMEMTYPE nt ξ')).
+      {
+        cbn.
+        by rewrite Hevt.
+      }
+      assert (EqualLength: eval_size se σ' = Some nt). {
+        eapply resolves_path_eval_size; try done.
+      }
+      assert (∃ ξ0, skpr = SMEMTYPE nt ξ0 /\ ref_flag_le ξ0 ξ') as (ξ0 & -> & Hle0).
+      {
+        eapply type_skind_has_kind_agree in Htskr; try eapply Hkindr; eauto.
+        inversion Htskr; subst.
+        eexists.
+        split; first done.
+        apply ref_flag_le_refl.
+        cbn.
+        rewrite EqualLength.
+        cbn; done.
+      }
+      iAssert (⌜Forall (forall_ptr_word (ref_flag_ptr_interp
+                  (ref_flag_lub (ξs0' ++ ξ' :: ξs')))) (concat wss1)⌝%I) as "%Hwss1flag".
+      {
+        (* I hate everything but sure *)
+        apply inv_Forall3_elt in Hfields; try eauto.
+        destruct Hfields as (? & ? & ?).
+        iApply type_interps_ref_flags; last iApply "Hws1".
+        1, 3: done.
+        by apply list_subseteq_app_l.
+      }
+      iAssert (⌜Forall (forall_ptr_word (ref_flag_ptr_interp
+                    (ref_flag_lub (ξs0' ++ ξ' :: ξs')))) (concat wss2)⌝%I) as "%Hwss2flag".
+      {
+        apply inv_Forall3_elt in Hfields; try eauto.
+        destruct Hfields as (? & ? & ?).
+        iApply type_interps_ref_flags; last iApply "Hws2".
+        1, 3: done.
+        apply list_subseteq_app_r.
+        by apply list_subseteq_cons.
+      }
+      iSplitR; [iPureIntro | iSplitR; first iPureIntro].
+      + cbn.
+        rewrite option_mapM_app Hev1; cbn.
+        rewrite EqualLength; cbn.
+        rewrite Hev2; done.
+      + cbn in Hsv.
+        destruct Hsv as [Hlensv Hsv].
+        cbn.
+        split.
+        * rewrite length_app length_concat list_sum_app.
+          rewrite length_app -Hlensv.
+          by rewrite length_concat.
+        * do 2 rewrite Forall_app.
+          rewrite <- Hsmalls in Hwss1flag.
+          rewrite <- Hsmalls in Hwss2flag.
+          split; first done.
+          split; last done.
+          eapply Forall_impl; first by apply Hsv.
+          intros w Hw.
+          destruct w; last done.
+          eapply ref_flag_ptr_interp_le; eauto.
+          apply ref_flag_le_trans with (ξ2 := ξ'); first done.
+          rewrite Hsmalls.
+          apply ref_flag_lub_ub.
+          rewrite elem_of_app.
+          right.
+          apply list_elem_of_here.
+      + cbn.
+        iExists (wss1 ++ update_path_words k wst ws' :: wss2).
+        iSplitR; first by rewrite concat_app concat_cons.
+        iApply big_sepL2_fmap_r.
+        rewrite big_sepL2_app_same_length; last tauto.
+        iFrame.
+        setoid_rewrite type_interp_eq.
+        iExists _; eauto.
+
+
+  Qed.
 
   Lemma pr_target_kind π pr τ u :
     resolves_path τ π u pr ->

@@ -632,7 +632,7 @@ Section store_strong.
     (* NOTE: RIGHT HERE IS THE BIGGEST DIFFERENCE BETWEEN WEAK AND STRONG *)
     (* THIS IS ALSO USING AN UNPROVED PATH LEMMA *)
     pose proof
-      (resolves_path_inv_sep rti sr mr se
+      (resolves_path_inv_sep rti sr se
          τ π (Some (SerT (MEMTYPE (RepS ρ_τval) ξ_τval) τval)) pr
          Hresolves F off σ_target σ_τ ξ_τ σ_rep ξ_rep ξ_target (RepS ρ_τval) ξ_τval sz
          H Hoff Hmonosize Hkind_τ Hkind_rep Hkind_target Hkind_sert Heval_σtgt Heval_ρτval
