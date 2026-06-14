@@ -10,19 +10,20 @@ on:
 jobs:
   build-ubuntu:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/richwasm/iris-richwasm-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      # we can run as root since `OPAMROOT` and `OPAMROOTISOK` are baked into the image
+      options: --user root
     steps:
-      - uses: actions/checkout@v3
-      - uses: coq-community/docker-coq-action@v1
-        with:
-          opam_file: iris-richwasm.opam
-          coq_version: "9.0"
-          ocaml_version: default
-          before_install: |
-            # default
-            startGroup "Print opam config"
-              opam config list; opam repo list; opam list
-            endGroup
-          before_script: |
-            startGroup "install system dependencies"
-              sudo apt-get install -y wabt
-            endGroup
+      - uses: actions/checkout@v6
+      - name: Build
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          opam install . --deps-only --confirm-level=unsafe-yes -j $(nproc)
+          opam exec -- dune build -p iris-richwasm -j $(nproc) @install
