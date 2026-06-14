@@ -244,7 +244,19 @@ Section Rules.
   Lemma byte_eqm_mod (n : Z) (m : Z) :
     (n `mod` 256 = m `mod` 256)%Z ->
     Integers.Byte.eqm n m.
-  Admitted.
+  Proof.
+    intros Heq.
+    unfold Integers.Byte.eqm.
+    unfold Integers.Byte.modulus.
+    unfold two_power_nat.
+    cbn.
+    unfold Zbits.eqmod.
+
+    apply Z.cong_iff_ex in Heq.
+    destruct Heq as (k & Heq).
+    exists k.
+    lia.
+  Qed.
 
   Lemma serialise_split_i64 k1 k2 :
     serialise_i32 (Wasm_int.int_of_Z i32m k1) ++
@@ -438,7 +450,15 @@ Section Rules.
     l !! i = Some x /\
     length l1 = i /\
     l = l1 ++ x :: l2.
-  Admitted.
+  Proof.
+    intros * Hlen.
+    apply lookup_lt_is_Some_2 in Hlen as H1.
+    inversion H1; clear H1; rename H2 into Hx.
+    apply list_elem_of_split_length in Hx as Hlists.
+    destruct Hlists as (l1 & l2 & Hlist & Hlen2).
+    exists l1, x, l2.
+    done.
+  Qed.
 
   Lemma list_pluck_2 {A : Type} i (l : list A) :
     i + 1 < length l ->
@@ -447,7 +467,37 @@ Section Rules.
     l !! (i + 1) = Some x2 /\
     length l1 = i /\
     l = l1 ++ x1 :: x2 :: l2.
-  Admitted.
+  Proof.
+    intros * Hlen.
+    apply list_pluck in Hlen as Hlists.
+    destruct Hlists as (l1_temp & x2 & l2 & Hli1 & Hlntemp & Hl).
+    assert (Hlt: i < length l1_temp) by lia.
+    apply list_pluck in Hlt.
+    destruct Hlt as (l1 & x1 & tobeempty & Hli & Hlenl1 & Hl1temp).
+    assert (tobeempty = []). {
+      change (l1 ++ x1 :: tobeempty) with (l1 ++ [x1] ++ tobeempty) in *.
+      subst l1_temp.
+      rewrite !length_app in Hlntemp.
+      rewrite Hlenl1 in Hlntemp.
+      rewrite Nat.add_assoc in Hlntemp.
+      cbn in Hlntemp.
+      destruct tobeempty; try done.
+      cbn in Hlntemp.
+      lia.
+    }
+    subst tobeempty.
+    subst l1_temp.
+    assert (l !! i = Some x1). {
+      subst l.
+      rewrite <- app_assoc.
+      eapply list_lookup_middle; done.
+    }
+    exists l1, x1, x2, l2.
+    repeat split; try done.
+    subst l.
+    rewrite <- app_assoc.
+    done.
+  Qed.
 
   Lemma flat_map_singleton : forall (A B : Type) (f : A -> list B) (x : A),
     f x = flat_map f [x].
