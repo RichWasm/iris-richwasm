@@ -1176,17 +1176,17 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
       end
   (* References *)
   | RefT κ (BaseM MemGC) β τ =>
-      if (kind_beq κ (VALTYPE (AtomR PtrR) GCRefs))
-      then
-        match has_kind_synther F τ with
-        | inl innerκ =>
-            match innerκ with
-            | MEMTYPE _ _ => inl κ
-            | _ => inr (HasKindError "you have a reft t where t isn't memtype" [])
-            end
-        | err => err
-        end
-      else inr (HasKindError "bad gc mem kind format" [])
+      match has_kind_synther F τ with
+      | inl innerκ =>
+          match innerκ with
+          | MEMTYPE _ ξ =>
+              if (kind_beq κ (VALTYPE (AtomR PtrR) (ref_flag_lub2 GCRefs ξ)))
+              then inl κ
+              else inr (HasKindError "bad gc mem kind format (flag must be lub with contents)" [])
+          | _ => inr (HasKindError "you have a reft t where t isn't memtype" [])
+          end
+      | err => err
+      end
   | RefT κ μ β τ =>
       if (kind_beq κ (VALTYPE (AtomR PtrR) AnyRefs))
       then
@@ -2526,11 +2526,14 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
       StructT (MEMTYPE (ProdS (get_all_rights (map get_rep_or_size κs)))
                        (ref_flag_lub (map kind_ref_flag κs))) τs'
   | RefT _ μ β τ =>
+      let τ' := refresh_kinds F τ in
       let κ := match μ with
-               | BaseM MemGC => VALTYPE (AtomR PtrR) GCRefs
+               | BaseM MemGC =>
+                   VALTYPE (AtomR PtrR)
+                           (ref_flag_lub2 GCRefs (kind_ref_flag (kind_of_node F τ')))
                | _ => VALTYPE (AtomR PtrR) AnyRefs
                end in
-      RefT κ μ β (refresh_kinds F τ)
+      RefT κ μ β τ'
   | CodeRefT _ ϕ => CodeRefT (VALTYPE (AtomR I32R) NoRefs) (refresh_kinds_ft F ϕ)
   | SerT _ τ =>
       let τ' := refresh_kinds F τ in

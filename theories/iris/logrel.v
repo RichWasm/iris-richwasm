@@ -639,13 +639,24 @@ Section instr.
          na_inv logrel_nais (ns_ref ℓ) (ℓ ↦layout fs ∗ ℓ ↦heap ws ∗ ▷ τ se (SWords ws)))%I.
   Solve All Obligations with solve_proper.
 
-  Program Definition ref_interp :
+  Program Definition ref_gc_mut_lin_interp : semantic_type -n> semantic_type :=
+    λne τ se sv,
+      (∃ ℓ fs ws,
+         ⌜sv = SAtoms [PtrA (PtrHeap MemGC ℓ)]⌝ ∗
+         ℓ ↦layout fs ∗
+         ℓ ↦heap ws ∗
+         ▷ τ se (SWords ws))%I.
+  Solve All Obligations with solve_proper.
+
+  (* NOTE: the gc-mut leaf is a parameter so the flag dispatch stays outside the λne
+     body -- a flag branch inside makes solve_proper diverge *)
+  Program Definition ref_interp_gen (gc_mut : semantic_type -n> semantic_type) :
     leibnizO memory -n> leibnizO mutability -n> semantic_type -n> semantic_type :=
     λne μ β τ se,
       match eval_mem_se se μ, β with
       | Some MemMM, Mut => ref_mm_mut_interp τ se
       | Some MemMM, Imm => ref_mm_imm_interp τ se
-      | Some MemGC, Mut => ref_gc_mut_interp τ se
+      | Some MemGC, Mut => gc_mut τ se
       | Some MemGC, Imm => ref_gc_imm_interp τ se
       | None, _ => λne sv, False%I
       end.
@@ -654,25 +665,31 @@ Section instr.
   Qed.
   Next Obligation.
     cbn.
-    intros μ β τ n se se' Hse.
+    intros gc_mut μ β τ n se se' Hse.
     replace (eval_mem se' μ) with (eval_mem se μ); last by eapply eval_mem_se.
     destruct (eval_mem se μ) as [[|]|] eqn:Heq; rewrite Heq; destruct β; cbn; solve_proper.
   Qed.
   Next Obligation.
     cbn.
-    intros μ β k τ τ' Hτ se; cbn.
+    intros gc_mut μ β k τ τ' Hτ se; cbn.
     destruct (eval_mem se μ) as [[|]|] eqn:Heq; rewrite Heq; destruct β; cbn; solve_proper.
   Qed.
   Next Obligation.
     cbn.
-    intros ???? <- ???; cbn.
+    intros ????? <- ???; cbn.
     solve_proper.
   Qed.
   Final Obligation.
     cbn.
-    intros ??? <- ????; cbn.
+    intros ???? <- ????; cbn.
     solve_proper.
   Qed.
+
+  Definition ref_interp (ξ : ref_flag) :
+    leibnizO memory -n> leibnizO mutability -n> semantic_type -n> semantic_type :=
+    ref_interp_gen (if ref_flag_beq ξ AnyRefs
+                    then ref_gc_mut_lin_interp
+                    else ref_gc_mut_interp).
 
   Program Definition coderef_interp : (semantic_env -n> ClR) -n> semantic_type :=
     λne FT se sv,
@@ -1001,7 +1018,7 @@ Section instr.
       | VariantT _ τs => variant_interp (map type_interp τs)
       | ProdT _ τs => prod_interp (map type_interp τs)
       | StructT _ τs => struct_interp (map type_interp τs)
-      | RefT _ μ β τ => ref_interp μ β (type_interp τ)
+      | RefT κ μ β τ => ref_interp (kind_ref_flag κ) μ β (type_interp τ)
       | SerT _ τ => ser_interp (type_interp τ)
       | PlugT _ ρ => plug_interp
       | SpanT _ σ => span_interp
@@ -1030,7 +1047,7 @@ Section instr.
     | VariantT _ τs => variant_interp (map type_interp τs)
     | ProdT _ τs => prod_interp (map type_interp τs)
     | StructT _ τs => struct_interp (map type_interp τs)
-    | RefT _ μ β τ => ref_interp μ β (type_interp τ)
+    | RefT κ μ β τ => ref_interp (kind_ref_flag κ) μ β (type_interp τ)
     | SerT _ τ => ser_interp (type_interp τ)
     | PlugT _ ρ => plug_interp
     | SpanT _ σ => span_interp

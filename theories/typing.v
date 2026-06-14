@@ -378,9 +378,10 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F τ (MEMTYPE σ ξ) ->
   let κ := VALTYPE (AtomR PtrR) AnyRefs in
   has_kind F (RefT κ (BaseM MemMM) β τ) κ
+(* NOTE: a gc ref owning mm memory is uncopyable, so join the contents' flag *)
 | KRefGC F β τ σ ξ :
   has_kind F τ (MEMTYPE σ ξ) ->
-  let κ := VALTYPE (AtomR PtrR) GCRefs in
+  let κ := VALTYPE (AtomR PtrR) (ref_flag_lub2 GCRefs ξ) in
   has_kind F (RefT κ (BaseM MemGC) β τ) κ
 | KCodeRef F ϕ :
   function_type_ok F ϕ ->
@@ -458,7 +459,7 @@ Section HasKindInd.
                              let κ := VALTYPE (AtomR PtrR) AnyRefs in
                              P F (RefT κ (BaseM MemMM) β τ) κ)
       (HRefGC : forall F β τ σ ξ, P F τ (MEMTYPE σ ξ) ->
-                             let κ := VALTYPE (AtomR PtrR) GCRefs in
+                             let κ := VALTYPE (AtomR PtrR) (ref_flag_lub2 GCRefs ξ) in
                              P F (RefT κ (BaseM MemGC) β τ) κ)
       (HCodeRef : forall F ϕ, function_type_ok F ϕ ->
                          let κ := VALTYPE (AtomR I32R) NoRefs in

@@ -1003,25 +1003,14 @@ Section properties.
     value_interp rti sr se (RefT κ μ β τ) (SAtoms os) -∗ ⌜length os = 1⌝.
   Proof.
     iIntros "(%sκ & _ & _ & H)".
-    destruct μ; destruct β.
-    - destruct (lookup_mem se n) eqn:Hn; cbn in Hn; last (cbn; by rewrite Hn).
-      cbn.
-      rewrite Hn.
-      destruct b.
-      + iDestruct "H" as "(% & % & % & %Hos & _)". by inversion Hos.
-      + iDestruct "H" as "(% & % & %Hos & _)". by inversion Hos.
-    - destruct (lookup_mem se n) eqn:Hn; cbn in Hn; last (cbn; by rewrite Hn).
-      cbn.
-      rewrite Hn.
-      destruct b.
-      + iDestruct "H" as "(% & % & % & %Hos & _)". by inversion Hos.
-      + iDestruct "H" as "(% & % & % & %Hos & _)". by inversion Hos.
-    - cbn. destruct b.
-      + iDestruct "H" as "(% & % & % & %Hos & _)". by inversion Hos.
-      + iDestruct "H" as "(% & % & %Hos & _)". by inversion Hos.
-    - cbn. destruct b.
-      + iDestruct "H" as "(% & % & % & %Hos & _)". by inversion Hos.
-      + iDestruct "H" as "(% & % & % & %Hos & _)". by inversion Hos.
+    destruct (kind_ref_flag κ); destruct μ; destruct β.
+    all: try (destruct (lookup_mem se n) eqn:Hn; cbn in Hn;
+              last (cbn; by rewrite Hn);
+              cbn; rewrite Hn).
+    all: cbn.
+    all: try destruct b.
+    all: try (iDestruct "H" as "(% & % & % & %Hos & _)"; by inversion Hos).
+    all: iDestruct "H" as "(% & % & %Hos & _)"; by inversion Hos.
   Qed.
 
   (* useful lemma for proving compat lemmas for instructions erased by the compiler. *)

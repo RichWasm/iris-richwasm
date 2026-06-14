@@ -686,9 +686,14 @@ Section kinding.
         * (* MemMM *)
           admit.
         * (* MemGC *)
-          eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
-          intros ?.
-          destruct β; typeclasses eauto.
+          inversion Hκ0; subst.
+          cbn in Hsκ.
+          apply Some_inj in Hsκ; subst.
+          match goal with
+          | H : has_kind _ _ (MEMTYPE _ ?x) |- _ => destruct x
+          end.
+          1,2: intros ?; destruct β; typeclasses eauto.
+          done.
     - (* CodeRefT *)
       intros ?? Hκ0 Hsκ.
       eapply ref_flag_stype_interp_refine; first apply least_ref_flag.

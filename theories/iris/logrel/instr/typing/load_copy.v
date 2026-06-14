@@ -1290,6 +1290,8 @@ Section load_copy.
           by pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
 
     - (* ref gc mut *)
+      destruct (ref_flag_beq (kind_ref_flag κ) AnyRefs) eqn:Hlin.
+      { admit. (* TODO(lin): owned-cell gc copy-load; resource threading *) }
       iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
       iDestruct "Href" as (ℓ fs Hsv) "#Hinv".
       inversion Hsv; subst p; clear Hsv.
@@ -1601,6 +1603,7 @@ Section load_copy.
               constructor; done.
             + iEval (cbn).
               rewrite Hevmem.
+              rewrite Hlin; iEval (cbn).
               iExists ℓ, fs.
               eauto.
           - (* establish atom_interp for the value stack *)
@@ -1948,6 +1951,6 @@ Section load_copy.
               destruct Hcopyability as (κ' & Hcopyk & Hle).
               by pose proof (has_kind_agree _ _ _ _ Hcopyk ltac:(eassumption)); subst.
         }
-  Qed.
+  Admitted.
 
 End load_copy.

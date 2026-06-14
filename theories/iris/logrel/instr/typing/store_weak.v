@@ -1143,6 +1143,7 @@ Section store_weak.
     [MemGC]: {
       (* note: this first set up has a lot of copying *)
       iEval (cbn) in "Ho1".
+      destruct (ref_flag_beq ξ_ref AnyRefs); first admit.
       iDestruct "Ho1" as "(%ℓ & %fs & %toinvert & Hτ)".
       inversion toinvert; subst; clear toinvert.
       iPoseProof (atom_interp_ptr_shaped with "Hv1") as
