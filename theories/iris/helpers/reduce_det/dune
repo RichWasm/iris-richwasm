@@ -1,4 +1,4 @@
-(coq.theory
+(rocq.theory
  (name RichWasm.iris.helpers.reduce_det)
  (package iris-richwasm)
  (flags

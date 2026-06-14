@@ -8,7 +8,7 @@ authors: ["Ryan Doenges" "Brianna Marshall" "Maxime Legoupil" "Amal Ahmed"]
 homepage: "https://github.com/RichWasm/iris-richwasm"
 bug-reports: "https://github.com/RichWasm/iris-richwasm/issues"
 depends: [
-  "dune" {>= "3.16"}
+  "dune" {>= "3.23"}
   "alcotest" {>= "1.9.1"}
   "coq-compcert" {>= "3.17"}
   "coq-itree" {>= "5.2.0"}
@@ -45,3 +45,4 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/RichWasm/iris-richwasm.git"
+x-maintenance-intent: ["(latest)"]

@@ -1,4 +1,4 @@
-(coq.theory
+(rocq.theory
  (name RichWasm.syntax)
  (package iris-richwasm)
  (flags :standard -w -argument-scope-delimiter -w -automatic-prop-lowering)

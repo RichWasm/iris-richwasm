@@ -1,5 +1,5 @@
-(lang dune 3.16)
-(using coq 0.09)
+(lang dune 3.23)
+(using rocq 0.13)
 
 (name iris-richwasm)
 (version 0.1)

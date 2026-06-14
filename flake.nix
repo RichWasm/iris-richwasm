@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
   };
 
   outputs =
@@ -23,11 +23,48 @@
         }
       );
       eachPkgs = f: eachSystem (s: f (pkgsFor.${s} // self.packages.${s}));
+
       pinned-versions = pkgs: rec {
-        coq = pkgs.coq_9_0;
-        coqPackages = pkgs.coqPackages_9_0;
-        ocamlPackages = coq.ocamlPackages;
+        # NOTE: dune 3.23+ since `rocq.theory` needs `rocq c --config`, previous versions were bugged
+        dune_3_23_1 = pkgs.dune_3.overrideAttrs (
+          finalAttrs: _: {
+            version = "3.23.1";
+            src = pkgs.fetchurl {
+              url = "https://github.com/ocaml/dune/releases/download/${finalAttrs.version}/dune-${finalAttrs.version}.tbz";
+              hash = "sha256-k7TnFX9rqP62HPxfhgCO/SxZA3unigF9krSr8wYyNI8=";
+            };
+          }
+        );
+
+        # NOTE: despite the recommendations online claiming that one should use ocaml 4 for rocq,
+        # there doesn't seem to be any real-world performance difference. I tried comparing
+        # ocamlPackages_5_3 and ocamlPackages_4_14 and produced the following results using `time`:
+        # - ocaml 5: nix flake check -LL 2.93s user 0.59s system 0% cpu 12:39.59 total
+        # - ocaml 4: nix flake check -LL 3.00s user 0.64s system 0% cpu 12:34.31 total
+        # Using ocaml 5 uniformly makes everything much simpler so that is what is specified below:
+        ocamlPackages = pkgs.ocaml-ng.ocamlPackages_5_3.overrideScope (
+          # vsrocq's ppx_yojson_conv pins yojson_2 (2.2.2) while its lsp uses yojson 3.0.0 — collide in findlib.
+          _: prev: { yojson_2 = prev.yojson; }
+        );
+
         ocaml = ocamlPackages.ocaml;
+        rocqPackages = pkgs.rocqPackages_9_0.overrideScope (
+          final: prev: {
+            rocq-core = prev.rocq-core.override { customOCamlPackages = ocamlPackages; };
+            dune = dune_3_23_1;
+            vsrocq-language-server = prev.vsrocq-language-server.override { coq = coqPackages.coq; };
+          }
+        );
+        rocq = rocqPackages.rocq-core;
+        coqPackages = pkgs.coqPackages_9_0.overrideScope (
+          final: prev: {
+            coq = prev.coq.override {
+              customOCamlPackages = ocamlPackages;
+              inherit rocqPackages;
+            };
+            dune = dune_3_23_1;
+          }
+        );
       };
     in
     {
@@ -35,24 +72,39 @@
         system:
         let
           pkgs = pkgsFor.${system};
-          inherit (pinned-versions pkgs) coqPackages ocamlPackages;
+          inherit (pinned-versions pkgs) coqPackages rocqPackages ocamlPackages;
 
-          iris-richwasm-deps = with coqPackages; [
-            stdlib
-            iris
-            compcert
-            mathcomp
-            ITree
-            parseque
-            coq-elpi
-            ExtLib
-            hierarchy-builder
-            mathcomp-boot
-            mathcomp-order
-            coq-record-update
-            flocq
-            autosubst-ocaml
-          ];
+          iris-richwasm-deps =
+            [ ]
+            ++ (with rocqPackages; [
+              stdlib
+              iris
+              mathcomp
+              mathcomp-boot
+              mathcomp-order
+
+              rocq-elpi
+
+              hierarchy-builder
+
+              parseque
+            ])
+            ++ (with coqPackages; [
+              # NOTE: compcert works fine with ocaml 5, they just don't officially support it;
+              # but we are using it at the rocq level anyways, so it doesn't really matter.
+              (compcert.overrideAttrs (o: {
+                configurePhase = ''
+                  ${o.configurePhase} \
+                    -ignore-ocaml-version
+                '';
+              }))
+              ITree
+              ExtLib
+
+              coq-record-update
+              flocq
+              autosubst-ocaml
+            ]);
 
           richwasm-ocaml-deps = with ocamlPackages; [
             base
@@ -80,7 +132,7 @@
           default = iris-richwasm;
 
           iris-richwasm-build =
-            (coqPackages.mkCoqDerivation {
+            (rocqPackages.mkRocqDerivation {
               pname = project;
               version = version;
 
@@ -120,6 +172,9 @@
               (old: {
                 pname = project + "-build";
 
+                dontStrip = true;
+                dontPatchELF = true;
+
                 outputs = [
                   "out"
                   "build"
@@ -151,13 +206,18 @@
           pname = project + "-check";
           name = project + "-check";
 
+          outputs = [ "out" ];
+          postBuild = "";
+
           buildInputs = old.buildInputs ++ old.passthru.testDeps;
 
           doCheck = true;
 
           patchPhase = ''
             mkdir -p _build
-            cp -rT --no-preserve=mode,ownership ${pkgs.iris-richwasm-build.build}/_build _build
+            # NOTE: keep mode so we don't strip executable bit
+            cp -rT --no-preserve=ownership ${pkgs.iris-richwasm-build.build}/_build _build
+            chmod -R u+w _build
           '';
 
           buildPhase = "";
@@ -178,27 +238,33 @@
         pkgs:
         let
           inherit (pinned-versions pkgs)
-            coq
+            rocq
+            rocqPackages
             coqPackages
             ocaml
             ocamlPackages
+            dune_3_23_1
             ;
           inherit (pkgs.stdenv.hostPlatform) system;
+
         in
         {
           default = pkgs.mkShell {
             packages = [
-              coq
+              rocq
               ocaml
+              dune_3_23_1
             ]
             ++ (with pkgs; [
-              dune_3
               nixd
               nil
               nixfmt
             ])
+            ++ (with rocqPackages; [
+              vsrocq-language-server
+            ])
             ++ (with coqPackages; [
-              vscoq-language-server
+              coq-lsp
             ])
             ++ (with ocamlPackages; [
               merlin

@@ -1,4 +1,4 @@
-(coq.theory
+(rocq.theory
  (name RichWasm.iris.helpers.lfill_prelude)
  (package iris-richwasm)
  (flags

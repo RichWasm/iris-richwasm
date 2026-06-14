@@ -1,4 +1,4 @@
-(coq.theory
+(rocq.theory
  (name RichWasm.opsem)
  (package iris-richwasm)
  (flags
