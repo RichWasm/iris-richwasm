@@ -271,12 +271,23 @@ Lemma ref_flag_lub_ub ξ ξs :
   ξ ∈ ξs ->
   ref_flag_le ξ (ref_flag_lub ξs).
 Proof.
-Admitted.
+  induction ξs as [| ξ0 ξs IH]; intros Hin.
+  - inversion Hin.
+  - destruct (ref_flag_lub2_ub ξ0 (ref_flag_lub ξs)) as [Hub1 Hub2].
+    apply elem_of_cons in Hin as [-> | Hin].
+    + apply Hub1.
+    + eapply ref_flag_le_trans; eauto.
+Qed.
 
 Lemma ref_flag_lub_incl ξs ξs' :
   ξs ⊆ ξs' ->
   ref_flag_le (ref_flag_lub ξs) (ref_flag_lub ξs').
-Admitted.
+Proof.
+  intros Hsub.
+  apply ref_flag_lub_least, Forall_forall.
+  intros ξ Hin.
+  apply ref_flag_lub_ub; auto.
+Qed.
 
 Inductive subkind_of : kind -> kind -> Prop :=
 | KSubVal ρ ξ ξ' :
