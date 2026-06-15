@@ -1214,7 +1214,100 @@ Section store_weak.
 
       (* Now we can cwp_seq and use the spec *)
 
-
+      iApply (cwp_seq with "[-]").
+      {
+        iApply (Hcaseptr_spec with "[$] [$] [] [-]").
+        { iPureIntro. cbn. apply list_lookup_insert_eq.
+          assert (ptr_local ∉ val_idxs) as Hnotinval. {
+            rewrite Hval_idxs_seq.
+            intro Hin. apply elem_of_seq in Hin.
+            rewrite /ptr_local length_app /fe_wlocal_offset in Hin. subst fe. simpl in Hin. lia.
+          }
+          rewrite <- lookup_lt_is_Some.
+          rewrite <- (proj1 Hfrel_fr_saved ptr_local Hnotinval).
+          rewrite lookup_lt_is_Some.
+          exact Hptrlocalfr.
+        }
+        iModIntro. iIntros "Hfr Hrun".
+        (* Decompose es_memGC into root_to_heap ([get_local; load; set_local]) + memory.store *)
+        inv_cg_bind Hcg_memGC what_gc ?wt ?wt ?wl ?wl
+          es_root_to_heap_gc es_store_gc Hcg_root_gc Hcg_store_gc.
+        destruct what_gc.
+        (* root_pointer_interp rp (PtrHeap MemGC ℓ) forces rp = RootHeap MemGC a_root *)
+        destruct rp as [? | [|] a_root].
+        { iEval (cbn) in "Hv1". iExFalso; iExact "Hv1". }
+        { iEval (cbn) in "Hv1". iExFalso; iExact "Hv1". }
+        (* Get root resources for wp_root_to_heap *)
+        unfold rt_token.
+        iDestruct "Hrt" as "(%rm_gc & %lm_gc & %hm_gc &
+          Haddr_gc & Hroot_gc_auth & Hlayout_gc & Hheap_gc &
+          Hrti_gc & %Hinj_gc & Hownmm_gc & Howngc_gc &
+          %Hrootok_gc & Hrootmem_gc & %Hheapok_gc & Hheapmem_gc)".
+        pose proof (wp_root_to_heap sr _ _ _ _ _ _ _ Hcg_root_gc) as Hrth_gc.
+        specialize (Hrth_gc a_root n n32 ℓ θ rm_gc Hn32 Hreproot Hrootok_gc).
+        (* Inner cwp_seq: split root_to_heap from memory.store *)
+        iApply (cwp_seq with "[Hfr Hrun Hv1 Hroot_gc_auth Hrootmem_gc]").
+        {
+          iApply (Hrth_gc with "[$Hfr] [$Hrun] [] [] [$Hv1] [$Hroot_gc_auth] [$Hrootmem_gc]").
+          - (* f'.f_locs !! ptr_local = Some (VAL_int32 n32) *)
+            iPureIntro. cbn. apply list_lookup_insert_eq.
+            assert (ptr_local ∉ val_idxs) as Hnotinval. {
+              rewrite Hval_idxs_seq. intro Hin. apply elem_of_seq in Hin.
+              rewrite /ptr_local length_app /fe_wlocal_offset in Hin. subst fe. simpl in Hin. lia.
+            }
+            rewrite <- lookup_lt_is_Some.
+            rewrite <- (proj1 Hfrel_fr_saved ptr_local Hnotinval).
+            rewrite lookup_lt_is_Some. exact Hptrlocalfr.
+          - (* f'.f_inst = f_inst fr_saved = f_inst fr; extract GC mem idx from Hinst *)
+            iDestruct "Hinst" as "(_ & _ & _ & _ & _ & %Hgcmem)".
+            iPureIntro. cbn.
+            rewrite <- (proj2 Hfrel_fr_saved).
+            exact Hgcmem.
+          - (* After root_to_heap: ptr_local holds the actual GC heap address ah32 *)
+            iIntros "!>!>!>" (ah ah32) "%Hah32 %Hrepr_gc Hv1' Hroot_gc_auth' Hrootmem_gc'".
+            instantiate (1 := λ f'' v'', (
+              ⌜v'' = []⌝ ∗
+              ∃ ah ah32,
+              ⌜f''.(W.f_inst) = f_inst fr_saved⌝ ∗
+              ⌜f''.(W.f_locs) !! ptr_local = Some (VAL_int32 ah32)⌝ ∗
+              ⌜N_i32_repr ah ah32⌝ ∗
+              ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
+              a_root ↦root ℓ ∗
+              ghost_map_auth rw_root (1/2) rm_gc ∗
+              root_memory sr θ rm_gc)%I).
+            iSplit; first done.
+            iExists ah, ah32.
+            iSplit; first done.
+            iSplit. { (* ptr_local is now ah32 in the new frame *)
+              iPureIntro. cbn. apply list_lookup_insert_eq.
+              rewrite length_insert.
+              assert (ptr_local ∉ val_idxs) as Hnotinval. {
+                rewrite Hval_idxs_seq. intro Hin. apply elem_of_seq in Hin.
+                rewrite /ptr_local length_app /fe_wlocal_offset in Hin. subst fe. simpl in Hin. lia.
+              }
+              rewrite <- lookup_lt_is_Some.
+              rewrite <- (proj1 Hfrel_fr_saved ptr_local Hnotinval).
+              rewrite lookup_lt_is_Some. exact Hptrlocalfr.
+            }
+            iSplit; first done.
+            iSplit; first done.
+            iFrame.
+        }
+        iIntros (f'' v'')
+          "(-> & %ah & %ah32 & %Hfinst & %Hflocs & %Hah32 & %Hrepr_gc & Hv1' & Hroot_gc_auth' & Hrootmem_gc')
+           Hfr Hrun".
+        (* Restore rt_token *)
+        iAssert (rt_token rti sr θ) with
+          "[Haddr_gc Hroot_gc_auth' Hlayout_gc Hheap_gc Hrti_gc
+            Hownmm_gc Howngc_gc Hrootmem_gc' Hheapmem_gc]" as "Hrt".
+        { unfold rt_token. iExists rm_gc, lm_gc, hm_gc.
+          iFrame. by iFrame (Hinj_gc Hrootok_gc Hheapok_gc).
+        }
+        iSimpl.
+        admit.
+      }
+      iIntros (fr_store vs_store) "Hres Hfr Hrun".
+      (* TODO: apply pointer flags spec, reestablish frame_rel and value_interp. *)
       admit.
     }
 
