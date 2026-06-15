@@ -1110,12 +1110,21 @@ Section store_weak.
       (* First, saving stack to clear evs2 and es_save *)
 
       (* apply lemma on the codegen. order of goals to help with evars *)
+      iAssert (⌜has_areps ιs (SAtoms os2)⌝%I) with "[Hos2]" as "%Hareps2". {
+        rewrite value_interp_eq.
+        iEval (cbn -[pre_type_interp type_skind]) in "Hos2".
+        iDestruct "Hos2" as "(%sκ_temp & %Htypeskindtemp & %Harepsoon & pre)".
+        iPureIntro.
+        rewrite Htypeskindτval in Htypeskindtemp.
+        inversion Htypeskindtemp; subst.
+        destruct Harepsoon as [H' _]; exact H'.
+      }
+      iDestruct (result_type_interp_of_atoms_interp with "Hvs2") as "%Hres_type_vs2"; [exact Hareps2|].
       eapply cwp_save_stack_w in Hsave; auto.
       4: exact Hevs2.
       3: {
-        (* About result_type_interp_of_atoms_interp. *)
-        (* true but boring/later *)
-        admit.
+        unfold translate_arep in Hres_type_vs2.
+        by rewrite map_comp.
       }
       2: exact Hwl.
       destruct Hsave as (Hval_localidxs_seq & -> & Hwl_save & Hsave).
