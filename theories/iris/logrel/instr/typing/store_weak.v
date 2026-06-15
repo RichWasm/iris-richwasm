@@ -83,12 +83,13 @@ Section store_weak.
 
   Lemma wp_store1_mm a_idx off ι v_idx wt wl ret wt' wl' es :
     run_codegen (store1 mr MemMM a_idx off v_idx ι) wt wl = inr (ret, wt', wl', es) ->
-    ∀ f ℓ a a32 val_v θ o ws E B R Φ,
+    ∀ f ℓ a a32 val_v lmask θ o ws E B R Φ,
     ⊢ "Hf"       ∷ ↪[frame] f -∗
       "Hrun"     ∷ ↪[RUN] -∗
       "Hptr"     ∷ ℓ ↦heap ws -∗
       "Haddr"    ∷ ℓ ↦addr (MemMM, a) -∗
-      "Htok"     ∷ rt_token rti sr θ -∗
+      "%Hℓmask"  ∷ ⌜lmask ℓ⌝ -∗
+      "Htok"     ∷ rt_token rti sr lmask θ -∗
       "%Ha32"    ∷ ⌜f_locs f !! localimm a_idx = Some (VAL_int32 a32)⌝ -∗
       "%Hv"      ∷ ⌜f_locs f !! localimm v_idx = Some val_v⌝ -∗
       "%Hrepa"   ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
@@ -102,7 +103,7 @@ Section store_weak.
       "Hat"      ∷ atom_interp_weak θ MemMM o val_v -∗
       "HΦ"       ∷ (ℓ ↦heap (update_path_words off ws (serialize_atom o)) -∗
                     ℓ ↦addr (MemMM, a) -∗
-                    rt_token rti sr θ -∗
+                    rt_token rti sr lmask θ -∗
                     Φ f []) -∗
     CWP es @ E UNDER B; R {{ Φ }}.
   Proof.
@@ -133,7 +134,7 @@ Section store_weak.
     }
     iIntros (f' vs') "[-> ->] Hf Hrun".
     (* Open abstract-physical connection for the slice [off, off + arep_size ι) *)
-    iPoseProof (virt_to_phys_slice_store_acc _ _ off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr]")
+    iPoseProof (virt_to_phys_slice_store_acc_weak _ _ lmask off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr] [//]")
       as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
     (* atom_to_words_mm consumes Hat; it also returns types_agree which is needed for Hstore_spec *)
     iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
@@ -141,7 +142,7 @@ Section store_weak.
     iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
     iPoseProof (words_interp_locs_dom_θ θ rm MemMM _ ns_new Hrootok with "[$Hwords_new] [$Hroot]")
       as "%Hlocsθ_new".
-    iAssert (rt_token_nophys rti sr θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
+    iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
     { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
     (* Compute byte-length of old slice *)
     iPoseProof (big_sepL2_length with "Hwords") as "%Hlenws".
@@ -173,12 +174,13 @@ Section store_weak.
   Lemma wp_store_mm_MAYBE a_idx off ιs vs_idx wt wl ret wt' wl' es :
     run_codegen (memory.store mr MemMM a_idx off vs_idx ιs) wt wl = inr (ret, wt', wl', es) ->
     ret = () /\ wt' = [] /\ wl' = [] /\ (* if I'm understanding wt' and wl' right *)
-    ∀ f ℓ a a32 val_vs θ os ws E B R Φ,
+    ∀ f ℓ a a32 val_vs lmask θ os ws E B R Φ,
     ⊢ "Hf"       ∷ ↪[frame] f -∗
       "Hrun"     ∷ ↪[RUN] -∗
       "Hptr"     ∷ ℓ ↦heap ws -∗
       "Haddr"    ∷ ℓ ↦addr (MemMM, a) -∗
-      "Htok"     ∷ rt_token rti sr θ -∗
+      "%Hℓmask"  ∷ ⌜lmask ℓ⌝ -∗
+      "Htok"     ∷ rt_token rti sr lmask θ -∗
       "%Ha32"    ∷ ⌜f_locs f !! localimm a_idx = Some (VAL_int32 a32)⌝ -∗
       "%Hv"      ∷ ⌜Forall2 (λ v_idx val_v, f_locs f !! localimm v_idx = Some val_v) vs_idx val_vs⌝ -∗
       "%Hrepa"   ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
@@ -193,7 +195,7 @@ Section store_weak.
       "Hat"      ∷ ([∗ list] o;val_v ∈ os;val_vs, atom_interp_weak θ MemMM o val_v) -∗
       "HΦ"       ∷ (ℓ ↦heap (update_path_words off ws (concat (map serialize_atom os))) -∗
                     ℓ ↦addr (MemMM, a) -∗
-                    rt_token rti sr θ -∗
+                    rt_token rti sr lmask θ -∗
                     Φ f []) -∗
     CWP es @ E UNDER B; R {{ Φ }}.
   Proof. Admitted.
@@ -568,6 +570,9 @@ Section store_weak.
         by constructor.
       }
 
+      (* another improtant thing soon is that lpall ℓ is true *)
+      assert (Hlmask: lpall ℓ) by done.
+
 
       (* Summary:
          - o1 became (PtrHeap MemMM ℓ), v1 became (VAL_int32 n32), ev1 became BI_const...
@@ -800,6 +805,7 @@ Section store_weak.
         specialize Hstore_spec with (a:=a%N).
         specialize Hstore_spec with (a32:=n32).
         specialize Hstore_spec with (val_vs:=vs2).
+        specialize Hstore_spec with (lmask:=lpall).
         specialize Hstore_spec with (θ:=θ).
         specialize Hstore_spec with (ℓ:=ℓ).
         specialize Hstore_spec with (os:=os2).
@@ -870,7 +876,7 @@ Section store_weak.
         iPoseProof (atoms_interp_to_weak_memMM with "[$] [$Hvs2]") as "[Hrt Hvs2]".
 
         (* let's try applying Hstore_spec. Oh boy oh boy. Currently fully giving atoms_interp to store *)
-        iApply (Hstore_spec with "[$] [$] [$] [$] [$] [] [] [] [] [] [] [] [] [] [] [$Hvs2] [-]");
+        iApply (Hstore_spec with "[$] [$] [$] [$] [] [$] [] [] [] [] [] [] [] [] [] [] [$Hvs2] [-]");
           clear Hstore_spec; try done.
         - iPureIntro.
           by (cbn; by apply list_lookup_insert_eq).
@@ -954,10 +960,20 @@ Section store_weak.
 
       clear_nils.
 
+      (* in order to use the pointer flags spec, we need to intentionally weaken the rttoken *)
+      (* in store strong, the store lemma will weak it for us *)
+      set (rtmask := (λ l, l ≠ ℓ)).
+      iAssert (rt_token rti sr rtmask θ) with "[Hrt]" as "Hrt". {
+        (* an rt token weakening lemma *)
+        (* this should not be here, should be somewhere else *)
+        admit.
+      }
+
       (* apply the spec onto the codegen and slowly specialize *)
       eapply cwp_set_pointer_flags in Hptr_flags.
       destruct Hptr_flags as (_ & -> & -> & Hptr_flags_spec).
       specialize (Hptr_flags_spec fr_store n n32).
+      specialize (Hptr_flags_spec rtmask).
       specialize (Hptr_flags_spec θ).
       specialize (Hptr_flags_spec MemMM ℓ).
       clear_nils.
@@ -969,9 +985,14 @@ Section store_weak.
          - f_locs fr_caseptr !! .. = n32. This is then just the minimum
            requirement of relating fr_caseptr and fr'
        *)
+      assert (¬ rtmask ℓ). {
+        unfold rtmask.
+        (* uhm decidability? or smthn? uhm. well. maybe rtmask needs to be different ikd *)
+        admit.
+      }
       assert (H3: f_locs fr_store !! localimm (prelude.W.Mk_localidx ptr_local) =
                     Some (VAL_int32 n32)) by (cbn; by apply list_lookup_insert_eq).
-      specialize (Hptr_flags_spec ltac:(auto) ltac:(auto) ltac:(auto)).
+      specialize (Hptr_flags_spec ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto)).
 
       (* Time for the case pointer spec! *)
       iApply (Hptr_flags_spec with "[$] [$] [] [$] [$] [$] [] [-]").
@@ -989,29 +1010,32 @@ Section store_weak.
       (* this iIntros is from the ptr flags spec *)
       iIntros "Hℓ_fs Hrt #Hnsfun Hown #Hinst_spec".
       clear_nils.
-      iFrame.
 
-      (* since this is store weak, something that should be true:
+      (* now, we need to restablish rttoken *)
+      iAssert (rt_token rti sr lpall θ) with "[Hrt]" as "Hrt". {
+        (* NOTE: this is going to be somewhat tricky, but it'll go something like this: *)
+      (* 1. The only thing we need to establish is layout_ok lpall lm hm
+         2. And the only thing we need to establish there is that word_has_flag is good for ℓ
+         3. We'll need some kinding info and also info of exactly what fs turned into
+         4. finally the thingy that was weird that I didn't need to reprove is actually necessary
+         5. bc of resources I think this will have to be set up differently (iAssert ⌜layout_ok⌝?) but that's okay *)
+      (*
+        the thing we might have to prove? maybe. maybe not.
       assert (Hfs: fs = foldr compose id
                      (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
                         (zip (seq off (length (flat_map arep_flags ιs)))
                            (flat_map arep_flags ιs)))
-                     fs). {
-        (* this is going to be a deeply intense battle I can feel it *)
-        (* okay so let's do some thinking
-           - We need to show that the the section from off -> len ιs of fs is
-             exactly equal to flat_map arep_flags ιs
-           - which it is, bc ιs is the reps of that exact section
-         *)
-        (* although looking ahead we might not need this?
-           If we don't that's weird af. Hm.
-           It's gotta be necessary in like reestablishing invariants though
-         *)
+                     fs). { *)
+        (*
+          note that this will be necessary for gc case both for this reason and for invariant reasons
+          maybe mm case doesn't need to prove fs = foldr .. fs, but the foldr .. fs will need to be proven
+          word_has_flag with the new words
+       *)
         admit.
       }
-      rewrite <- Hfs.
-      This will end up necessary in the gc case but is not necessary here (no invariant stuff)
-       *)
+
+
+      iFrame.
 
       (** ----- REESTABLISHING VALUE_INTERP AT THE END ------- *)
 

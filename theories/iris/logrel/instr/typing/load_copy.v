@@ -1115,7 +1115,7 @@ Section load_copy.
              ⌜vs0 = vs⌝ ∗
              ⌜Forall2 (λ (ι : atomic_rep) (vf : value), types_agree (translate_arep ι) vf) ιs vsf⌝ ∗
              ([∗ list] o;v ∈ os;vs, ⌜atom_copyable o⌝ -∗ atom_interp o v) ∗
-             rt_token rti sr θ ∗
+             rt_token rti sr lpall θ ∗
              Q
           )%I).
         iExists vs, vsf.
@@ -1443,7 +1443,7 @@ Section load_copy.
       inversion Hrepah; subst.
       rename a into a'.
       rename a0 into a.
-      iAssert (rt_token rti sr θ) with "[Haddr Hlayout Hheap Hrti Hownmm Howngc Hheapmem Hrm Hrmem]" as "Hrt".
+      iAssert (rt_token rti sr lpall θ) with "[Haddr Hlayout Hheap Hrti Hownmm Howngc Hheapmem Hrm Hrmem]" as "Hrt".
       {
         by iFrame.
       }
@@ -1762,7 +1762,7 @@ Section load_copy.
       inversion Hrepah; subst.
       rename a into a'.
       rename a0 into a.
-      iAssert (rt_token rti sr θ) with "[Haddr Hlayout Hheap Hrti Hownmm Howngc Hheapmem Hrm Hrmem]" as "Hrt".
+      iAssert (rt_token rti sr lpall θ) with "[Haddr Hlayout Hheap Hrti Hownmm Howngc Hheapmem Hrm Hrmem]" as "Hrt".
       {
         by iFrame.
       }

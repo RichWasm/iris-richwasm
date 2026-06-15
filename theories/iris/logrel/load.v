@@ -985,15 +985,22 @@ Section load.
         by apply IHws.
   Qed.
 
-  Lemma heap_ok_update θ lm hm ℓ ws' flags :
-    heap_ok θ lm hm →
+  (* changing this. This is one that will PRESERVE THE LAYOUT *)
+  (* so ℓ starts in the mask and will end in the mask *)
+  (* the fact that this passes without lmask ℓ means that it can be in or out *)
+  (* I think. It's a bit suspicious to me ngl. *)
+  Lemma heap_ok_update_weak θ lmask lm hm ℓ ws' flags :
+    layout_ok lmask lm hm ->
+    heap_ok θ hm →
+    (* lmask ℓ -> *)
     lm !! ℓ = Some flags →
     Forall2 word_has_flag flags ws' →
     Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
     Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
-    heap_ok θ lm (<[ℓ := ws']> hm).
+    layout_ok lmask lm (<[ℓ := ws']> hm) /\ heap_ok θ (<[ℓ := ws']> hm).
   Proof.
-    intros (Hflags & Hdomhm & Hdomθ) Hlm Hws' Hlocshm Hlocsθ.
+    intros Hflags (Hdomhm & Hdomθ) Hlm Hws' Hlocshm Hlocsθ.
+    unfold layout_ok in Hflags.
     unfold map_Forall2 in Hflags, Hdomθ.
     unfold map_Forall in Hdomhm.
     have Hhmℓ : is_Some (hm !! ℓ).
@@ -1003,9 +1010,11 @@ Section load.
     { have := Hdomθ ℓ. rewrite Hws_old. intros H. inversion H. eauto. }
     destruct Hθℓ as [x Hθℓv].
     split; [| split].
-    - unfold map_Forall2. intro k.
+    - unfold layout_ok. unfold map_Forall2. intro k.
       destruct (decide (k = ℓ)) as [->|Hne].
-      + rewrite lookup_insert Hlm decide_True; last done. constructor. simpl.
+      + rewrite lookup_insert Hlm decide_True; last done. constructor.
+        intros Hl2.
+        simpl.
         (* is_true vs Is_true ... *)
         eapply Forall2_impl; [exact Hws'|].
         intros f w H.  by rewrite H.
@@ -1024,15 +1033,17 @@ Section load.
       + rewrite lookup_insert_ne //.
   Qed.
 
-  Lemma rt_token_nophys_insert_heap θ hm ℓ ws ws' :
+  (* also weak. and here's where you need to know it's in the mask? I think? *)
+  Lemma rt_token_nophys_insert_heap_weak θ lmask hm ℓ ws ws' :
     hm !! ℓ = Some ws →
+    lmask ℓ ->
     (∀ flags, Forall2 word_has_flag flags ws → Forall2 word_has_flag flags ws') →
     Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
     Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
-    rt_token_nophys θ hm -∗
-    rt_token_nophys θ (<[ℓ := ws']> hm).
+    rt_token_nophys lmask θ hm -∗
+    rt_token_nophys lmask θ (<[ℓ := ws']> hm).
   Proof.
-    intros Hhm Hflags_compat Hlocshm Hlocsθ.
+    intros Hhm Hl Hflags_compat Hlocshm Hlocsθ.
     iIntros "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
     iExists rm, lm.
     iFrame "Hroot Hlayout Hrti Howngc Hrootmem".
@@ -1051,30 +1062,37 @@ Section load.
       * iApply own_addr_mm_trivial_list.
       * iPoseProof (big_sepM_delete _ hm ℓ ws Hhm with "Hownmm") as "[_ $]".
     - iPureIntro.
-      have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧ Forall2 word_has_flag flags ws.
+      have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧
+                                  (lmask ℓ -> Forall2 word_has_flag flags ws).
       { destruct Hheapok as (Hcomp1 & _).
         unfold map_Forall2 in Hcomp1. specialize (Hcomp1 ℓ).
         rewrite Hhm in Hcomp1. inversion Hcomp1. exists x. split; auto. simpl in H1.
+        intros Hl2. specialize (H1 Hl2).
         eapply Forall2_impl; first exact H1.
         intros f w H'. destruct (word_has_flag f w) eqn:H''; first done. by rewrite H'' in H'. }
       destruct Hmapflags as [flags [Hflm Hwsflags]].
-      eapply heap_ok_update.
-      2: exact Hflm.
+      destruct Hheapok as [Hlayoutok Hheapok].
+      eapply heap_ok_update_weak.
+      3: exact Hflm.
       all: try done.
+      specialize (Hwsflags Hl).
       exact (Hflags_compat flags Hwsflags).
   Qed.
 
-  Lemma virt_to_phys_slice_store_acc off sz ℓ μ a θ ws :
+  (* I DONT KNOW IF IT SHOULD BE THE ALLMASK. MAYBE. MAKING IT LMASK FOR NOW *)
+  (* ALSO NOT SUPER CERTAIN THE IF lmask ℓ IS A CORRECT HYPO TO HAVE *)
+  Lemma virt_to_phys_slice_store_acc_weak lmask off sz ℓ μ a θ ws :
     let slice := take sz (drop off ws) in
     ⊢ ⌜off + sz <= length ws⌝ -∗
-      rt_token rti sr θ -∗
+      rt_token rti sr lmask θ -∗
       ℓ ↦heap ws -∗
       ℓ ↦addr (μ, a) -∗
+      ⌜lmask ℓ⌝ -∗
       ∃ hm,
         ⌜hm !! ℓ = Some ws⌝ ∗
         ⌜dom θ = dom hm⌝ ∗
         ⌜Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws)⌝ ∗
-        rt_token_nophys θ hm ∗
+        rt_token_nophys lmask θ hm ∗
         (∃ (ns : list N) (ns32 : list i32),
           ⌜Forall2 N_i32_repr ns ns32⌝ ∗
           rt_memaddr sr μ ↦[wms][a + 4 * N.of_nat off] flat_map serialise_i32 ns32 ∗
@@ -1088,12 +1106,12 @@ Section load.
           ⌜Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations (update_path_words off ws ws_new))⌝ -∗
           rt_memaddr sr μ ↦[wms][a + 4 * N.of_nat off] flat_map serialise_i32 ns32' -∗
           words_interp θ μ ws_new ns' -∗
-          rt_token_nophys θ hm -∗
+          rt_token_nophys lmask θ hm -∗
           |==> ℓ ↦heap (update_path_words off ws ws_new) ∗
                ℓ ↦addr (μ, a) ∗
-               rt_token rti sr θ).
+               rt_token rti sr lmask θ).
   Proof.
-    iIntros (slice) "%Hlenbdd Hrt Hpt Ha".
+    iIntros (slice) "%Hlenbdd Hrt Hpt Ha %Hlmask".
     open_rt "Hrt".
     iExists hm.
     iCombine "Hpt Hheap" gives "%Hhm".
@@ -1102,7 +1120,7 @@ Section load.
     iPoseProof (heap_memory_delete ℓ _ _ ws with "Hheapmem") as "(HR & Hheapcont)"; eauto.
     (* Derive Forall (ℓ' ∈ dom θ) (flat_map locations ws) from heap_ok condition 3 *)
     have Hlocsθ_ws : Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws).
-    { destruct Hheapok as (_ & _ & Hdomθ).
+    { destruct Hheapok as (_ & Hdomθ).
       unfold map_Forall2 in Hdomθ.
       specialize (Hdomθ ℓ).
       rewrite Hhm Hθℓ in Hdomθ.
@@ -1148,13 +1166,14 @@ Section load.
     pose proof (Forall2_length _ _ _ Hns'') as Hns32'len.
     iPoseProof (big_sepL2_length with "Hwords'") as "%Hns'len".
     set (hm' := <[ℓ := update_path_words off ws ws_new]> hm).
-    iAssert (rt_token_nophys θ hm') with "[Hnp]" as "Hnp'".
-    { iApply (rt_token_nophys_insert_heap _ _ _ ws with "Hnp").
+    iAssert (rt_token_nophys lmask θ hm') with "[Hnp]" as "Hnp'".
+    { iApply (rt_token_nophys_insert_heap_weak _ _ _ _ ws with "Hnp").
       - exact Hhm.
+      - (* what I changed *) exact Hlmask.
       - exact Hflags_compat.
       - exact Hlocshm.
       - exact Hlocsθ. }
-    iApply (rt_token_putheap θ hm' with "Hnp'").
+    iApply (rt_token_putheap lmask θ hm' with "Hnp'").
     unfold rt_token_phys.
     iFrame "Haddr Hheap'".
     iApply ("Hheapcont" $! (update_path_words off ws ws_new)).
@@ -1396,13 +1415,13 @@ Section load.
   Lemma wp_load1_copy_mm (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
     let fe := fe_of_context F in
     run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
-    ∀ f ℓ a32 a o ws s E B R θ Φ,
+    ∀ f ℓ a32 a o ws s E B R θ lmask Φ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hrun" ∷ ↪[RUN] -∗
       "Hptr" ∷ ℓ ↦heap ws -∗
       "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
       "Hown"  ∷ na_own logrel_nais E -∗
-      "Htok"  ∷ rt_token rti sr θ -∗
+      "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
       "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
       "%Hbound" ∷ ⌜off + arep_size ι ≤ length ws⌝ -∗
@@ -1424,7 +1443,7 @@ Section load.
            "Hptr"  ∷ ℓ ↦heap ws -∗
            "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
            "Hown"  ∷ na_own logrel_nais E -∗
-           "Htok"  ∷ rt_token rti sr θ -∗
+           "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Ho"    ∷ (⌜atom_copyable o⌝ -∗ atom_interp o v) -∗
            Φ f' [v]) -∗
@@ -1518,7 +1537,7 @@ Section load.
           iPureIntro; constructor.
         }
         iPoseProof ("Hret" with "Hat") as "Hwords".
-        iAssert (ℓ ↦heap ws ∗ ℓ ↦addr (MemMM, a) ∗ rt_token rti sr θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Haddr & Htok)".
+        iAssert (ℓ ↦heap ws ∗ ℓ ↦addr (MemMM, a) ∗ rt_token rti sr lmask θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Haddr & Htok)".
         {
           unfold PHYS.
           rewrite -Hserws.
@@ -1530,7 +1549,7 @@ Section load.
         by iIntros "_".
       + iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
         iPoseProof ("Hret" with "Hat") as "Hwords".
-        iAssert (ℓ ↦heap ws ∗ ℓ ↦addr (MemMM, a) ∗ rt_token rti sr θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Haddr & Htok)".
+        iAssert (ℓ ↦heap ws ∗ ℓ ↦addr (MemMM, a) ∗ rt_token rti sr lmask θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Haddr & Htok)".
         {
           unfold PHYS.
           rewrite -Hserws.
@@ -1605,13 +1624,13 @@ Section load.
   Lemma wp_load1_copy_gc (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
     let fe := fe_of_context F in
     run_codegen (memory.load1 mr fe MemGC Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
-    ∀ f ℓ a32 a o ws s E B R θ Φ,
+    ∀ f ℓ a32 a o ws s E B R θ lmask Φ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hrun" ∷ ↪[RUN] -∗
       "Hptr" ∷ ℓ ↦heap ws -∗
       "%Haddr" ∷ ⌜θ !! ℓ = Some (MemGC, a)⌝ -∗
       "Hown"  ∷ na_own logrel_nais E -∗
-      "Htok"  ∷ rt_token rti sr θ -∗
+      "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
       "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
       "%Hbound" ∷ ⌜off + arep_size ι ≤ length ws⌝ -∗
@@ -1631,7 +1650,7 @@ Section load.
            "%Hvf"  ∷ ⌜types_agree (translate_arep ι) vf⌝ -∗
            "Hptr"  ∷ ℓ ↦heap ws -∗
            "Hown"  ∷ na_own logrel_nais E -∗
-           "Htok"  ∷ rt_token rti sr θ -∗
+           "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Ho"    ∷ (⌜atom_copyable o⌝ -∗ atom_interp o v) -∗
            Φ f' [v]) -∗
@@ -1730,7 +1749,7 @@ Section load.
           iPureIntro; constructor.
         }
         iPoseProof ("Hret" with "Hat") as "Hwords".
-        iAssert (ℓ ↦heap ws ∗ rt_token rti sr θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Htok)".
+        iAssert (ℓ ↦heap ws ∗ rt_token rti sr lmask θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Htok)".
         {
           unfold PHYS.
           rewrite -Hserws.
@@ -1742,7 +1761,7 @@ Section load.
         by iIntros "_".
       + iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
         iPoseProof ("Hret" with "Hat") as "Hwords".
-        iAssert (ℓ ↦heap ws ∗ rt_token rti sr θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Htok)".
+        iAssert (ℓ ↦heap ws ∗ rt_token rti sr lmask θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Htok)".
         {
           unfold PHYS.
           rewrite -Hserws.
@@ -1755,7 +1774,7 @@ Section load.
         iPoseProof "Hat" as "(%n & %n32 & %Hn32 & %Ha & %Hrep)".
         inversion Hrep; subst.
         iPoseProof ("Hret" with "Hat") as "Hwords".
-        iAssert (ℓ ↦heap ws ∗ rt_token rti sr θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Htok)".
+        iAssert (ℓ ↦heap ws ∗ rt_token rti sr lmask θ)%I with "[Hclose Hphys Hwords Hnp]" as "(Hheap & Htok)".
         {
           unfold PHYS.
           rewrite -Hserws.
@@ -2065,11 +2084,11 @@ Section load.
       ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs ∧
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R θ Φ,
+      ∀ f ℓ a32 a os ws E B R θ lmask Φ,
     ⊢ "Hptr" ∷ ℓ ↦heap ws -∗
       "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
       "Hown"  ∷ na_own logrel_nais E -∗
-      "Htok"  ∷ rt_token rti sr θ -∗
+      "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
       "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
       "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
@@ -2092,7 +2111,7 @@ Section load.
            "Hptr"  ∷ ℓ ↦heap ws -∗
            "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
            "Hown"  ∷ na_own logrel_nais E -∗
-           "Htok"  ∷ rt_token rti sr θ -∗
+           "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
            Φ f' vs) -∗
@@ -2182,7 +2201,7 @@ Section load.
                               ⌜f0 = mk_load_frame fe f wl vsf⌝ ∗
                               ⌜Forall2 (λ (ι : atomic_rep) (vf : value), types_agree (translate_arep ι) vf) ιs vsf⌝ ∗
                               ([∗ list] o0;v ∈ os';vs0, ⌜atom_copyable o0⌝ -∗ atom_interp o0 v) ∗
-                              rt_token rti sr θ ∗
+                              rt_token rti sr lmask θ ∗
                               (* evar for collecting everything else *)
                               (* make sure nothing that goes in here mentions f', or vs! *)
                               Q)%I).
@@ -2256,13 +2275,13 @@ Section load.
       ret = () /\
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R θ Φ,
+      ∀ f ℓ a32 a os ws E B R θ lmask Φ,
       ⊢ "Hf" ∷ ↪[frame] f -∗
         "Hrun" ∷ ↪[RUN] -∗
         "Hptr" ∷ ℓ ↦heap ws -∗
         "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
         "Hown"  ∷ na_own logrel_nais E -∗
-        "Htok"  ∷ rt_token rti sr θ -∗
+        "Htok"  ∷ rt_token rti sr lmask θ -∗
         "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
         "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
         "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
@@ -2285,7 +2304,7 @@ Section load.
              "Hptr"  ∷ ℓ ↦heap ws -∗
              "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
              "Hown"  ∷ na_own logrel_nais E -∗
-             "Htok"  ∷ rt_token rti sr θ -∗
+             "Htok"  ∷ rt_token rti sr lmask θ -∗
              "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
              "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
              Φ f' vs) -∗
@@ -2316,13 +2335,13 @@ Section load.
       ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs ∧
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R θ Φ,
+      ∀ f ℓ a32 a os ws E B R θ lmask Φ,
       ⊢ "Hf" ∷ ↪[frame] f -∗
         "Hrun" ∷ ↪[RUN] -∗
         "Hptr" ∷ ℓ ↦heap ws -∗
         "%Haddr" ∷ ⌜θ !! ℓ = Some (MemGC, a)⌝ -∗
         "Hown"  ∷ na_own logrel_nais E -∗
-        "Htok"  ∷ rt_token rti sr θ -∗
+        "Htok"  ∷ rt_token rti sr lmask θ -∗
         "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
         "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
         "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
@@ -2344,7 +2363,7 @@ Section load.
              "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
              "Hptr"  ∷ ℓ ↦heap ws -∗
              "Hown"  ∷ na_own logrel_nais E -∗
-             "Htok"  ∷ rt_token rti sr θ -∗
+             "Htok"  ∷ rt_token rti sr lmask θ -∗
              "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
              "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
              Φ f' vs) -∗
@@ -2438,7 +2457,7 @@ Section load.
                                 ⌜f0 = mk_load_frame fe f wl vsf⌝ ∗
                                 ⌜Forall2 (λ (ι : atomic_rep) (vf : value), types_agree (translate_arep ι) vf) ιs vsf⌝ ∗
                                 ([∗ list] o0;v ∈ os';vs0, ⌜atom_copyable o0⌝ -∗ atom_interp o0 v) ∗
-                                rt_token rti sr θ ∗
+                                rt_token rti sr lmask θ ∗
                                 (* evar for collecting everything else *)
                                 (* make sure nothing that goes in here mentions f' or vs! *)
                                 Q)%I).
@@ -2514,13 +2533,13 @@ Section load.
       ret = () /\
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R θ Φ,
+      ∀ f ℓ a32 a os ws E B R θ lmask Φ,
       ⊢ "Hf" ∷ ↪[frame] f -∗
         "Hrun" ∷ ↪[RUN] -∗
         "Hptr" ∷ ℓ ↦heap ws -∗
         "%Haddr" ∷ ⌜θ !! ℓ = Some (MemGC, a)⌝ -∗
         "Hown"  ∷ na_own logrel_nais E -∗
-        "Htok"  ∷ rt_token rti sr θ -∗
+        "Htok"  ∷ rt_token rti sr lmask θ -∗
         "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
         "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
         "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
@@ -2542,7 +2561,7 @@ Section load.
              "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
              "Hptr"  ∷ ℓ ↦heap ws -∗
              "Hown"  ∷ na_own logrel_nais E -∗
-             "Htok"  ∷ rt_token rti sr θ -∗
+             "Htok"  ∷ rt_token rti sr lmask θ -∗
              "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
              "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
              Φ f' vs) -∗

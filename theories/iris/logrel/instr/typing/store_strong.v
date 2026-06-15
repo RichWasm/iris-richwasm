@@ -223,15 +223,16 @@ Section store_strong.
   Qed.
 
   (* Note: copied from store_weak *)
+  (* this is INCORRECT AND WILL NEED TO BE CHANGED, SPECIFICALLY WITH LMASK *)
   Lemma wp_store_mm_MAYBE a_idx off ιs vs_idx wt wl ret wt' wl' es :
     run_codegen (memory.store mr MemMM a_idx off vs_idx ιs) wt wl = inr (ret, wt', wl', es) ->
     ret = () /\ wt' = [] /\ wl' = [] /\ (* if I'm understanding wt' and wl' right *)
-    ∀ f ℓ a a32 val_vs θ os ws E B R Φ,
+    ∀ f ℓ a a32 val_vs lmask θ os ws E B R Φ,
     ⊢ "Hf"       ∷ ↪[frame] f -∗
       "Hrun"     ∷ ↪[RUN] -∗
       "Hptr"     ∷ ℓ ↦heap ws -∗
       "Haddr"    ∷ ℓ ↦addr (MemMM, a) -∗
-      "Htok"     ∷ rt_token rti sr θ -∗
+      "Htok"     ∷ rt_token rti sr lmask θ -∗
       "%Ha32"    ∷ ⌜f_locs f !! localimm a_idx = Some (VAL_int32 a32)⌝ -∗
       "%Hv"      ∷ ⌜Forall2 (λ v_idx val_v, f_locs f !! localimm v_idx = Some val_v) vs_idx val_vs⌝ -∗
       "%Hrepa"   ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
@@ -246,7 +247,7 @@ Section store_strong.
       "Hat"      ∷ ([∗ list] o;val_v ∈ os;val_vs, atom_interp_weak θ MemMM o val_v) -∗
       "HΦ"       ∷ (ℓ ↦heap (update_path_words off ws (concat (map serialize_atom os))) -∗
                     ℓ ↦addr (MemMM, a) -∗
-                    rt_token rti sr θ -∗
+                    rt_token rti sr lmask θ -∗
                     Φ f []) -∗
     CWP es @ E UNDER B; R {{ Φ }}.
   Proof. Admitted.
@@ -791,6 +792,14 @@ Section store_strong.
     eapply cwp_set_pointer_flags in Hptr_flags.
     destruct Hptr_flags as (_ & -> & -> & Hptr_flags_spec).
     specialize (Hptr_flags_spec fr_store n n32).
+
+  (* the new store lemma will give us back a different rtmask that will be used
+     here.
+   *)
+
+
+
+    (*
     specialize (Hptr_flags_spec θ).
     specialize (Hptr_flags_spec MemMM ℓ).
     clear_nils.
@@ -899,7 +908,7 @@ Section store_strong.
         iExists (RootHeap MemMM a).
         iSplitR; [done|].
         done.
-
+*)
   Admitted.
 
 End store_strong.
