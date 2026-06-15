@@ -81,7 +81,7 @@ Section store_weak.
     iApply (H3 with "[$] [$] [Hbytes] [HΦ]"); eauto.
   Qed.
 
-  Lemma wp_store1_mm a_idx off ι v_idx wt wl ret wt' wl' es :
+  Lemma wp_store1_mm_weak a_idx off ι v_idx wt wl ret wt' wl' es :
     run_codegen (store1 mr MemMM a_idx off v_idx ι) wt wl = inr (ret, wt', wl', es) ->
     ∀ f ℓ a a32 val_v lmask θ o ws E B R Φ,
     ⊢ "Hf"       ∷ ↪[frame] f -∗
