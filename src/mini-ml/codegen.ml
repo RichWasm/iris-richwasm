@@ -23,6 +23,7 @@ module Err = struct
     | VarNotInGamma of string
     | CoderefNotFound of string
     | ImportNotFunction of Type.t
+    | CannotSynthesizeDummy of Closed.PreType.t
   [@@deriving sexp_of, variants]
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -49,6 +50,12 @@ let rec contains_lin : Closed.PreType.t -> bool = function
   | Lin _ -> true
   | UProd ts -> List.exists ~f:contains_lin ts
   | Int | Var _ | Code _ | Prod _ | Sum _ | Ref _ | Rec _ | Exists _ -> false
+
+(** boxed tuples are gc structs; one with a lin component must be [Mut] so the
+    component can be swapped out (TSwap is the only flag-agnostic elimination —
+    loads can neither copy nor move a lin out of gc memory) *)
+let prod_mut ts : Mutability.t =
+  if List.exists ~f:contains_lin ts then Mut else Imm
 
 let rec type_subst var replacement tau =
   let open Closed.PreType in
@@ -148,7 +155,7 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
   | Int -> ret I31
   | Prod ts ->
       let+ ts' = mapM ~f:r_ser ts in
-      Ref (Base GC, Imm, Struct ts')
+      Ref (Base GC, prod_mut ts, Struct ts')
   | UProd ts ->
       let+ ts' = mapM ~f:r ts in
       Prod ts'
@@ -187,6 +194,39 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
       | Some i -> ret (var i)
       | None -> fail (TypeVarNotInDelta v))
 
+(** instructions making up a fresh value of type [t] from nothing: the
+    same-typed replacement that a swap-based projection trades for a lin
+    component. fails on types with no closed inhabitant we can build
+    ([Var]/[Code]) or that we don't bother to ([Rec]/[Exists]). *)
+let rec dummy_value delta (t : Closed.PreType.t) : Instruction.t list Res.t =
+  let open Res in
+  let open Instruction in
+  let dummy_list ts =
+    let+ ds = mapM ~f:(dummy_value delta) ts in
+    List.concat ds @ [ Group (List.length ts) ]
+  in
+  match t with
+  | Int ->
+      let open NumType in
+      ret [ NumConst (Int I32, 0); Tag ]
+  | UProd ts -> dummy_list ts
+  | Prod ts ->
+      let* rw_t = compile_type delta t in
+      let+ ds = dummy_list ts in
+      ds @ [ New (GC, prod_mut ts); Cast rw_t ]
+  | Sum (t0 :: _ as ts) ->
+      let* types = mapM ~f:(compile_type delta) ts in
+      let+ d = dummy_value delta t0 in
+      d @ [ InjectNew (GC, 0, types) ]
+  | Ref t' ->
+      let+ d = dummy_value delta t' in
+      d @ [ New (GC, Mut) ]
+  | Lin (Ref t') ->
+      let+ d = dummy_value delta t' in
+      d @ [ New (MM, Mut) ]
+  | Sum [] | Lin _ | Var _ | Code _ | Rec _ | Exists _ ->
+      fail (CannotSynthesizeDummy t)
+
 let rec compile_expr delta gamma locals coderef_map e :
     (Instruction.t list * (string * Type.t) list * (int * Type.t) list) Res.t =
   let open Res in
@@ -210,8 +250,13 @@ let rec compile_expr delta gamma locals coderef_map e :
       ret ([ NumConst (Int I32, i); Tag ], locals, [])
   | Tuple vs ->
       let* vs', locals', fx = r_list locals vs in
+      let mut =
+        match t with
+        | Prod ts -> prod_mut ts
+        | _ -> Imm
+      in
       ret
-        (vs' @ [ Group (List.length vs); New (GC, Imm); Cast rw_t ], locals', fx)
+        (vs' @ [ Group (List.length vs); New (GC, mut); Cast rw_t ], locals', fx)
   | UTuple vs ->
       let* vs', locals', fx = r_list locals vs in
       ret (vs' @ [ Group (List.length vs) ], locals', fx)
@@ -268,22 +313,26 @@ let rec compile_expr delta gamma locals coderef_map e :
           fx_l @ fx_r )
   | Project (n, v) ->
       let* vt = type_of_e unindexed v in
-      let* () =
+      let* components =
         match vt with
-        | Prod _ -> ret ()
+        | Prod ts -> ret ts
         | UProd _ -> fail (ProjectUnboxed vt)
         | _ -> fail (ProjectNonProd vt)
       in
       let* v', locals', fx = r v in
       let temp_idx = List.length locals' in
       let locals'' = locals' @ [ ("#temp", rw_t) ] in
+      (* NOTE: loads can neither copy nor move a lin out of gc memory, so
+         trade a same-typed dummy for it instead (the struct is Mut) *)
+      let* extract =
+        if contains_lin (List.nth_exn components n) then
+          let+ dummy = dummy_value delta (List.nth_exn components n) in
+          dummy @ [ Swap (Path [ n ]) ]
+        else
+          ret [ Load (Path [ n ], Follow) ]
+      in
       let suffix =
-        [
-          Load (Path [ n ], Follow);
-          LocalSet temp_idx;
-          Drop;
-          LocalGet (temp_idx, Move);
-        ]
+        extract @ [ LocalSet temp_idx; Drop; LocalGet (temp_idx, Move) ]
       in
       ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ])
   | New v ->
