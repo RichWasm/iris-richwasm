@@ -603,6 +603,89 @@ Section store_strong.
 
   Qed.
 
+
+  Lemma updating_flags fs :
+    ∀ off adding new_fs,
+    new_fs = foldr compose id
+      (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+         (zip (seq off (length adding)) adding))
+            fs ->
+    off + (length adding) ≤ length fs ->
+    ∃ fs1 fs_old fs2,
+      fs = fs1 ++ fs_old ++ fs2 /\
+        new_fs = fs1 ++ adding ++ fs2 /\
+        length fs_old = length adding /\
+        length fs1 = off.
+  Proof.
+    induction fs as [| f fs].
+    - intros * Hnew Hlens.
+      cbn in Hlens.
+      destruct off; [ | lia ].
+      destruct adding; [ | cbn in Hlens; lia ].
+      cbn in Hnew.
+      subst.
+      exists [], [], []; done.
+    - intros * Hnew Hlens.
+  (* Morally, there's two cases. Either f is something we'll be replacing by
+     the first element of adding, or we're keeping it. This depends on off.
+   *)
+      destruct off.
+      + (* 0 case where we're adding in adding, if it exists. *)
+        destruct adding as [|a adding].
+        * (* this is the case where adding is empty so it's kinda pointless *)
+          (* or it's what happens after we've already finished adding things in *)
+          cbn in Hnew.
+          exists [], [], (f::fs).
+          done.
+        * (* okay now we're actually adding something in! *)
+          assert (Hnewunfold: new_fs = a ::
+            (foldr compose id ((map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+                  (zip (seq 0 (length (adding))) (adding)))) fs)). {
+            (* this is really the key *)
+            (* and it's really card lol *)
+            (* bc we have indices... *)
+            (* Search insert. *)
+            (* map_seq_insert is a bit interesting *)
+            (* Search map_seq. *)
+            (* ugh. Note that if this gets too difficult we can change cwp_set_ptr_flags *)
+            rewrite Hnew.
+            admit.
+
+          }
+          destruct new_fs as [|to_a rest_new_fs]; inversion Hnewunfold.
+          subst to_a.
+          cbn in Hlens.
+
+          assert (length adding ≤ length fs) by lia.
+          specialize (IHfs _ _ _ H1 H).
+          destruct IHfs as (tobeempty & fs_old_small & fs2 & -> & -> & lenold & toninv).
+          destruct tobeempty; [|cbn in toninv; inversion toninv].
+          clear_nils.
+          exists [], (f :: fs_old_small), fs2.
+          repeat split; try done.
+          cbn. lia.
+      + (* the 1 case where we're not adding quite yet *)
+        assert (Hnewunfold: new_fs =
+          f :: (foldr compose id ((map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+                  (zip (seq off (length (adding))) (adding)))) fs)). {
+          rewrite Hnew.
+          (* hard again *)
+          admit.
+        }
+        cbn in Hlens.
+        destruct new_fs as [|to_f rest_new_fs]; inversion Hnewunfold.
+        subst to_f.
+        assert (off + length adding ≤ length fs) by lia.
+
+        specialize (IHfs _ _ _ H1 H).
+        destruct IHfs as (fs1_small & fs_old & fs2 & -> & -> & hlenold & hlenoff).
+        exists (f::fs1_small), fs_old, fs2.
+        repeat split; try done.
+        cbn; lia.
+
+  Admitted.
+
+
   Lemma compat_store_strong M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ ρ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -1211,6 +1294,32 @@ Section store_strong.
          Hfswsmatch and Hareps together in the same way as store weak
          maybe make this a lemma
        *)
+
+      (* first, break apart the flags. This will likely come in helpful for
+         store gc because of reestablishing fs = fs_new
+       *)
+      assert (sz = length (flat_map arep_flags ιs_τval)). {
+        subst sz.
+        done.
+      }
+      assert (length fs = length ws). {
+        eapply Forall2_length; exact Hfswsmatch.
+      }
+      pose proof (Hwslength) as Hlenflags.
+      rewrite H0 in Hlenflags. rewrite <- H1 in Hlenflags.
+      pose proof (updating_flags fs off (flat_map arep_flags ιs_τval)
+        (foldr compose id
+      (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+         (zip (seq off (length (flat_map arep_flags ιs_τval))) (flat_map arep_flags ιs_τval)))
+      fs) ltac:(auto) ltac:(auto)) as Hfll.
+
+      destruct Hfll as (fs1 & fs_old & fs2 & -> & help & Hlenold & Hlenfs1).
+      unfold new_fs. rewrite help.
+
+      (* okay yay. now. same idea but with new_ws. Hopefully easier? *)
+      (* there's no existing lemmas but this should be easier than updating_flags *)
+
+
       admit.
     }
 
