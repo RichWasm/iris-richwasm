@@ -554,7 +554,8 @@ Section store_weak.
       rename H2 into Hamod3; rename H4 into Hanot0; rename H3 into Han.
       pose proof Han as Htagaddress.
       cbn in Han.
-      assert (Hna: (n+3)%N=a) by admit. (* use hamod3 and hanot0 *)
+      assert (Hna: (n+3)%N=a).
+      { assert (4 <= a)%N by (by eapply mod_bound_nonzero). lia. }
       (* okay sure lemma here to connect ↦addr to θ
        related to ghost_map_auth rw_addr (1 / 2) θ bc lookup fragment :) *)
       iAssert (⌜repr_pointer θ (PtrHeap MemMM ℓ) n⌝%I) with "[Hrt Hv1]" as "%Hrepr". {
@@ -710,8 +711,7 @@ Section store_weak.
         intros i Hipls.
         symmetry.
         apply list_lookup_insert_ne.
-        (* I'm going to cry this is obvious by Hipls *)
-        admit.
+        intros ->; apply Hipls; left.
       }
       all: try done.
       2: {
@@ -892,11 +892,12 @@ Section store_weak.
           (* that everything is empty and val_localidx = [], and so then the *)
           (* the negation saturates and there's an <= *)
 
-          (* okay so if val_localidx = [] (aka vs2 = []) then everything is trivial *)
-          (* if it's not, then the greatest idx is actually less than ptr_local, so then *)
-          (* Hsaved can be used to show that everything stays the same *)
-          (* so we're okay *)
-          admit.
+          eapply (forall2_lookup_same (f_locs fr_saved) _ _ _ ptr_local localimm).
+          + intros j Hneq. rewrite list_lookup_insert_ne; [done | lia].
+          + rewrite Hval_localidxs Hval_idxs_seq.
+            eapply Forall_impl; first apply (map_seq_forall_localidx_neq (fe_wlocal_offset fe + length wl) (length wl_save)).
+            intros i Hneq. unfold ptr_local. rewrite length_app. subst fe. unfold fe_wlocal_offset in Hneq. simpl in Hneq. lia.
+          + exact Hsaved.
         - iPureIntro. cbn.
           rewrite Han. done.
         - iPureIntro. rewrite Hιssz. done.
@@ -1026,17 +1027,17 @@ Section store_weak.
           cbn.
           unfold wlmask in Hiwlmask.
           rewrite Hval_idxs_seq.
-          (* yes this is true cool *)
-          (* I can't find any quick lemmas, though *)
-          admit.
+          intro Hin. apply elem_of_seq in Hin. lia.
         + unfold fr_store, lmask.
           unfold frame_rel.
           cbn.
           split; [|done].
           unfold mask_locs_eq.
           unfold wlmask.
-          (* yes htis is also true bc ptr_local is necessarily larger than the okay is *)
-          admit.
+          intros i [Hlo Hhi].
+          symmetry.
+          apply list_lookup_insert_ne.
+          unfold ptr_local. rewrite length_app. subst fe. unfold fe_wlocal_offset in *. simpl in *. lia.
       - (* Here lies reestablishing value interp *)
         (* the resources used here is everything leftover (except old val):
            - ℓ ↦heap, ℓ ↦addr, ℓ↦layout
