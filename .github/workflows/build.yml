@@ -22,6 +22,12 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/cache@v5
+        with:
+          path: _build
+          key: dune-v1-${{ hashFiles('dune-project', 'iris-richwasm.opam') }}-${{ github.sha }}
+          restore-keys: |
+            dune-v1-${{ hashFiles('dune-project', 'iris-richwasm.opam') }}-
       - name: Build
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
