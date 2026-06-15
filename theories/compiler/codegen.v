@@ -289,7 +289,7 @@ Proof.
   }
 Qed.
 
-Global Instance MonoidLaws_list {T} : MonoidLaws (@Monoid_list_app T).
+Global Instance MonoidLaws_list {T} : MonoidLaws ( @Monoid_list_app T ).
 Proof.
   split.
   - intros xs ys zs.

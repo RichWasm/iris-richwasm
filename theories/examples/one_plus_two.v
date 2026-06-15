@@ -140,7 +140,7 @@ Proof.
         { instantiate (2:=[NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)]). admit. }
         eapply TFrame.
         eapply TCons.
-        { instantiate (3 := []). admit.}
+        { instantiate (3 := []). admit. }
         eapply TCons.
         {
           apply TNum; repeat constructor; solve_mono_rep.
