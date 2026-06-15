@@ -573,6 +573,23 @@ Section store_weak.
       (* another improtant thing soon is that lpall ℓ is true *)
       assert (Hlmask: lpall ℓ) by done.
 
+      (* we need that the original fs and ws satisfy layoutok *)
+      iAssert (⌜Forall2 word_has_flag fs ws⌝%I) with "[Hℓ_layout Hℓ_heap Hrt]" as "%Hfswsmatch". {
+        open_rt "Hrt".
+        iPoseProof (ghost_map_lookup with "[$Hlayout] [$Hℓ_layout]") as "%Hθlayout".
+        iPoseProof (ghost_map_lookup with "[$Hheap] [$Hℓ_heap]") as "%Hθheap".
+        iPureIntro.
+        unfold layout_ok in Hlayoutok.
+        unfold map_Forall2 in Hlayoutok.
+        specialize (Hlayoutok ℓ).
+        rewrite Hθlayout in Hlayoutok; rewrite Hθheap in Hlayoutok.
+
+        inversion Hlayoutok; subst.
+        specialize (H2 ltac:(auto)).
+        (* I hate Is_true is_true *)
+        admit.
+      }
+
 
       (* Summary:
          - o1 became (PtrHeap MemMM ℓ), v1 became (VAL_int32 n32), ev1 became BI_const...
@@ -821,20 +838,6 @@ Section store_weak.
         iDestruct "Hpath_spec" as "(%Hwslengths & Htarget & Hcontinuation)".
         rewrite Hser. clear_nils.
 
-        (* I have a piece of paper with some insane ramblings but here are my
-           immediate next steps:
-           - Using probably just Hos2 (τval val_interp) show has_arep ιs os2
-           - Show the word_has_flag. This will specifically come from showing
-             ιs are from the center of ws. This might be possible to do
-             in kinding quarantine zone
-           - Show that atoms_interp os2 vs2 -> atoms_interp_weak, and save whatever
-             resources aren't necessary there
-           I think this will then be enough to apply the Hstore_spec.
-         *)
-
-        (* this looks like a kinding quarantine zone but with resources lmao *)
-        (* note that I don't think this can go earlier because Htarget. I think. *)
-        (* some of these should be earlier ngl *)
         iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w)
            (concat (map arep_flags ιs))
            (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". {
@@ -870,7 +873,6 @@ Section store_weak.
           apply Is_true_true.
           done.
         }
-        (* future note: show that fs = concat map arep_flags ιs? at some point *)
 
         (* we need to transform atoms_interp to weak now! *)
         iPoseProof (atoms_interp_to_weak_memMM with "[$] [$Hvs2]") as "[Hrt Hvs2]".
@@ -922,7 +924,8 @@ Section store_weak.
           (* I need the info about off and sz we get from path lemma *)
           let Q := open_constr:(_ : iProp Σ) in
           instantiate (1 := λ f'' vs', (⌜f'' = fr' /\ vs' = []
-              /\ (off + sz ≤ length ws)⌝
+              /\ (off + sz ≤ length ws)
+                ⌝
               ∗ Q)%I).
           iEval (cbn).
           iSplitR; first done.
@@ -1011,29 +1014,66 @@ Section store_weak.
       iIntros "Hℓ_fs Hrt #Hnsfun Hown #Hinst_spec".
       clear_nils.
 
+      set (new_fs := foldr compose id
+                        (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+                           (zip (seq off (length (flat_map arep_flags ιs)))
+                              (flat_map arep_flags ιs)))
+                        fs) in *.
+      set (new_ws := update_path_words off ws (concat (map serialize_atom os2))) in *.
+
       (* now, we need to restablish rttoken *)
-      iAssert (rt_token rti sr lpall θ) with "[Hrt]" as "Hrt". {
-        (* NOTE: this is going to be somewhat tricky, but it'll go something like this: *)
-      (* 1. The only thing we need to establish is layout_ok lpall lm hm
-         2. And the only thing we need to establish there is that word_has_flag is good for ℓ
-         3. We'll need some kinding info and also info of exactly what fs turned into
-         4. finally the thingy that was weird that I didn't need to reprove is actually necessary
-         5. bc of resources I think this will have to be set up differently (iAssert ⌜layout_ok⌝?) but that's okay *)
-      (*
-        the thing we might have to prove? maybe. maybe not.
-      assert (Hfs: fs = foldr compose id
-                     (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
-                        (zip (seq off (length (flat_map arep_flags ιs)))
-                           (flat_map arep_flags ιs)))
-                     fs). { *)
-        (*
-          note that this will be necessary for gc case both for this reason and for invariant reasons
-          maybe mm case doesn't need to prove fs = foldr .. fs, but the foldr .. fs will need to be proven
-          word_has_flag with the new words
+      (* i think we need a bunch of stuff. First that original words
+         and layout have correct stuff
+       *)
+      (* first, let me try to prove the basic word_has_flag fact *)
+      assert (Hnewfswsmatch: Forall2 word_has_flag new_fs new_ws). {
+      (* this should be purely list manipulation. e.g. that
+         fs = fs1 ++ (flat_map arep_flags ιs) ++ fs2 where fs1 fs2 are the same as before and
+         ws = ws1 ++ (flat_map serialize_atom os2) ++ ws2 where ws1 ws2 same as before and
+         then use a combo of Hwsfsmatch (to get word has flag for fs1 ws1, fs2 ws2) and Hareps
+         to prove that the middle sections have flags
        *)
         admit.
       }
 
+      open_rt "Hrt".
+      iAssert (⌜lm !! ℓ = Some new_fs⌝%I) with "[Hℓ_fs Hlayout]" as "%Hlmℓ". {
+        iApply (ghost_map_lookup with "[$] [$]").
+      }
+      iAssert (⌜hm !! ℓ = Some new_ws⌝%I) with "[Hℓ_newws Hheap]" as "%Hhmℓ". {
+        iApply (ghost_map_lookup with "[$] [$]").
+      }
+      assert (Hnewlayout: layout_ok lpall lm hm). {
+        unfold layout_ok in *.
+        unfold map_Forall2 in *.
+        unfold rtmask in Hlayoutok.
+        intros k.
+        specialize (Hlayoutok k).
+        destruct (decide (k=ℓ)); subst => //=.
+        - rewrite Hlmℓ; rewrite Hhmℓ.
+          constructor.
+          intros.
+          (* exact Hnewfswsmatch. *)
+          (* is_true Is_true again lol *)
+          admit.
+        - inversion Hlayoutok.
+          + specialize (H4 n0); constructor; done.
+          + constructor.
+      }
+      clear Hlayoutok. (* don't want to accidentally use it *)
+
+      iAssert (rt_token rti sr lpall θ) with
+        "[Haddr Hroot Hlayout Hheap Hrti Hownmm Howngc Hrootmem Hheapmem]" as "Hrt". {
+        unfold rt_token.
+        iExists rm, lm, hm.
+        iFrame.
+        done.
+      }
+      (* I don't think we wwant some of these pure things since we've closed rt_token *)
+      clear dependent rm.
+      clear dependent lm.
+      clear dependent hm.
+      clear Hinj.
 
       iFrame.
 
