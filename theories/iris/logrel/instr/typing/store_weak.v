@@ -1167,7 +1167,16 @@ Section store_weak.
       {
         (* this is copied from load.v *)
         iApply (cwp_local_tee with "[] [$] [$]").
-        - admit. (* this probably needs more work? *)
+        - cbn.
+          assert (ptr_local ∉ val_idxs) as Hnotinval. {
+            rewrite Hval_idxs_seq.
+            intro Hin. apply elem_of_seq in Hin.
+            rewrite /ptr_local length_app /fe_wlocal_offset in Hin. subst fe. simpl in Hin. lia.
+          }
+          rewrite <- lookup_lt_is_Some.
+          rewrite <- (proj1 Hfrel_fr_saved ptr_local Hnotinval).
+          rewrite lookup_lt_is_Some.
+          exact Hptrlocalfr.
         - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [VAL_int32 n32]⌝%I).
       }
       iIntros (? ?) "(-> & ->) Hf Hrun".
