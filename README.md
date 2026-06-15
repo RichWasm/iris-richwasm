@@ -9,7 +9,7 @@ Install the dependencies using opam:
 ```bash
 opam switch create iris-richwasm 4.14.2
 opam switch link iris-richwasm .
-opam repo add coq-released https://coq.inria.fr/opam/released
+opam repo add rocq-released https://rocq-prover.org/opam/released
 opam install --deps-only .
 ```
 
