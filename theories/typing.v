@@ -1029,8 +1029,10 @@ Inductive has_instruction_type :
   Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILoad ψ π Copy) ψ L
-| TLoadMove M F L π τ τval κ κ' κser σ pr :
-  let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ] [RefT κ' (BaseM MemMM) Mut pr.(pr_replaced); τval] in
+(* NOTE: sound for any unaliasable (AnyRefs) ref, not just mm *)
+| TLoadMove M F L π bm τ τval κ κ' κser σ pr :
+  let ψ := InstrT [RefT κ (BaseM bm) Mut τ] [RefT κ' (BaseM bm) Mut pr.(pr_replaced); τval] in
+  has_kind F (RefT κ (BaseM bm) Mut τ) (VALTYPE (AtomR PtrR) AnyRefs) ->
   resolves_path τ π (Some (type_span σ)) pr ->
   has_size F pr.(pr_target) σ ->
   pr.(pr_target) = SerT κser τval ->
@@ -1276,9 +1278,10 @@ Section HasHaveInstructionTypeMind.
           Forall (has_mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILoad ψ π Copy) ψ L)
-      (HLoadMove : forall M F L π τ τval κ κ' κser σ pr,
+      (HLoadMove : forall M F L π bm τ τval κ κ' κser σ pr,
           let ψ :=
-            InstrT [RefT κ (BaseM MemMM) Mut τ] [RefT κ' (BaseM MemMM) Mut pr.(pr_replaced); τval] in
+            InstrT [RefT κ (BaseM bm) Mut τ] [RefT κ' (BaseM bm) Mut pr.(pr_replaced); τval] in
+          has_kind F (RefT κ (BaseM bm) Mut τ) (VALTYPE (AtomR PtrR) AnyRefs) ->
           resolves_path τ π (Some (type_span σ)) pr ->
           has_size F pr.(pr_target) σ ->
           pr.(pr_target) = SerT κser τval ->
@@ -1387,8 +1390,8 @@ Section HasHaveInstructionTypeMind.
     | TNew M F L μ β τ κ κser H1 H2 => HNew M F L μ β τ κ κser H1 H2
     | TLoadCopy M F L π μ β τ τval pr κ κser H1 H2 H3 H4 H5 =>
         HLoadCopy M F L π μ β τ τval pr κ κser H1 H2 H3 H4 H5
-    | TLoadMove M F L π τ τval κ κ' κser σ pr H1 H2 H3 H4 H5 =>
-        HLoadMove M F L π τ τval κ κ' κser σ pr H1 H2 H3 H4 H5
+    | TLoadMove M F L π bm τ τval κ κ' κser σ pr H0 H1 H2 H3 H4 H5 =>
+        HLoadMove M F L π bm τ τval κ κ' κser σ pr H0 H1 H2 H3 H4 H5
     | TStoreWeak M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5 =>
         HStoreWeak M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5
     | TStoreStrong M F L π τ τval pr σ ρ κ κ' κser H1 H2 H3 H4 H5 H6 H7 =>

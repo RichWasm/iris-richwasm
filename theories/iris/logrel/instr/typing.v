@@ -122,7 +122,7 @@ Section typing.
     - eapply compat_cast; eassumption.
     - eapply compat_new; eassumption.
     - eapply compat_load_copy; eassumption.
-    - eapply compat_load_move; eassumption.
+    - destruct bm; [eapply compat_load_move | eapply compat_load_move_gc]; eassumption.
     - eapply compat_store_weak; eassumption.
     - eapply compat_store_strong; eassumption.
     - eapply compat_swap; eassumption.

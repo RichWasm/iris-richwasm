@@ -139,4 +139,46 @@ Section load_move.
     (* TODO need a path lemma? should be shared with store_strong. *)
   Admitted.
 
+  (* gc counterpart of compat_load_move; sound because the input ref is AnyRefs/unaliasable *)
+  Lemma compat_load_move_gc M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ τ τval π pr :
+    let fe := fe_of_context F in
+    let WT := wt ++ wt' ++ wtf in
+    let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
+    let ψ := InstrT [RefT κ (BaseM MemGC) Mut τ] [RefT κ' (BaseM MemGC) Mut (pr_replaced pr); τval] in
+    has_kind F (RefT κ (BaseM MemGC) Mut τ) (VALTYPE (AtomR PtrR) AnyRefs) ->
+    resolves_path τ π (Some (type_span σ)) pr ->
+    has_size F pr.(pr_target) σ ->
+    pr.(pr_target) = SerT κser τval ->
+    Forall (has_mono_size F) (pr_prefix pr) ->
+    has_instruction_type_ok F ψ L ->
+    run_codegen (compile_instr mr fe (ILoad ψ π Move)) wt wl = inr ((), wt', wl', es') ->
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
+  Proof.
+    intros fe WT WL lmask ψ Hkind Hresolves Hsize Hser Hmonosize Htype Hcompile.
+    unfold WT, WL; clear WT WL.
+    cbn in Hcompile.
+
+    inv_cg_bind Hcompile off ?wt ?wt ?wl ?wl  es_fail ?es_rest Hoff Hcompile.
+    inv_cg_bind Hcompile ρ ?wt ?wt ?wl ?wl es_off ?es_rest Hρ Hcompile.
+    inv_cg_bind Hcompile ιs ?wt ?wt ?wl ?wl es_ρ ?es_rest Hιs Hcompile.
+    inv_cg_try_option Hρ; rename Heq_some into Hρ.
+    inv_cg_try_option Hιs; rename Heq_some into Hιs.
+    inv_cg_try_option Hoff; rename Heq_some into Hoff.
+    inv_cg_bind Hcompile a ?wt ?wt ?wl ?wl es_a ?es_rest Ha Hcompile.
+    cbn in Ha; inversion Ha; subst; clear Ha.
+    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
+    inv_cg_emit Hemit.
+    inv_cg_bind Hcompile () ?wt ?wt ?wl ?wl es_ptr_flags ?es_rest Hptr_flags Hcompile.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl  es_case_ptr ?es_rest Hcompile Hignore.
+    inv_cg_ret Hignore; subst; clear_nils.
+
+    destruct u.
+    destruct p as [[] []].
+    eapply cwp_case_ptr in Hcompile.
+    destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
+    destruct Hcompile as (Hunr & Hloadmm & Hloadgc & -> & -> & Hspec).
+    clear_nils.
+  Admitted.
+
 End load_move.

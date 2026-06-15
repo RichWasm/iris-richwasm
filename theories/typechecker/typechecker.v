@@ -4197,24 +4197,31 @@ Fixpoint has_instruction_type_checker
             match ψ with
             | InstrT [τ1] [τ2; τval] =>
                 match τ1 with
-                | RefT κ (BaseM MemMM) Mut τ =>
-                    match τ2 with
-                    | RefT κ' (BaseM MemMM) Mut prreplaced =>
-                        match synth_resolving_with_outer_replaced_spant τ π prreplaced τval with
-                        | Some (pr, κser, σ) =>
-                            (* from this, we know prreplace = pr.pr_replaced; pr.pr_target = SerT κser τval *)
-                            match has_size_checker F pr.(pr_target) σ with
-                            | inl () =>
-                                if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
-                                    then has_instruction_type_ok_checker F ψ L
-                                    else INR "incorrect instruction type for load move (prefix not all mono size)"
-                            | inr a => inr a
+                | RefT κ (BaseM bm) Mut τ =>
+                    match has_kind_checker F τ1 (VALTYPE (AtomR PtrR) AnyRefs) with
+                    | inl () =>
+                        match τ2 with
+                        | RefT κ' (BaseM bm') Mut prreplaced =>
+                            match bm, bm' with
+                            | MemMM, MemMM | MemGC, MemGC =>
+                              match synth_resolving_with_outer_replaced_spant τ π prreplaced τval with
+                              | Some (pr, κser, σ) =>
+                                  match has_size_checker F pr.(pr_target) σ with
+                                  | inl () =>
+                                      if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
+                                          then has_instruction_type_ok_checker F ψ L
+                                          else INR "incorrect instruction type for load move (prefix not all mono size)"
+                                  | inr a => inr a
+                                  end
+                              | _ => INR "incorrect instruction type for load move (couldn't synth path)"
+                              end
+                            | _, _ => INR "incorrect instruction type for load move (output ref in different memory)"
                             end
-                        | _ => INR "incorrect instruction type for load move (couldn't synth path)"
+                        | _ => INR "incorrect instruction type for load move (output not mut base-memory ref)"
                         end
-                    | _ => INR "incorrect instruction type for load move (output not mm ref)"
+                    | inr a => inr a
                     end
-                | _ => INR "incorrect instruction type for load move (input not mm ref)"
+                | _ => INR "incorrect instruction type for load move (input not mut base-memory ref)"
                 end
             | _ => INR "incorrect instruction type for load move (wrong shape)"
             end
@@ -4938,10 +4945,21 @@ Proof.
         (λ t:type, check_ok_output (has_mono_size_checker F t))
         (fun t => has_mono_size F t) (pr_prefix p) HMatch.
       by eapply TLoadCopy.
-    - (* MM case *)
-      convert_foldr
-        (λ t:type, check_ok_output (has_mono_size_checker F t))
-        (fun t => has_mono_size F t) (pr_prefix p1) HMatch.
+    - (* Move case (mm) *)
+      match goal with
+      | Hf : foldr _ true (pr_prefix ?p) = true |- _ =>
+          convert_foldr
+            (λ t:type, check_ok_output (has_mono_size_checker F t))
+            (fun t => has_mono_size F t) (pr_prefix p) Hf
+      end.
+      by eapply TLoadMove.
+    - (* Move case (gc ref kinded anyrefs) *)
+      match goal with
+      | Hf : foldr _ true (pr_prefix ?p) = true |- _ =>
+          convert_foldr
+            (λ t:type, check_ok_output (has_mono_size_checker F t))
+            (fun t => has_mono_size F t) (pr_prefix p) Hf
+      end.
       by eapply TLoadMove.
   }
   [Store]: {
