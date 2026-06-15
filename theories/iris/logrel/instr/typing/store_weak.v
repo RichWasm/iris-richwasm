@@ -1321,7 +1321,7 @@ Section store_weak.
           "(-> & %ah & %ah32 & %Hfinst & %Hflocs & %Hah32 & %Hrepr_gc & Hv1' & Hroot_gc_auth' & Hrootmem_gc')
            Hfr Hrun".
         (* Restore rt_token *)
-        iAssert (rt_token rti sr θ) with
+        iAssert (rt_token rti sr lpall θ) with
           "[Haddr_gc Hroot_gc_auth' Hlayout_gc Hheap_gc Hrti_gc
             Hownmm_gc Howngc_gc Hrootmem_gc' Hheapmem_gc]" as "Hrt".
         { unfold rt_token. iExists rm_gc, lm_gc, hm_gc.
