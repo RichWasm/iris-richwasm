@@ -142,6 +142,13 @@ let simple_tests =
           b)
       |},
       i31 9 );
+    ("boxed split", "(split# ((a : int) (b : int)) (tup 42 7) b)", i31 7);
+    ( "boxed split swapped",
+      "(split# ((a : int) (b : int)) (tup 1 2) (tup# b a))",
+      "(tup# 2 1)" );
+    ( "boxed split sum",
+      "(split# ((a : int) (b : int)) (tup 4 5) (op + a b))",
+      i31 (4 + 5) );
     ("list [1]", cons 1 nil, "(inj 1 (tup 1 (inj 0)))");
     ( "list [1;2]",
       cons 1 (cons 2 nil),

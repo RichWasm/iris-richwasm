@@ -422,9 +422,10 @@ let rec compile_expr delta gamma locals coderef_map e :
           fx1 @ fx2 )
   | Split (bs, e1, e2) ->
       let* vt = type_of_e unindexed e1 in
-      let* components =
+      let* components, boxed =
         match vt with
-        | UProd ts -> ret ts
+        | UProd ts -> ret (ts, false)
+        | Prod ts -> ret (ts, true)
         | _ -> fail (SplitNonUnboxed vt)
       in
       let binder_ts = List.map ~f:snd bs in
@@ -434,7 +435,34 @@ let rec compile_expr delta gamma locals coderef_map e :
         else
           fail (SplitMismatch (binder_ts, components))
       in
-      let* e1', locals', fx1 = r e1 in
+      let* e1', locals1, fx1 = r e1 in
+      (* A boxed scrutinee is a gc struct of serialized fields, which is
+         type-equal to a serialized product (TEqProdSer). Cast to that, load the
+         whole product onto the stack -- moving when it owns a lin (a load can
+         neither copy nor move a lin out field-by-field), else copying -- drop
+         the leftover ref/husk, then ungroup exactly as the unboxed case does. *)
+      let* prefix, locals' =
+        if not boxed then ret ([], locals1)
+        else
+          let open Type in
+          let* comp_tys = mapM ~f:(compile_type delta) components in
+          let consume : Consume.t =
+            if List.exists ~f:contains_lin components then Move else Follow
+          in
+          let cast_ty =
+            Ref (Base GC, prod_mut components, Ser (Prod comp_tys))
+          in
+          let temp_idx = List.length locals1 in
+          ret
+            ( [
+                Cast cast_ty;
+                Load (Path [], consume);
+                LocalSet temp_idx;
+                Drop;
+                LocalGet (temp_idx, Move);
+              ],
+              locals1 @ [ ("#split-whole", Prod comp_tys) ] )
+      in
       let base_idx = List.length locals' in
       let* bound_locals =
         mapM bs ~f:(fun (n, t) ->
@@ -449,7 +477,7 @@ let rec compile_expr delta gamma locals coderef_map e :
       in
       let idxs = List.mapi bs ~f:(fun i _ -> base_idx + i) in
       ret
-        ( e1' @ [ Ungroup ]
+        ( e1' @ prefix @ [ Ungroup ]
           @ List.rev_map ~f:(fun i -> LocalSet i) idxs
           @ e2'
           @ List.concat_map ~f:(fun i -> [ LocalGet (i, Move); Drop ]) idxs,
