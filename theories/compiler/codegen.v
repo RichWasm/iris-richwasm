@@ -28,8 +28,116 @@ Definition codegen : Type -> Type := accumT (wtype_ctx * wlocal_ctx) (writerT W.
 
 Instance Monad_codegen : Monad codegen := ltac:(typeclasses eauto).
 
+Global Instance MonoidLaws_list {T} : MonoidLaws (@Monoid_list_app T).
+Proof.
+  split.
+  - intros xs ys zs.
+    symmetry. apply app_assoc.
+  - intros xs.
+    apply eq_refl.
+  - intros xs.
+    apply app_nil_r.
+Qed.
+
+Instance MonoidLaws_pair {A B} (MA : Monoid A) (MB : Monoid B)
+    `{!MonoidLaws MA, !MonoidLaws MB} :
+  MonoidLaws (@Monoid_pair A B MA MB).
+Proof.
+  split.
+  - intros [a1 b1] [a2 b2] [a3 b3]. cbn. f_equal; apply monoid_assoc.
+  - intros [a b]. cbn. f_equal; apply monoid_lunit.
+  - intros [a b]. cbn. f_equal; apply monoid_runit.
+Qed.
+
+Instance MonadLaws_either {E} : MonadLaws (Monad_either E).
+Proof.
+  split.
+  - intros A B a f. reflexivity.
+  - intros A [e | a]; reflexivity.
+  - intros A B C [e | a] f g; reflexivity.
+Qed.
+
+Instance MonadLaws_writerT
+    {S} (Monoid_S : Monoid S) (MLS : MonoidLaws Monoid_S)
+    {m} (M : Monad m) (MLM : MonadLaws M) :
+  MonadLaws (@Monad_writerT S Monoid_S m M).
+Proof.
+  split.
+  - intros A B a f. cbn.
+    rewrite (@bind_of_return m M MLM). cbn.
+    destruct (f a) as [w]. cbn.
+    f_equal.
+    transitivity (bind w ret).
+    + f_equal. apply functional_extensionality. intros v'.
+      rewrite (@monoid_lunit S Monoid_S MLS). reflexivity.
+    + apply (@return_of_bind m M MLM).
+  - intros A aM. cbn.
+    destruct aM as [w]. cbn.
+    f_equal.
+    transitivity (bind w ret).
+    + f_equal. apply functional_extensionality. intros v.
+      rewrite (@bind_of_return m M MLM). cbn. rewrite (@monoid_runit S Monoid_S MLS). reflexivity.
+    + apply (@return_of_bind m M MLM).
+  - intros A B C aM f g. cbn.
+    f_equal.
+    rewrite (@bind_associativity m M MLM).
+    f_equal. apply functional_extensionality. intros a.
+    rewrite (@bind_associativity m M MLM).
+    rewrite (@bind_associativity m M MLM).
+    f_equal. apply functional_extensionality. intros b.
+    rewrite (@bind_of_return m M MLM). cbn.
+    rewrite (@bind_associativity m M MLM).
+    f_equal. apply functional_extensionality. intros c.
+    rewrite (@bind_of_return m M MLM). cbn.
+    rewrite (@monoid_assoc S Monoid_S MLS). reflexivity.
+Qed.
+
+Lemma accumT_eta {S M A} (x : accumT S M A) : mkAccumT (runAccumT x) = x.
+Proof. destruct x; reflexivity. Qed.
+
+Instance MonadLaws_accumT
+    {S} (Monoid_S : Monoid S) (MLS : MonoidLaws Monoid_S)
+    {m} (M : Monad m) (MLM : MonadLaws M) :
+  MonadLaws (@Monad_accumT S m Monoid_S M).
+Proof.
+  split.
+  - intros A B a f. cbn.
+    rewrite <- (accumT_eta (f a)).
+    f_equal. apply functional_extensionality. intros s.
+    rewrite (@bind_of_return m M MLM). cbn.
+    rewrite (@monoid_runit S Monoid_S MLS).
+    transitivity (bind (runAccumT (f a) s) ret).
+    + f_equal. apply functional_extensionality. intros [v2 s'']. cbn.
+      rewrite (@monoid_lunit S Monoid_S MLS). reflexivity.
+    + apply (@return_of_bind m M MLM).
+  - intros A aM. cbn.
+    destruct aM as [h]. cbn.
+    f_equal. apply functional_extensionality. intros s.
+    transitivity (bind (h s) ret).
+    + f_equal. apply functional_extensionality. intros [v s']. cbn.
+      rewrite (@bind_of_return m M MLM). cbn.
+      rewrite (@monoid_runit S Monoid_S MLS). reflexivity.
+    + apply (@return_of_bind m M MLM).
+  - intros A B C aM f g. cbn.
+    f_equal. apply functional_extensionality. intros s.
+    rewrite (@bind_associativity m M MLM).
+    f_equal. apply functional_extensionality. intros [a1 sa]. cbn.
+    rewrite (@bind_associativity m M MLM).
+    rewrite (@bind_associativity m M MLM).
+    f_equal. apply functional_extensionality. intros [b1 sb]. cbn.
+    rewrite (@bind_of_return m M MLM). cbn.
+    rewrite (@bind_associativity m M MLM).
+    rewrite (@monoid_assoc S Monoid_S MLS).
+    f_equal. apply functional_extensionality. intros [c sc]. cbn.
+    rewrite (@bind_of_return m M MLM). cbn.
+    rewrite (@monoid_assoc S Monoid_S MLS). reflexivity.
+Qed.
+
 Instance MonadLaws_codegen : MonadLaws Monad_codegen.
-Admitted.
+Proof.
+  unfold Monad_codegen.
+  typeclasses eauto.
+Qed.
 
 Definition assume (cond : bool) (e : error) : codegen unit :=
   if cond
@@ -287,17 +395,6 @@ Proof.
     inversion H.
     reflexivity.
   }
-Qed.
-
-Global Instance MonoidLaws_list {T} : MonoidLaws (@Monoid_list_app T).
-Proof.
-  split.
-  - intros xs ys zs.
-    symmetry. apply app_assoc.
-  - intros xs.
-    apply eq_refl.
-  - intros xs.
-    apply app_nil_r.
 Qed.
 
 Lemma run_codegen_bind_dist {A B} (c : codegen A) (f : A -> codegen B) wt wt' wl wl' es x :
