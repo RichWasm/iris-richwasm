@@ -83,6 +83,7 @@ Section store_weak.
 
   Lemma wp_store1_mm_weak a_idx off ι v_idx wt wl ret wt' wl' es :
     run_codegen (store1 mr MemMM a_idx off v_idx ι) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\ wt' = [] /\ wl' = [] /\
     ∀ f ℓ a a32 val_v lmask θ o ws E B R Φ,
     ⊢ "Hf"       ∷ ↪[frame] f -∗
       "Hrun"     ∷ ↪[RUN] -∗
@@ -115,6 +116,8 @@ Section store_weak.
     inv_cg_emit Hv; subst.
     apply wp_store_w in Hcg.
     destruct Hcg as (-> & -> & -> & Hstore_spec).
+    clear_nils.
+    do 3 split; try done.
     intros *.
     repeat iIntros "@".
     (* get_local for address *)
@@ -171,7 +174,161 @@ Section store_weak.
     - iModIntro. iApply ("HΦ" with "[$] [$]"); iFrame.
   Qed.
 
-  Lemma wp_store_mm_MAYBE a_idx off ιs vs_idx wt wl ret wt' wl' es :
+  Lemma wp_store_weak_mm_inner a_idx ιs :
+    ∀ off vs_idx wt wl ret wt' wl' es,
+    run_codegen (foldlM
+         (λ (off : nat) '(v, ι),
+            store1 mr MemMM a_idx off v ι ≫= λ _ : (), Monad.ret (off + arep_size ι))
+         off (zip vs_idx ιs)) wt wl = inr (ret, wt', wl', es) ->
+    ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs /\
+    wt' = [] /\ wl' = [] /\ (* if I'm understanding wt' and wl' right *)
+    ∀ f ℓ a a32 val_vs lmask θ os ws E B R Φ,
+    ⊢ "Hf"       ∷ ↪[frame] f -∗
+      "Hrun"     ∷ ↪[RUN] -∗
+      "Hptr"     ∷ ℓ ↦heap ws -∗
+      "Haddr"    ∷ ℓ ↦addr (MemMM, a) -∗
+      "%Hℓmask"  ∷ ⌜lmask ℓ⌝ -∗
+      "Htok"     ∷ rt_token rti sr lmask θ -∗
+      "%Ha32"    ∷ ⌜f_locs f !! localimm a_idx = Some (VAL_int32 a32)⌝ -∗
+      "%Hv"      ∷ ⌜Forall2 (λ v_idx val_v, f_locs f !! localimm v_idx = Some val_v) vs_idx val_vs⌝ -∗
+      "%Hrepa"   ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
+      "%Hmod"    ∷ ⌜(a `mod` 4 = 0)%N⌝ -∗
+      "%Hnz"     ∷ ⌜(a ≠ 0)%N⌝ -∗
+      "%Hbound"  ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
+      "%Harep"   ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+      "%Hsliceflags" ∷ ⌜Forall2 word_has_flag (concat (map arep_flags ιs))
+                                              (take (sum_list_with arep_size ιs) (drop off ws))⌝ -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hmemmm"  ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "Hat"      ∷ ([∗ list] o;val_v ∈ os;val_vs, atom_interp_weak θ MemMM o val_v) -∗
+      "HΦ"       ∷ (ℓ ↦heap (update_path_words off ws (concat (map serialize_atom os))) -∗
+                    ℓ ↦addr (MemMM, a) -∗
+                    rt_token rti sr lmask θ -∗
+                    Φ f []) -∗
+    CWP es @ E UNDER B; R {{ Φ }}.
+  Proof.
+    induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg *.
+    - assert (zip vs_idx ([]:list atomic_rep) = []) by (by apply zip_nil_r).
+      rewrite H in Hcg.
+      cbn in Hcg.
+      inversion Hcg; subst.
+      do 3 split; try done.
+      intros *; repeat iIntros "@".
+      iApply (cwp_nil with "[$] [$]").
+      (* os is nil, val_vs is nil, and ws didn't update *)
+      inversion Harep; subst.
+      iPoseProof (big_sepL2_nil_inv_l with "[$Hat]") as "%Hvalvslen". subst.
+      assert (update_path_words ret ws (concat (map serialize_atom [])) = ws). {
+        cbn.
+        apply update_path_words_empty_2.
+      }
+      rewrite H0.
+      iApply ("HΦ" with "[$] [$] [$]").
+    - (* to start with, we need to make
+         (zip vs_idx (seq.rcons ιs ι)) = seq.rcons (zip vs_idx_small ιs) (v_idx, ι) *)
+      (* we know that length ιs = length os = length val_vs = length vs_idx
+                            Harep         Hat           Hv
+         so then we know vs_idx must be equal to some seq.rcons vs_idx v_idx. then zip seq.rcons?
+         I think that should work, but that's not interesting right at this moment so asserting
+       *)
+      rename vs_idx into vs_idx_big.
+      assert (∃ vs_idx v_idx, vs_idx_big = seq.rcons vs_idx v_idx). {
+        admit.
+      }
+      destruct H as (vs_idx & v_idx & ->).
+      assert (zip (seq.rcons vs_idx v_idx) (seq.rcons ιs ι) =
+                seq.rcons (zip vs_idx ιs) (v_idx, ι)). {
+        (* apply seq.zip_rcons. *)
+        (* it's basically identical but zip vs seq.zip lolol *)
+        (* plus a length condition which is true *)
+        (* change zip with (@seq.zip memory.W.localidx atomic_rep). *)
+        (* sad *)
+        admit.
+      }
+      rewrite H in Hcg.
+
+      apply inv_foldlM_rcons in Hcg.
+      rewrite seq.foldl_rcons.
+      destruct Hcg as (off_ιs & wt_ι & wt_ιs & wl_ι & wl_ιs & es_ι & es_ιs & Hinit & Hlast).
+      destruct Hlast as (Hlast & -> & -> & ->).
+      inv_cg_bind Hlast a0' wt_bs wt_b wl_bs wl_b es_bs es_b Hbs Hfb.
+      subst.
+      inv_cg_ret Hfb; subst.
+      eapply IHιs in Hinit.
+      clear IHιs.
+
+      destruct Hinit as (-> & -> & -> & Hinit).
+      pose proof Hbs as Hbs'.
+      clear_nils.
+
+      apply (wp_store1_mm_weak) in Hbs'.
+      destruct Hbs' as (-> & -> & -> & Hbs_spec).
+
+      do 3 (split; first by auto).
+
+      (* finally the iris proof... *)
+      (* note that the overall structure is to do cwp_seq and use Hinit then Hbs_spec *)
+      intros *; repeat iIntros "@".
+
+      (* the thing we need to do before cwp_seq is split up Hat into the Hinit part and the
+         Hbs part. This involves showing os = seq.rcons os o and val_vs = seq.rcons os o *)
+      pose proof Harep as Hosslicing.
+      eapply Forall2_rcons_inv_l in Hosslicing; try done.
+      rename os into os_big.
+      destruct Hosslicing as (o & os & Ho & Hos & Hos_eq).
+      subst os_big.
+      rename val_vs into val_vs_big.
+      iPoseProof (big_sepL2_rcons_inv_l with "[$Hat]") as
+        "(%val_v & %val_vs & -> & Hoa & Hat)"; try done.
+
+      (* Now we can cwp_seq. Note lots of pure Forall/rcons manipulations happen inside
+         that might be better brought outside (we'll see).
+       *)
+      iApply (cwp_seq with "[Hf Hrun Hptr Haddr Htok HΦ Hat]"). {
+        iApply (Hinit with "[$] [$] [$] [$] [//] [$] [//] []
+                            [//] [//] [//] [] [] [] [//] [//] [$] [-]").
+        1-4: iPureIntro.
+        - admit.
+        - admit.
+        - admit.
+        - admit.
+        - iIntros "Hℓ Harrt Hrt".
+          let Q := open_constr:(_ : iProp Σ) in
+          instantiate (1 := (λ f'' vs'', ⌜f'' = f /\ vs'' = []⌝ ∗ Q)%I).
+          cbn.
+          iSplitR; first done.
+          iAccu.
+      }
+      cbn.
+      iIntros (f0 vs) "Hres Hf Hrun".
+      iDestruct "Hres" as "((-> & ->) & HΦ & Hℓ_heap & Hℓ_addr & Hrt)".
+      clear_nils.
+
+      (* and now apply the hbs! *)
+      iApply (Hbs_spec with "[$] [$] [$] [$] [//] [$] [//] []
+                            [//] [//] [//] [] [] [] [//] [//] [$] [-]").
+      1-4: iPureIntro.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + iIntros "Hℓ_heap Hℓ_addr Hrt".
+        (* one last update_path_words manipulation *)
+        assert (update_path_words off ws (concat (map serialize_atom (seq.rcons os o))) =
+                  update_path_words
+                        (seq.foldl (λ (off' : nat) (ι0 : atomic_rep), off' + arep_size ι0)
+                           off ιs)
+                        (update_path_words off ws (concat (map serialize_atom os)))
+                        (serialize_atom o)
+               ). {
+          admit.
+        }
+        rewrite <- H0.
+        iApply ("HΦ" with "[$] [$] [$]").
+
+  Admitted.
+
+  Lemma wp_store_weak_mm a_idx off ιs vs_idx wt wl ret wt' wl' es :
     run_codegen (memory.store mr MemMM a_idx off vs_idx ιs) wt wl = inr (ret, wt', wl', es) ->
     ret = () /\ wt' = [] /\ wl' = [] /\ (* if I'm understanding wt' and wl' right *)
     ∀ f ℓ a a32 val_vs lmask θ os ws E B R Φ,
@@ -198,7 +355,14 @@ Section store_weak.
                     rt_token rti sr lmask θ -∗
                     Φ f []) -∗
     CWP es @ E UNDER B; R {{ Φ }}.
-  Proof. Admitted.
+  Proof.
+    intros Hcg.
+    unfold memory.store in Hcg.
+    apply wp_ignore in Hcg.
+    destruct Hcg as (-> & off' & Hcg).
+    pose proof (wp_store_weak_mm_inner _ _ _ _ _ _ _ _ _ _ Hcg) as (-> & U & V & W).
+    intuition.
+  Qed.
 
 
 
@@ -802,7 +966,7 @@ Section store_weak.
       specialize (Hpath_spec H Hoff Hmonosize Hkind_τ Hkind_prtarget Hevalsize).
 
       (* NOTE: this is using a speculative spec. MIGHT CHANGE *)
-      pose proof (wp_store_mm_MAYBE _ _ _ _ _ _ _ _ _ _ Hcg_store) as Hstore_spec.
+      pose proof (wp_store_weak_mm _ _ _ _ _ _ _ _ _ _ Hcg_store) as Hstore_spec.
       destruct Hstore_spec as (_ & -> & -> & Hstore_spec).
 
       (* A cwp_val_app, which I'm confused why it's on the stack at all but oh well *)
