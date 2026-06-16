@@ -1163,9 +1163,7 @@ Section store_strong.
       (** ACTUALLY STORING TIME **)
       (* so, first, we need to weaken rt token to let us mess with stuff  *)
       iAssert (rt_token rti sr rtmask θ) with "[Hrt]" as "Hrt". {
-        (* an rt token weakening lemma *)
-        (* this should not be here, should be somewhere else *)
-        admit.
+        by iApply rt_token_lpall.
       }
 
       (* let's start specialize the store spec *)
@@ -1469,6 +1467,8 @@ Section store_strong.
         iExists (RootHeap MemMM a).
         iSplitR; [done|].
         done.
-  Admitted.
+        Unshelve. (* not sure why *)
+        2: done.
+  Qed.
 
 End store_strong.

@@ -1130,9 +1130,7 @@ Section store_weak.
       (* in store strong, the store lemma will weak it for us *)
       set (rtmask := (λ l, l ≠ ℓ)).
       iAssert (rt_token rti sr rtmask θ) with "[Hrt]" as "Hrt". {
-        (* an rt token weakening lemma *)
-        (* this should not be here, should be somewhere else *)
-        admit.
+        by iApply rt_token_lpall.
       }
 
       (* apply the spec onto the codegen and slowly specialize *)

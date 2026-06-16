@@ -811,6 +811,35 @@ Section properties.
   Qed.
 
 
+
+  (* place rt_otken lmask things here *)
+  Lemma rt_token_mono lmask lmask' θ:
+    (∀ ℓ, lmask' ℓ -> lmask ℓ) ->
+    rt_token rti sr lmask θ -∗ rt_token rti sr lmask' θ.
+  Proof.
+    intros Hmask. iIntros "Hrt".
+    open_rt "Hrt".
+    iFrame.
+    iPureIntro.
+    split; first done; split; first done; split; last done.
+    unfold layout_ok in *.
+    eapply map_Forall2_impl; [exact Hlayoutok|].
+    intros *. cbn.
+    intros Hold Hlmask'.
+    apply Hmask in Hlmask'.
+    apply Hold; done.
+  Qed.
+
+  Lemma rt_token_lpall lmask θ:
+    rt_token rti sr lpall θ -∗ rt_token rti sr lmask θ.
+  Proof.
+    iIntros "Hrt".
+    iApply rt_token_mono; last done.
+    done.
+  Qed.
+
+
+
   Lemma mask_locs_eq_trans lmask fr1 fr2 fr3 :
     mask_locs_eq lmask fr1 fr2 ->
     mask_locs_eq lmask fr2 fr3 ->
