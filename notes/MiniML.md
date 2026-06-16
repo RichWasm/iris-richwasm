@@ -27,8 +27,8 @@ e ::=
     | (app f (τ₁ ... τₙ) e)
     | (tup e₁ ... eₙ)
     | (tup# e₁ ... eₙ)
-    | (proj i e)                              ; boxed tuples only
-    | (split# ((x₁ : τ₁) ... (xₙ : τₙ)) e₁ e₂) ; unboxed tuples
+    | (proj i e)                               ; boxed
+    | (split# ((x₁ : τ₁) ... (xₙ : τₙ)) e₁ e₂) ; unboxed
     | (inj i e : τ)
     | (cases e ((x₁ : τ₁) e₁) ... ((xₙ : τₙ) eₙ))
     | (fold τ e)
@@ -90,28 +90,43 @@ Use the boxed/unboxed difference between the two languages
 
 Handle `NoCopy NoDrop` in the kind (not the default ML kind translation!), some kind of foreign value annotation
 
+### Unboxed Tuples
+
 Unboxed tuples `(# τ₁ ... τₙ)` / `(tup# e₁ ... eₙ)` compile to RichWasm `Prod`
 instead of a boxed `Struct` -- which is a departure from the uniform `ptr`
 representation. We let the RichWasm typechecker police errors, and since they
 cannot instantiate type variables, polymorphism stays uniform. Their only
-eliminator is `split#` (binds every component); `proj` is boxed-only, since
-projection would have to drop the sibling components and drops are not policed
-by RichWasm (it is affine -- `drop` has no kind premise, only `copy` does).
+eliminator is `split#` since we'd otherwise need to drop other elements of
+tuple (there are not stack references).
 
-`(lin (ref τ))` is the linking annotation for a linear (MM, mutable) ref a
-foreign module lends us; mini-ml never allocates one. It compiles to
-`Ref (Base MM) Mut (Ser ⟦τ⟧)`. Operations, both threading the ref:
+### Linear Refs
 
--   `(! r) : (# (lin (ref τ)) τ)` -- a copy-load when `τ` is copyable; when the
-    payload is itself lin it elaborates to a load-move that leaves a `Span`
-    hole the next `assign` must refill (take/put).
--   `(assign r v) : (lin (ref τ))` -- in-place store.
+`(lin (ref τ))` is the linking annotation for a linear (MM, mutable) ref. A
+foreign module can lend it to us (mini-ml never allocates one). 
 
-Variables whose type is lin (or an unboxed tuple containing one) compile as a
+It compiles to `Ref (Base MM) Mut (Ser ⟦τ⟧)`. Additionally the following 
+operations are compiled differently in the presence of a lin ref:
+
+- for deref (`(! r) : (# (lin (ref τ)) τ)`):
+  - (notice it returns an unboxed tuple with the new reference)
+  - A typical copy-load is emitted when `τ` is copyable
+  - but, when the payload is itself lin it elaborates to a load-**move** that
+    leaves a `Span` hole the next `assign` must refill
+- for assign (`(assign r v) : (lin (ref τ))`):
+  - elaborates to an in-place store
+
+Variables whose type is `lin` (or an unboxed tuple containing one) compile as a
 bare move instead of the usual move/copy/restore, so the local is left holding
 a plug and RichWasm rejects any reuse (see the `lin_reuse_rejected` example).
-Non-use merely leaks, which the affine model tolerates. Lin values cannot cross
-into anything boxed usefully (no flag-free elimination out of an imm GC struct;
-mut GC cells would need a swap operation we don't expose) and cannot
-instantiate `∀`s (binders are kinded `gcrefs`); RichWasm rejects all of these
-at their use sites rather than mini-ml eagerly at construction.
+
+Non-use leaks, which the affine model tolerates. A lin value *can* sit inside a
+boxed tuple: a GC struct with a lin component is made `Mut` (`prod_mut`) and
+`proj` pulls the component out by swapping in a same-typed dummy (`TSwap` is the
+only flag-agnostic elimination -- a load can neither copy nor move a lin out of
+GC memory). This is sound because a GC ref lubs its flag with its contents' (the
+`KRefGC` lub), so a struct holding a lin is itself uncopyable rather than
+laundering linearity behind a copyable shell. (The swap-based projection is
+provisional -- the planned end state routes it through a Load-Move instead.) Lin
+values still cannot instantiate `∀`s, since binders are kinded `gcrefs` and a lin
+is `anyrefs`; RichWasm rejects that at the use site rather than mini-ml eagerly at
+construction.
