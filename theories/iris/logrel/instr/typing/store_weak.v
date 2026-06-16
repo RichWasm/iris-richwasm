@@ -990,8 +990,7 @@ Section store_weak.
        *)
       assert (¬ rtmask ℓ). {
         unfold rtmask.
-        (* uhm decidability? or smthn? uhm. well. maybe rtmask needs to be different ikd *)
-        admit.
+        auto.
       }
       assert (H3: f_locs fr_store !! localimm (prelude.W.Mk_localidx ptr_local) =
                     Some (VAL_int32 n32)) by (cbn; by apply list_lookup_insert_eq).

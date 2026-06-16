@@ -1089,8 +1089,7 @@ Section store_strong.
 
       assert (Hnotmask: ¬ rtmask ℓ). {
         unfold rtmask.
-        (* yeaaaaaaa *)
-        admit.
+        set_solver.
       }
 
       (* we need to transform atoms_interp to weak now! *)
@@ -1202,8 +1201,7 @@ Section store_strong.
      *)
     assert (Hnort: ¬ rtmask ℓ). {
       unfold rtmask.
-      (* uhm decidability? or smthn? uhm. well. maybe rtmask needs to be different ikd *)
-      admit.
+      set_solver.
     }
 
     assert (H3: f_locs fr_store !! localimm (prelude.W.Mk_localidx ptr_local) =
@@ -1285,8 +1283,7 @@ Section store_strong.
       - inversion Hlayoutok.
         + unfold rtmask in H2.
           assert (k ∉ [ℓ]). {
-            (* yes bc of n0 *)
-            admit.
+            set_solver.
           }
           specialize (H2 H4).
           constructor; done.
