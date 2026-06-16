@@ -1015,7 +1015,7 @@ Section store_weak.
       clear_nils.
 
       set (new_fs := foldr compose id
-                        (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+                        (map (λ '(ix, fx), <[ix:=fx]>)
                            (zip (seq off (length (flat_map arep_flags ιs)))
                               (flat_map arep_flags ιs)))
                         fs) in *.

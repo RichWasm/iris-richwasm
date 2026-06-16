@@ -604,10 +604,27 @@ Section store_strong.
   Qed.
 
 
-  Lemma updating_flags fs :
+  (* not the prettiest of lemmas *)
+  Lemma foldr_insert_succ_cons (adding : list pointer_flag) :
+    ∀ (off : nat) (f : pointer_flag) (fs : list pointer_flag),
+    foldr compose id
+      (map (λ '(ix, fx), <[ix := fx]>)
+         (zip (seq (S off) (length adding)) adding))
+      (f :: fs) =
+    f :: foldr compose id
+      (map (λ '(ix, fx), <[ix := fx]>)
+         (zip (seq off (length adding)) adding))
+      fs.
+  Proof.
+    induction adding as [|a adding' IH]; intros off f fs; [done|].
+    cbn [length seq zip map foldr compose].
+    by rewrite IH.
+  Qed.
+
+  Lemma updating_flags (fs : list pointer_flag) :
     ∀ off adding new_fs,
     new_fs = foldr compose id
-      (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+      (map (λ '(ix, fx), <[ix:=fx]>)
          (zip (seq off (length adding)) adding))
             fs ->
     off + (length adding) ≤ length fs ->
@@ -639,18 +656,13 @@ Section store_strong.
           done.
         * (* okay now we're actually adding something in! *)
           assert (Hnewunfold: new_fs = a ::
-            (foldr compose id ((map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+            (foldr compose id ((map (λ '(ix, fx), <[ix:=fx]>)
                   (zip (seq 0 (length (adding))) (adding)))) fs)). {
-            (* this is really the key *)
-            (* and it's really card lol *)
-            (* bc we have indices... *)
-            (* Search insert. *)
-            (* map_seq_insert is a bit interesting *)
-            (* Search map_seq. *)
-            (* ugh. Note that if this gets too difficult we can change cwp_set_ptr_flags *)
             rewrite Hnew.
-            admit.
-
+            cbn [length seq zip map foldr compose id].
+            rewrite foldr_insert_succ_cons.
+            cbn.
+            done.
           }
           destruct new_fs as [|to_a rest_new_fs]; inversion Hnewunfold.
           subst to_a.
@@ -666,11 +678,10 @@ Section store_strong.
           cbn. lia.
       + (* the 1 case where we're not adding quite yet *)
         assert (Hnewunfold: new_fs =
-          f :: (foldr compose id ((map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+          f :: (foldr compose id ((map (λ '(ix, fx), <[ix:=fx]>)
                   (zip (seq off (length (adding))) (adding)))) fs)). {
           rewrite Hnew.
-          (* hard again *)
-          admit.
+          apply foldr_insert_succ_cons.
         }
         cbn in Hlens.
         destruct new_fs as [|to_f rest_new_fs]; inversion Hnewunfold.
@@ -682,8 +693,7 @@ Section store_strong.
         exists (f::fs1_small), fs_old, fs2.
         repeat split; try done.
         cbn; lia.
-
-  Admitted.
+  Qed.
 
 
   Lemma compat_store_strong M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ ρ τ τval π pr :
@@ -1278,7 +1288,7 @@ Section store_strong.
 
     (* now we need to reestablish rt token *)
     set (new_fs := foldr compose id
-                     (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+                     (map (λ '(ix, fx), <[ix:=fx]>)
                         (zip (seq off (length (flat_map arep_flags ιs_τval)))
                            (flat_map arep_flags ιs_τval)))
                      fs) in *.
@@ -1309,7 +1319,7 @@ Section store_strong.
       rewrite H0 in Hlenflags. rewrite <- H1 in Hlenflags.
       pose proof (updating_flags fs off (flat_map arep_flags ιs_τval)
         (foldr compose id
-      (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+      (map (λ '(ix, fx), <[ix:=fx]>)
          (zip (seq off (length (flat_map arep_flags ιs_τval))) (flat_map arep_flags ιs_τval)))
       fs) ltac:(auto) ltac:(auto)) as Hfll.
 

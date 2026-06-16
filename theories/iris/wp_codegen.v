@@ -1188,7 +1188,7 @@ Section CodeGen.
       (
          rt_token rti sr lmask θ -∗ na_own logrel_nais E -∗
          instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
-         ℓ ↦layout <[ i := flag_of_i32 (i32_of_flag fl) ]> fs -∗
+         ℓ ↦layout <[ i := fl ]> fs -∗
          Φ fr []) -∗
       CWP esv ++ es_setflag @ s; E UNDER B; R {{ Φ }}.
   Proof.
@@ -1240,7 +1240,7 @@ Section CodeGen.
       iMod "Hsave".
       iApply ("HΦ" with "[$] [$] []").
       iExists _; eauto.
-      done.
+      by rewrite flag_of_i32_left_inv.
     }
   Qed.
 
@@ -1269,7 +1269,7 @@ Section CodeGen.
         (* ℓ ↦layout fsnew2 -∗ *)
         ℓ ↦layout
           (foldr compose id
-            (map (λ '(ix, fx), <[ ix := flag_of_i32 (i32_of_flag fx)]>)
+            (map (λ '(ix, fx), <[ ix := fx ]>)
                   (zip (seq i (length fs)) fs)) ) fsnew
         -∗
         rt_token rti sr lmask θ -∗

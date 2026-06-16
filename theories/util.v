@@ -26,6 +26,11 @@ Definition i32_of_flag (f : pointer_flag) : i32 :=
   | FlagPtr => Wasm_int.Int32.one
   end.
 
+  Lemma flag_of_i32_left_inv (f : pointer_flag) : flag_of_i32 (i32_of_flag f) = f.
+  Proof.
+    destruct f; unfold i32_of_flag, flag_of_i32; done.
+  Qed.
+
 Definition arep_flags (ι : atomic_rep) : list pointer_flag :=
   match ι with
   | PtrR => [FlagPtr]
