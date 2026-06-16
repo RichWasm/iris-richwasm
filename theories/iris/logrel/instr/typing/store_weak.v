@@ -965,7 +965,6 @@ Section store_weak.
            τ π pr Hresolves F off ρ σ ξ ξser sz) as Hpath_spec.
       specialize (Hpath_spec H Hoff Hmonosize Hkind_τ Hkind_prtarget Hevalsize).
 
-      (* NOTE: this is using a speculative spec. MIGHT CHANGE *)
       pose proof (wp_store_weak_mm _ _ _ _ _ _ _ _ _ _ Hcg_store) as Hstore_spec.
       destruct Hstore_spec as (_ & -> & -> & Hstore_spec).
 
