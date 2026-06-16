@@ -21,6 +21,90 @@ Section store_strong.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  (* a few silly lemmas *)
+  Lemma length_arep_flags_size ιs:
+    length (concat (map arep_flags ιs)) = sum_list_with arep_size ιs.
+  Proof.
+    induction ιs as [|ι ιs].
+    - cbn; done.
+    - cbn.
+      rewrite length_app.
+      assert (length (arep_flags ι) = arep_size ι). {
+        destruct ι; done.
+      }
+      lia.
+  Qed.
+
+  Lemma zip_rcons {A B:Type} (ls:list A) l (ms: list B) m:
+    length ls = length ms ->
+    zip (seq.rcons ls l) (seq.rcons ms m) = seq.rcons (zip ls ms) (l, m).
+  Proof.
+    intros Hlen.
+    rewrite !rcons_app.
+  Admitted.
+
+
+  (* note: simple_fold_sum_list_with in load is just this lol *)
+  Lemma seq_foldl_sum_list_with {A:Type} (start:nat) (ls:list A) (f:A → nat):
+    seq.foldl (λ acc l, acc + f l) start ls = start + sum_list_with f ls.
+  Proof.
+    induction ls as [|ls l] using seq.last_ind.
+    - cbn. lia.
+    - cbn.
+      rewrite seq.foldl_rcons.
+      rewrite sum_list_with_rcons; try done.
+      (* TODO move sum_list_with_rcons somewhere without rti sr mr *)
+      lia.
+  Qed.
+
+  Lemma length_split {A:Type} (ls:list A) (a b:nat) :
+    length ls = a + b -> ∃ ls1 ls2, ls = ls1 ++ ls2 /\ length ls1 = a /\ length ls2 = b.
+  Proof. Admitted.
+
+
+  (* this can be generalized but we get offset >= as1 not often *)
+  Lemma update_path_words_too_long :
+    ∀ as1 off as2,
+      update_path_words (off + length as1) as1 as2 = as1 ++ as2.
+  Proof.
+    intros as1.
+    induction as1 as [|a as1]; intros.
+    - cbn.
+      rewrite update_path_words_empty_1.
+      done.
+    - cbn [length].
+      rewrite Nat.add_succ_r.
+      rewrite update_path_words_succ.
+      rewrite IHas1.
+      done.
+  Qed.
+
+  (* note: may need to add length things but I don't think so *)
+  Lemma update_path_words_in_stages:
+    ∀ ws as1 as2 off,
+    update_path_words off ws (as1 ++ as2) =
+      update_path_words (off + length as1) (update_path_words off ws as1) as2.
+  Proof.
+    intros ws.
+    induction ws as [|w ws]; intros.
+    - rewrite !update_path_words_empty_1.
+      rewrite update_path_words_too_long.
+      done.
+    - destruct off.
+      + destruct as1 as [|a as1].
+        * clear_nils.
+          rewrite update_path_words_empty_2.
+          cbn. done.
+        * change ((a::as1)++as2) with (a::as1++as2).
+          do 2 (rewrite update_path_words_first).
+          rewrite IHws.
+          cbn. done.
+      + do 2 (rewrite update_path_words_succ).
+        rewrite IHws.
+        cbn. done.
+  Qed.
+
+
   (* copied from store weak *)
   Lemma wp_store_w_strict μ t off wt wl wt' wl' es ret :
     run_codegen (store_w mr μ t off) wt wl = inr (ret, wt', wl', es) ->
@@ -368,15 +452,15 @@ Section store_strong.
     - iModIntro. iApply ("HΦ" with "[$] [$]"); iFrame.
   Qed.
 
-
   Lemma wp_store_strong_mm_inner a_idx ιs :
     ∀ off vs_idx wt wl ret wt' wl' es,
+    length vs_idx = length ιs -> (* needs to be true for ret = .. to hold *)
     run_codegen (foldlM
          (λ (off : nat) '(v, ι),
             store1 mr MemMM a_idx off v ι ≫= λ _ : (), Monad.ret (off + arep_size ι))
          off (zip vs_idx ιs)) wt wl = inr (ret, wt', wl', es) ->
-    ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs /\
-    wt' = [] /\ wl' = [] /\ (* if I'm understanding wt' and wl' right *)
+    ret = seq.foldl (λ (off':nat) (ι:atomic_rep), off' + arep_size ι)%nat off ιs /\
+    wt' = [] /\ wl' = [] /\
     ∀ f ℓ a a32 val_vs lmask θ os ws E B R Φ,
     ⊢ "Hf"       ∷ ↪[frame] f -∗
       "Hrun"     ∷ ↪[RUN] -∗
@@ -402,12 +486,12 @@ Section store_strong.
                     Φ f []) -∗
     CWP es @ E UNDER B; R {{ Φ }}.
   Proof.
-    induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg *.
+    induction ιs as [| ιs ι] using seq.last_ind; intros * Hlen Hcg *.
     - assert (zip vs_idx ([]:list atomic_rep) = []) by (by apply zip_nil_r).
       rewrite H in Hcg.
       cbn in Hcg.
       inversion Hcg; subst.
-      do 3 split; try done.
+      do 3 (split; first done).
       intros *; repeat iIntros "@".
       iApply (cwp_nil with "[$] [$]").
       (* os is nil, val_vs is nil, and ws didn't update *)
@@ -420,28 +504,37 @@ Section store_strong.
       rewrite H0.
       iApply ("HΦ" with "[$] [$] [$]").
     - (* to start with, we need to make
-         (zip vs_idx (seq.rcons ιs ι)) = seq.rcons (zip vs_idx_small ιs) (v_idx, ι) *)
-      (* we know that length ιs = length os = length val_vs = length vs_idx
-                            Harep         Hat           Hv
-         so then we know vs_idx must be equal to some seq.rcons vs_idx v_idx. then zip seq.rcons?
-         I think that should work, but that's not interesting right at this moment so asserting
+         (zip vs_idx (seq.rcons ιs ι)) = seq.rcons (zip vs_idx_small ιs) (v_idx, ι)
+         but we can only know this is safe when we know something about vs_idx. This
+         is why we need the length vs_idx = length ιs.
+
+         NOTE: I tried to make a set up where the ret = ... was after introing the
+         iris resources (because then you can get it through Hv/Hat/Harep). But it just
+         didn't work lol. I think length vs_idx = length ιs should always be satisfied
+         anyway so should be okay?
        *)
       rename vs_idx into vs_idx_big.
-      assert (∃ vs_idx v_idx, vs_idx_big = seq.rcons vs_idx v_idx). {
-        admit.
+      assert (∃ vs_idx v_idx, vs_idx_big = vs_idx ++ [v_idx]
+                              /\ length vs_idx = length ιs). {
+        rewrite rcons_app in Hlen.
+        rewrite length_app in Hlen.
+        cbn in Hlen.
+        apply length_split in Hlen as (vs_idx & v_idxT & -> & hlen1 & hlen2).
+        destruct v_idxT as [|v_idx rest]; [inversion hlen2|].
+        destruct rest; [|inversion hlen2].
+        exists vs_idx, v_idx; done.
       }
-      destruct H as (vs_idx & v_idx & ->).
+      destruct H as (vs_idx & v_idx & Hbig & Hlenminis).
+      subst vs_idx_big.
+
+      rewrite <- rcons_app in Hcg.
       assert (zip (seq.rcons vs_idx v_idx) (seq.rcons ιs ι) =
                 seq.rcons (zip vs_idx ιs) (v_idx, ι)). {
-        (* apply seq.zip_rcons. *)
-        (* it's basically identical but zip vs seq.zip lolol *)
-        (* plus a length condition which is true *)
-        (* change zip with (@seq.zip memory.W.localidx atomic_rep). *)
-        (* sad *)
-        admit.
+        by apply zip_rcons.
       }
       rewrite H in Hcg.
 
+      (* split the codegen into first portion and last one *)
       apply inv_foldlM_rcons in Hcg.
       rewrite seq.foldl_rcons.
       destruct Hcg as (off_ιs & wt_ι & wt_ιs & wl_ι & wl_ιs & es_ι & es_ιs & Hinit & Hlast).
@@ -449,43 +542,57 @@ Section store_strong.
       inv_cg_bind Hlast a0' wt_bs wt_b wl_bs wl_b es_bs es_b Hbs Hfb.
       subst.
       inv_cg_ret Hfb; subst.
-      eapply IHιs in Hinit.
-      clear IHιs.
 
+      (* Use IH for first portion *)
+      eapply IHιs in Hinit; auto.
+      clear IHιs.
       destruct Hinit as (-> & -> & -> & Hinit).
       pose proof Hbs as Hbs'.
       clear_nils.
-
+      (* use wp_store1 for the last one *)
       apply (wp_store1_mm_strong) in Hbs'.
       destruct Hbs' as (-> & -> & -> & Hbs_spec).
 
-      do 3 (split; first by auto).
+      do 3 (split; first auto).
 
       (* finally the iris proof... *)
       (* note that the overall structure is to do cwp_seq and use Hinit then Hbs_spec *)
+
       intros *; repeat iIntros "@".
 
-      (* the thing we need to do before cwp_seq is split up Hat into the Hinit part and the
-         Hbs part. This involves showing os = seq.rcons os o and val_vs = seq.rcons os o *)
+
+      (* THE FOLLOWING SECTION IS A BUNCH OF LENGTHS STUFF and some breaking apart *)
+      (* we know that length ιs = length os = length val_vs = length vs_idx
+                            Harep         Hat           Hv
+         so then we know vs_idx must be equal to some seq.rcons vs_idx v_idx. then zip seq.rcons?
+       *)
       pose proof Harep as Hosslicing.
-      eapply Forall2_rcons_inv_l in Hosslicing; try done.
+      eapply Forall2_rcons_inv_l in Hosslicing; try done. (* TODO move out of load *)
       rename os into os_big.
       destruct Hosslicing as (o & os & Ho & Hos & Hos_eq).
       subst os_big.
       rename val_vs into val_vs_big.
       iPoseProof (big_sepL2_rcons_inv_l with "[$Hat]") as
         "(%val_v & %val_vs & -> & Hoa & Hat)"; try done.
+      rewrite <- rcons_app in Hv.
+      pose proof Hv as Hvslicing.
+      rewrite !rcons_app in Hv.
+      eapply Forall2_rcons_inv_l in Hvslicing; try done.
+      destruct Hvslicing as (valvstemp & valvtemp & Hlocsvalv & Hlocsvalvs & Hinv).
+      apply seq.rcons_inj in Hinv; inversion Hinv; subst; clear Hinv.
 
-      (* Now we can cwp_seq. Note lots of pure Forall/rcons manipulations happen inside
-         that might be better brought outside (we'll see).
+
+      (* some manipulations that don't have to be before cwp_seq, but cleaner! *)
+      (* split Hv *)
+      (* Now we can cwp_seq.
        *)
       iApply (cwp_seq with "[Hf Hrun Hptr Haddr Htok HΦ Hat]"). {
-        iApply (Hinit with "[$] [$] [$] [$] [//] [$] [//] []
-                            [//] [//] [//] [] [] [//] [//] [$] [-]").
-        1-3: iPureIntro.
-        - admit.
-        - admit.
-        - admit.
+        iApply (Hinit with "[$] [$] [$] [$] [//] [$] [//] [//]
+                            [//] [//] [//] [] [//] [//] [//] [$] [-]").
+        - iPureIntro.
+          rewrite rcons_app in Hbound.
+          rewrite sum_list_with_app in Hbound.
+          lia.
         - iIntros "Hℓ Harrt Hrt".
           let Q := open_constr:(_ : iProp Σ) in
           instantiate (1 := (λ f'' vs'', ⌜f'' = f /\ vs'' = []⌝ ∗ Q)%I).
@@ -499,29 +606,52 @@ Section store_strong.
       clear_nils.
 
       (* and now apply the hbs! *)
-      iApply (Hbs_spec with "[$] [$] [$] [$] [//] [$] [//] []
-                            [//] [//] [//] [] [] [//] [//] [$] [-]").
-      1-3: iPureIntro.
-      + admit.
-      + admit.
-      + admit.
+      iApply (Hbs_spec with "[$] [$] [$] [$] [//] [$] [//] [//]
+                            [//] [//] [//] [] [//] [//] [//] [$] [-]").
+      + iPureIntro.
+        (* this will end up true due to Hbound and Hos *)
+        rewrite rcons_app in Hbound.
+        rewrite sum_list_with_app in Hbound.
+        cbn in Hbound.
+        rewrite seq_foldl_sum_list_with.
+        rewrite update_path_words_size.
+        2: {
+          rewrite (has_arep_means_equal_lengths _ _ Hos).
+          rewrite length_arep_flags_size.
+          lia.
+        }
+        lia.
       + iIntros "Hℓ_heap Hℓ_addr Hrt".
         (* one last update_path_words manipulation *)
-        assert (update_path_words off ws (concat (map serialize_atom (seq.rcons os o))) =
+        assert (Hupdating: update_path_words off ws (concat (map serialize_atom (seq.rcons os o))) =
                   update_path_words
                         (seq.foldl (λ (off' : nat) (ι0 : atomic_rep), off' + arep_size ι0)
                            off ιs)
                         (update_path_words off ws (concat (map serialize_atom os)))
                         (serialize_atom o)
                ). {
-          admit.
+          rewrite seq_foldl_sum_list_with.
+          change map with @seq.map.
+          rewrite seq.map_rcons.
+          rewrite rcons_app.
+          rewrite concat_app.
+          cbn. clear_nils.
+          change @seq.map with map.
+          assert (length (concat (map serialize_atom os)) = sum_list_with arep_size ιs). {
+            rewrite (has_arep_means_equal_lengths _ _ Hos).
+            rewrite length_arep_flags_size.
+            done.
+          }
+          rewrite <- H0.
+          apply update_path_words_in_stages.
         }
-        rewrite <- H0.
+        rewrite <- Hupdating.
         iApply ("HΦ" with "[$] [$] [$]").
 
-  Admitted.
+  Qed.
 
   Lemma wp_store_strong_mm a_idx off ιs vs_idx wt wl ret wt' wl' es :
+    length vs_idx = length ιs ->
     run_codegen (memory.store mr MemMM a_idx off vs_idx ιs) wt wl = inr (ret, wt', wl', es) ->
     ret = () /\ wt' = [] /\ wl' = [] /\
     ∀ f ℓ a a32 val_vs lmask θ os ws E B R Φ,
@@ -549,11 +679,11 @@ Section store_strong.
                     Φ f []) -∗
     CWP es @ E UNDER B; R {{ Φ }}.
   Proof.
-    intros Hcg.
+    intros Hlen Hcg.
     unfold memory.store in Hcg.
     apply wp_ignore in Hcg.
     destruct Hcg as (-> & off' & Hcg).
-    pose proof (wp_store_strong_mm_inner _ _ _ _ _ _ _ _ _ _ Hcg) as (-> & U & V & W).
+    pose proof (wp_store_strong_mm_inner _ _ _ _ _ _ _ _ _ _ Hlen Hcg) as (-> & U & V & W).
     intuition.
   Qed.
 
@@ -1138,7 +1268,16 @@ Section store_strong.
          H Hoff Hmonosize Hkind_τ Hkind_rep Hkind_target Hkind_sert Heval_σtgt Heval_ρτval
       ) as Hpath_spec.
 
-    pose proof (wp_store_strong_mm _ _ _ _ _ _ _ _ _ _ Hcg_store) as Hstore_spec.
+    assert (Hstupidlen: length val_localidxs = length ιs_τval). {
+      move Hres_type_vs2 at bottom.
+      move Hsaved at bottom.
+      apply Forall2_length in Hsaved.
+      unfold result_type_interp in Hres_type_vs2.
+      apply Forall2_length in Hres_type_vs2.
+      rewrite length_map in Hres_type_vs2.
+      etransitivity; done.
+    }
+    pose proof (wp_store_strong_mm _ _ _ _ _ _ _ _ _ _ Hstupidlen Hcg_store) as Hstore_spec.
     destruct Hstore_spec as (_ & -> & -> & Hstore_spec).
 
     (* A cwp_val_app, which I'm confused why it's on the stack at all but oh well *)
