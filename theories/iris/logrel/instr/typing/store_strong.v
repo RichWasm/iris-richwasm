@@ -829,8 +829,7 @@ Section store_strong.
 
       inversion Hlayoutok; subst.
       specialize (H2 ltac:(auto)).
-      (* I hate Is_true is_true *)
-      admit.
+      done.
     }
 
 
@@ -1282,9 +1281,7 @@ Section store_strong.
       - rewrite Hlmℓ; rewrite Hhmℓ.
         constructor.
         intros.
-        (* exact Hnewfswsmatch. *)
-        (* is_true Is_true again lol *)
-        admit.
+        done.
       - inversion Hlayoutok.
         + unfold rtmask in H2.
           assert (k ∉ [ℓ]). {

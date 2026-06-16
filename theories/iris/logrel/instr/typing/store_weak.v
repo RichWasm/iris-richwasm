@@ -586,8 +586,8 @@ Section store_weak.
 
         inversion Hlayoutok; subst.
         specialize (H2 ltac:(auto)).
-        (* I hate Is_true is_true *)
-        admit.
+        eapply Forall2_impl; [exact H2|].
+        intros f' w' Hwh; cbn in Hwh; apply Is_true_true; exact Hwh.
       }
 
 
@@ -1049,9 +1049,8 @@ Section store_weak.
         - rewrite Hlmℓ; rewrite Hhmℓ.
           constructor.
           intros.
-          (* exact Hnewfswsmatch. *)
-          (* is_true Is_true again lol *)
-          admit.
+          eapply Forall2_impl; [done|].
+          intros f' w' Hwh; cbn in Hwh; apply Is_true_true; exact Hwh.
         - inversion Hlayoutok.
           + specialize (H4 n0); constructor; done.
           + constructor.
