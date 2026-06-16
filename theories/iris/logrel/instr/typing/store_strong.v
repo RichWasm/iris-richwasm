@@ -604,95 +604,37 @@ Section store_strong.
   Qed.
 
 
-  (* not the prettiest of lemmas *)
-  Lemma foldr_insert_succ_cons (adding : list pointer_flag) :
-    ∀ (off : nat) (f : pointer_flag) (fs : list pointer_flag),
-    foldr compose id
-      (map (λ '(ix, fx), <[ix := fx]>)
-         (zip (seq (S off) (length adding)) adding))
-      (f :: fs) =
-    f :: foldr compose id
-      (map (λ '(ix, fx), <[ix := fx]>)
-         (zip (seq off (length adding)) adding))
-      fs.
-  Proof.
-    induction adding as [|a adding' IH]; intros off f fs; [done|].
-    cbn [length seq zip map foldr compose].
-    by rewrite IH.
-  Qed.
-
-  Lemma updating_flags (fs : list pointer_flag) :
-    ∀ off adding new_fs,
-    new_fs = foldr compose id
-      (map (λ '(ix, fx), <[ix:=fx]>)
-         (zip (seq off (length adding)) adding))
-            fs ->
-    off + (length adding) ≤ length fs ->
+  Lemma updating_flags (off : nat) (adding fs : list pointer_flag) :
+    off + length adding ≤ length fs →
     ∃ fs1 fs_old fs2,
-      fs = fs1 ++ fs_old ++ fs2 /\
-        new_fs = fs1 ++ adding ++ fs2 /\
-        length fs_old = length adding /\
-        length fs1 = off.
+      fs = fs1 ++ fs_old ++ fs2 ∧
+      set_flags_at off adding fs = fs1 ++ adding ++ fs2 ∧
+      length fs_old = length adding ∧
+      length fs1 = off.
   Proof.
-    induction fs as [| f fs].
-    - intros * Hnew Hlens.
-      cbn in Hlens.
-      destruct off; [ | lia ].
-      destruct adding; [ | cbn in Hlens; lia ].
-      cbn in Hnew.
-      subst.
-      exists [], [], []; done.
-    - intros * Hnew Hlens.
-  (* Morally, there's two cases. Either f is something we'll be replacing by
-     the first element of adding, or we're keeping it. This depends on off.
-   *)
+    revert off adding.
+    induction fs as [|f fs IH].
+    - intros off adding Hlens.
+      cbn in Hlens. destruct off; [|lia]. destruct adding; [|cbn in Hlens; lia].
+      exists [], [], []. unfold set_flags_at. done.
+    - intros off adding Hlens.
       destruct off.
-      + (* 0 case where we're adding in adding, if it exists. *)
-        destruct adding as [|a adding].
-        * (* this is the case where adding is empty so it's kinda pointless *)
-          (* or it's what happens after we've already finished adding things in *)
-          cbn in Hnew.
-          exists [], [], (f::fs).
-          done.
-        * (* okay now we're actually adding something in! *)
-          assert (Hnewunfold: new_fs = a ::
-            (foldr compose id ((map (λ '(ix, fx), <[ix:=fx]>)
-                  (zip (seq 0 (length (adding))) (adding)))) fs)). {
-            rewrite Hnew.
-            cbn [length seq zip map foldr compose id].
-            rewrite foldr_insert_succ_cons.
-            cbn.
-            done.
-          }
-          destruct new_fs as [|to_a rest_new_fs]; inversion Hnewunfold.
-          subst to_a.
-          cbn in Hlens.
-
-          assert (length adding ≤ length fs) by lia.
-          specialize (IHfs _ _ _ H1 H).
-          destruct IHfs as (tobeempty & fs_old_small & fs2 & -> & -> & lenold & toninv).
-          destruct tobeempty; [|cbn in toninv; inversion toninv].
-          clear_nils.
-          exists [], (f :: fs_old_small), fs2.
-          repeat split; try done.
-          cbn. lia.
-      + (* the 1 case where we're not adding quite yet *)
-        assert (Hnewunfold: new_fs =
-          f :: (foldr compose id ((map (λ '(ix, fx), <[ix:=fx]>)
-                  (zip (seq off (length (adding))) (adding)))) fs)). {
-          rewrite Hnew.
-          apply foldr_insert_succ_cons.
-        }
-        cbn in Hlens.
-        destruct new_fs as [|to_f rest_new_fs]; inversion Hnewunfold.
-        subst to_f.
-        assert (off + length adding ≤ length fs) by lia.
-
-        specialize (IHfs _ _ _ H1 H).
-        destruct IHfs as (fs1_small & fs_old & fs2 & -> & -> & hlenold & hlenoff).
-        exists (f::fs1_small), fs_old, fs2.
-        repeat split; try done.
-        cbn; lia.
+      + destruct adding as [|a adding].
+        * exists [], [], (f :: fs). unfold set_flags_at. done.
+        * cbn in Hlens.
+          specialize (IH 0 adding ltac:(lia)) as (fs1 & fs_old & fs2 & Hfs & Hset & Hlenold & Hlenfs1).
+          assert (fs1 = []) as -> by (destruct fs1; [done | cbn in Hlenfs1; lia]).
+          cbn in Hfs.
+          exists [], (f :: fs_old), fs2.
+          split; [rewrite Hfs; done |].
+          split; [rewrite set_flags_at_zero_cons Hset; done |].
+          split; [cbn; lia | done].
+      + cbn in Hlens.
+        specialize (IH off adding ltac:(lia)) as (fs1 & fs_old & fs2 & Hfs & Hset & Hlenold & Hlenfs1).
+        exists (f :: fs1), fs_old, fs2.
+        split; [rewrite Hfs; done |].
+        split; [rewrite set_flags_at_succ_cons Hset; done |].
+        split; [done | cbn; lia].
   Qed.
 
 
@@ -1287,11 +1229,7 @@ Section store_strong.
     clear_nils.
 
     (* now we need to reestablish rt token *)
-    set (new_fs := foldr compose id
-                     (map (λ '(ix, fx), <[ix:=fx]>)
-                        (zip (seq off (length (flat_map arep_flags ιs_τval)))
-                           (flat_map arep_flags ιs_τval)))
-                     fs) in *.
+    set (new_fs := set_flags_at off (flat_map arep_flags ιs_τval) fs) in *.
     set (new_ws := update_path_words off ws (concat (map serialize_atom os_τval))) in *.
 
     (* now, we need to restablish rttoken *)
@@ -1317,13 +1255,8 @@ Section store_strong.
       }
       pose proof (Hwslength) as Hlenflags.
       rewrite H0 in Hlenflags. rewrite <- H1 in Hlenflags.
-      pose proof (updating_flags fs off (flat_map arep_flags ιs_τval)
-        (foldr compose id
-      (map (λ '(ix, fx), <[ix:=fx]>)
-         (zip (seq off (length (flat_map arep_flags ιs_τval))) (flat_map arep_flags ιs_τval)))
-      fs) ltac:(auto) ltac:(auto)) as Hfll.
-
-      destruct Hfll as (fs1 & fs_old & fs2 & -> & help & Hlenold & Hlenfs1).
+      pose proof (updating_flags off (flat_map arep_flags ιs_τval) fs ltac:(lia))
+        as (fs1 & fs_old & fs2 & -> & help & Hlenold & Hlenfs1).
       unfold new_fs. rewrite help.
 
       (* okay yay. now. same idea but with new_ws. Hopefully easier? *)

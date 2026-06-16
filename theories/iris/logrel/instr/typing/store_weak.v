@@ -1014,11 +1014,7 @@ Section store_weak.
       iIntros "Hℓ_fs Hrt #Hnsfun Hown #Hinst_spec".
       clear_nils.
 
-      set (new_fs := foldr compose id
-                        (map (λ '(ix, fx), <[ix:=fx]>)
-                           (zip (seq off (length (flat_map arep_flags ιs)))
-                              (flat_map arep_flags ιs)))
-                        fs) in *.
+      set (new_fs := set_flags_at off (flat_map arep_flags ιs) fs) in *.
       set (new_ws := update_path_words off ws (concat (map serialize_atom os2))) in *.
 
       (* now, we need to restablish rttoken *)

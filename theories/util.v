@@ -40,6 +40,28 @@ Definition arep_flags (ι : atomic_rep) : list pointer_flag :=
   | F64R => [FlagInt; FlagInt]
   end.
 
+Definition set_flags_at (off : nat) (new_flags : list pointer_flag)
+    (fs : list pointer_flag) : list pointer_flag :=
+  list_inserts off new_flags fs.
+
+Lemma set_flags_at_succ_cons (off : nat) (adding : list pointer_flag)
+    (f : pointer_flag) (fs : list pointer_flag) :
+  set_flags_at (S off) adding (f :: fs) = f :: set_flags_at off adding fs.
+Proof.
+  unfold set_flags_at. revert off.
+  induction adding as [|a adding IH]; intros off; [done|].
+  cbn [list_inserts]. rewrite (IH (S off)). done.
+Qed.
+
+Lemma set_flags_at_zero_cons (a : pointer_flag) (adding : list pointer_flag)
+    (f : pointer_flag) (fs : list pointer_flag) :
+  set_flags_at 0 (a :: adding) (f :: fs) = a :: set_flags_at 0 adding fs.
+Proof.
+  unfold set_flags_at. cbn [list_inserts].
+  pose proof (set_flags_at_succ_cons 0 adding f fs) as H.
+  unfold set_flags_at in H. rewrite H. done.
+Qed.
+
 (* Unfortunately, ExtLib defines Monoid as a record.
    Make it behave like a typeclass, as God intended. *)
 Existing Class Monoid.

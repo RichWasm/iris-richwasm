@@ -1267,10 +1267,7 @@ Section CodeGen.
       instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
       (  (* I need to relate fsnew2 to fsnew somehow *)
         (* ℓ ↦layout fsnew2 -∗ *)
-        ℓ ↦layout
-          (foldr compose id
-            (map (λ '(ix, fx), <[ ix := fx ]>)
-                  (zip (seq i (length fs)) fs)) ) fsnew
+        ℓ ↦layout (set_flags_at i fs fsnew)
         -∗
         rt_token rti sr lmask θ -∗
         ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
