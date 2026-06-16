@@ -401,37 +401,6 @@ Section store_strong.
 
 
 
-
-  (* should probably go into pathing but for now here *)
-  Lemma resolves_path_implies_has_kind F τ π κser τval pr σ_rep ξ_rep ρ_τval ξ_τval :
-    resolves_path τ π (Some (SerT κser τval)) pr ->
-    has_kind F (pr_replaced pr) (MEMTYPE σ_rep ξ_rep) ->
-    has_kind F τval (VALTYPE ρ_τval ξ_τval) ->
-    has_kind F (SerT κser τval) (MEMTYPE (RepS ρ_τval) ξ_τval).
-  Proof.
-    intros Hresolves.
-    remember (Some (SerT κser τval)).
-    generalize dependent ξ_rep.
-    generalize dependent σ_rep.
-    induction Hresolves.
-    - inversion Heqo.
-    - intros.
-      inversion Heqo; subst; cbn.
-      intros.
-      inversion H; subst.
-      pose proof (has_kind_agree F _ _ _ H0 H3).
-      inversion H1; subst; done.
-    - intros * Hkindrep Hkindτval.
-      unfold pr' in Hkindrep; cbn in Hkindrep.
-      inversion Hkindrep; subst.
-      apply Forall3_app_inv_l in H2.
-      destruct H2 as (σs1 & σs2 & ξs1 & ξs2 & -> & -> & Hprefix & Hhottopic).
-      apply Forall3_cons_inv_l in Hhottopic.
-      destruct Hhottopic as (σ & σs2' & ξ & ξs2' & -> & -> & Hyay & Hrest).
-      eapply IHHresolves; done.
-  Qed.
-
-
   Lemma get_all_kinding_info_store_strong τ κ τval κ' π pr κser:
     let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ; τval]
                [RefT κ' (BaseM MemMM) Mut (pr_replaced pr)] in
@@ -601,40 +570,6 @@ Section store_strong.
     exists σ_τ, ξ_τ, ξ_τval, σ_rep, ξ_rep, ξ_target, sz.
     repeat split; try done.
 
-  Qed.
-
-
-  Lemma updating_flags (off : nat) (adding fs : list pointer_flag) :
-    off + length adding ≤ length fs →
-    ∃ fs1 fs_old fs2,
-      fs = fs1 ++ fs_old ++ fs2 ∧
-      set_flags_at off adding fs = fs1 ++ adding ++ fs2 ∧
-      length fs_old = length adding ∧
-      length fs1 = off.
-  Proof.
-    revert off adding.
-    induction fs as [|f fs IH].
-    - intros off adding Hlens.
-      cbn in Hlens. destruct off; [|lia]. destruct adding; [|cbn in Hlens; lia].
-      exists [], [], []. unfold set_flags_at. done.
-    - intros off adding Hlens.
-      destruct off.
-      + destruct adding as [|a adding].
-        * exists [], [], (f :: fs). unfold set_flags_at. done.
-        * cbn in Hlens.
-          specialize (IH 0 adding ltac:(lia)) as (fs1 & fs_old & fs2 & Hfs & Hset & Hlenold & Hlenfs1).
-          assert (fs1 = []) as -> by (destruct fs1; [done | cbn in Hlenfs1; lia]).
-          cbn in Hfs.
-          exists [], (f :: fs_old), fs2.
-          split; [rewrite Hfs; done |].
-          split; [rewrite set_flags_at_zero_cons Hset; done |].
-          split; [cbn; lia | done].
-      + cbn in Hlens.
-        specialize (IH off adding ltac:(lia)) as (fs1 & fs_old & fs2 & Hfs & Hset & Hlenold & Hlenfs1).
-        exists (f :: fs1), fs_old, fs2.
-        split; [rewrite Hfs; done |].
-        split; [rewrite set_flags_at_succ_cons Hset; done |].
-        split; [done | cbn; lia].
   Qed.
 
 
@@ -1233,16 +1168,9 @@ Section store_strong.
     (* i think we need a bunch of stuff. First that original words
          and layout have correct stuff
      *)
-    (* first, let me try to prove the basic word_has_flag fact *)
+    (* this establishes that the new flags and new words do actually match *)
     assert (Hnewfswsmatch: Forall2 word_has_flag new_fs new_ws). {
-      (* Okay yay, this will be the same as store weak!
-         Hfswsmatch and Hareps together in the same way as store weak
-         maybe make this a lemma
-       *)
-
-      (* first, break apart the flags. This will likely come in helpful for
-         store gc because of reestablishing fs = fs_new
-       *)
+      (* break apart the flags. Length lemmas for easier lemma application *)
       assert (sz = length (flat_map arep_flags ιs_τval)). {
         subst sz.
         done.
@@ -1253,14 +1181,29 @@ Section store_strong.
       pose proof (Hwslength) as Hlenflags.
       rewrite H0 in Hlenflags. rewrite <- H1 in Hlenflags.
       pose proof (updating_flags off (flat_map arep_flags ιs_τval) fs ltac:(lia))
-        as (fs1 & fs_old & fs2 & -> & help & Hlenold & Hlenfs1).
-      unfold new_fs. rewrite help.
+        as (fs1 & fs_old & fs2 & -> & Hfs & Hlenoldfs & Hlenfs1).
+      unfold new_fs. rewrite Hfs.
 
-      (* okay yay. now. same idea but with new_ws. Hopefully easier? *)
-      (* there's no existing lemmas but this should be easier than updating_flags *)
+      (* same thing but for words *)
+      pose proof Hwslength as Hlenwords. rewrite <- Hos2sz in Hlenwords.
+      pose proof (updating_words off (concat (map serialize_atom os_τval)) ws ltac:(lia))
+        as (ws1 & ws_old & ws2 & -> & Hws & Hlenoldws & Hlenws1).
+      unfold new_ws. rewrite Hws.
 
+      assert (length fs2 = length ws2). {
+        rewrite !length_app in H1. lia.
+      }
 
-      admit.
+      (* break apart the old has flags *)
+      pose proof (Forall2_app_inv _ fs1 _ ws1 _ ltac:(lia) Hfswsmatch) as [Hfs1ws1 Hrest].
+      pose proof (Forall2_app_inv _ fs_old _ ws_old _ ltac:(lia) Hrest) as [Hold Hfs2ws2].
+      apply Forall2_app; [done | apply Forall2_app; [|done]].
+
+      (* apply lemma for new section *)
+      move Harepιsos2 at bottom.
+      rewrite <- flat_map_concat_map.
+      rewrite flat_map_concat_map.
+      apply has_areps_imp_word_has_flag; done.
     }
 
     open_rt "Hrt".

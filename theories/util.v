@@ -62,6 +62,41 @@ Proof.
   unfold set_flags_at in H. rewrite H. done.
 Qed.
 
+
+  Lemma updating_flags (off : nat) (adding fs : list pointer_flag) :
+    off + length adding ≤ length fs →
+    ∃ fs1 fs_old fs2,
+      fs = fs1 ++ fs_old ++ fs2 ∧
+      set_flags_at off adding fs = fs1 ++ adding ++ fs2 ∧
+      length fs_old = length adding ∧
+      length fs1 = off.
+  Proof.
+    revert off adding.
+    induction fs as [|f fs IH].
+    - intros off adding Hlens.
+      cbn in Hlens. destruct off; [|lia]. destruct adding; [|cbn in Hlens; lia].
+      exists [], [], []. unfold set_flags_at. done.
+    - intros off adding Hlens.
+      destruct off.
+      + destruct adding as [|a adding].
+        * exists [], [], (f :: fs). unfold set_flags_at. done.
+        * cbn in Hlens.
+          specialize (IH 0 adding ltac:(lia)) as (fs1 & fs_old & fs2 & Hfs & Hset & Hlenold & Hlenfs1).
+          assert (fs1 = []) as -> by (destruct fs1; [done | cbn in Hlenfs1; lia]).
+          cbn in Hfs.
+          exists [], (f :: fs_old), fs2.
+          split; [rewrite Hfs; done |].
+          split; [rewrite set_flags_at_zero_cons; rewrite Hset; done |].
+          split; [cbn; lia | done].
+      + cbn in Hlens.
+        specialize (IH off adding ltac:(lia)) as (fs1 & fs_old & fs2 & Hfs & Hset & Hlenold & Hlenfs1).
+        exists (f :: fs1), fs_old, fs2.
+        split; [rewrite Hfs; done |].
+        split; [rewrite set_flags_at_succ_cons; rewrite Hset; done |].
+        split; [done | cbn; lia].
+  Qed.
+
+
 (* Unfortunately, ExtLib defines Monoid as a record.
    Make it behave like a typeclass, as God intended. *)
 Existing Class Monoid.

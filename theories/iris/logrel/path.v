@@ -1687,4 +1687,34 @@ Section PathFacts.
       eapply IHHpath; eauto.
   Qed.
 
+
+  Lemma resolves_path_implies_has_kind F τ π κser τval pr σ_rep ξ_rep ρ_τval ξ_τval :
+    resolves_path τ π (Some (SerT κser τval)) pr ->
+    has_kind F (pr_replaced pr) (MEMTYPE σ_rep ξ_rep) ->
+    has_kind F τval (VALTYPE ρ_τval ξ_τval) ->
+    has_kind F (SerT κser τval) (MEMTYPE (RepS ρ_τval) ξ_τval).
+  Proof.
+    intros Hresolves.
+    remember (Some (SerT κser τval)).
+    generalize dependent ξ_rep.
+    generalize dependent σ_rep.
+    induction Hresolves.
+    - inversion Heqo.
+    - intros.
+      inversion Heqo; subst; cbn.
+      intros.
+      inversion H; subst.
+      pose proof (has_kind_agree F _ _ _ H0 H3).
+      inversion H1; subst; done.
+    - intros * Hkindrep Hkindτval.
+      unfold pr' in Hkindrep; cbn in Hkindrep.
+      inversion Hkindrep; subst.
+      apply Forall3_app_inv_l in H2.
+      destruct H2 as (σs1 & σs2 & ξs1 & ξs2 & -> & -> & Hprefix & Hhottopic).
+      apply Forall3_cons_inv_l in Hhottopic.
+      destruct Hhottopic as (σ & σs2' & ξ & ξs2' & -> & -> & Hyay & Hrest).
+      eapply IHHresolves; done.
+  Qed.
+
+
 End PathFacts.

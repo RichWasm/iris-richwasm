@@ -1020,15 +1020,44 @@ Section store_weak.
       (* i think we need a bunch of stuff. First that original words
          and layout have correct stuff
        *)
-      (* first, let me try to prove the basic word_has_flag fact *)
+      (* Establish that the new fs/ws satisfy heap_ok *)
       assert (Hnewfswsmatch: Forall2 word_has_flag new_fs new_ws). {
-      (* this should be purely list manipulation. e.g. that
-         fs = fs1 ++ (flat_map arep_flags ιs) ++ fs2 where fs1 fs2 are the same as before and
-         ws = ws1 ++ (flat_map serialize_atom os2) ++ ws2 where ws1 ws2 same as before and
-         then use a combo of Hwsfsmatch (to get word has flag for fs1 ws1, fs2 ws2) and Hareps
-         to prove that the middle sections have flags
-       *)
-        admit.
+        (* break apart the flags. Length lemmas for easier lemma application *)
+        assert (sz = length (flat_map arep_flags ιs)). {
+          subst sz.
+          done.
+        }
+        assert (length fs = length ws). {
+          eapply Forall2_length; exact Hfswsmatch.
+        }
+        pose proof (Hwslength) as Hlenflags.
+        rewrite H1 in Hlenflags. rewrite <- H2 in Hlenflags.
+        pose proof (updating_flags off (flat_map arep_flags ιs) fs ltac:(lia))
+          as (fs1 & fs_old & fs2 & -> & Hfs & Hlenoldfs & Hlenfs1).
+        unfold new_fs. rewrite Hfs.
+
+        (* same thing but for words *)
+        pose proof Hwslength as Hlenwords. rewrite <- Hos2sz in Hlenwords.
+        pose proof (updating_words off (concat (map serialize_atom os2)) ws ltac:(lia))
+          as (ws1 & ws_old & ws2 & -> & Hws & Hlenoldws & Hlenws1).
+        unfold new_ws. rewrite Hws.
+
+        assert (length fs2 = length ws2). {
+          rewrite !length_app in H2. lia.
+        }
+
+        (* break apart the old has flags *)
+        pose proof (Forall2_app_inv _ fs1 _ ws1 _ ltac:(lia) Hfswsmatch) as [Hfs1ws1 Hrest].
+        pose proof (Forall2_app_inv _ fs_old _ ws_old _ ltac:(lia) Hrest) as [Hold Hfs2ws2].
+        apply Forall2_app; [done | apply Forall2_app; [|done]].
+
+        (* apply lemma for new section *)
+        move Harepιsos2 at bottom.
+        rewrite <- flat_map_concat_map.
+        rewrite flat_map_concat_map.
+        apply has_areps_imp_word_has_flag in Hareps as Hnew.
+        eapply Forall2_impl; [exact Hnew|].
+        intros f' w' Hwh; cbn in Hwh; apply Is_true_true; exact Hwh.
       }
 
       open_rt "Hrt".

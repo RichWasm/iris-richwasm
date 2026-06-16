@@ -956,6 +956,40 @@ Section load.
     done.
   Qed.
 
+  Lemma updating_words (off : nat) (adding ws : list word) :
+    off + length adding ≤ length ws →
+    ∃ ws1 ws_old ws2,
+      ws = ws1 ++ ws_old ++ ws2 ∧
+      update_path_words off ws adding = ws1 ++ adding ++ ws2 ∧
+      length ws_old = length adding ∧
+      length ws1 = off.
+  Proof.
+    revert off adding.
+    induction ws as [|w ws IH].
+    - intros off adding Hlens.
+      cbn in Hlens. destruct off; [|lia]. destruct adding; [|cbn in Hlens; lia].
+      exists [], [], []. unfold update_path_words. done.
+    - intros off adding Hlens.
+      destruct off.
+      + destruct adding as [|a adding].
+        * exists [], [], (w :: ws). unfold update_path_words. clear_nils. done.
+        * cbn in Hlens.
+          specialize (IH 0 adding ltac:(lia)) as (ws1 & ws_old & ws2 & Hws & Hset & Hlenold & Hlenws1).
+          assert (ws1 = []) as -> by (destruct ws1; [done | cbn in Hlenws1; lia]).
+          cbn in Hws.
+          exists [], (w :: ws_old), ws2.
+          split; [rewrite Hws; done |].
+          split; [clear_nils; rewrite update_path_words_first Hset; done |].
+          split; [cbn; lia | done].
+      + cbn in Hlens.
+        specialize (IH off adding ltac:(lia)) as (ws1 & ws_old & ws2 & Hws & Hset & Hlenold & Hlenws1).
+        exists (w :: ws1), ws_old, ws2.
+        split; [rewrite Hws; done |].
+        split; [rewrite update_path_words_succ Hset; done |].
+        split; [done | cbn; lia].
+  Qed.
+
+
   (* Locations in update_path_words are covered if old and new words' locs are *)
   Lemma update_path_words_locs_incl (dom_set : gset location) ws off ws_new :
     Forall (λ ℓ, ℓ ∈ dom_set) (flat_map locations ws) →
