@@ -375,4 +375,12 @@ Section roots.
     by repeat iSpecialize ("HΦ" with "[$]").
   Qed.
 
+  Lemma wp_root_to_heap_mm locidx wt wl wt' wl' es ret :
+    run_codegen (root_to_heap mr MemMM locidx) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\ wt' = [] /\ wl' = [] /\ es = [].
+  Proof.
+    intros Hcg.
+    by inv_cg_ret Hcg.
+  Qed.
+
 End roots.

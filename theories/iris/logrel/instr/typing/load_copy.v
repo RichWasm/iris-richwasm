@@ -476,19 +476,13 @@ Section load_copy.
     inv_cg_try_option Hoff; rename Heq_some into Hoff.
     inv_cg_bind Hcompile a ?wt ?wt ?wl ?wl es_a ?es_rest Ha Hcompile.
     cbn in Ha; inversion Ha; subst; clear Ha.
-    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
+    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit es_case_ptr Hemit Hcompile.
     inv_cg_emit Hemit.
-    inv_cg_bind Hcompile () ?wt ?wt ?wl ?wl es_empty ?es_rest Hempty Hcompile.
-    cbn in Hempty; inversion Hempty; subst; clear Hempty.
-    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl  es_case_ptr ?es_rest Hcompile Hignore.
-    cbn in Hignore; inversion Hignore; subst; clear Hignore.
+    apply wp_ignore in Hcompile.
+    destruct Hcompile as (_ & [[] [[] []]] & Hcompile).
     (* Some clean up *)
-    assert (Hu: u = ()). { by destruct u. }
-    assert (Hp: p = ((),())). { by destruct p as [[] []]. }
     subst.
-    rewrite ?app_nil_r ?app_nil_l -?app_assoc.
-    rewrite ?app_nil_r ?app_nil_l -?app_assoc in Hcompile.
-    simpl app.
+    clear_nils.
     unfold have_instr_type_sem.
     iIntros (se fr os vs evs θ B R Hse Hevs) "@ @ @ @ @ @ @ @ @ @".
     iEval (rewrite values_interp_one_eq; cbn) in "Hos".
@@ -506,7 +500,7 @@ Section load_copy.
     set (locsz :=
                length (concat (typing.fc_locals F)) +
                length wl +
-               length (T_i32 :: wl0 ++ wlf)).
+               length (T_i32 :: wl1 ++ wlf)).
     iAssert (⌜length (f_locs fr) = locsz⌝%I) as "%Hflen".
     {
       iDestruct "Hframe" as "(%osf & %vss_L & %vs_WL & %Hlocs & %Hprims & %Hretty & Hats &  Hlocs)".
@@ -518,8 +512,9 @@ Section load_copy.
       rewrite !length_concat Hprims.
       eapply Forall2_length in Hretty.
       rewrite !length_app in Hretty.
+      rewrite length_cons length_app.
       rewrite -Hretty.
-      by rewrite Nat.add_assoc.
+      by rewrite !Nat.add_assoc.
     }
     assert (ptr_local < length (f_locs fr)) as Hlen.
     {
@@ -618,9 +613,10 @@ Section load_copy.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
       inv_cg_bind Hload1 [] ?wt ?wt ?wl ?wl ?es ?es Hret Hload1.
-      cbn in Hret.
-      inversion Hret.
-      subst wt4 wl4 es2.
+      inv_cg_bind Hload1 [] ?wt ?wt ?wl ?wl ?es ?es Hload1 Hret'.
+      inv_cg_ret Hret.
+      inv_cg_ret Hret'.
+      subst wt4 wl4 es2 wt7 wl7 es5.
       rewrite atoms_interp_one_inv.
       iDestruct "Hvs" as "(%v' & %Hv' & Hat)".
       inversion Hv'; subst v'; clear Hv'.
@@ -839,7 +835,7 @@ Section load_copy.
              erewrite mk_load_frame_locs; first f_equal.
              ++ rewrite -app_assoc !length_app !length_concat sum_list_with_list_sum.
                 rewrite H0.
-                erewrite (Forall2_length _ wl1), (Forall2_length _ wl) by eauto.
+                erewrite (Forall2_length _ wl), (Forall2_length _ wl0) by eauto.
                 cbn; lia.
              ++ instantiate (1 := vs0).
                 rewrite -(Forall2_length _ _ _ Hvs0).
@@ -947,9 +943,10 @@ Section load_copy.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
       inv_cg_bind Hload1 [] ?wt ?wt ?wl ?wl ?es ?es Hret Hload1.
-      cbn in Hret.
-      inversion Hret.
-      subst wt4 wl4 es2.
+      inv_cg_bind Hload1 [] ?wt ?wt ?wl ?wl ?es ?es Hload1 Hret'.
+      inv_cg_ret Hret.
+      inv_cg_ret Hret'.
+      subst wt4 wl4 es2 wt7 wl7 es5.
       rewrite atoms_interp_one_inv.
       iDestruct "Hvs" as "(%v' & %Hv' & Hat)".
       inversion Hv'; subst v'; clear Hv'.
@@ -1111,7 +1108,7 @@ Section load_copy.
         let Q := open_constr:(_ : iProp Σ) in
         instantiate (1 :=
           (λ f0 vs0, ∃ vs vsf,
-             ⌜f0 = (mk_load_frame (fe_of_context F) f' (wl ++ [T_i32] ++ wl1) vsf)⌝ ∗
+             ⌜f0 = (mk_load_frame (fe_of_context F) f' (wl ++ [T_i32] ++ wl0) vsf)⌝ ∗
              ⌜vs0 = vs⌝ ∗
              ⌜Forall2 (λ (ι : atomic_rep) (vf : value), types_agree (translate_arep ι) vf) ιs vsf⌝ ∗
              ([∗ list] o;v ∈ os;vs, ⌜atom_copyable o⌝ -∗ atom_interp o v) ∗
@@ -1201,7 +1198,7 @@ Section load_copy.
              erewrite mk_load_frame_locs; first f_equal.
              ++ rewrite -app_assoc !length_app !length_concat sum_list_with_list_sum.
                 rewrite H1.
-                erewrite (Forall2_length _ wl1), (Forall2_length _ wl) by eauto.
+                erewrite (Forall2_length _ wl), (Forall2_length _ wl0) by eauto.
                 cbn; lia.
              ++ instantiate (1 := vs0).
                 rewrite -(Forall2_length _ _ _ Hvs0).
@@ -1367,6 +1364,11 @@ Section load_copy.
         rewrite mono_size_eval_emp; eauto.
       }
       inv_cg_bind Hload2 [] ?wt ?wt ?wl ?wl  ?es_root_hp ?es_load Hcgroot Hcgload.
+      inv_cg_bind Hcgload res ?wt ?wt ?wl ?wl es_load' es_nil Hcgload Hret'.
+      inv_cg_ret Hret'.
+      subst es_load wt6 wl6 es_nil.
+      rename es_load' into es_load.
+      clear_nils.
       inversion Hrpvn.
       iEval (cbn) in "Hrp".
       open_rt "Hrt".
@@ -1581,7 +1583,7 @@ Section load_copy.
         }
         {
           (* restore frame_interp *)
-          iPoseProof (load_restore_frame wl (wl1 ++ wl2 ++ wl0) wlf) as "Hframe'".
+          iPoseProof (load_restore_frame wl (wl0 ++ wl2 ++ wl1) wlf) as "Hframe'".
           rewrite -!app_assoc.
           iSpecialize ("Hframe'" with "Hframe [//] [//]").
           iApply "Hframe'".
@@ -1698,6 +1700,11 @@ Section load_copy.
         rewrite mono_size_eval_emp; eauto.
       }
       inv_cg_bind Hload2 [] ?wt ?wt ?wl ?wl  ?es_root_hp ?es_load Hcgroot Hcgload.
+      inv_cg_bind Hcgload res ?wt ?wt ?wl ?wl es_load' es_nil Hcgload Hret'.
+      inv_cg_ret Hret'.
+      subst es_load wt6 wl6 es_nil.
+      rename es_load' into es_load.
+      clear_nils.
       inversion Hrpvn.
       iEval (cbn) in "Hrp".
       open_rt "Hrt".
@@ -1910,7 +1917,7 @@ Section load_copy.
         }
         {
           (* restore frame_interp *)
-          iPoseProof (load_restore_frame wl (wl1 ++ wl2 ++ wl0) wlf) as "Hframe'".
+          iPoseProof (load_restore_frame wl (wl0 ++ wl2 ++ wl1) wlf) as "Hframe'".
           rewrite -!app_assoc.
           iSpecialize ("Hframe'" with "Hframe [//] [//]").
           iApply "Hframe'".
