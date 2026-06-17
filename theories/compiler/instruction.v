@@ -229,15 +229,13 @@ Section Compiler.
     ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     a ← wlalloc fe W.T_i32;
     emit (W.BI_tee_local (localimm a));;
+    match con with
+    | Copy => ret tt
+    | Move => set_pointer_flags mr a off (repeat FlagInt (areps_size ιs))
+    end;;
     ignore $ case_ptr a (W.Tf [] (map translate_arep ιs))
       (emit W.BI_unreachable)
-      (fun μ =>
-         root_to_heap mr μ a;;
-         load mr fe μ con a off ιs;;
-         match con with
-         | Copy => ret tt
-         | Move => set_pointer_flags mr a off (repeat FlagInt (areps_size ιs))
-         end).
+      (fun μ => root_to_heap mr μ a;; load mr fe μ con a off ιs).
 
   Definition compile_store (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);

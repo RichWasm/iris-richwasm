@@ -2,7 +2,6 @@ Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.load.
 Require Import RichWasm.iris.logrel.path.
-Require Import RichWasm.iris.logrel.roots.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -56,6 +55,7 @@ Section load_move.
     cbn in Ha; inversion Ha; subst; clear Ha.
     inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
     inv_cg_emit Hemit.
+    inv_cg_bind Hcompile () ?wt ?wt ?wl ?wl es_ptr_flags ?es_rest Hptr_flags Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl  es_case_ptr ?es_rest Hcompile Hignore.
     inv_cg_ret Hignore; subst; clear_nils.
 
@@ -65,9 +65,10 @@ Section load_move.
     eapply cwp_case_ptr in Hcompile.
     destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
     destruct Hcompile as (Hunr & Hloadmm & Hloadgc & -> & -> & Hspec).
+    eapply (@cwp_set_pointer_flags Σ _ _ _ mr sr rti) in Hptr_flags.
+    destruct Hptr_flags as (_ & -> & -> & Hptr_flags).
     clear_nils.
-    inv_cg_bind Hloadmm ?ret ?wt ?wt ?wl ?wl es_root_hp ?es_rest Hroot_hp Hcompile.
-    inv_cg_bind Hcompile ?ret ?wt ?wt ?wl ?wl es_load es_flags Hload Hflags.
+    inv_cg_bind Hloadmm ?ret ?wt ?wt ?wl ?wl es_root_hp ?es_rest Hroot_hp Hload.
     inv_cg_emit Hunr.
     subst; clear_nils.
     repeat match goal with
@@ -80,11 +81,6 @@ Section load_move.
     unfold ψ in *; clear ψ.
     iIntros (se fr os vs evs θ B R).
     repeat iIntros "@".
-
-    eapply (@cwp_set_pointer_flags Σ _ _ _ mr sr rti) in Hflags.
-    destruct Hflags as (_ & -> & -> & Hflags).
-
-    inv_cg_ret Hroot_hp.
 
     (* Opening up the val. interp *)
     iEval (rewrite values_interp_one_eq value_interp_eq) in "Hos".
@@ -144,34 +140,38 @@ Section load_move.
 
     iIntros (f' vs') "(-> & -> & Ht) Hf Hr".
 
-    iApply cwp_val_app.
-    { apply has_values_to_consts. }
-
-    iEval (change es_case_ptr with ([] ++ es_case_ptr)).
-    iApply (Hspec with "[$] [$] [] [-]"); eauto.
-    { by instantiate (1 := []). }
-    { done. }
-    { econstructor; eauto. }
-    { iPureIntro; cbn.
-      rewrite list_lookup_insert_eq; auto.
+    iPoseProof (resolves_path_inv_sep rti sr se _ _ _ _ Hresolves
+               with "[$]") as "U"; eauto.
+    { rewrite Hser.
+      by constructor. }
+    { constructor.
+      constructor.
       admit. }
-    iIntros "!> Hf Hr".
-    clear_nils.
+    { admit. }
+    { admit. }
 
+    iDestruct "U" as "(%Hbd & Hval & Hvput)".
     set (mask' ℓ' := ℓ' ≠ ℓ).
     iPoseProof (rt_token_mono rti sr lpall mask' with "[$Hrt]") as "Hrt".
     { done. }
-    iEval (rewrite type_interp_eq) in "Ht".
-    iPoseProof (virt_to_phys_slice_store_acc_strong with "[] [$] [$] [$] []")
+    iEval (rewrite value_interp_eq) in "Hval".
+    iPoseProof (virt_to_phys_slice_store_acc_weak with "[] [$] [$] [$]")
       as "(%hm & %Hhml & %Hdoms & Hlocs & Hnophys & (%ns & %ns32 & %Hns & Hphys & Hws) & Hclose)".
     {
       admit.
     }
-    { iPureIntro; congruence. }
 
+    iEval (rewrite app_assoc).
+    iApply (cwp_seq with "[-]").
+    {
+      iApply cwp_val_app.
+      { eapply has_values_to_consts. }
+      admit.
+    }
 
     (* TODO need a wp_load1_move_mm lemma *)
     (* TODO need a wp_load_move_mm lemma *)
+    (* TODO need a path lemma? should be shared with store_strong. *)
   Admitted.
 
 End load_move.
