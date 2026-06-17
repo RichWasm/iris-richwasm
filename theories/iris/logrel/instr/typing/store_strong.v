@@ -35,13 +35,20 @@ Section store_strong.
       lia.
   Qed.
 
+  Lemma zip_eq_seq_zip {A B} (s : list A) (t : list B) :
+    zip s t = seq.zip s t.
+  Proof.
+    revert t. induction s as [|x s IH]; intros [|y t]; done || (cbn; by rewrite IH).
+  Qed.
+
   Lemma zip_rcons {A B:Type} (ls:list A) l (ms: list B) m:
     length ls = length ms ->
     zip (seq.rcons ls l) (seq.rcons ms m) = seq.rcons (zip ls ms) (l, m).
   Proof.
     intros Hlen.
-    rewrite !rcons_app.
-  Admitted.
+    rewrite !zip_eq_seq_zip.
+    by apply seq.zip_rcons.
+  Qed.
 
 
   (* note: simple_fold_sum_list_with in load is just this lol *)
@@ -59,7 +66,14 @@ Section store_strong.
 
   Lemma length_split {A:Type} (ls:list A) (a b:nat) :
     length ls = a + b -> ∃ ls1 ls2, ls = ls1 ++ ls2 /\ length ls1 = a /\ length ls2 = b.
-  Proof. Admitted.
+  Proof.
+    intros Hlen.
+    exists (take a ls), (drop a ls).
+    split; [by rewrite take_drop |].
+    split.
+    - rewrite length_take. lia.
+    - rewrite length_drop. lia.
+  Qed.
 
 
   (* this can be generalized but we get offset >= as1 not often *)
