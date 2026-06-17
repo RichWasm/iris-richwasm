@@ -163,28 +163,30 @@ Section load_move.
       instantiate (1 := Q).
       cbn.
       iApply (cwp_local_tee with "[Ht] [$] [$]").
-      { admit. }
+      { (* TODO length of f_locs *)
+        admit. }
       by iFrame.
     }
     unfold Q; clear Q.
 
     iIntros (f' vs') "(-> & -> & Ht) Hf Hr".
 
+    pose proof (mono_size_eval_emp_Some (RepS ρ0) ltac:(by constructor)) as (n0 & Hev).
     iPoseProof (resolves_path_inv_sep rti sr se _ _ _ _ Hresolves
                with "[$]") as "U"; eauto.
     { rewrite Hser.
       by constructor. }
     { constructor.
       constructor.
-      admit. }
-    { admit. }
-    { admit. }
+      eapply has_kind_inv in H1.
+      inversion H1.
+      inversion H2.
+      done. }
 
     iDestruct "U" as "(%Hbd & Hval & Hvput)".
     set (mask' ℓ' := ℓ' ≠ ℓ).
     iPoseProof (rt_token_mono rti sr lpall mask' with "[$Hrt]") as "Hrt".
     { done. }
-    instantiate (2 := sz).
     iEval (rewrite value_interp_eq) in "Hval".
     iEval (rewrite Hser) in "Hval".
     iDestruct "Hval" as "(%sk & %Hsk & %Hsv & Hval)".
@@ -216,6 +218,8 @@ Section load_move.
     eapply type_skind_has_kind_agree in Hsk'; eauto; subst sk'.
     destruct Hsv' as [(os' & Hos' & Hareps) Hrefflag].
     inversion Hos'; subst os'; clear Hos'.
+    cbn in Hev.
+    rewrite Hιs in Hev; cbn in Hev; inversion Hev; subst n0; clear Hev.
 
     iAssert (⌜repr_pointer θ (PtrHeap MemMM ℓ) (tag_address MemMM a)⌝%I)
       with "[Hrt Hrp]" as "%Hrepr". {
@@ -268,6 +272,7 @@ Section load_move.
       by constructor. }
     { done. }
     { cbn.
+      (* TODO length of f_locs *)
       admit. }
     iIntros "!> Hf Hr".
     clear_nils.
@@ -278,14 +283,18 @@ Section load_move.
       unfold instance_interp, instance_runtime_interp.
       by iDestruct "Hinst" as "(? & (? & ? & ? & ? & ? & ? ) & _)".
     - done.
-    - done.
+    - by rewrite sum_list_with_list_sum.
     - instantiate (1:= os).
       done.
-    - admit.
+    - iPureIntro.
+      eapply ser_offsets; eauto.
     - done.
-    - admit.
-    - admit.
-    - admit.
+    - (* TODO length of f_locs *)
+      admit.
+    - (* TODO lookup in f_locs *)
+      admit.
+    - (* TODO length of f_locs *)
+      admit.
     - done.
     - done.
     - done.
@@ -307,8 +316,7 @@ Section load_move.
       {
         iPureIntro.
         unfold sz.
-        rewrite length_map.
-        admit.
+        by rewrite length_map Hns'.
       }
       {
         cbn [pr_expected type_span].
@@ -326,8 +334,10 @@ Section load_move.
           by apply Forall_true.
       }
       iSplitR; last iSplitR; last iSplitR "Htok Hown"; last iSplitL "Htok".
-      + admit.
-      + admit.
+      + (* TODO reestablish frame_rel *)
+        admit.
+      + (* TODO reestablish frame_interp *)
+        admit.
       + iExists (PtrA (PtrHeap MemMM ℓ) :: os).
         iSplitR "Haddr Hos".
         * iEval (cbn).

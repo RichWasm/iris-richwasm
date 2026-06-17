@@ -2895,4 +2895,107 @@ Section load.
   Proof.
   Admitted.
 
+  Lemma Forall2_rcons_inv_r:
+    ∀ {A B : Type} (P : A → B → Prop) (x : B) (l : list B) (k : list A),
+      Forall2 P k (seq.rcons l x) → ∃ (y : A) (k' : list A), P y x ∧ Forall2 P k' l ∧ k = seq.rcons k' y.
+  Proof.
+  Admitted.
+
+  Lemma Forall2_rcons {A B : Type} (P : A -> B -> Prop) xs x ys y :
+    Forall2 P xs ys ->
+    P x y ->
+    Forall2 P (seq.rcons xs x) (seq.rcons ys y).
+  Proof.
+  Admitted.
+
+  Lemma get_path_split_app ι o os off sz ws :
+    off + sz <= length ws ->
+    has_arep ι o ->
+    get_path_words off sz ws = flat_map serialize_atom os ++ serialize_atom o ->
+    arep_size ι <= sz /\
+    get_path_words off (sz - arep_size ι) ws = flat_map serialize_atom os /\
+    get_path_words (off + sz - arep_size ι) (arep_size ι) ws = serialize_atom o.
+  Proof.
+    intros Hlen Ho Hws.
+    assert (arep_size ι ≤ sz).
+    {
+      apply (f_equal length) in Hws.
+      rewrite length_take length_drop length_app in Hws.
+      erewrite has_arep_size in Hws; eauto.
+      lia.
+    }
+    assert (get_path_words off sz ws =
+              get_path_words off (sz - arep_size ι) ws ++
+              get_path_words (off + sz - arep_size ι) (arep_size ι) ws).
+    {
+      unfold get_path_words.
+      replace (@take word sz) with (@take word ((sz - arep_size ι) + arep_size ι));
+        last (f_equal; lia).
+      rewrite -take_take_drop.
+      rewrite drop_drop.
+      repeat f_equal; lia.
+    }
+    rewrite H0 in Hws.
+    eapply app_inj_1 in Hws; eauto.
+    apply (f_equal length) in Hws.
+    rewrite !length_app in Hws.
+    assert (length (get_path_words (off + sz - arep_size ι) (arep_size ι) ws)
+            = arep_size ι) as Hlast
+        by (rewrite length_take length_drop; lia).
+    rewrite Hlast in Hws.
+    erewrite has_arep_size in Hws; last by eauto.
+    lia.
+  Qed.
+
+  Lemma ser_offsets os : ∀ (off : nat) ntgt ws ιs,
+    off + ntgt <= length ws ->
+    Forall2 has_arep ιs os ->
+    get_path_words off ntgt ws = flat_map serialize_atom os ->
+    Forall2
+      (λ o '(off0, sz), serialize_atom o = get_path_words off0 sz ws)
+      os
+     (seq.zip
+        (seq.foldl (λ '(off', offs) ι, ((off' + arep_size ι)%nat, seq.rcons offs off'))
+                   (off, [])
+                   ιs).2
+        (map arep_size ιs)).
+  Proof.
+    induction os as [|os o] using seq.last_ind; intros * Hlen Hreps Hser.
+    - cbn in Hser.
+      inversion Hreps; subst.
+      econstructor.
+    - apply Forall2_rcons_inv_r in Hreps.
+      destruct Hreps as (ι & ιs' & Ho & Hos & ->).
+      change map with @seq.map.
+      rewrite seq.map_rcons.
+      rewrite seq.foldl_rcons.
+      destruct (seq.foldl
+            (λ '(off', offs) (ι0 : atomic_rep),
+               (off' + arep_size ι0, seq.rcons offs off'))
+            (off, []) ιs') as [off' offs] eqn:Hoffs.
+      pose proof Hoffs as Hoffslen.
+      apply load_fold_offs_len in Hoffslen; cbn in Hoffslen; rewrite Nat.add_0_r in Hoffslen.
+      rewrite flat_map_rcons in Hser.
+      rewrite seq.zip_rcons;
+        last (rewrite seq.size_map; by apply Hoffslen).
+      eapply get_path_split_app in Hser; eauto.
+      destruct Hser as (Hsz & Hseros & Hsero).
+      apply Forall2_rcons.
+      + eapply IHos in Hos; try eapply Hseros; eauto; last lia.
+        by rewrite Hoffs in Hos.
+      + eapply simple_fold_fancy_fold in Hoffs; eauto.
+        rewrite simple_fold_sum_list_with in Hoffs; eauto.
+        rewrite -Hoffs.
+        rewrite -Hsero.
+        f_equal.
+        rewrite sum_list_with_list_sum.
+        erewrite <- has_areps_size; last eauto.
+        rewrite -map_map.
+        apply (f_equal length) in Hseros.
+        rewrite length_take length_drop in Hseros.
+        rewrite flat_map_concat_map length_concat in Hseros.
+        rewrite -Hseros.
+        lia.
+  Qed.
+
 End load.
