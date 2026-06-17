@@ -2847,4 +2847,52 @@ Section load.
       iFrame.
   Qed.
 
+  Lemma wp_mem_load_move_mm (se : @semantic_env Σ) F lidx off ιs wt wl ret wt' wl' es :
+    let fe := fe_of_context F in
+    run_codegen (memory.load mr fe MemMM Move lidx off ιs) wt wl = inr (ret, wt', wl', es) →
+    let offs := snd $ seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
+                  (off, []) ιs in
+    let offs_szs := seq.zip offs (map arep_size ιs) in
+    ret = () /\
+    wt' = [] ∧
+    wl' = map translate_arep ιs ∧
+    ∀ f ℓ a32 a os ws E B R θ lmask Φ,
+    ⊢ "Hf" ∷ ↪[frame] f -∗
+      "Hrun" ∷ ↪[RUN] -∗
+      "Hptr" ∷ ℓ ↦heap ws -∗
+      "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
+      "%Hℓmask"  ∷ ⌜¬ lmask ℓ⌝ -∗
+      "Hown"  ∷ na_own logrel_nais E -∗
+      "Htok"  ∷ rt_token rti sr lmask θ -∗
+      "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
+      "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+      "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
+      "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
+      "%Hfsz" ∷ ⌜fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f)⌝ -∗
+      "%Hlidx" ∷ ⌜f_locs f !! localimm lidx = Some (VAL_int32 a32)⌝ -∗
+      "%Hlidx_bdd" ∷ ⌜localimm lidx < fe_wlocal_offset fe + length wl⌝ -∗
+      "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
+      "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
+      "%Hrepa_nz" ∷ ⌜a ≠ 0⌝%N -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
+      "HΦ" ∷
+        (∀ f' vs vsf ns',
+           "%Hns'" ∷ ⌜length ns' = areps_size ιs⌝ -∗
+           "%Hf'"  ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
+           "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
+           "Hptr"  ∷ ℓ ↦heap update_path_words off ws (map WordInt ns') -∗
+           "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
+           "Hown"  ∷ na_own logrel_nais E -∗
+           "Htok"  ∷ rt_token rti sr lmask θ -∗
+           "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+           "Hos"    ∷ ([∗ list] o;v ∈ os; vs, atom_interp o v) -∗
+           Φ f' vs) -∗
+      CWP es @ E UNDER B; R {{ Φ }}.
+  Proof.
+  Admitted.
+
 End load.

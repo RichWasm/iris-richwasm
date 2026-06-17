@@ -26,6 +26,29 @@ Section load_move.
     inversion H3; subst; eauto.
   Qed.
 
+  Lemma rt_token_update_flags ℓ off fs ws fs' ws' θ lmask :
+    "Hfs" ∷ ℓ ↦layout set_flags_at off fs' fs -∗
+    "Hptr" ∷ ℓ ↦heap update_path_words off ws ws' -∗
+    "Htok" ∷ rt_token rti sr lmask θ -∗
+    "%Hfs'" ∷ ⌜Forall2 word_has_flag fs' ws'⌝ -∗
+    "%Hmask" ∷ ⌜∀ ℓ', lmask ℓ' ↔ ℓ' ≠ ℓ⌝ -∗
+    ("Hfs" ∷ ℓ ↦layout set_flags_at off fs' fs ∗
+     "Hptr" ∷ ℓ ↦heap update_path_words off ws ws' ∗
+     "Htok" ∷ rt_token rti sr lpall θ).
+  Proof.
+  Admitted.
+
+
+  Lemma Forall_repeat {A} {P : A → Prop} n a :
+    P a →
+    Forall P (repeat a n).
+  Proof.
+    induction n; intros Hp.
+    - done.
+    - cbn.
+      constructor; eauto.
+  Qed.
+
   Lemma compat_load_move M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -68,7 +91,9 @@ Section load_move.
     eapply (@cwp_set_pointer_flags Σ _ _ _ mr sr rti) in Hptr_flags.
     destruct Hptr_flags as (_ & -> & -> & Hptr_flags).
     clear_nils.
-    inv_cg_bind Hloadmm ?ret ?wt ?wt ?wl ?wl es_root_hp ?es_rest Hroot_hp Hload.
+    clear_nils.
+    inv_cg_bind Hloadmm ?ret ?wt ?wt ?wl ?wl es_root_hp es_load Hroot_hp Hload.
+    inv_cg_ret Hroot_hp.
     inv_cg_emit Hunr.
     subst; clear_nils.
     repeat match goal with
@@ -81,6 +106,10 @@ Section load_move.
     unfold ψ in *; clear ψ.
     iIntros (se fr os vs evs θ B R).
     repeat iIntros "@".
+
+    pose proof (wp_mem_load_move_mm rti sr _ se _ _ _ _ _ _ _ _ _ _ Hload) as Hload_spec.
+    destruct Hload_spec as (_ & -> & -> & Hload_spec).
+    clear_nils.
 
     (* Opening up the val. interp *)
     iEval (rewrite values_interp_one_eq value_interp_eq) in "Hos".
@@ -111,6 +140,7 @@ Section load_move.
     destruct Hsv as [Hareps Hptrs].
     eapply has_areps_one in Hareps.
     destruct Hareps as (o & Ho & Harep).
+    set (sz := sum_list_with arep_size ιs).
     inversion Ho; subst.
     destruct o; try done.
     iPoseProof (big_sepL2_cons_inv_l with "Hvs") as "(%v & %vs' & -> & Hv & Hvs)".
@@ -155,10 +185,14 @@ Section load_move.
     iPoseProof (rt_token_mono rti sr lpall mask' with "[$Hrt]") as "Hrt".
     { done. }
     iEval (rewrite value_interp_eq) in "Hval".
-    iPoseProof (virt_to_phys_slice_store_acc_weak with "[] [$] [$] [$]")
-      as "(%hm & %Hhml & %Hdoms & Hlocs & Hnophys & (%ns & %ns32 & %Hns & Hphys & Hws) & Hclose)".
-    {
-      admit.
+
+    iAssert (⌜repr_pointer θ (PtrHeap MemMM ℓ) (tag_address MemMM a)⌝%I)
+      with "[Hrt Hrp]" as "%Hrepr". {
+      open_rt "Hrt".
+      iCombine "Haddr" "Hrp" gives "%Hθ".
+      inversion Hrp.
+      iPureIntro.
+      by constructor.
     }
 
     iEval (rewrite app_assoc).
@@ -166,12 +200,84 @@ Section load_move.
     {
       iApply cwp_val_app.
       { eapply has_values_to_consts. }
-      admit.
+      iApply (Hptr_flags with "[$] [$] [] [$] [$] [$] [] [-]").
+      { eauto. }
+      { eauto. }
+      { eauto. }
+      { cbn.
+        rewrite list_lookup_insert_eq; first done.
+        (* TODO characterize the length of f_locs *)
+        admit. }
+      { done. }
+      { cbn.
+        unfold instance_interp, instance_runtime_interp.
+        by iDestruct "Hinst" as "(? & (? & ? & ? & ?) & _)". }
+      iIntros "Hfs Hrt %Hmask Hown _".
+      instantiate (2 := sz).
+      unfold fvs_combine; clear_nils.
+      instantiate (1 := (λ f' vs',
+                          ⌜f' = {|
+                             W.f_locs := <[(sum_list_with length (typing.fc_locals F) + length wl)%nat:=VAL_int32 n32]> (f_locs fr);
+                             W.f_inst := f_inst fr
+                           |}⌝ ∗
+                          ⌜vs' = [VAL_int32 n32]⌝ ∗ _ : iProp Σ)%I).
+      iSplit; first done.
+      iSplit; first done.
+      iNamedAccu.
     }
+    iIntros (f' vs') "(-> & -> & Haccu) Hf Hr".
+    repeat iDestruct "Haccu" as "[@ Haccu]"; iDestruct "Haccu" as "@".
+    iApply cwp_val_app.
+    { apply has_values_to_consts. }
+    iEval (change es_case_ptr with ([] ++ es_case_ptr)).
+    iApply (Hspec with "[$] [$] [] [-]").
+    { instantiate (1 := []).
+      done. }
+    { done. }
+    { instantiate (2 := PtrHeap MemMM ℓ).
+      by constructor. }
+    { done. }
+    { cbn.
+      admit. }
+    iIntros "!> Hf Hr".
+    clear_nils.
 
-    (* TODO need a wp_load1_move_mm lemma *)
-    (* TODO need a wp_load_move_mm lemma *)
-    (* TODO need a path lemma? should be shared with store_strong. *)
+    iApply (Hload_spec with "[$] [$] [$] [$] [] [$] [$]").
+    - iPureIntro; congruence.
+    - cbn.
+      unfold instance_interp, instance_runtime_interp.
+      by iDestruct "Hinst" as "(? & (? & ? & ? & ? & ? & ? ) & _)".
+    - done.
+    - done.
+    - admit.
+    - admit.
+    - done.
+    - admit.
+    - admit.
+    - admit.
+    - done.
+    - done.
+    - done.
+    - done.
+    - admit.
+    - admit.
+    - iIntros (f' vs' vsf ns').
+      repeat iIntros "@".
+      iPoseProof (rt_token_update_flags with "[$] [$] [$] [] [//]") as "(@ & @ & @)".
+      {
+        iPureIntro.
+        rewrite Forall2_fmap_r.
+        apply Forall_Forall2_l.
+        - by rewrite length_repeat.
+        - by apply Forall_repeat.
+      }
+      unfold fvs_combine.
+      iSplitR; last iSplitR; last iSplitR "Htok Hown"; last iSplitL "Htok".
+      + admit.
+      + admit.
+      + admit.
+      + by eauto.
+      + done.
   Admitted.
 
 End load_move.
