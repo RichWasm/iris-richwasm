@@ -1779,6 +1779,19 @@ Section properties.
         iExists _; eauto.
   Qed.
 
+  Lemma length_arep_flags_size ιs:
+    length (concat (map arep_flags ιs)) = sum_list_with arep_size ιs.
+  Proof.
+    induction ιs as [|ι ιs].
+    - cbn; done.
+    - cbn.
+      rewrite length_app.
+      assert (length (arep_flags ι) = arep_size ι). {
+        destruct ι; done.
+      }
+      lia.
+  Qed.
+
 End properties.
 
 (* Setting up Inhabited instances allows commuting existential quantifiers

@@ -601,3 +601,65 @@ Proof.
   by subst b'.
 Qed.
 
+
+  Lemma zip_eq_seq_zip {A B} (s : list A) (t : list B) :
+    zip s t = seq.zip s t.
+  Proof.
+    revert t. induction s as [|x s IH]; intros [|y t]; done || (cbn; by rewrite IH).
+  Qed.
+
+  Lemma zip_rcons {A B:Type} (ls:list A) l (ms: list B) m:
+    length ls = length ms ->
+    zip (seq.rcons ls l) (seq.rcons ms m) = seq.rcons (zip ls ms) (l, m).
+  Proof.
+    intros Hlen.
+    rewrite !zip_eq_seq_zip.
+    by apply seq.zip_rcons.
+  Qed.
+
+  Lemma sum_list_with_rcons {X : Type} (f : X -> nat) (x : X) (xs : list X) :
+    sum_list_with f (seq.rcons xs x) = f x + sum_list_with f xs.
+  Proof.
+  Admitted.
+
+
+  Lemma rcons_app {X} : forall (xs : list X) x,
+      seq.rcons xs x = xs ++ [x].
+  Proof.
+    induction xs; intros x.
+    - reflexivity.
+    - cbn.
+      by rewrite IHxs.
+  Qed.
+
+  Lemma flat_map_rcons X Y (f : X -> list Y) xs x :
+    flat_map f (seq.rcons xs x) = flat_map f xs ++ f x.
+  Proof.
+    revert x.
+    induction xs; cbn; intros.
+    - by apply app_nil_r.
+    - by (rewrite <- app_assoc; rewrite IHxs).
+  Qed.
+
+  (* note: simple_fold_sum_list_with in load is just this lol *)
+  Lemma seq_foldl_sum_list_with {A:Type} (start:nat) (ls:list A) (f:A → nat):
+    seq.foldl (λ acc l, acc + f l) start ls = start + sum_list_with f ls.
+  Proof.
+    induction ls as [|ls l] using seq.last_ind.
+    - cbn. lia.
+    - cbn.
+      rewrite seq.foldl_rcons.
+      rewrite sum_list_with_rcons.
+      lia.
+  Qed.
+
+  Lemma length_split {A:Type} (ls:list A) (a b:nat) :
+    length ls = a + b -> ∃ ls1 ls2, ls = ls1 ++ ls2 /\ length ls1 = a /\ length ls2 = b.
+  Proof.
+    intros Hlen.
+    exists (take a ls), (drop a ls).
+    split; [by rewrite take_drop |].
+    split.
+    - rewrite length_take. lia.
+    - rewrite length_drop. lia.
+  Qed.

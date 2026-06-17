@@ -989,6 +989,48 @@ Section load.
         split; [done | cbn; lia].
   Qed.
 
+  (* this can be generalized but we get offset >= as1 not often *)
+  Lemma update_path_words_too_long :
+    ∀ as1 off as2,
+      update_path_words (off + length as1) as1 as2 = as1 ++ as2.
+  Proof.
+    intros as1.
+    induction as1 as [|a as1]; intros.
+    - cbn.
+      rewrite update_path_words_empty_1.
+      done.
+    - cbn [length].
+      rewrite Nat.add_succ_r.
+      rewrite update_path_words_succ.
+      rewrite IHas1.
+      done.
+  Qed.
+
+  (* note: may need to add length things but I don't think so *)
+  Lemma update_path_words_in_stages:
+    ∀ ws as1 as2 off,
+    update_path_words off ws (as1 ++ as2) =
+      update_path_words (off + length as1) (update_path_words off ws as1) as2.
+  Proof.
+    intros ws.
+    induction ws as [|w ws]; intros.
+    - rewrite !update_path_words_empty_1.
+      rewrite update_path_words_too_long.
+      done.
+    - destruct off.
+      + destruct as1 as [|a as1].
+        * clear_nils.
+          rewrite update_path_words_empty_2.
+          cbn. done.
+        * change ((a::as1)++as2) with (a::as1++as2).
+          do 2 (rewrite update_path_words_first).
+          rewrite IHws.
+          cbn. done.
+      + do 2 (rewrite update_path_words_succ).
+        rewrite IHws.
+        cbn. done.
+  Qed.
+
 
   (* Locations in update_path_words are covered if old and new words' locs are *)
   Lemma update_path_words_locs_incl (dom_set : gset location) ws off ws_new :
@@ -2050,23 +2092,23 @@ Section load.
   Proof.
   Admitted.
 
-  Lemma rcons_app {X} : forall (xs : list X) x,
-      seq.rcons xs x = xs ++ [x].
-  Proof.
-    induction xs; intros x.
-    - reflexivity.
-    - cbn.
-      by rewrite IHxs.
-  Qed.
+  (* Lemma rcons_app {X} : forall (xs : list X) x, *)
+  (*     seq.rcons xs x = xs ++ [x]. *)
+  (* Proof. *)
+  (*   induction xs; intros x. *)
+  (*   - reflexivity. *)
+  (*   - cbn. *)
+  (*     by rewrite IHxs. *)
+  (* Qed. *)
 
-  Lemma flat_map_rcons X Y (f : X -> list Y) xs x :
-    flat_map f (seq.rcons xs x) = flat_map f xs ++ f x.
-  Proof.
-    revert x.
-    induction xs; cbn; intros.
-    - by clear_nils.
-    - by rewrite -app_assoc IHxs.
-  Qed.
+  (* Lemma flat_map_rcons X Y (f : X -> list Y) xs x : *)
+  (*   flat_map f (seq.rcons xs x) = flat_map f xs ++ f x. *)
+  (* Proof. *)
+  (*   revert x. *)
+  (*   induction xs; cbn; intros. *)
+  (*   - by clear_nils. *)
+  (*   - by rewrite -app_assoc IHxs. *)
+  (* Qed. *)
 
   Lemma mk_frame_rcons fe f wl vs v :
     mk_load1_frame fe (mk_load_frame fe f wl vs) (length wl + length vs) v =
@@ -2097,12 +2139,15 @@ Section load.
 
   Lemma simple_fold_sum_list_with ιs : ∀ off,
     seq.foldl (λ off' ι, off' + arep_size ι) off ιs = off + sum_list_with arep_size ιs.
-  Admitted.
-
-  Lemma sum_list_with_rcons {X : Type} (f : X -> nat) (x : X) (xs : list X) :
-    sum_list_with f (seq.rcons xs x) = f x + sum_list_with f xs.
   Proof.
-  Admitted.
+    intros off.
+    apply seq_foldl_sum_list_with.
+  Qed.
+
+  (* Lemma sum_list_with_rcons {X : Type} (f : X -> nat) (x : X) (xs : list X) : *)
+  (*   sum_list_with f (seq.rcons xs x) = f x + sum_list_with f xs. *)
+  (* Proof. *)
+  (* Admitted. *)
 
   Lemma wp_mem_load_copy_mm_inner (se : @semantic_env Σ) F lidx ιs :
     let fe := fe_of_context F in
