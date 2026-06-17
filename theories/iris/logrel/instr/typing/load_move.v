@@ -184,7 +184,38 @@ Section load_move.
     set (mask' ℓ' := ℓ' ≠ ℓ).
     iPoseProof (rt_token_mono rti sr lpall mask' with "[$Hrt]") as "Hrt".
     { done. }
+    instantiate (2 := sz).
     iEval (rewrite value_interp_eq) in "Hval".
+    iEval (rewrite Hser) in "Hval".
+    iDestruct "Hval" as "(%sk & %Hsk & %Hsv & Hval)".
+    iEval (cbn) in "Hval".
+    iDestruct "Hval"  as "(%os & %Hos0 & Hos)".
+    inversion Hos0 as [Hos]; clear Hos0.
+    iEval (rewrite type_interp_eq) in "Hos".
+    iDestruct "Hos" as "(%sk' & %Hsk' & %Hsv' & Hval)".
+    (* more kinding related facts: kind evaluation, etc *)
+    pose proof Hsk as Hsktmp.
+    rewrite bind_Some in Hsktmp.
+    destruct Hsktmp as (n & Hevrep & Hret).
+    inversion Hret; subst; clear Hret.
+    cbn in Hevrep.
+    apply fmap_Some in Hevrep.
+    destruct Hevrep as (ιs' & Hevrep & ->).
+    cbn in Hρ.
+    pose proof Hρ as Hρtmp.
+    erewrite type_rep_has_kind_agree in Hρtmp by eauto.
+    inversion Hρtmp; subst ρ0; clear Hρtmp.
+    pose proof Hevrep as Hevreptmp.
+    erewrite eval_rep_emptyenv in Hevreptmp by eauto.
+    inversion Hevreptmp; subst ιs'; clear Hevreptmp.
+    assert (Hevkind : eval_kind se (VALTYPE ρ x) = Some (SVALTYPE ιs x)).
+    {
+      cbn.
+      by erewrite eval_rep_emptyenv.
+    }
+    eapply type_skind_has_kind_agree in Hsk'; eauto; subst sk'.
+    destruct Hsv' as [(os' & Hos' & Hareps) Hrefflag].
+    inversion Hos'; subst os'; clear Hos'.
 
     iAssert (⌜repr_pointer θ (PtrHeap MemMM ℓ) (tag_address MemMM a)⌝%I)
       with "[Hrt Hrp]" as "%Hrepr". {
@@ -213,7 +244,6 @@ Section load_move.
         unfold instance_interp, instance_runtime_interp.
         by iDestruct "Hinst" as "(? & (? & ? & ? & ?) & _)". }
       iIntros "Hfs Hrt %Hmask Hown _".
-      instantiate (2 := sz).
       unfold fvs_combine; clear_nils.
       instantiate (1 := (λ f' vs',
                           ⌜f' = {|
@@ -249,18 +279,19 @@ Section load_move.
       by iDestruct "Hinst" as "(? & (? & ? & ? & ? & ? & ? ) & _)".
     - done.
     - done.
+    - instantiate (1:= os).
+      done.
+    - admit.
+    - done.
+    - admit.
     - admit.
     - admit.
     - done.
-    - admit.
-    - admit.
-    - admit.
     - done.
     - done.
     - done.
-    - done.
-    - admit.
-    - admit.
+    - by iDestruct "Hinst" as "(? & ? & ? & ? & ? & ?)".
+    - by iDestruct "Hinst" as "(? & ? & ? & ? & ? & ?)".
     - iIntros (f' vs' vsf ns').
       repeat iIntros "@".
       iPoseProof (rt_token_update_flags with "[$] [$] [$] [] [//]") as "(@ & @ & @)".
@@ -272,10 +303,64 @@ Section load_move.
         - by apply Forall_repeat.
       }
       unfold fvs_combine.
+      iSpecialize ("Hvput" $! (map WordInt ns') with "[] []").
+      {
+        iPureIntro.
+        unfold sz.
+        rewrite length_map.
+        admit.
+      }
+      {
+        cbn [pr_expected type_span].
+        unfold type_span.
+        rewrite value_interp_eq.
+        iExists _; cbn;try setoid_rewrite Hevrep.
+        cbn.
+        iSplit; first done.
+        cbn.
+        eauto.
+        iSplit; last done.
+        iPureIntro; split.
+        - by rewrite length_map.
+        - apply Forall_map.
+          by apply Forall_true.
+      }
       iSplitR; last iSplitR; last iSplitR "Htok Hown"; last iSplitL "Htok".
       + admit.
       + admit.
-      + admit.
+      + iExists (PtrA (PtrHeap MemMM ℓ) :: os).
+        iSplitR "Haddr Hos".
+        * iEval (cbn).
+          iExists ([PtrA (PtrHeap MemMM ℓ)] :: [os]).
+          iSplit; first (cbn; clear_nils; eauto with datatypes).
+          iEval (cbn).
+          iSplitL "Hfs Hptr Hvput".
+          {
+            rewrite type_interp_eq.
+            iFrame "Hvput".
+            iExists _.
+            iSplit; first eauto.
+            iSplit; last by iFrame.
+            iPureIntro.
+            split.
+            - eexists; eauto.
+            - done.
+          }
+          {
+            iSplitL; last done.
+            iEval (rewrite type_interp_eq).
+            iExists _.
+            iFrame.
+            iSplit.
+            * iPureIntro.
+              eapply type_skind_has_kind_Some; eauto.
+            * iPureIntro.
+              cbn.
+              split; eauto.
+              eexists; eauto.
+          }
+        * iFrame.
+          iExists _, _; eauto.
       + by eauto.
       + done.
   Admitted.
