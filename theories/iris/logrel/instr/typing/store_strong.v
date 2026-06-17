@@ -1523,8 +1523,6 @@ Section store_strong.
         iExists (RootHeap MemMM a).
         iSplitR; [done|].
         done.
-        Unshelve. (* not sure why *)
-        2: done.
   Qed.
 
 End store_strong.

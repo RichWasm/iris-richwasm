@@ -1068,9 +1068,8 @@ Section load.
   Lemma heap_ok_update_weak θ lmask lm hm ℓ ws' flags :
     layout_ok lmask lm hm ->
     heap_ok θ hm →
-    (* lmask ℓ -> *)
     lm !! ℓ = Some flags →
-    Forall2 word_has_flag flags ws' →
+    (lmask ℓ → Forall2 word_has_flag flags ws') →
     Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
     Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
     layout_ok lmask lm (<[ℓ := ws']> hm) /\ heap_ok θ (<[ℓ := ws']> hm).
@@ -1090,9 +1089,8 @@ Section load.
       destruct (decide (k = ℓ)) as [->|Hne].
       + rewrite lookup_insert Hlm decide_True; last done. constructor.
         intros Hl2.
-        simpl.
         (* is_true vs Is_true ... *)
-        eapply Forall2_impl; [exact Hws'|].
+        eapply Forall2_impl; [by apply Hws'|].
         intros f w H.  by rewrite H.
       + rewrite lookup_insert_ne //.
     - unfold map_Forall. intros k ws Hk.
@@ -1112,14 +1110,13 @@ Section load.
   (* also weak. and here's where you need to know it's in the mask? I think? *)
   Lemma rt_token_nophys_insert_heap_weak θ lmask hm ℓ ws ws' :
     hm !! ℓ = Some ws →
-    lmask ℓ ->
-    (∀ flags, Forall2 word_has_flag flags ws → Forall2 word_has_flag flags ws') →
+    (lmask ℓ → ∀ flags, Forall2 word_has_flag flags ws → Forall2 word_has_flag flags ws') →
     Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
     Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
     rt_token_nophys lmask θ hm -∗
     rt_token_nophys lmask θ (<[ℓ := ws']> hm).
   Proof.
-    intros Hhm Hl Hflags_compat Hlocshm Hlocsθ.
+    intros Hhm Hflags_compat Hlocshm Hlocsθ.
     iIntros "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
     iExists rm, lm.
     iFrame "Hroot Hlayout Hrti Howngc Hrootmem".
@@ -1140,30 +1137,28 @@ Section load.
     - iPureIntro.
       have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧
                                   (lmask ℓ -> Forall2 word_has_flag flags ws).
-      { destruct Hheapok as (Hcomp1 & _).
-        unfold map_Forall2 in Hcomp1. specialize (Hcomp1 ℓ).
-        rewrite Hhm in Hcomp1. inversion Hcomp1. exists x. split; auto. simpl in H1.
-        intros Hl2. specialize (H1 Hl2).
-        eapply Forall2_impl; first exact H1.
-        intros f w H'. destruct (word_has_flag f w) eqn:H''; first done. by rewrite H'' in H'. }
+       { destruct Hheapok as (Hcomp1 & _).
+         unfold map_Forall2 in Hcomp1. specialize (Hcomp1 ℓ).
+         rewrite Hhm in Hcomp1. inversion Hcomp1. exists x. split; auto. simpl in H1.
+         intros Hl2. specialize (H1 Hl2).
+         eapply Forall2_impl; first exact H1.
+         intros f w H'. destruct (word_has_flag f w) eqn:H''; first done. by rewrite H'' in H'. }
       destruct Hmapflags as [flags [Hflm Hwsflags]].
-      destruct Hheapok as [Hlayoutok Hheapok].
+      destruct Hheapok as [Hlayoutok Hheapok ].
       eapply heap_ok_update_weak.
       3: exact Hflm.
       all: try done.
+      intros Hl.
       specialize (Hwsflags Hl).
-      exact (Hflags_compat flags Hwsflags).
+      exact (Hflags_compat Hl flags Hwsflags).
   Qed.
 
-  (* I DONT KNOW IF IT SHOULD BE THE ALLMASK. MAYBE. MAKING IT LMASK FOR NOW *)
-  (* ALSO NOT SUPER CERTAIN THE IF lmask ℓ IS A CORRECT HYPO TO HAVE *)
   Lemma virt_to_phys_slice_store_acc_weak lmask off sz ℓ μ a θ ws :
     let slice := take sz (drop off ws) in
     ⊢ ⌜off + sz <= length ws⌝ -∗
       rt_token rti sr lmask θ -∗
       ℓ ↦heap ws -∗
       ℓ ↦addr (μ, a) -∗
-      ⌜lmask ℓ⌝ -∗
       ∃ hm,
         ⌜hm !! ℓ = Some ws⌝ ∗
         ⌜dom θ = dom hm⌝ ∗
@@ -1187,7 +1182,7 @@ Section load.
                ℓ ↦addr (μ, a) ∗
                rt_token rti sr lmask θ).
   Proof.
-    iIntros (slice) "%Hlenbdd Hrt Hpt Ha %Hlmask".
+    iIntros (slice) "%Hlenbdd Hrt Hpt Ha".
     open_rt "Hrt".
     iExists hm.
     iCombine "Hpt Hheap" gives "%Hhm".
@@ -1245,10 +1240,9 @@ Section load.
     iAssert (rt_token_nophys lmask θ hm') with "[Hnp]" as "Hnp'".
     { iApply (rt_token_nophys_insert_heap_weak _ _ _ _ ws with "Hnp").
       - exact Hhm.
-      - (* what I changed *) exact Hlmask.
-      - exact Hflags_compat.
-      - exact Hlocshm.
-      - exact Hlocsθ. }
+      - intro Hcontra; done.
+      - eauto.
+      - eauto. }
     iApply (rt_token_putheap lmask θ hm' with "Hnp'").
     unfold rt_token_phys.
     iFrame "Haddr Hheap'".

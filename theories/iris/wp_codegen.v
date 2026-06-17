@@ -14,7 +14,6 @@ Section CodeGen.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
-  Context `{!rwasm_gcG Σ}.
   Context `{!richwasmG Σ}.
 
   Variable mr : module_runtime.
