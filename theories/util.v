@@ -617,12 +617,6 @@ Qed.
     by apply seq.zip_rcons.
   Qed.
 
-  Lemma sum_list_with_rcons {X : Type} (f : X -> nat) (x : X) (xs : list X) :
-    sum_list_with f (seq.rcons xs x) = f x + sum_list_with f xs.
-  Proof.
-  Admitted.
-
-
   Lemma rcons_app {X} : forall (xs : list X) x,
       seq.rcons xs x = xs ++ [x].
   Proof.
@@ -631,6 +625,16 @@ Qed.
     - cbn.
       by rewrite IHxs.
   Qed.
+
+  Lemma sum_list_with_rcons {X : Type} (f : X -> nat) (x : X) (xs : list X) :
+    sum_list_with f (seq.rcons xs x) = f x + sum_list_with f xs.
+  Proof.
+    rewrite rcons_app.
+    rewrite sum_list_with_app.
+    cbn.
+    lia.
+  Qed.
+
 
   Lemma flat_map_rcons X Y (f : X -> list Y) xs x :
     flat_map f (seq.rcons xs x) = flat_map f xs ++ f x.
