@@ -813,6 +813,16 @@ Section properties.
 
 
   (* place rt_otken lmask things here *)
+  Lemma layout_ok_lmask_mono lm hm lmask1 lmask2 :
+    (∀ ℓ, lmask1 ℓ → lmask2 ℓ) →
+    layout_ok lmask2 lm hm →
+    layout_ok lmask1 lm hm.
+  Proof.
+    unfold layout_ok.
+    intros Hle Hall.
+    eauto using map_Forall2_impl.
+  Qed.
+
   Lemma rt_token_mono lmask lmask' θ:
     (∀ ℓ, lmask' ℓ -> lmask ℓ) ->
     rt_token rti sr lmask θ -∗ rt_token rti sr lmask' θ.

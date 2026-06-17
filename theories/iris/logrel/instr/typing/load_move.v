@@ -26,29 +26,6 @@ Section load_move.
     inversion H3; subst; eauto.
   Qed.
 
-  Lemma layout_ok_lmask_mono lm hm lmask1 lmask2 :
-    (∀ ℓ, lmask1 ℓ → lmask2 ℓ) →
-    layout_ok lmask2 lm hm →
-    layout_ok lmask1 lm hm.
-  Proof.
-    unfold layout_ok.
-    intros Hle Hall.
-    eauto using map_Forall2_impl.
-  Qed.
-
-  Lemma rt_token_lmask_mono lmask1 lmask2 θ :
-    (∀ ℓ, lmask1 ℓ → lmask2 ℓ) →
-    rt_token rti sr lmask2 θ -∗
-    rt_token rti sr lmask1 θ.
-  Proof.
-    iIntros (Hle) "Hrt".
-    open_rt "Hrt".
-    unfold rt_token.
-    iExists rm, lm, hm.
-    iFrame.
-    iPureIntro; intuition eauto using layout_ok_lmask_mono.
-  Qed.
-
   Lemma compat_load_move M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -175,7 +152,7 @@ Section load_move.
 
     iDestruct "U" as "(%Hbd & Hval & Hvput)".
     set (mask' ℓ' := ℓ' ≠ ℓ).
-    iPoseProof (rt_token_lmask_mono mask' lpall with "Hrt") as "Hrt".
+    iPoseProof (rt_token_mono rti sr lpall mask' with "[$Hrt]") as "Hrt".
     { done. }
     iEval (rewrite value_interp_eq) in "Hval".
     iPoseProof (virt_to_phys_slice_store_acc_weak with "[] [$] [$] [$]")
