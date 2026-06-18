@@ -42,7 +42,7 @@ module IR = struct
       | Prod of t list
       | Sum of t list
       | Rec of t
-      | Ref of t
+      | Ref of int option * t
     [@@deriving eq, ord, variants, sexp]
 
     let rec pp ff : t -> _ = function
@@ -58,7 +58,8 @@ module IR = struct
             (pp_print_list_pre ~pp_sep:pp_print_space pp)
             ts
       | Rec t -> fprintf ff "@[<2>(rec@ []@ %a)@]" pp t
-      | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp t
+      | Ref (None, t) -> fprintf ff "@[<2>(ref@ %a)@]" pp t
+      | Ref (Some n, t) -> fprintf ff "@[<2>(ref@ %d@ %a)@]" n pp t
 
     let pp_binding ff (typ : t) : unit = fprintf ff "(<> : %a)" pp typ
   end
@@ -82,7 +83,7 @@ module IR = struct
       | Split of Type.t list * t * t
       | Cases of t * (Type.t * t) list
       | Unfold of Type.t * t
-      | New of t
+      | New of int option * t
       | Swap of t * t
       | Free of t
     [@@deriving eq, ord, variants, sexp]
@@ -128,7 +129,8 @@ module IR = struct
           fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" pp e1 pp e2 pp e3
       | Binop (op, l, r) ->
           fprintf ff "@[<2>(%a@ %a@ %a)@]" pp l Binop.pp op pp r
-      | New e -> fprintf ff "@[<2>(new@ %a)@]" pp e
+      | New (None, e) -> fprintf ff "@[<2>(new@ %a)@]" pp e
+      | New (Some n, e) -> fprintf ff "@[<2>(new@ %d@ %a)@]" n pp e
       | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp l pp r
       | Free e -> fprintf ff "@[<2>(free@ %a)@]" pp e
   end
@@ -275,9 +277,9 @@ module Compile = struct
         let env' = Env.add_t env x in
         let* t' = compile_typ env' t in
         ret @@ Rec t'
-    | Ref t ->
+    | Ref (size, t) ->
         let* t' = compile_typ env t in
-        ret @@ Ref t'
+        ret @@ Ref (size, t')
 
   let rec compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t Res.t =
     let open B.Expr in
@@ -355,9 +357,9 @@ module Compile = struct
     | Free e ->
         let* e' = compile_expr env e in
         ret @@ Free e'
-    | New e ->
+    | New (size, e) ->
         let* e' = compile_expr env e in
-        ret @@ New e'
+        ret @@ New (size, e')
 
   let compile_function
       (fn_names : string list)

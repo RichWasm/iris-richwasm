@@ -60,7 +60,10 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
   | Atom x -> ret @@ Type.Var x
   | List [ Atom "ref"; t ] ->
       let* t' = parse_type (Tag "ref" :: p) t in
-      ret @@ Type.Ref t'
+      ret @@ Type.Ref (None, t')
+  | List [ Atom "ref"; Atom n; t ] when Option.is_some (Int.of_string_opt n) ->
+      let* t' = parse_type (Tag "ref" :: p) t in
+      ret @@ Type.Ref (Int.of_string_opt n, t')
   | List [ t1; Atom ("⊸" | "-o" | "->"); t2 ] ->
       let p = Path.add p ~tag:"lollipop" in
       let* t1' = parse_type (p ~field:"t1") t1 in
@@ -253,7 +256,10 @@ let rec parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
       ret @@ Fold (mu', e')
   | List [ Atom "new"; e ] ->
       let* e' = parse_expr (Commit :: Tag "new" :: p) e in
-      ret @@ New e'
+      ret @@ New (None, e')
+  | List [ Atom "new"; Atom n; e ] when Option.is_some (Int.of_string_opt n) ->
+      let* e' = parse_expr (Commit :: Tag "new" :: p) e in
+      ret @@ New (Int.of_string_opt n, e')
   | List [ _; _ ] as sexp ->
       choice "generic-2-list" p sexp
         [ (parse_as_tup, "len-2-tup"); (parse_as_app, "no-kw-app") ]

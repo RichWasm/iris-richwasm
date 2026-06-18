@@ -13,7 +13,7 @@ module IR = struct
       | Sum of t list
       | Rec of t
       | Exists of t
-      | Ref of t
+      | Ref of int option * t
     [@@deriving eq, ord, variants, sexp]
 
     let rec pp ff : t -> _ = function
@@ -30,7 +30,8 @@ module IR = struct
             ts
       | Exists t -> fprintf ff "@[<2>(exists@ []@ %a)@]" pp t
       | Rec t -> fprintf ff "@[<2>(rec@ []@ %a)@]" pp t
-      | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp t
+      | Ref (None, t) -> fprintf ff "@[<2>(ref@ %a)@]" pp t
+      | Ref (Some n, t) -> fprintf ff "@[<2>(ref@ %d@ %a)@]" n pp t
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -138,7 +139,7 @@ module IR = struct
       | Free (_, t) -> t
 
     let mk_tuple es = Tuple (es, Prod (List.map ~f:type_of es))
-    let mk_new e = New (e, Ref (type_of e))
+    let mk_new e = New (e, Ref (None, type_of e))
     let mk_split ts lhs body = Split (ts, lhs, body, type_of body)
 
     let mk_split_var ~split_t ~i ?n body =
@@ -199,7 +200,7 @@ module Compile = struct
     | Sum ts -> Sum (List.map ~f:(shift_tidx d c) ts)
     | Rec t -> Rec (shift_tidx d (c + 1) t)
     | Exists t -> Exists (shift_tidx d (c + 1) t)
-    | Ref t -> Ref (shift_tidx d c t)
+    | Ref (s, t) -> Ref (s, shift_tidx d c t)
 
   (** assumes that nothing is free *)
   let rec compile_typ : A.Type.t -> B.Type.t = function
@@ -209,7 +210,7 @@ module Compile = struct
         Exists (Prod [ compile_lolipop_unwrapped t1 t2; Var (0, None) ])
     | Prod ts -> Prod (List.map ~f:compile_typ ts)
     | Sum ts -> Sum (List.map ~f:compile_typ ts)
-    | Ref t -> Ref (compile_typ t)
+    | Ref (s, t) -> Ref (s, compile_typ t)
     | Rec t -> Rec (compile_typ t)
 
   and compile_lolipop_unwrapped t1 t2 : B.Type.t =
@@ -388,7 +389,9 @@ module Compile = struct
         let tuple = mk_tuple [ Coderef (n, coderef_t); mk_new (mk_tuple []) ] in
         ret
         @@ Pack
-             (Ref (Prod []), tuple, Exists (Prod [ coderef_t; Var (0, None) ]))
+             ( Ref (None, Prod []),
+               tuple,
+               Exists (Prod [ coderef_t; Var (0, None) ]) )
     | Int (n, t) -> ret (Int (n, compile_typ t))
     | Tuple (es, t) ->
         let* es' = mapM ~f:(compile_expr env) es in
@@ -410,7 +413,7 @@ module Compile = struct
         let ret_t' = compile_typ ret_t in
         let split_clos_typs = split_clos_typs fvs in
         let clos_typ = B.Type.Prod split_clos_typs in
-        let ref_clos_typ = B.Type.Ref clos_typ in
+        let ref_clos_typ = B.Type.Ref (None, clos_typ) in
         let split_clos_tup_typs = [ ref_clos_typ; orig_arg_t' ] in
         let clos_tup_typ = B.Type.(Prod split_clos_tup_typs) in
         let* body' =
@@ -536,7 +539,9 @@ module Compile = struct
           (split (_ : (ref (prod))) (orig_param : #,arg_t) = #,param in
             #,body))
     *)
-    let inner_param : B.Type.t list = [ Ref (Prod []); compile_typ param ] in
+    let inner_param : B.Type.t list =
+      [ Ref (None, Prod []); compile_typ param ]
+    in
     let body'' = mk_split_var ~split_t:inner_param ~i:0 body' in
     ret
       {
@@ -555,7 +560,7 @@ module Compile = struct
         B.Import.
           {
             name;
-            input = Prod [ Ref (Prod []); compile_typ input ];
+            input = Prod [ Ref (None, Prod []); compile_typ input ];
             output = compile_typ output;
           }
         :: acc_imports)

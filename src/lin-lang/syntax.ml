@@ -18,7 +18,7 @@ module Type = struct
     | Prod of t list
     | Sum of t list
     | Rec of Variable.t * t
-    | Ref of t
+    | Ref of int option * t
   [@@deriving eq, ord, variants, sexp]
 
   let rec pp ff : t -> _ = function
@@ -28,7 +28,8 @@ module Type = struct
     | Prod ts -> pp_sep pp ff ~sep:"⊗" ts
     | Sum ts -> pp_sep pp ff ~sep:"⊕" ts
     | Rec (x, t) -> fprintf ff "@[(rec %a %a)@]" Variable.pp x pp t
-    | Ref t -> fprintf ff "@[(ref@ %a)@]" pp t
+    | Ref (None, t) -> fprintf ff "@[(ref@ %a)@]" pp t
+    | Ref (Some n, t) -> fprintf ff "@[(ref@ %d@ %a)@]" n pp t
 
   let string_of = asprintf "%a" pp
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -74,7 +75,7 @@ module Expr = struct
     | Unfold of Type.t * t
     | If0 of t * t * t
     | Binop of Binop.t * t * t
-    | New of t
+    | New of int option * t
     | Swap of t * t
     | Free of t
   [@@deriving eq, ord, variants, sexp]
@@ -117,7 +118,8 @@ module Expr = struct
     | If0 (e1, e2, e3) ->
         fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" pp e1 pp e2 pp e3
     | Binop (op, l, r) -> fprintf ff "@[<2>(%a@ %a@ %a)@]" pp l Binop.pp op pp r
-    | New e -> fprintf ff "@[<2>(new@ %a)@]" pp e
+    | New (None, e) -> fprintf ff "@[<2>(new@ %a)@]" pp e
+    | New (Some n, e) -> fprintf ff "@[<2>(new@ %d@ %a)@]" n pp e
     | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp l pp r
     | Free e -> fprintf ff "@[<2>(free@ %a)@]" pp e
 

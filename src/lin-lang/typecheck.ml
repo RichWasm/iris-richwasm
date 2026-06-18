@@ -209,7 +209,7 @@ module Compile = struct
     | Prod ts -> Prod (List.map ~f:(subst ~idx ~repl) ts)
     | Sum ts -> Sum (List.map ~f:(subst ~idx ~repl) ts)
     | Rec t -> Rec (subst ~idx:(idx + 1) ~repl t)
-    | Ref t -> Ref (subst ~idx ~repl t)
+    | Ref (s, t) -> Ref (s, subst ~idx ~repl t)
 
   let unroll : A.Type.t -> A.Type.t t = function
     | Rec body as mu -> ret @@ subst ~repl:mu body
@@ -347,24 +347,24 @@ module Compile = struct
         let* () = teq ~actual:left_t ~expected:Int Binop in
         let* () = teq ~actual:right_t ~expected:Int Binop in
         ret @@ Binop (op, left', right', Int)
-    | New expr ->
+    | New (size, expr) ->
         let* expr' = compile_expr env expr in
-        ret @@ New (expr', Ref (type_of expr'))
+        ret @@ New (expr', Ref (size, type_of expr'))
     | Swap (ref, expr) ->
         let* ref' = compile_expr env ref in
         let* expr' = compile_expr env expr in
         let ref_t = type_of ref' in
         let expr_t = type_of expr' in
-        let* inner_t =
+        let* size, inner_t =
           match ref_t with
-          | Ref x -> ret x
+          | Ref (size, x) -> ret (size, x)
           | x -> fail @@ SwapNonRef x
         in
-        ret @@ Swap (ref', expr', Prod [ Ref expr_t; inner_t ])
+        ret @@ Swap (ref', expr', Prod [ Ref (size, expr_t); inner_t ])
     | Free expr ->
         let* expr' = compile_expr env expr in
         (match type_of expr' with
-        | Ref t -> ret @@ Free (expr', t)
+        | Ref (_, t) -> ret @@ Free (expr', t)
         | x -> fail @@ FreeNonRef x)
 
   let compile_function

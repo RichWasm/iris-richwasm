@@ -68,6 +68,32 @@ let simple_tests =
       (free r')))
       |},
       "67" );
+    ( "sized ref: same-type swap in a cap-2 slot",
+      {|
+      (let (r : (ref 2 int)) = (new 2 5) in
+      (split (r2 : (ref 2 int)) (old : int) = (swap r 7) in
+      (let (cur : int) = (free r2) in
+      (old + cur))))
+      |},
+      "12" );
+    ( "sized ref: strong update int to pair (cap-2 slot)",
+      {|
+      (let (r : (ref 2 int)) = (new 2 5) in
+      (split (r2 : (ref 2 (prod int int))) (old : int) = (swap r (tup 9 10)) in
+      (let (pair : (prod int int)) = (free r2) in
+      (split (a : int) (b : int) = pair in
+      ((a + b) + old)))))
+      |},
+      "24" );
+    ( "sized ref: strong update pair to int (cap-2 slot)",
+      {|
+      (let (r : (ref 2 (prod int int))) = (new 2 (tup 1 2)) in
+      (split (r2 : (ref 2 int)) (pair : (prod int int)) = (swap r 99) in
+      (let (cur : int) = (free r2) in
+      (split (a : int) (b : int) = pair in
+      ((a + b) + cur)))))
+      |},
+      "102" );
     ("incr_n", Expl.incr_n, "13");
     ("fold_unfold", Expl.fold_unfold, "0");
     ("heap_sum", Expl.heap_sum, "7");

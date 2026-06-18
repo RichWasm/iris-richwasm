@@ -50,8 +50,8 @@ let reference_example : Module.t =
   Module.make
     ~main:
       (Let
-         ( ("r", Ref Int),
-           New (Int 10),
+         ( ("r", Ref (None, Int)),
+           New (None, Int 10),
            Let
              ( ("old_val", Int),
                Swap (Var "r", Int 20),
@@ -100,14 +100,14 @@ let complex_example : Module.t =
                   ( ("sum", Int),
                     Binop (Add, Var "a", Var "b"),
                     Let
-                      ( ("r1", Ref Int),
-                        New (Var "sum"),
+                      ( ("r1", Ref (None, Int)),
+                        New (None, Var "sum"),
                         Let
                           ( ("product", Int),
                             Binop (Mul, Var "a", Var "b"),
                             Let
-                              ( ("r2", Ref Int),
-                                New (Var "product"),
+                              ( ("r2", Ref (None, Int)),
+                                New (None, Var "product"),
                                 Let
                                   ( ("sum_val", Int),
                                     Swap (Var "r1", Int 0),

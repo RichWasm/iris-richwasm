@@ -52,6 +52,14 @@ module Err = struct
     | CannotResolveRepOfRecTypeWithoutIndirection of Cc.IR.Type.t
     | InvalidPackAnn of RichWasm.Type.t
     | UnpackNonExistential of Cc.IR.Type.t
+    | CannotSizeRepVar of int
+    (* declared capacity, words needed, element type *)
+    | RefSizeTooSmall of int * int * Cc.IR.Type.t
+    (* value type, ref capacity *)
+    | SwapValueTooLarge of Cc.IR.Type.t * int
+    (* old element type, new value type *)
+    | SwapFitSizeMismatch of Cc.IR.Type.t * Cc.IR.Type.t
+    | ExpectedRefType of Cc.IR.Type.t
     | Ctx of t * Cc.IR.Type.t * [ `Let | `Split | `Cases | `Free ]
   [@@deriving sexp]
 
@@ -89,6 +97,18 @@ module Compile = struct
   module Res = Util.ResultM (Err)
   include M
 
+  (** words occupied by a representation; must match [eval_rep_size] *)
+  let rec rep_word_size : B.Representation.t -> int Res.t =
+    let open Res in
+    let open B.Representation in
+    function
+    | Atom (I32 | F32 | Ptr) -> ret 1
+    | Atom (I64 | F64) -> ret 2
+    | Prod rs -> mapM ~f:rep_word_size rs >>| List.fold ~init:0 ~f:( + )
+    | Sum rs ->
+        mapM ~f:rep_word_size rs >>| fun ss -> 1 + List.fold ss ~init:0 ~f:( + )
+    | Var i -> fail (CannotSizeRepVar i)
+
   let rec compile_type (env : Env.t) : A.Type.t -> B.Type.t Res.t =
     let open Res in
     let open B.Type in
@@ -116,7 +136,16 @@ module Compile = struct
         let env' = Env.add_type env (Atom Ptr) in
         let* t' = compile_type env' t in
         ret @@ Exists (Type kind, t')
-    | Ref t -> compile_type env t >>| fun t -> ref (Base MM) Mut (Ser t)
+    | Ref (size, t) ->
+        let* t' = compile_type env t in
+        let* _, pad, _ = ref_layout env size t in
+        let content =
+          if pad = 0 then
+            Ser t'
+          else
+            Ser (Prod (t' :: List.init pad ~f:(fun _ -> Num (Int I32))))
+        in
+        ret @@ ref (Base MM) Mut content
 
   and rep_of_typ (env : Env.t) : A.Type.t -> B.Representation.t Res.t =
     let open Res in
@@ -142,6 +171,38 @@ module Compile = struct
     | Exists t ->
         let env' = Env.add_type env (Atom Ptr) in
         rep_of_typ env' t
+
+  (** Slot capacity (in words), the i32 padding the element needs to fill it
+      ([None] fits the element exactly), and the element's representation. *)
+  and ref_layout (env : Env.t) (size : int option) (elem : A.Type.t) :
+      (int * int * B.Representation.t) Res.t =
+    let open Res in
+    let* elem_rep = rep_of_typ env elem in
+    let* elem_size = rep_word_size elem_rep in
+    match size with
+    | None -> ret (elem_size, 0, elem_rep)
+    | Some n ->
+        if n < elem_size then
+          fail (RefSizeTooSmall (n, elem_size, elem))
+        else
+          ret (n, n - elem_size, elem_rep)
+
+  let as_ref_type : A.Type.t -> (int option * A.Type.t) Res.t = function
+    | A.Type.Ref (size, elem) -> Res.ret (size, elem)
+    | t -> Res.fail (ExpectedRefType t)
+
+  (** A ref slot holds its element as component 0 of a tuple, followed by [n]
+      words of i32 padding; these add and strip it. *)
+  let pad_value (n : int) : B.Instruction.t list =
+    let open B.Instruction in
+    if n = 0 then
+      []
+    else
+      List.init n ~f:(fun _ -> NumConst (Int I32, 0)) @ [ Group (1 + n) ]
+
+  let unpad_value (n : int) : B.Instruction.t list =
+    let open B.Instruction in
+    if n = 0 then [] else Ungroup :: List.init n ~f:(fun _ -> Drop)
 
   let compile_binop (binop : A.Binop.t) : B.Instruction.t list =
     let binop' : B.Int.Binop.t =
@@ -292,28 +353,51 @@ module Compile = struct
         let* v1' = compile_expr env v1 in
         let* v2' = compile_expr env v2 in
         ret @@ v1' @ v2' @ op'
-    | New (v, _) ->
+    | New (v, t) ->
+        let* size, elem = lift_result (as_ref_type t) in
         let* v' = compile_expr env v in
-        ret @@ v' @ [ New (MM, Mut) ]
+        let* _, pad, _ = lift_result (ref_layout env size elem) in
+        ret @@ v' @ pad_value pad @ [ New (MM, Mut) ]
     | Swap (e1, e2, _) ->
+        let* size, old_t = lift_result (as_ref_type (A.Expr.type_of e1)) in
+        let new_t = A.Expr.type_of e2 in
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in
-        ret @@ e1' @ e2' @ [ Swap (Path []); Group 2 ]
-    | Free (e, t) ->
+        let is_weak_update = Option.is_none size && A.Type.equal old_t new_t in
+        if is_weak_update then
+          ret @@ e1' @ e2' @ [ Swap (Path []); Group 2 ]
+        else
+          let* capacity, k1, old_rep =
+            lift_result (ref_layout env size old_t)
+          in
+          let* new_rep = lift_result (rep_of_typ env new_t) in
+          let* new_size = lift_result (rep_word_size new_rep) in
+          let* () =
+            match size with
+            | Some _ when new_size > capacity ->
+                fail (SwapValueTooLarge (new_t, capacity))
+            | None when new_size <> capacity ->
+                fail (SwapFitSizeMismatch (old_t, new_t))
+            | _ -> ret ()
+          in
+          let* old_local = new_local old_rep in
+          let read_old =
+            (Load (Path [], Move) :: unpad_value k1) @ [ LocalSet old_local ]
+          in
+          let write_new =
+            e2' @ pad_value (capacity - new_size) @ [ Store (Path []) ]
+          in
+          ret @@ e1' @ read_old @ write_new
+          @ [ LocalGet (old_local, Move); Group 2 ]
+    | Free (e, _) ->
+        let* size, elem = lift_result (as_ref_type (A.Expr.type_of e)) in
         let* e' = compile_expr env e in
-        let* rep =
-          rep_of_typ env t
-          |> Result.map_error ~f:(fun x -> Err.Ctx (x, t, `Free))
-          |> lift_result
-        in
+        let* _, pad, rep = lift_result (ref_layout env size elem) in
         let* fresh_idx = new_local rep in
-        ret @@ e'
-        @ [
-            Load (Path [], Move);
-            LocalSet fresh_idx;
-            Drop;
-            LocalGet (fresh_idx, Move);
-          ]
+        ret
+        @@ e'
+        @ (Load (Path [], Move) :: unpad_value pad)
+        @ [ LocalSet fresh_idx; Drop; LocalGet (fresh_idx, Move) ]
 
   let compile_import ({ input; output; _ } : A.Import.t) :
       B.FunctionType.t Res.t =

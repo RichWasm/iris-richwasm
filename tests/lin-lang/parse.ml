@@ -138,9 +138,10 @@ let%expect_test "basic functionality" =
     {|
     ((imports ()) (functions ())
      (main
-      ((Let (r (Ref Int)) (New (Int 2))
-        (Split ((x1 Int) (x2 (Ref Int))) (Tuple ((Int 1) (Var r)))
-         (Let (x2' Int) (Free (Var x2)) (Binop Mul (Var x1) (Var x2)))))))) |}];
+      ((Let (r (Ref () Int)) (New () (Int 2))
+        (Split ((x1 Int) (x2 (Ref () Int))) (Tuple ((Int 1) (Var r)))
+         (Let (x2' Int) (Free (Var x2)) (Binop Mul (Var x1) (Var x2))))))))
+    |}];
 
   run {| (if0 0 then 67 else 42) |};
   [%expect {| (if0 0 then 67 else 42) |}];
@@ -164,7 +165,8 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((New (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5) (Int 6))))))) |}];
+     (main ((New () (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5) (Int 6)))))))
+    |}];
 
   run
     {|
@@ -187,11 +189,12 @@ let%expect_test "basic functionality" =
     {|
     ((imports ()) (functions ())
      (main
-      ((Let (r1 (Ref Int)) (New (Int 32))
-        (Let (r2 (Ref Int)) (New (Int 64))
-         (Split ((r2' (Ref Int)) (r1' (Ref Int))) (Swap (Var r1) (Var r2))
+      ((Let (r1 (Ref () Int)) (New () (Int 32))
+        (Let (r2 (Ref () Int)) (New () (Int 64))
+         (Split ((r2' (Ref () Int)) (r1' (Ref () Int))) (Swap (Var r1) (Var r2))
           (Let (x2 Int) (Free (Var r2'))
-           (Let (x1 Int) (Free (Var r1')) (Binop Add (Var x1) (Var x2)))))))))) |}];
+           (Let (x1 Int) (Free (Var r1')) (Binop Add (Var x1) (Var x2))))))))))
+    |}];
 
   run {| 
     (import (int -o int) as print)
