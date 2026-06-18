@@ -1843,47 +1843,11 @@ Section load.
       - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [v]⌝%I).
     }
     iIntros (? ?) "(-> & ->) Hf Hrun".
-    destruct (atomic_rep_eq_dec ι PtrR).
-    - subst ι.
-      destruct o; try (exfalso; tauto).
-      iPoseProof (atom_interp_weak_ptr_shaped with "Hat") as "(%pn & %pn32 & -> & %Hpn32 & %Hshp)".
-      eapply wp_ite_gc_ptr_ptr with (evs:= to_consts [VAL_int32 pn32]) (vs:=[VAL_int32 pn32]) in Hcompile;
-        [|by apply Is_true_true, has_values_to_consts|done|done|done].
-      destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
-      destruct Hcompile as (Hcg1 & Hcg2 & Hcg3 & Hwt7 & Hwl7 & Hes_rest2).
-      inv_cg_ret Hcg1.
-      inv_cg_ret Hcg2.
-      inv_cg_ret Hcg3.
-      clear_nils.
-      iApply (Hes_rest2 with "[$] [$] []").
-      {
-        iPureIntro; cbn.
-        rewrite list_lookup_insert.
-        rewrite decide_True; auto.
-        split; first done.
-        cbn in Hfsz.
-        subst.
-        eapply Nat.lt_le_trans; last apply Hfsz.
-        lia.
-      }
-      iIntros "!> Hf Hrun".
-      subst wt0 wl0 wt1 wl1 wt2 wl2 es es0 es1 wt7 wl7.
-      clear_nils.
-      inversion Hshp; subst; last destruct μ.
-      + iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
-        iAssert (atom_interp (PtrA (PtrInt n)) (VAL_int32 pn32)) as "Hat'".
-        {
-          subst.
-          iExists (2 * n)%N, pn32.
-          repeat iSplit; try done.
-          iExists (RootInt n).
-          iSplit; eauto.
-          iPureIntro; constructor.
-        }
-        admit.
-      + admit.
-      + admit.
-    - admit.
+    iAssert ((CWP es_rest2 @ s; E UNDER B; R {{ f'; vs', ⌜f' = f⌝ ∗ ⌜vs' = []⌝ }})%I) as "Hrest2".
+    {
+      iEval (change es_rest2 with ([] ++ es_rest2)).
+      destruct (atomic_rep_eq_dec ι PtrR); try subst ι.
+      - admit.
   Admitted.
 
   Lemma wp_load1_copy_mm (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
@@ -3280,9 +3244,21 @@ Section load.
     iIntros (? Hcg ? ?).
     apply wp_ignore in Hcg.
     destruct Hcg as (-> & ret' & Hcg).
-    pose proof (wp_mem_load_move_inner se _ _ _ _ _ _ _ _ _ _ Hcg)
+    pose proof (wp_mem_load_move_inner _ se _ _ _ _ _ _ _ _ _ Hcg)
      as (-> & -> & -> & Hspec).
-    done.
+    split; first done.
+    split; first done.
+    split; first done.
+    intros *.
+    repeat iIntros "@".
+    iPoseProof Hspec as "Hspec".
+    repeat iSpecialize ("Hspec" with "[$]").
+    repeat iSpecialize ("Hspec" with "[//]").
+    repeat iSpecialize ("Hspec" with "[$]").
+    iApply "Hspec"; eauto.
+    iIntros (f' vs' vsf' ns').
+    repeat iIntros "@".
+    iApply ("HΦ" with "[//] [//] [//] [$] [$] [$] [$] [$] [$]").
   Qed.
 
   Lemma Forall2_rcons_inv_r:
