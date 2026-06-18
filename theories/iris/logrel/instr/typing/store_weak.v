@@ -617,11 +617,54 @@ Section store_weak.
     intuition.
   Qed.
 
+  Lemma wp_store1_gc_weak_state a_idx off ι v_idx wt wl ret wt' wl' es :
+    run_codegen (store1 mr MemGC a_idx off v_idx ι) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\ wt' = [] /\ wl' = [].
+  Proof.
+    intros Hcg.
+    unfold store1 in Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_a ?rest Ha Hcg.
+    inv_cg_emit Ha; subst.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_v es_store_w Hv Hcg.
+    inv_cg_emit Hv; subst.
+    clear_nils.
+    destruct ret; clear Hretval Hretval0.
+    split; first done.
+
+    destruct (atomic_rep_eq_dec ι PtrR).
+    - (* ι = PtrR *)
+      subst ι.
+      apply wp_ite_gc_ptr_ptr_cg_state in Hcg.
+      destruct Hcg as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & rest).
+      destruct rest as (Hcg1 & Hcg2 & Hcg3 & -> & ->).
+
+      apply wp_store_w in Hcg1 as (_ & -> & -> & _).
+      apply wp_store_w in Hcg2 as (_ & -> & -> & _).
+      clear_nils.
+
+
+      inv_cg_bind Hcg3 [] ?wt ?wt ?wl ?wl es_loadroot ?rest Hloadroot Hcg3.
+      clear es_store_w.
+      inv_cg_bind Hcg3 [] ?wt ?wt ?wl ?wl es_store_w ?rest Hstore Hcg3.
+      inv_cg_bind Hcg3 [] ?wt ?wt ?wl ?wl es_loc es_unregister Hloc Hunregister.
+      inv_cg_emit Hloc; subst.
+      clear_nils; clear Hretval.
+
+      apply (wp_loadroot sr) in Hloadroot as (_ & -> & -> & _).
+      apply wp_store_w in Hstore as (_ & -> & -> & _).
+      apply (wp_unregisterroot rti sr) in Hunregister as (_ & -> & -> & _).
+      clear_nils.
+      done.
+    - (* ι <> PtrR *)
+      eapply wp_ite_gc_ptr_nonptr in Hcg; last assumption.
+      apply wp_store_w in Hcg as (_ & -> & -> & _).
+      done.
+  Qed.
+
   (* speculative store1 gc lemma *)
   Lemma wp_store1_gc_weak a_idx off ι v_idx wt wl ret wt' wl' es :
     run_codegen (store1 mr MemGC a_idx off v_idx ι) wt wl = inr (ret, wt', wl', es) ->
-    (* ret = () /\ wt = [] /\ wl' = [] /\  MAKE THIS A _STATE LEMMA
-       in mm I could get away with it with the length thing; here not at all *)
+    ret = () /\ wt' = [] /\ wl' = [] /\
     ∀ f ℓ a a32 val_v lmask θ o ws E B R Φ,
     ⊢ "Hf"       ∷ ↪[frame] f -∗
       "Hrun"     ∷ ↪[RUN] -∗
@@ -653,13 +696,18 @@ Section store_weak.
     CWP es @ E UNDER B; R {{ Φ }}.
   Proof.
     intros Hcg.
+    apply wp_store1_gc_weak_state in Hcg as Hcgstate.
+    destruct Hcgstate as (-> & -> & ->).
+    do 3 (split; first done).
+
     unfold store1 in Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_a ?rest Ha Hcg.
     inv_cg_emit Ha; subst.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_v es_store_w Hv Hcg.
     inv_cg_emit Hv; subst.
     clear_nils.
-    destruct ret; clear Hretval Hretval0.
+    clear Hretval Hretval0.
+    subst.
 
     (* now we need to do two locals -> values cwp conversions before we can
        use the ite_gc_ptr spec *)
@@ -705,7 +753,7 @@ Section store_weak.
       (* finally digging into the ite-gc! *)
       eapply wp_ite_gc_ptr_ptr with (evs:=to_consts [VAL_int32 a32; VAL_int32 n32])
                                     (vs:=[VAL_int32 a32; VAL_int32 n32]) in Hcg;
-        [|by apply Is_true_true, has_values_to_consts|done| exact Hptrshaped | exact Nrepr].
+        [|by apply Is_true_true, has_values_to_consts| done | exact Hptrshaped | exact Nrepr].
       destruct Hcg as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & es1 & es2 & es3 & Hcompile).
       destruct Hcompile as (Hcg1 & Hcg2 & Hcg3 & Hwt7 & Hwl7 & Hes_store_w).
       clear_nils.
@@ -1098,7 +1146,7 @@ Section store_weak.
         iApply ("HΦ" with "[$] [$] [$] [$]").
     - (* ι <> PtrR case *)
       eapply wp_ite_gc_ptr_nonptr in Hcg; last assumption.
-      apply wp_store_w in Hcg as (_ & -> & -> & Hcgspec).
+      apply wp_store_w in Hcg as (_ & _ & _ & Hcgspec).
 
 
       iPoseProof (virt_to_phys_slice_store_acc_weak_gc lmask off (arep_size ι)
