@@ -228,7 +228,7 @@ Section load_move.
     }
     iIntros (? ?) "(-> & ->) Hf Hrun".
 
-    iSpecialize ("Hclose" with "[] [] [] [] [Hphys] [Hat Hret] [$Hnp]").
+    iSpecialize ("Hclose" with "[] [] [] [] [Hphys] [Hret] [$Hnp]").
     { admit. }
     { admit. }
     { admit. }
@@ -251,11 +251,34 @@ Section load_move.
       { iIntros "!> Hf Hr".
         inv_cg_ret Hcg2.
         iApply (cwp_val with "[$] [$]"); first (clear_nils; eauto using has_values_to_consts).
-        iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] []").
+        iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] [-]").
         - admit.
         - admit.
         - admit.
-        - admit.
+        - iDestruct "Hat" as "(%n & %n32 & %Hn32 & -> & Hat)".
+          iExists n, n32.
+          repeat (iSplit; first done).
+          destruct p; iRevert "Hat".
+          + iIntros "%Hat".
+            iExists (RootInt n0).
+            iSplit; auto.
+            iPureIntro.
+            inversion Hat; subst; eauto.
+            by constructor.
+          + destruct μ; cbn.
+            -- iIntros "%Hat".
+               inversion Hat; subst.
+               iExists (RootHeap MemMM a0).
+               cbn.
+               iFrame.
+               (* TODO missing ↦addr here. *)
+               admit.
+            -- iIntros "(%ah & %Hroot & Hroot)".
+               iExists (RootHeap MemGC ah).
+               iFrame.
+               iPureIntro.
+               inversion Hroot.
+               by constructor.
       }
     + eapply wp_ite_gc_ptr_nonptr in Hcompile; last assumption.
       inv_cg_ret Hcompile; subst; clear_nils.

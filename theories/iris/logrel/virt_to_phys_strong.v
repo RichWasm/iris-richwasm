@@ -75,26 +75,18 @@ Section virt_to_phys_strong.
     Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
     Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
     rt_token_nophys rti sr lmask θ hm -∗
+    ([∗ list] ℓ0 ∈ flat_map locations ws, ∃ a : address, ⌜θ !! ℓ0 = Some (MemMM, a)⌝ -∗ ℓ0 ↦addr (MemMM, a)) ∗
     rt_token_nophys rti sr lmask θ (<[ℓ := ws']> hm).
   Proof.
     intros Hhm Hl Hlocshm Hlocsθ.
     iIntros "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
-    iExists rm, lm.
-    iFrame "Hroot Hlayout Hrti Howngc Hrootmem".
+    iPoseProof (big_sepM_insert_acc _ _ _ _ Hhm with "[$]") as "[Hws Hput]".
+    iFrame "Hws Hroot Hlayout Hrti Howngc Hrootmem".
     iSplit; first done.
     iSplit; last (iSplit; first done).
     - (* own_addr_mm θ (<[ℓ := ws']> hm) *)
-      unfold own_addr_mm.
-      have Hhm' : <[ℓ := ws']> hm = <[ℓ := ws']> (delete ℓ hm).
-      { apply map_eq; intros k; destruct (decide (k = ℓ)) as [->|Hne].
-        - rewrite !lookup_insert. by rewrite !decide_True.
-        - by rewrite !lookup_insert_ne // lookup_delete_ne. }
-      rewrite Hhm'.
-      iEval (rewrite big_sepM_insert_delete).
-      rewrite delete_delete_eq.
-      iSplitL "".
-      * iApply own_addr_mm_trivial_list.
-      * iPoseProof (big_sepM_delete _ hm ℓ ws Hhm with "Hownmm") as "[_ $]".
+      iApply "Hput".
+      iApply own_addr_mm_trivial_list.
     - iPureIntro.
       have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧
                                   (lmask ℓ -> Forall2 word_has_flag flags ws).
@@ -196,7 +188,8 @@ Section virt_to_phys_strong.
     pose proof (Forall2_length _ _ _ Hns'') as Hns32'len.
     iPoseProof (big_sepL2_length with "Hwords'") as "%Hns'len".
     set (hm' := <[ℓ := update_path_words off ws ws_new]> hm).
-    iAssert (rt_token_nophys rti sr lmask θ hm') with "[Hnp]" as "Hnp'".
+    iAssert ((([∗ list] ℓ0 ∈ flat_map locations ws, ∃ a0 : address, ⌜θ !! ℓ0 = Some (MemMM, a0)⌝ -∗ ℓ0 ↦addr (MemMM, a0)) ∗
+             rt_token_nophys rti sr lmask θ hm')%I) with "[Hnp]" as "[Haddrs Hnp']".
     { iApply (rt_token_nophys_insert_heap_strong _ _ _ _ ws with "Hnp").
       - exact Hhm.
       - (* what I changed *) exact Hlmask.
