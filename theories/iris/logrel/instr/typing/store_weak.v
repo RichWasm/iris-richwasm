@@ -1208,6 +1208,257 @@ Section store_weak.
 
   Admitted.
 
+  Lemma wp_store_weak_gc_inner a_idx ιs:
+    ∀ off vs_idx wt wl ret wt' wl' es,
+    length vs_idx = length ιs ->
+    run_codegen (foldlM
+         (λ (off : nat) '(v, ι),
+            store1 mr MemGC a_idx off v ι ≫= λ _ : (), Monad.ret (off + arep_size ι))
+         off (zip vs_idx ιs)) wt wl = inr (ret, wt', wl', es) ->
+    ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs /\
+    wt' = [] /\ wl' = [] /\
+    ∀ f ℓ a a32 val_vs lmask θ os ws E B R Φ,
+    ⊢ "Hf"       ∷ ↪[frame] f -∗
+      "Hrun"     ∷ ↪[RUN] -∗
+      "Hptr"     ∷ ℓ ↦heap ws -∗
+      "%Haddr"   ∷ ⌜ θ !! ℓ = Some (MemGC, a)⌝ -∗
+      "%Hℓmask"  ∷ ⌜lmask ℓ⌝ -∗
+      "Htok"     ∷ rt_token rti sr lmask θ -∗
+      "Hunreg"   ∷ instance_rt_func_interp (mr_func_unregisterroot mr) (sr_func_unregisterroot sr) (runtime.spec_unregisterroot rti sr) (f_inst f) -∗
+      "Hown"     ∷ na_own logrel_nais E -∗
+      "%Hmask"   ∷ ⌜↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E⌝ -∗
+      "%Ha32"    ∷ ⌜f_locs f !! localimm a_idx = Some (VAL_int32 a32)⌝ -∗
+      "%Hv"      ∷ ⌜Forall2 (λ v_idx val_v, f_locs f !! localimm v_idx = Some val_v) vs_idx val_vs⌝ -∗
+      "%Hrepa"   ∷ ⌜N_i32_repr (tag_address MemGC a) a32⌝ -∗
+      "%Hmod"    ∷ ⌜(a `mod` 4 = 0)%N⌝ -∗
+      "%Hnz"     ∷ ⌜(a ≠ 0)%N⌝ -∗
+      "%Hbound"  ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
+      "%Harep"   ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+      "%Hsliceflags" ∷ ⌜Forall2 word_has_flag (concat (map arep_flags ιs))
+                                               (take (sum_list_with arep_size ιs) (drop off ws))⌝ -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hrepgc"  ∷ ⌜N_nat_repr (sr_mem_gc sr) (rt_memaddr sr MemGC)⌝ -∗
+      "%Hmemmm"  ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "%Hmemgc"  ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
+      "Hat"      ∷ atoms_interp os val_vs -∗ (* most likely to change *)
+      "HΦ"       ∷ (ℓ ↦heap (update_path_words off ws (concat (map serialize_atom os))) -∗
+                    na_own logrel_nais E -∗
+                    instance_rt_func_interp (mr_func_unregisterroot mr) (sr_func_unregisterroot sr) (runtime.spec_unregisterroot rti sr) (f_inst f) -∗
+                    rt_token rti sr lmask θ -∗
+                    Φ f []) -∗
+    CWP es @ E UNDER B; R {{ Φ }}.
+  Proof.
+    induction ιs as [| ιs ι] using seq.last_ind; intros * Hlen Hcg *.
+    - assert (zip vs_idx ([]:list atomic_rep) = []) by (by apply zip_nil_r).
+      rewrite H in Hcg.
+      cbn in Hcg.
+      inversion Hcg; subst.
+      do 3 split; try done.
+      intros *; repeat iIntros "@".
+      iApply (cwp_nil with "[$] [$]").
+      (* os is nil, val_vs is nil, and ws didn't update *)
+      inversion Harep; subst.
+      iPoseProof (big_sepL2_nil_inv_l with "[$Hat]") as "%Hvalvslen". subst.
+      assert (update_path_words ret ws (concat (map serialize_atom [])) = ws). {
+        cbn.
+        apply update_path_words_empty_2.
+      }
+      rewrite H0.
+      iApply ("HΦ" with "[$] [$] [$] [$]").
+    - (* to start with, we need to make
+         (zip vs_idx (seq.rcons ιs ι)) = seq.rcons (zip vs_idx_small ιs) (v_idx, ι) *)
+      (* we know that length ιs = length os = length val_vs = length vs_idx
+                            Harep         Hat           Hv
+         so then we know vs_idx must be equal to some seq.rcons vs_idx v_idx. then zip seq.rcons?
+         I think that should work, but that's not interesting right at this moment so asserting
+       *)
+      rename vs_idx into vs_idx_big.
+      assert (∃ vs_idx v_idx, vs_idx_big = seq.rcons vs_idx v_idx /\ length vs_idx = length ιs). {
+        rewrite rcons_app in Hlen.
+        rewrite length_app in Hlen.
+        cbn in Hlen.
+        apply length_split in Hlen as (vs_idx & v_idxT & -> & hlen1 & hlen2).
+        destruct v_idxT as [|v_idx rest]; [inversion hlen2|].
+        destruct rest; [|inversion hlen2].
+        exists vs_idx, v_idx.
+        rewrite rcons_app.
+        done.
+      }
+      destruct H as (vs_idx & v_idx & -> & Hleminis).
+
+      assert (zip (seq.rcons vs_idx v_idx) (seq.rcons ιs ι) =
+                seq.rcons (zip vs_idx ιs) (v_idx, ι)). {
+        by apply zip_rcons.
+      }
+      rewrite H in Hcg.
+
+      apply inv_foldlM_rcons in Hcg.
+      rewrite seq.foldl_rcons.
+      destruct Hcg as (off_ιs & wt_ι & wt_ιs & wl_ι & wl_ιs & es_ι & es_ιs & Hinit & Hlast).
+      destruct Hlast as (Hlast & -> & -> & ->).
+      inv_cg_bind Hlast a0' wt_bs wt_b wl_bs wl_b es_bs es_b Hbs Hfb.
+      subst.
+      inv_cg_ret Hfb; subst.
+      eapply IHιs in Hinit; auto.
+      clear IHιs.
+
+      destruct Hinit as (-> & -> & -> & Hinit).
+      pose proof Hbs as Hbs'.
+      clear_nils.
+
+      apply (wp_store1_gc_weak) in Hbs'.
+      destruct Hbs' as (-> & -> & -> & Hbs_spec).
+
+      do 3 (split; first by auto).
+
+      (* finally the iris proof... *)
+      (* note that the overall structure is to do cwp_seq and use Hinit then Hbs_spec *)
+      intros *; repeat iIntros "@".
+
+      (* the thing we need to do before cwp_seq is split up Hat into the Hinit part and the
+         Hbs part. This involves showing os = seq.rcons os o and val_vs = seq.rcons os o *)
+      pose proof Harep as Hosslicing.
+      eapply Forall2_rcons_inv_l in Hosslicing; try done.
+      rename os into os_big.
+      destruct Hosslicing as (o & os & Ho & Hos & Hos_eq).
+      subst os_big.
+      rename val_vs into val_vs_big.
+      unfold atoms_interp.
+      Opaque atom_interp. cbn.
+      iPoseProof (big_sepL2_rcons_inv_l with "[$Hat]") as
+        "(%val_v & %val_vs & -> & Hoa & Hat)"; try done.
+      (* rewrite <- rcons_app in Hv. *)
+      pose proof Hv as Hvslicing.
+      rewrite !rcons_app in Hv.
+      eapply Forall2_rcons_inv_l in Hvslicing; try done.
+      destruct Hvslicing as (valvstemp & valvtemp & Hlocsvalv & Hlocsvalvs & Hinv).
+      apply seq.rcons_inj in Hinv; inversion Hinv; subst; clear Hinv.
+
+      (* the new one is hslice flags *)
+      rewrite !rcons_app in Hsliceflags.
+      rewrite map_app in Hsliceflags.
+      rewrite sum_list_with_app in Hsliceflags.
+      rewrite concat_app in Hsliceflags.
+
+      (* I need this both for split_word_has_flag_arep and the Hinit! *)
+      assert (Hlensmall: off + sum_list_with arep_size ιs ≤ length ws). {
+          rewrite rcons_app in Hbound.
+          rewrite sum_list_with_app in Hbound.
+          lia.
+      }
+      apply (split_word_has_flag_arep _ _ _ _ os Hlensmall Hos) in Hsliceflags as htemp.
+      destruct htemp as [Hflagsιs Hflagsι].
+      (* put some more in here but for now this is enough lol *)
+
+      (* Now we can cwp_seq. Note lots of pure Forall/rcons manipulations happen inside
+         that might be better brought outside (we'll see).
+       *)
+      iApply (cwp_seq with "[Hf Hrun Hptr Htok HΦ Hat Hunreg Hown]"). {
+        iApply (Hinit with "[$] [$] [$] [//] [//] [$] [$] [$] [//] [//] [//]
+                            [//] [//] [//] [//] [//] [//] [//] [//] [//] [//] [$] [-]").
+        iIntros "Hℓ Hown Hunreg Hrt".
+        let Q := open_constr:(_ : iProp Σ) in
+        instantiate (1 := (λ f'' vs'', ⌜f'' = f /\ vs'' = []⌝ ∗ Q)%I).
+        cbn.
+        iSplitR; first done.
+        iAccu.
+      }
+      cbn.
+      iIntros (f0 vs) "Hres Hf Hrun".
+      iDestruct "Hres" as "((-> & ->) & HΦ & Hℓ_heap & Hown & Hunreg & Hrt)".
+      clear_nils.
+
+      (* and now apply the hbs! *)
+      iApply (Hbs_spec with "[$] [$] [$] [//] [//] [$] [$] [$] [//] [//] [//]
+                            [//] [//] [//] [] [//] [] [//] [//] [//] [//] [$Hoa] [-]").
+      + iPureIntro.
+        (* this will end up true due to Hbound and Hos *)
+        rewrite rcons_app in Hbound.
+        rewrite sum_list_with_app in Hbound.
+        cbn in Hbound.
+        rewrite seq_foldl_sum_list_with.
+        rewrite update_path_words_size.
+        2: {
+          rewrite (has_arep_means_equal_lengths _ _ Hos).
+          rewrite length_arep_flags_size.
+          lia.
+        }
+        lia.
+
+      + iPureIntro.
+        rewrite seq_foldl_sum_list_with.
+        done.
+      + iIntros "Hℓ_heap Hown Hunreg Hrt".
+        (* one last update_path_words manipulation *)
+        assert (update_path_words off ws (concat (map serialize_atom (seq.rcons os o))) =
+                  update_path_words
+                        (seq.foldl (λ (off' : nat) (ι0 : atomic_rep), off' + arep_size ι0)
+                           off ιs)
+                        (update_path_words off ws (concat (map serialize_atom os)))
+                        (serialize_atom o)
+               ). {
+          rewrite seq_foldl_sum_list_with.
+          change map with @seq.map.
+          rewrite seq.map_rcons.
+          rewrite rcons_app.
+          rewrite concat_app.
+          cbn. clear_nils.
+          change @seq.map with map.
+          assert (length (concat (map serialize_atom os)) = sum_list_with arep_size ιs). {
+            rewrite (has_arep_means_equal_lengths _ _ Hos).
+            rewrite length_arep_flags_size.
+            done.
+          }
+          rewrite <- H0.
+          apply update_path_words_in_stages.
+        }
+        rewrite <- H0.
+        iApply ("HΦ" with "[$] [$] [$] [$]").
+
+  Qed.
+
+  Lemma wp_store_weak_gc a_idx off ιs vs_idx wt wl ret wt' wl' es :
+    length vs_idx = length ιs ->
+    run_codegen (memory.store mr MemGC a_idx off vs_idx ιs) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\ wt' = [] /\ wl' = [] /\
+    ∀ f ℓ a a32 val_vs lmask θ os ws E B R Φ,
+    ⊢ "Hf"       ∷ ↪[frame] f -∗
+      "Hrun"     ∷ ↪[RUN] -∗
+      "Hptr"     ∷ ℓ ↦heap ws -∗
+      "%Haddr"   ∷ ⌜ θ !! ℓ = Some (MemGC, a)⌝ -∗
+      "%Hℓmask"  ∷ ⌜lmask ℓ⌝ -∗
+      "Htok"     ∷ rt_token rti sr lmask θ -∗
+      "Hunreg"   ∷ instance_rt_func_interp (mr_func_unregisterroot mr) (sr_func_unregisterroot sr) (runtime.spec_unregisterroot rti sr) (f_inst f) -∗
+      "Hown"     ∷ na_own logrel_nais E -∗
+      "%Hmask"   ∷ ⌜↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E⌝ -∗
+      "%Ha32"    ∷ ⌜f_locs f !! localimm a_idx = Some (VAL_int32 a32)⌝ -∗
+      "%Hv"      ∷ ⌜Forall2 (λ v_idx val_v, f_locs f !! localimm v_idx = Some val_v) vs_idx val_vs⌝ -∗
+      "%Hrepa"   ∷ ⌜N_i32_repr (tag_address MemGC a) a32⌝ -∗
+      "%Hmod"    ∷ ⌜(a `mod` 4 = 0)%N⌝ -∗
+      "%Hnz"     ∷ ⌜(a ≠ 0)%N⌝ -∗
+      "%Hbound"  ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
+      "%Harep"   ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+      "%Hsliceflags" ∷ ⌜Forall2 word_has_flag (concat (map arep_flags ιs))
+                                               (take (sum_list_with arep_size ιs) (drop off ws))⌝ -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hrepgc"  ∷ ⌜N_nat_repr (sr_mem_gc sr) (rt_memaddr sr MemGC)⌝ -∗
+      "%Hmemmm"  ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "%Hmemgc"  ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
+      "Hat"      ∷ atoms_interp os val_vs -∗ (* most likely to change *)
+      "HΦ"       ∷ (ℓ ↦heap (update_path_words off ws (concat (map serialize_atom os))) -∗
+                    na_own logrel_nais E -∗
+                    instance_rt_func_interp (mr_func_unregisterroot mr) (sr_func_unregisterroot sr) (runtime.spec_unregisterroot rti sr) (f_inst f) -∗
+                    rt_token rti sr lmask θ -∗
+                    Φ f []) -∗
+    CWP es @ E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hlen Hcg.
+    unfold memory.store in Hcg.
+    apply wp_ignore in Hcg.
+    destruct Hcg as (-> & off' & Hcg).
+    pose proof (wp_store_weak_gc_inner _ _ _ _ _ _ _ _ _ _ Hlen Hcg) as (-> & U & V & W).
+    intuition.
+  Qed.
 
 
 
