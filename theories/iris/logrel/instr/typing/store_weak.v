@@ -596,6 +596,14 @@ Section store_weak.
   Qed.
 
 
+  Lemma atom_interp_to_weak_memGC_nonptr o v ι θ :
+    has_arep ι o -> ι <> PtrR ->
+    atom_interp o v -∗ atom_interp_weak θ MemGC o v.
+  Proof.
+    iIntros (Harep Hnot) "Hoa".
+    destruct ι; try done; cbn in Harep; destruct o; try inversion Harep; cbn; done.
+  Qed.
+
   Lemma atom_interp_ptr_shaped_pure ptr v:
     atom_interp (PtrA ptr) v -∗
     ⌜∃ (n:N) (n32:i32), N_i32_repr n n32 /\ v = VAL_int32 n32 /\
@@ -609,20 +617,8 @@ Section store_weak.
     intuition.
   Qed.
 
-  Lemma repr_root_pointer_stupid_inv μ1 μ0 a1 a0:
-    repr_root_pointer (RootHeap μ1 a1) (tag_address μ0 a0) ->
-    repr_root_pointer (RootHeap μ1 a1) (tag_address μ1 a1).
-  Proof.
-    intros.
-    remember (tag_address μ0 a0).
-    inversion H; subst.
-    rewrite <- H3 in H.
-    done.
-  Qed.
-
-
   (* speculative store1 gc lemma *)
-  Lemma wp_store1_gc_weak_MAYBE a_idx off ι v_idx wt wl ret wt' wl' es :
+  Lemma wp_store1_gc_weak a_idx off ι v_idx wt wl ret wt' wl' es :
     run_codegen (store1 mr MemGC a_idx off v_idx ι) wt wl = inr (ret, wt', wl', es) ->
     (* ret = () /\ wt = [] /\ wl' = [] /\  MAKE THIS A _STATE LEMMA
        in mm I could get away with it with the length thing; here not at all *)
@@ -686,14 +682,6 @@ Section store_weak.
     }
     iIntros (f' vs) "[-> ->] Hf Hr".
 
-    (* we need to use a virt_to_phys slice lemma here! *)
-    (* it needs to be new because of the ℓ ↦addr shenanigans *)
-    iPoseProof (virt_to_phys_slice_store_acc_weak_gc lmask off (arep_size ι)
-                 with "[//] [$Htok] [$Hptr] [//]")
-      as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
-          (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
-
-
     (* ite gc ptr requires knowing if ι = PtrR or not *)
     destruct (atomic_rep_eq_dec ι PtrR).
 
@@ -732,6 +720,12 @@ Section store_weak.
       inversion Hptrshaped; subst; last destruct μ eqn:?.
       + (* Hcg1 - Ptr Int - done with atom_interp *)
         apply wp_store_w in Hcg1 as (_ & -> & -> & Hcg1spec).
+
+        (* Note: this happens so late because the MM case needs full rttoken *)
+        iPoseProof (virt_to_phys_slice_store_acc_weak_gc lmask off (arep_size PtrR)
+                     with "[//] [$Htok] [$Hptr] [//]")
+          as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
+          (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
 
         (* we always heat hat inside *)
         iAssert (atom_interp_weak θ MemGC (PtrA (PtrInt n0)) (VAL_int32 n32))
@@ -808,7 +802,115 @@ Section store_weak.
           iApply ("HΦ" with "[$] [$] [$] [$]").
       + (* Hcg2 - Ptr MM *)
         apply wp_store_w in Hcg2 as (_ & -> & -> & Hcg2spec).
-        admit.
+        (* start with unfolding atom_interp a bit *)
+        iEval (cbn) in "Hat".
+        iDestruct "Hat" as "(%n' & %n32' & %forinv & %toinv & Hrp)".
+        inversion toinv; subst n32'; clear toinv.
+        pose proof (N_i32_repr_inj _ _ _ forinv Nrepr) as ->; clear forinv.
+        iDestruct "Hrp" as "(%rp & %Hreprroot & Haddr_ℓ0)".
+
+        inversion Hreprroot. {
+          exfalso.
+          (* a0 is even by H, but h3 says its odd (and not 0 so no saturating -) *)
+          admit.
+        }
+        iEval (cbn) in "Haddr_ℓ0".
+        destruct μ0; try done.
+        subst rp.
+        assert (a1 = a0). {
+          cbn in H1.
+          (* it hates me *)
+          admit.
+        }
+        subst a1.
+
+        (* This here is what needs the full rt token!! *)
+        iAssert (⌜θ !! ℓ0 = Some (MemMM, a0)⌝%I) with "[Haddr_ℓ0 Htok]" as "%Hθℓ0". {
+          open_rt "Htok".
+          by iPoseProof (ghost_map_lookup with "[$Haddr] [$]") as "%Hθℓ".
+        }
+
+        (* we can not break the token up again *)
+        iPoseProof (virt_to_phys_slice_store_acc_weak_gc lmask off (arep_size PtrR)
+                     with "[//] [$Htok] [$Hptr] [//]")
+          as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
+          (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
+
+        (* make an atom_interp_weak *)
+        iAssert (atom_interp_weak θ MemGC (PtrA (PtrHeap MemMM ℓ0)) (VAL_int32 n32))
+          with "[]" as "Hat2". {
+          cbn.
+          iExists (tag_address MemMM a0)%N, n32.
+          iSplitR; [done| iSplitR; [done|]].
+          iPureIntro.
+          constructor; try done.
+        }
+
+        iPoseProof (atom_to_words_gc rti sr mr θ PtrR _ _ Harepsave with "[$Hat2]") as
+          "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
+
+        (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
+        iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
+        iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot]")
+          as "%Hlocsθ_new".
+        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
+        { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+
+        specialize (Hcg2spec a a32).
+        specialize (Hcg2spec (sr_mem_gc sr) (rt_memaddr sr MemGC)).
+        specialize Hcg2spec with (v:=(VAL_int32 n32)).
+        specialize Hcg2spec with (bs:=(flat_map serialise_i32 ns32)).
+        (* I need a pure fact about the length of ns and ns32 here *)
+        iPoseProof (big_sepL2_length with "[$Hwords]") as "%Hlenns".
+        pose proof (Forall2_length _ _ _ Hsliceflags) as Hlenareps.
+        pose proof (Forall2_length _ _ _ Hns) as Hnslen.
+        rewrite <- Hlenareps in Hlenns.
+        rewrite <- Hlenns in Hnslen.
+        cbn in Hnslen.
+
+        iApply cwp_fupd. (* necessary for a later iMod *)
+        iApply (Hcg2spec with "[$] [$] [$] [-]"); try done; try (cbn; done). {
+          cbn.
+          rewrite len_ser32.
+          destruct ns32 as [|nn32 ns32]; try inversion Hnslen.
+          destruct ns32; try inversion H5.
+          cbn.
+          done.
+        }
+        iIntros "!> Haddr".
+
+        (* we need to use Hclose now! We have a bunch of tiny facts we need to do so *)
+
+        iPoseProof (big_sepL2_length with "[$Hwords_new]") as "%Hlenns_new".
+        cbn in Hlenns_new.
+        destruct ns_new as [| n_new ns_new]; try inversion Hlenns_new.
+        destruct ns_new; inversion H5; subst; clear H5.
+        pose proof (Forall2_length _ _ _ Hns_new) as Hnslen_new.
+        cbn in Hnslen_new.
+        destruct ns32_new as [| n32_new ns32_new]; try inversion Hnslen_new.
+        destruct ns32_new; inversion H5; subst; clear H5.
+        clear Hlenns_new Hnslen_new.
+
+        rewrite <- Hbits.
+        cbn [bits].
+        assert (serialise_i32 n32_new = flat_map serialise_i32 [n32_new]) by done.
+        rewrite <- H3.
+
+        iSpecialize ("Hclose" $! (serialize_atom (PtrA (PtrHeap MemMM ℓ0)))
+                                    [n_new] [n32_new]).
+        iSpecialize ("Hclose" with "[//] [%] [%] [%] [%] [$]").
+        * done.
+        * intros flags H5.
+          eapply update_path_words_flags_compat; [exact Harepsave|done|done|done].
+        * eapply Forall_impl.
+          -- exact (update_path_words_locs_incl (dom θ) ws off _ Hlocsθ_ws Hlocsθ_new).
+          -- intros ℓ' Hℓ'. rewrite <- Hdomθhm. exact Hℓ'.
+        * eapply update_path_words_locs_incl; try done.
+        * iSpecialize ("Hclose" with "[$Hwords_new] [$Hnp]").
+          iMod "Hclose".
+          iModIntro.
+          iDestruct "Hclose" as "[pls hlp]".
+          iApply ("HΦ" with "[$] [$] [$] [$]").
       + (* Hcg3 - Ptr GC *)
         inv_cg_bind Hcg3 [] ?wt ?wt ?wl ?wl es_loadroot ?rest Hloadroot Hcg3.
         clear es_store_w.
@@ -837,6 +939,11 @@ Section store_weak.
           lia.
         }
         subst a1.
+
+        iPoseProof (virt_to_phys_slice_store_acc_weak_gc lmask off (arep_size PtrR)
+                     with "[//] [$Htok] [$Hptr] [//]")
+          as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
+          (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
 
         (* for myself: we are STORING PtrA PtrHeap MemGC ℓ0 *)
 
@@ -993,9 +1100,63 @@ Section store_weak.
       eapply wp_ite_gc_ptr_nonptr in Hcg; last assumption.
       apply wp_store_w in Hcg as (_ & -> & -> & Hcgspec).
 
-      (* also need physical stuff *)
-      admit.
 
+      iPoseProof (virt_to_phys_slice_store_acc_weak_gc lmask off (arep_size ι)
+                   with "[//] [$Htok] [$Hptr] [//]")
+        as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
+          (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
+
+      iPoseProof ((atom_interp_to_weak_memGC_nonptr o val_v ι θ Harep n) with "[$Hat]") as "Hat".
+
+      iPoseProof (atom_to_words_gc rti sr mr θ ι _ _ Harep with "[$Hat]") as
+        "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
+
+      (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
+      iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
+      iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot]")
+        as "%Hlocsθ_new".
+      iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
+      { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+      clear dependent rm; clear dependent lm; clear Hinj.
+
+      move Hcgspec at bottom.
+      specialize (Hcgspec a a32).
+      specialize (Hcgspec (sr_mem_gc sr) (rt_memaddr sr MemGC)).
+      specialize Hcgspec with (v:=val_v).
+      specialize Hcgspec with (bs:=(flat_map serialise_i32 ns32)).
+      (* I need a pure fact about the length of ns and ns32 here *)
+      iPoseProof (big_sepL2_length with "[$Hwords]") as "%Hlenns".
+      pose proof (Forall2_length _ _ _ Hsliceflags) as Hlenareps.
+      pose proof (Forall2_length _ _ _ Hns) as Hnslen.
+      rewrite <- Hlenareps in Hlenns.
+      rewrite <- Hlenns in Hnslen.
+
+      iApply cwp_fupd. (* necessary for a later iMod *)
+      iApply (Hcgspec with "[$] [$] [$] [-]"); try done; try (cbn; done). {
+        cbn.
+        rewrite len_ser32.
+        rewrite length_t_translate_arep.
+        (* yeah, although the nubmers are being weird *)
+        admit.
+      }
+      iIntros "!> Haddr".
+
+      (* we need to use Hclose now! We have a bunch of tiny facts we need to do so *)
+      rewrite <- Hbits.
+      iSpecialize ("Hclose" $! (serialize_atom o) ns_new ns32_new).
+      iSpecialize ("Hclose" with "[%] [//] [%] [%] [%] [$]").
+      * by apply has_arep_size.
+      * intros flags H2.
+        eapply update_path_words_flags_compat; [exact Harep|done|done|done].
+      * eapply Forall_impl.
+        -- exact (update_path_words_locs_incl (dom θ) ws off _ Hlocsθ_ws Hlocsθ_new).
+        -- intros ℓ' Hℓ'. rewrite <- Hdomθhm. exact Hℓ'.
+      * eapply update_path_words_locs_incl; try done.
+      * iSpecialize ("Hclose" with "[$Hwords_new] [$Hnp]").
+        iMod "Hclose".
+        iModIntro.
+        iDestruct "Hclose" as "[pls hlp]".
+        iApply ("HΦ" with "[$] [$] [$] [$]").
 
   Admitted.
 
