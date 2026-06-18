@@ -339,7 +339,8 @@ let utuple_and_project =
 
 let%expect_test "utuple_and_project" =
   run "utuple_and_project" utuple_and_project;
-  [%expect{|
+  [%expect
+    {|
     -------[utuple_and_project]-------
     (module
       (func ((ref (base gc) imm (struct)) -> i31) (local (prod ptr ptr) ptr)

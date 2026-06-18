@@ -150,7 +150,8 @@ let%expect_test "debug: boxed sum" =
               (Nop))))))))
        (table ()) (exports (((name _start) (desc (Func 0))))))
     |};
-  [%expect{|
+  [%expect
+    {|
     (module
       (type $t0 (func (param i32 i32)))
       (type $t1 (func (param i32) (result i32)))
@@ -420,7 +421,8 @@ let%expect_test "REGRESSION: subkinded type instantiation (should type check)" =
        (table (0))
        (exports (((name _start) (desc (Func 1))))))
     |};
-  [%expect {|
+  [%expect
+    {|
     (module
       (type $t0 (func (param i32 i32)))
       (type $t1 (func (param i32) (result i32)))

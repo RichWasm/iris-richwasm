@@ -11,11 +11,10 @@ module Process_capture = struct
   end
 
   (** Spawn child with:
-     - stdin  <- [input]   (fd 0)
-     - stdout -> captured  (fd 1)
-     - stderr -> captured  (fd 2)
-     - [inputs] -> fd 3, 4, ... in order
-  *)
+      - stdin <- [input] (fd 0)
+      - stdout -> captured (fd 1)
+      - stderr -> captured (fd 2)
+      - [inputs] -> fd 3, 4, ... in order *)
   let run ?input ?(inputs = []) ?(env = `Extend []) ~prog ~args () :
       Output.t ResultM(Output).t =
     let mk_pipe () =
@@ -80,8 +79,8 @@ module Process_capture = struct
         | Ok () -> Ok { stdout = out; stderr = err }
         | Error _ -> Error { stdout = out; stderr = err })
 
-  let run_concat ?input ?inputs ?env ~prog ~args () :
-      String.t ResultM(String).t =
+  let run_concat ?input ?inputs ?env ~prog ~args () : String.t ResultM(String).t
+      =
     match run ?input ?inputs ?env ~prog ~args () with
     | Ok { stdout; stderr } -> Ok (stdout ^ stderr)
     | Error { stdout; stderr } -> Error (stdout ^ stderr)

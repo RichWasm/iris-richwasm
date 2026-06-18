@@ -206,7 +206,8 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                       MM.compile_to_richwasm ~asprintf src
                       |> map_error_into CompilerError.module3
                   | _ -> fail (CompilerError.badinfo info)
-              end in
+              end
+              in
               let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
               let module1 =
                 (* lin-lang *)
@@ -310,7 +311,8 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                       LL.compile_to_richwasm ~asprintf src
                       |> map_error_into CompilerError.module3
                   | _ -> fail (CompilerError.badinfo info)
-              end in
+              end
+              in
               let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
               let module1 =
                 (* mini-ml *)

@@ -3,11 +3,12 @@ open! Test_examples.Mini_ml
 
 (* results are rendered structurally by the runtime host (tests/support/walker.ts) *)
 let i31 x = sprintf "%i" x
-
 let list_rec = "(rec (b) (+ (*) (* int b)))"
 let list_sum = "(+ (*) (* int (rec (b) (+ (*) (* int b)))))"
 let nil = sprintf "(fold %s (inj 0 (tup) : %s))" list_rec list_sum
-let cons h t = sprintf "(fold %s (inj 1 (tup %i %s) : %s))" list_rec h t list_sum
+
+let cons h t =
+  sprintf "(fold %s (inj 1 (tup %i %s) : %s))" list_rec h t list_sum
 
 let len_fn =
   sprintf

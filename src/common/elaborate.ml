@@ -1198,7 +1198,7 @@ let rec elab_instruction (env : Env.t) :
       in
       let shifted_stack = List.map ~f:shift_ty st.stack in
       let shifted_locals = List.map ~f:shift_ty st.locals in
-      let st_inner_init: State.t =
+      let st_inner_init : State.t =
         { stack = t_body :: shifted_stack; locals = shifted_locals }
       in
       let* () = put st_inner_init in
