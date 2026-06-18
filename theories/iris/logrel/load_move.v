@@ -247,7 +247,7 @@ Section load_move.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hcg1 & Hcg2 & Hcg3 & Hwt7 & Hwl7 & Hes_rest2).
       iApply (Hes_rest2 with "[$] [$] []").
-      { admit.}
+      { admit. }
       { iIntros "!> Hf Hr".
         inv_cg_ret Hcg2.
         iApply (cwp_val with "[$] [$]"); first (clear_nils; eauto using has_values_to_consts).
