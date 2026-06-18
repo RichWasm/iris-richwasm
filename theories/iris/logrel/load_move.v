@@ -25,6 +25,118 @@ Section load_move.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma reconstitute_val_strong θ μ o ws off ι ns ns32 :
+    "Hws" ∷ words_interp θ μ (get_path_words off (arep_size ι) ws) ns -∗
+    "%Hbound" ∷ ⌜off + arep_size ι <= length ws⌝ -∗
+    "%Harep" ∷ ⌜has_arep ι o⌝ -∗
+    "%Hser" ∷ ⌜serialize_atom o = get_path_words off (arep_size ι) ws⌝ -∗
+    "%Hns" ∷ ⌜Forall2 N_i32_repr ns ns32⌝ -∗
+    ∃ v, ⌜flat_map serialise_i32 ns32 = bits v⌝ ∗
+         atom_interp_weak θ μ o v ∗
+         words_interp θ μ (map WordInt ns) ns.
+  Proof.
+    repeat iIntros "@".
+    set (bs := flat_map serialise_i32 ns32).
+    pose proof Hns as Hnslen.
+    pose proof (has_arep_size ι o Harep) as Hreplen.
+    apply Forall2_length in Hnslen.
+    iPoseProof (big_sepL2_length with "Hws") as "%Hlenws".
+    assert (length ns32 = length (get_path_words off (arep_size ι) ws)) as Hseglen;
+      first by rewrite Hlenws.
+    destruct o, ι; try elim Harep.
+    - iExists (wasm_deserialise bs T_i32).
+      iSplitR.
+      {
+        rewrite bits_deserialise; first done.
+        rewrite len_ser32.
+        rewrite Hseglen -Hser.
+        by rewrite Hreplen.
+      }
+      cbn in Hbound.
+      inversion Hser as [Hser'].
+      cbn [arep_size] in *.
+      rewrite -Hser'.
+      rewrite -Hser' in Hlenws.
+      destruct ns as [| n [| n' ns']]; cbn in Hlenws; try lia; clear Hlenws.
+      destruct ns32 as [| n32 [| n32' ns32']]; cbn in Hnslen; try lia; clear Hnslen.
+      inversion Hns as [|A B C D Hn _]; subst A B C D.
+      setoid_rewrite big_sepL2_singleton.
+      destruct μ; [destruct p; [| destruct μ]|];
+        try solve [
+          iDestruct "Hws" as "%Hrep";
+          iPureIntro;
+          intuition;
+          exists n, n32; intuition eauto;
+          cbn [bs flat_map];
+          apply deserialise_serialise_i32
+        ].
+      iDestruct "Hws" as "(%a & %Hrep & Ha)".
+      iSplitL.
+      + iExists n, n32.
+        iFrame.
+        iPureIntro.
+        intuition eauto.
+        apply deserialise_serialise_i32.
+      + done.
+    - rewrite -Hser.
+      rewrite -Hser in Hlenws; cbn in Hlenws.
+      destruct ns as [| n' [| n'' ns']]; cbn in Hlenws; try lia; clear Hlenws.
+      destruct ns32 as [| n32 [| n32' ns32']]; cbn in Hnslen; try lia; clear Hnslen.
+      inversion Hns as [|A B C D Hn _]; subst A B C D.
+      setoid_rewrite big_sepL2_singleton.
+      iDestruct "Hws" as "%Hws".
+      subst n'.
+      iPureIntro.
+      exists (wasm_deserialise bs T_i32).
+      rewrite bits_deserialise; eauto.
+      intuition.
+      rewrite deserialise_serialise_i32.
+      assert (N_i32_repr (Wasm_int.N_of_uint i32m n) n) by reflexivity.
+      by erewrite (N_i32_repr_inj2 _ n32 n).
+    - rewrite -Hser.
+      rewrite -Hser in Hlenws; cbn in Hlenws.
+      destruct ns as [| n' [| n'' [| n''' ns']]]; cbn in Hlenws; try lia; clear Hlenws.
+      destruct ns32 as [| n32 [| n32' [| n32'' ns32']]]; cbn in Hnslen; try lia; clear Hnslen.
+      inversion Hns as [|A B C D Hn [|A' B' C' D' Hn' _]]; subst.
+      setoid_rewrite big_sepL2_cons.
+      setoid_rewrite big_sepL2_cons.
+      iDestruct "Hws" as "(%Hws1 & %Hws2 & _)".
+      cbn.
+      iPureIntro.
+      exists (wasm_deserialise bs T_i64).
+      intuition.
+      + admit.
+      + admit.
+    - rewrite -Hser.
+      rewrite -Hser in Hlenws; cbn in Hlenws.
+      destruct ns as [| n' [| n'' ns']]; cbn in Hlenws; try lia; clear Hlenws.
+      destruct ns32 as [| n32 [| n32' ns32']]; cbn in Hnslen; try lia; clear Hnslen.
+      inversion Hns as [|A B C D Hn _]; subst A B C D.
+      setoid_rewrite big_sepL2_singleton.
+      iDestruct "Hws" as "%Hws".
+      subst n'.
+      iPureIntro.
+      exists (wasm_deserialise bs T_f32).
+      rewrite bits_deserialise; eauto.
+      intuition.
+      admit. (* need deser-ser lemma *)
+    - rewrite -Hser.
+      rewrite -Hser in Hlenws; cbn in Hlenws.
+      destruct ns as [| n' [| n'' [| n''' ns']]]; cbn in Hlenws; try lia; clear Hlenws.
+      destruct ns32 as [| n32 [| n32' [| n32'' ns32']]]; cbn in Hnslen; try lia; clear Hnslen.
+      inversion Hns as [|A B C D Hn [|A' B' C' D' Hn' _]]; subst.
+      setoid_rewrite big_sepL2_cons.
+      setoid_rewrite big_sepL2_cons.
+      iDestruct "Hws" as "(%Hws1 & %Hws2 & _)".
+      cbn.
+      iPureIntro.
+      exists (wasm_deserialise bs T_f64).
+      intuition.
+      + admit.
+      + admit.
+  Admitted.
+
+
   Lemma wp_load1_move_mm (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
     let fe := fe_of_context F in
     run_codegen (memory.load1 mr fe MemMM Move lidx off ι) wt wl = inr (ret, wt', wl', es) ->
@@ -92,7 +204,7 @@ Section load_move.
     iPoseProof (virt_to_phys_slice_store_acc_strong _ _ lmask off (arep_size ι) with "[//] [$] [$] [$] [//]")
       as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
     (* Opening word_interp *)
-    iPoseProof (reconstitute_val rti sr mr with "[$Hwords] [//] [//] [//] [//]") as "(%v & %Hserws & Hat & Hret)".
+    iPoseProof (reconstitute_val_strong with "[$Hwords] [//] [//] [//] [//]") as "(%v & %Hserws & Hat & Hret)".
     rewrite !Hserws.
     set (PHYS := (rt_memaddr sr MemMM↦[wms][a + 4 * N.of_nat off]bits v)%I) in *.
     iPoseProof (atom_interp_weak_types_agree with "[//] [$Hat]") as "%Htag".
@@ -115,13 +227,55 @@ Section load_move.
       - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [v]⌝%I).
     }
     iIntros (? ?) "(-> & ->) Hf Hrun".
-    iAssert ((CWP es_rest2 @ s; E UNDER B; R {{ f'; vs', ⌜f' = f⌝ ∗ ⌜vs' = []⌝ }})%I) as "Hrest2".
-    {
-      iEval (change es_rest2 with ([] ++ es_rest2)).
-      destruct (atomic_rep_eq_dec ι PtrR); try subst ι.
-      - admit.
-  Admitted.
 
+    iSpecialize ("Hclose" with "[] [] [] [] [Hphys] [Hat Hret] [$Hnp]").
+    { admit. }
+    { admit. }
+    { admit. }
+    { admit. }
+    { unfold PHYS. rewrite -Hserws.
+      done. }
+    { by iApply "Hret". }
+    iApply fupd_cwp.
+    iMod "Hclose" as "(Hhp & Haddr & Htok)".
+    iModIntro.
+    destruct (atomic_rep_eq_dec ι PtrR).
+    + subst ι.
+      destruct o; try (exfalso; tauto).
+      eapply wp_ite_gc_ptr_ptr with (evs:= to_consts [v]) (vs:=[v]) in Hcompile;
+        [|by apply Is_true_true, has_values_to_consts|done| by econstructor |done].
+      destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
+      destruct Hcompile as (Hcg1 & Hcg2 & Hcg3 & Hwt7 & Hwl7 & Hes_rest2).
+      iApply (Hes_rest2 with "[$] [$] []").
+      {
+        iPureIntro; cbn.
+        rewrite list_lookup_insert.
+        rewrite decide_True; auto.
+        split; first done.
+        cbn in Hfsz.
+        subst.
+        rewrite !length_app in Hfsz.
+        eapply Nat.lt_le_trans; last apply Hfsz.
+        lia.
+      }
+      { iIntros "!> Hf Hr".
+        inv_cg_ret Hcg2.
+        iApply (cwp_val with "[$] [$]"); first (clear_nils; eauto using has_values_to_consts).
+        iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] []").
+        - admit.
+        - admit.
+        - admit.
+        - admit.
+      }
+    + eapply wp_ite_gc_ptr_nonptr in Hcompile; last assumption.
+      inv_cg_ret Hcompile; subst; clear_nils.
+      iApply (cwp_val with "[$] [$]"); first eauto using has_values_to_consts.
+      iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] []").
+      * admit.
+      * admit.
+      * admit.
+      * admit.
+  Admitted.
 
   Lemma wp_mem_load_move_inner ιs :
     ∀ (se : @semantic_env Σ) F lidx off wt wl ret wt' wl' es,
