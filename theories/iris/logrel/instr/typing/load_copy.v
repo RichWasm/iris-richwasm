@@ -7,7 +7,8 @@ Require Import RichWasm.iris.runtime.
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.path.
-Require Import RichWasm.iris.logrel.load.
+Require Import RichWasm.iris.logrel.load_common.
+Require Import RichWasm.iris.logrel.load_copy.
 Require Import RichWasm.iris.logrel.roots.
 Require Import RichWasm.iris.logrel.copy.
 

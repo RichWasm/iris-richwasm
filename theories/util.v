@@ -667,3 +667,17 @@ Qed.
     - rewrite length_take. lia.
     - rewrite length_drop. lia.
   Qed.
+
+  Lemma len_ser32 ns :
+    (length (flat_map datatypes.serialise_i32 ns) = 4 * length ns)%nat.
+  Proof.
+    induction ns.
+    - done.
+    - cbn.
+      rewrite length_app.
+      setoid_rewrite IHns.
+      unfold datatypes.serialise_i32.
+      rewrite Memdata.encode_int_length.
+      cbn.
+      lia.
+  Qed.

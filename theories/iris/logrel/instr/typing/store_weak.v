@@ -4,8 +4,9 @@ Require Import RichWasm.util.
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.roots.
-Require Import RichWasm.iris.logrel.load. (* TODO: remove import *)
+Require Import RichWasm.iris.logrel.load_common.
 Require Import RichWasm.iris.logrel.path.
+Require Import RichWasm.iris.logrel.rt_token.
 Require Import RichWasm.iris.numerics.
 
 Set Bullet Behavior "Strict Subproofs".

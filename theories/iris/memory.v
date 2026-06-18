@@ -232,6 +232,24 @@ Section Token.
       ⌜heap_ok θ hm⌝ ∗
       heap_memory θ hm.
 
+  Definition rt_token_phys θ hm : iProp Σ :=
+      ghost_map_auth rw_addr (1/2) θ ∗
+      heap_memory θ hm ∗
+      ghost_map_auth rw_heap 1 hm.
+
+  Definition rt_token_nophys (lmask : locpred) (θ : address_map) hm : iProp Σ :=
+    ∃ rm lm,
+      ghost_map_auth rw_root (1/2) rm ∗
+      ghost_map_auth rw_layout (1/2) lm ∗
+      rti θ rm lm ∗
+      ⌜gmap_injective θ⌝ ∗
+      own_addr_mm θ hm ∗
+      own_addr_gc θ ∗
+      ⌜root_ok θ rm⌝ ∗
+      root_memory θ rm ∗
+      ⌜layout_ok lmask lm hm⌝ ∗
+      ⌜heap_ok θ hm⌝.
+
 End Token.
 
 Ltac open_rt H :=

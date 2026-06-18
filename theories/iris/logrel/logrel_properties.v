@@ -1802,6 +1802,72 @@ Section properties.
       lia.
   Qed.
 
+  Lemma own_addr_mm_trivial (θ : address_map) (ℓ : location) :
+    ⊢ ∃ a : N, ⌜θ !! ℓ = Some (MemMM, a)⌝ -∗ ℓ ↦addr (MemMM, a).
+  Proof.
+    destruct (θ !! ℓ) as [[μ a] |] eqn:Hθ.
+    - iExists (a + 1)%N. iIntros "%H". simplify_eq. lia.
+    - iExists 0%N. by iIntros "%H".
+  Qed.
+
+  Lemma own_addr_mm_trivial_list (θ : address_map) (ℓs : list location) :
+    ⊢ [∗ list] ℓ ∈ ℓs,
+        ∃ a : N, ⌜θ !! ℓ = Some (MemMM, a)⌝ -∗ ℓ ↦addr (MemMM, a).
+  Proof.
+    iInduction ℓs as [|ℓ rest] "IH".
+    - done.
+    - iSplitL.
+      + iApply own_addr_mm_trivial.
+      + iApply "IH".
+  Qed.
+
+  Lemma heap_memory_dom_eq θ hm :
+    heap_memory sr θ hm ⊢ ⌜dom θ = dom hm⌝.
+  Proof. iApply big_sepM2_dom. Qed.
+
+  Lemma heap_memory_delete ℓ μ a ws θ hm :
+    θ !! ℓ = Some (μ, a) →
+    hm !! ℓ = Some ws →
+    heap_memory sr θ hm ⊢
+      (∃ ns ns32, ⌜Forall2 N_i32_repr ns ns32⌝ ∗
+                  rt_memaddr sr μ ↦[wms][a] flat_map serialise_i32 ns32 ∗
+                  words_interp θ μ ws ns) ∗
+      ∀ ws',
+        (∃ ns' ns32', ⌜Forall2 N_i32_repr ns' ns32'⌝ ∗
+                      rt_memaddr sr μ ↦[wms][a] flat_map serialise_i32 ns32' ∗
+                      words_interp θ μ ws' ns') -∗
+        heap_memory sr θ (<[ℓ := ws']> hm).
+  Proof.
+    intros Hθℓ Hhm.
+    iIntros "Hmem". unfold heap_memory.
+    have Hθ : <[ℓ := (μ, a)]> (delete ℓ θ) = θ.
+    { apply map_eq; intros k; destruct (decide (k = ℓ)) as [->|Hne].
+      - rewrite lookup_insert -Hθℓ. by rewrite decide_True.
+      - rewrite lookup_insert_ne // lookup_delete_ne //. }
+    have Hhm0 : <[ℓ := ws]> (delete ℓ hm) = hm.
+    { apply map_eq; intros k; destruct (decide (k = ℓ)) as [->|Hne].
+      - rewrite lookup_insert -Hhm. by rewrite decide_True.
+      - rewrite lookup_insert_ne // lookup_delete_ne //. }
+    iEval (rewrite -{1 2}Hθ -{1}Hhm0) in "Hmem".
+    iEval (rewrite big_sepM2_insert_delete) in "Hmem".
+    rewrite !delete_delete_eq.
+    iDestruct "Hmem" as "[Hentry Hrest]".
+    iSplitL "Hentry"; first by rewrite Hθ.
+    iIntros (ws') "Hws'".
+    unfold heap_memory.
+    have Hhm' : <[ℓ := ws']> hm = <[ℓ := ws']> (delete ℓ hm).
+    { apply map_eq; intros k; destruct (decide (k = ℓ)) as [->|Hne].
+      - rewrite !lookup_insert. by rewrite !decide_True.
+      - by rewrite !lookup_insert_ne // lookup_delete_ne. }
+    iEval (rewrite -{1 2}Hθ Hhm').
+    iEval (rewrite big_sepM2_insert_delete).
+    rewrite !delete_delete_eq.
+    iFrame.
+    by rewrite Hθ.
+  Qed.
+
+
+
 End properties.
 
 (* Setting up Inhabited instances allows commuting existential quantifiers
