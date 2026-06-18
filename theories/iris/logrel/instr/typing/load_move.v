@@ -107,7 +107,7 @@ Section load_move.
     iIntros (se fr os vs evs θ B R).
     repeat iIntros "@".
 
-    pose proof (wp_mem_load_move_mm rti sr _ se _ _ _ _ _ _ _ _ _ _ Hload) as Hload_spec.
+    pose proof (wp_mem_load_move rti sr _ se _ _ _ _ _ _ _ _ _ _ Hload) as Hload_spec.
     destruct Hload_spec as (_ & -> & -> & Hload_spec).
     clear_nils.
 
