@@ -52,14 +52,47 @@ Section virt_to_phys_strong.
         by specialize (Hlmask Hl2). (* NOTE: THIS IS WHERE LMASK = FALSE COMES IN *)
       + rewrite lookup_insert_ne //.
     - unfold map_Forall. intros k ws0 Hk.
-      destruct (decide (k = ℓ)) as [->|Hne].
-      + admit.
-      + admit.
+      destruct (decide (ℓ = k)) as [->|Hne].
+      + rewrite lookup_insert decide_True in Hk; last done; inversion Hk; subst ws0; clear Hk.
+        clear Hlocsθ; clear Hdomθ.
+        rewrite Hl in Hws_old; inversion Hws_old; subst ws_old; clear Hws_old.
+        apply Hdomhm in Hl as Hdomhmk.
+        cbn; cbn in Hdomhmk.
+        rewrite flat_map_concat_map in Hlocshm.
+        rewrite flat_map_concat_map !map_app !concat_app in Hdomhmk.
+        rewrite flat_map_concat_map !map_app !concat_app.
+        apply Forall_app in Hdomhmk as (Hws_l & Hrest).
+        apply Forall_app in Hrest as (_ & Hws_r).
+        apply Forall_app_2. {
+          eapply Forall_impl; first exact Hws_l.
+          apply dom_insert_subseteq.
+        }
+        apply Forall_app_2; eapply Forall_impl; [exact Hlocshm| | exact Hws_r |];
+          apply dom_insert_subseteq.
+      + rewrite (lookup_insert_ne hm ℓ k _ Hne) in Hk.
+        apply Hdomhm in Hk as Hdomhk.
+        eapply Forall_impl; first exact Hdomhk.
+        intros x0.
+        cbn.
+        apply dom_insert_subseteq.
     - unfold map_Forall2. intro k.
-      destruct (decide (k = ℓ)) as [->|Hne].
-      + admit.
-      + admit.
-  Admitted.
+      destruct (decide (ℓ = k)) as [->|Hne].
+      + rewrite lookup_insert Hθℓv decide_True; last done. constructor.
+        specialize (Hdomθ k) as Hdomθk.
+        rewrite Hws_old Hθℓv in Hdomθk.
+        inversion Hdomθk; subst; clear Hdomθk; rename H1 into Hdomθk.
+        rewrite Hl in Hws_old; inversion Hws_old; subst ws_old.
+        cbn; cbn in Hdomθk.
+        rewrite flat_map_concat_map in Hlocsθ.
+        rewrite flat_map_concat_map !map_app !concat_app in Hdomθk.
+        rewrite flat_map_concat_map !map_app !concat_app.
+        apply Forall_app in Hdomθk as (Hws_l & Hrest).
+        apply Forall_app in Hrest as (_ & Hws_r).
+        apply Forall_app_2; first done.
+        apply Forall_app_2; done.
+      + rewrite (lookup_insert_ne hm ℓ k _ Hne).
+        apply Hdomθ.
+  Qed.
 
   Lemma words_locs_have_addrs_app θ ws1 ws2 :
     words_locs_have_addrs θ (ws1 ++ ws2) ⊣⊢ words_locs_have_addrs θ ws1 ∗ words_locs_have_addrs θ ws2.
