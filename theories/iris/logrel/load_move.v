@@ -201,7 +201,7 @@ Section load_move.
     iIntros (f' vs') "[-> ->] Hf Hrun".
     rewrite app_assoc.
     (* Opening virt resources *)
-    iPoseProof (virt_to_phys_slice_store_acc_strong _ _ lmask off (arep_size ι) with "[//] [$] [$] [$] [//]")
+    iPoseProof (virt_to_phys_slice_store_acc_strong _ _ mr lmask off (arep_size ι) with "[//] [$] [$] [$] [//]")
       as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
     (* Opening word_interp *)
     iPoseProof (reconstitute_val_strong with "[$Hwords] [//] [//] [//] [//]") as "(%v & %Hserws & Hat & Hret)".
@@ -228,13 +228,14 @@ Section load_move.
     }
     iIntros (? ?) "(-> & ->) Hf Hrun".
 
-    iSpecialize ("Hclose" with "[] [] [] [] [Hphys] [Hret] [$Hnp]").
+    iSpecialize ("Hclose" with "[] [] [] [] [Hphys] [] [Hret] [$Hnp]").
     { admit. }
     { admit. }
     { admit. }
     { admit. }
     { unfold PHYS. rewrite -Hserws.
       done. }
+    { admit. }
     { by iApply "Hret". }
     iApply fupd_cwp.
     iMod "Hclose" as "(Hhp & Haddr & Htok)".

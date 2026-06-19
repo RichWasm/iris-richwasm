@@ -209,7 +209,7 @@ Section store_weak.
     }
     iIntros (f' vs') "[-> ->] Hf Hrun".
     (* Open abstract-physical connection for the slice [off, off + arep_size ι) *)
-    iPoseProof (virt_to_phys_slice_store_acc_weak _ _ lmask off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr]")
+    iPoseProof (virt_to_phys_slice_store_acc_weak _ _ mr lmask off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr]")
       as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
     (* atom_to_words_mm consumes Hat; it also returns types_agree which is needed for Hstore_spec *)
     iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
@@ -570,7 +570,7 @@ Section store_weak.
     iPoseProof (big_sepL2_length with "Hwords'") as "%Hns'len".
     set (hm' := <[ℓ := update_path_words off ws ws_new]> hm).
     iAssert (rt_token_nophys rti sr lmask θ hm') with "[Hnp]" as "Hnp'".
-    { iApply (rt_token_nophys_insert_heap_weak _ _ _ _ _ _ ws with "Hnp").
+    { iApply (rt_token_nophys_insert_heap_weak _ _ mr _ _ _ _ ws with "Hnp").
       - exact Hhm.
       - intro Hcontra; done.
       - eauto.

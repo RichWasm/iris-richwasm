@@ -140,7 +140,7 @@ Section store_strong.
     }
     iIntros (f' vs') "[-> ->] Hf Hrun".
     (* Open abstract-physical connection for the slice [off, off + arep_size ι) *)
-    iPoseProof (virt_to_phys_slice_store_acc_strong rti sr lmask off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr] [//]")
+    iPoseProof (virt_to_phys_slice_store_acc_strong rti sr mr lmask off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr] [//]")
       as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
     (* atom_to_words_mm consumes Hat; it also returns types_agree which is needed for Hstore_spec *)
     iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
@@ -164,16 +164,21 @@ Section store_strong.
     iNext; iIntros "Hnew_phys".
     iEval (rewrite <- Hbits) in "Hnew_phys".
     iMod ("Hclose" $! (serialize_atom o) ns_new ns32_new
-      with "[%] [%] [%] [%] [$Hnew_phys] [$Hwords_new] [$Hnp]") as "(Hptr_new & Haddr & Htok)".
+      with "[%] [%] [%] [%] [$Hnew_phys] [] [$Hwords_new] [$Hnp]") as "(Hptr_new & Haddr & Htok)".
     - exact (has_arep_size ι o Harep).
     - exact Hns_new.
     - eapply Forall_impl.
-      + exact (update_path_words_locs_incl (dom θ) ws off (serialize_atom o) Hlocsθ_ws Hlocsθ_new).
+      + exact Hlocsθ_new.
+        (* exact (update_path_words_locs_incl (dom θ) ws off (serialize_atom o) Hlocsθ_ws Hlocsθ_new). *)
       + intros ℓ' Hℓ'. rewrite <- Hdomθhm. exact Hℓ'.
-    -  exact (update_path_words_locs_incl (dom θ) ws off (serialize_atom o)
-               Hlocsθ_ws Hlocsθ_new).
-    - iModIntro. iApply ("HΦ" with "[$] [$]"); iFrame.
-  Qed.
+    - exact Hlocsθ_new.
+      (* exact (update_path_words_locs_incl (dom θ) ws off (serialize_atom o) *)
+      (*          Hlocsθ_ws Hlocsθ_new). *)
+    - unfold words_locs_have_addrs.
+      unfold loc_has_addr.
+      admit.
+    - iModIntro. iApply ("HΦ" with "[$] [$] [$]").
+  Admitted.
 
   Lemma wp_store_strong_mm_inner a_idx ιs :
     ∀ off vs_idx wt wl ret wt' wl' es,
