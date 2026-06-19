@@ -214,11 +214,11 @@ Section store_weak.
     (* atom_to_words_mm consumes Hat; it also returns types_agree which is needed for Hstore_spec *)
     iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
     (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
-    iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
-    iPoseProof (words_interp_locs_dom_θ θ rm MemMM _ ns_new Hrootok with "[$Hwords_new] [$Hroot]")
+    iDestruct "Hnp" as "(Haddr & %rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok)".
+    iPoseProof (words_interp_locs_dom_θ θ rm MemMM _ ns_new Hrootok with "[$] [$] [$]")
       as "%Hlocsθ_new".
-    iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
-    { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+    iAssert (rt_token_nophys rti sr lmask θ hm) with "[Haddr Hroot Hlayout Hrti Hrootmem]" as "Hnp".
+    { iFrame. iPureIntro. split; last split; done. }
     (* Compute byte-length of old slice *)
     iPoseProof (big_sepL2_length with "Hwords") as "%Hlenws".
     assert (Hlenbytes : length (flat_map serialise_i32 ns32) = length_t (translate_arep ι)).
@@ -531,7 +531,8 @@ Section store_weak.
     iSplit; first (iPureIntro; exact Hhm).
     iSplit; first (iPureIntro; exact Hdomθhm).
     iSplit; first (iPureIntro; exact Hlocsθ_ws).
-    iSplitL "Hroot Hlayout Hrti Hownmm Howngc Hrootmem"; first by iFrame.
+    iFrame "Haddr".
+    iSplitL "Hroot Hlayout Hrti Hrootmem"; first by iFrame.
     iDestruct "HR" as "(%ns_all & %ns32_all & %Hns_all & Hphys_all & Hwords_all)".
     assert (ws = take off ws ++ slice ++ drop (off + sz) ws) as Hws.
     {
@@ -577,7 +578,7 @@ Section store_weak.
       - eauto. }
     iApply (rt_token_putheap rti sr lmask θ hm' with "Hnp'").
     unfold rt_token_phys.
-    iFrame "Haddr Hheap'".
+    iFrame "Hheap'".
     iApply ("Hheapcont" $! (update_path_words off ws ws_new)).
     iExists (ns_pre ++ ns' ++ ns_post), (ns32_pre ++ ns32' ++ ns32_post).
     iSplit; first by (iPureIntro; eauto using Forall2_app).
@@ -791,11 +792,11 @@ Section store_weak.
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
-        iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
-        iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot]")
+        iDestruct "Hnp" as "(Haddr_auth & %rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok)".
+        iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$] [$]")
           as "%Hlocsθ_new".
-        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
-        { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hrootmem Haddr_auth]" as "Hnp".
+        { iFrame. iPureIntro. split; last split; done. }
 
         specialize (Hcg1spec a a32).
         specialize (Hcg1spec (sr_mem_gc sr) (rt_memaddr sr MemGC)).
@@ -886,10 +887,12 @@ Section store_weak.
 
         (* make an atom_interp_weak *)
         iAssert (atom_interp_weak θ MemGC (PtrA (PtrHeap MemMM ℓ0)) (VAL_int32 n32))
-          with "[]" as "Hat2". {
+          with "[Haddr_ℓ0]" as "Hat2". {
           cbn.
           iExists (tag_address MemMM a0)%N, n32.
           iSplitR; [done| iSplitR; [done|]].
+          iExists a0.
+          iFrame.
           iPureIntro.
           constructor; try done.
         }
@@ -898,11 +901,11 @@ Section store_weak.
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
-        iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
-        iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot]")
+        iDestruct "Hnp" as "(Haddr_auth & %rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok)".
+        iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot] [$]")
           as "%Hlocsθ_new".
-        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
-        { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hrootmem Haddr_auth]" as "Hnp".
+        { by iFrame. }
 
         specialize (Hcg2spec a a32).
         specialize (Hcg2spec (sr_mem_gc sr) (rt_memaddr sr MemGC)).
@@ -1000,7 +1003,7 @@ Section store_weak.
         rewrite app_assoc.
 
         (* break apart rt token *)
-        iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
+        iDestruct "Hnp" as "(Haddr_auth & %rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok)".
 
         iApply (cwp_seq with "[Hf Hrun Hroot_ℓ0 Hrootmem Hroot]"). {
           (* to isolate load_root, first a val_app *)
@@ -1029,8 +1032,8 @@ Section store_weak.
         iIntros (f' vs') "Hres Hf Hrun".
         iDestruct "Hres" as "(%ah & %ah32 & (-> & ->)
           & %Hrepr_ah & %Hrepr_ptr & Hroot_ℓ0 & Hroot & Hrootmem)".
-        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
-        { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hrootmem Haddr_auth]" as "Hnp".
+        { by iFrame. }
         clear dependent rm. clear dependent lm. clear Hinj.
 
         (* we are past loadroot!! *)
@@ -1052,11 +1055,11 @@ Section store_weak.
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
-        iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
-        iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot]")
+        iDestruct "Hnp" as "(Haddr_auth & %rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok)".
+        iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot] [$]")
           as "%Hlocsθ_new".
-        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
-        { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+        iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hrootmem Haddr_auth]" as "Hnp".
+        { by iFrame. }
         clear dependent rm; clear dependent lm; clear Hinj.
         move Hcg3spec at bottom.
 
@@ -1160,11 +1163,11 @@ Section store_weak.
         "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
       (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
-      iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
-      iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot]")
+      iDestruct "Hnp" as "(Haddr_auth & %rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok)".
+      iPoseProof (words_interp_locs_dom_θ θ rm MemGC _ _ Hrootok with "[$Hwords_new] [$Hroot] [$Haddr_auth]")
         as "%Hlocsθ_new".
-      iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
-      { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+      iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hrootmem Haddr_auth]" as "Hnp".
+      { by iFrame. }
       clear dependent rm; clear dependent lm; clear Hinj.
 
       move Hcgspec at bottom.
@@ -1205,7 +1208,6 @@ Section store_weak.
         iModIntro.
         iDestruct "Hclose" as "[pls hlp]".
         iApply ("HΦ" with "[$] [$] [$] [$]").
-
   Admitted.
 
   Lemma wp_store_weak_gc_inner a_idx ιs:
@@ -2355,7 +2357,7 @@ Section store_weak.
       clear Hlayoutok. (* don't want to accidentally use it *)
 
       iAssert (rt_token rti sr lpall θ) with
-        "[Haddr Hroot Hlayout Hheap Hrti Hownmm Howngc Hrootmem Hheapmem]" as "Hrt". {
+        "[Haddr Hroot Hlayout Hheap Hrti Hrootmem Hheapmem]" as "Hrt". {
         unfold rt_token.
         iExists rm, lm, hm.
         iFrame.
@@ -2722,7 +2724,7 @@ Section store_weak.
         unfold rt_token.
         iDestruct "Hrt" as "(%rm_gc & %lm_gc & %hm_gc &
           Haddr_gc & Hroot_gc_auth & Hlayout_gc & Hheap_gc &
-          Hrti_gc & %Hinj_gc & Hownmm_gc & Howngc_gc &
+          Hrti_gc & %Hinj_gc &
           %Hrootok_gc & Hrootmem_gc & %Hheapok_gc & Hheapmem_gc)".
         pose proof (wp_root_to_heap sr _ _ _ _ _ _ _ Hcg_root_gc) as Hrth_gc.
         specialize (Hrth_gc a_root n n32 ℓ θ rm_gc Hn32 Hreproot Hrootok_gc).
@@ -2776,7 +2778,7 @@ Section store_weak.
         (* Restore rt_token *)
         iAssert (rt_token rti sr lpall θ) with
           "[Haddr_gc Hroot_gc_auth' Hlayout_gc Hheap_gc Hrti_gc
-            Hownmm_gc Howngc_gc Hrootmem_gc' Hheapmem_gc]" as "Hrt".
+            Hrootmem_gc' Hheapmem_gc]" as "Hrt".
         { unfold rt_token. iExists rm_gc, lm_gc, hm_gc.
           iFrame. by iFrame (Hinj_gc Hrootok_gc Hheapok_gc).
         }

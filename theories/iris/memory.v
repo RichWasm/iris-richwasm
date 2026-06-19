@@ -147,7 +147,7 @@ Section Token.
         | MemMM, PtrHeap MemGC ℓ =>
             ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
         | _, PtrHeap MemMM ℓ =>
-            ∃ a, ⌜repr_pointer θ p n⌝ ∗ ℓ ↦addr (MemMM, a)
+            ∃ a, ⌜repr_root_pointer (RootHeap MemMM a) n⌝ ∗ ℓ ↦addr (MemMM, a)
         | _, _ => ⌜repr_pointer θ p n⌝
         end
     end.
@@ -165,6 +165,8 @@ Section Token.
           match μ, p with
           | MemMM, PtrHeap MemGC ℓ =>
               ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
+          | _, PtrHeap MemMM ℓ =>
+              ∃ a, ⌜repr_root_pointer (RootHeap MemMM a) n⌝ ∗ ℓ ↦addr (MemMM, a)
           | _, _ => ⌜repr_pointer θ p n⌝
           end
     | I32A n => ⌜v = VAL_int32 n⌝
@@ -225,11 +227,11 @@ Section Token.
       heap_memory θ hm.
 
   Definition rt_token_phys θ hm : iProp Σ :=
-      ghost_map_auth rw_addr (1/2) θ ∗
       heap_memory θ hm ∗
       ghost_map_auth rw_heap 1 hm.
 
   Definition rt_token_nophys (lmask : locpred) (θ : address_map) hm : iProp Σ :=
+    ghost_map_auth rw_addr (1/2) θ ∗
     ∃ rm lm,
       ghost_map_auth rw_root (1/2) rm ∗
       ghost_map_auth rw_layout (1/2) lm ∗
@@ -245,8 +247,7 @@ End Token.
 Ltac open_rt H :=
   iDestruct H
     as "(%rm & %lm & %hm &
-         Haddr & Hroot & Hlayout & Hheap & Hrti & %Hinj & Hownmm &
-         Howngc & %Hrootok & Hrootmem & %Hlayoutok & %Hheapok & Hheapmem)".
+         Haddr & Hroot & Hlayout & Hheap & Hrti & %Hinj & %Hrootok & Hrootmem & %Hlayoutok & %Hheapok & Hheapmem)".
 
 Section Rules.
 
