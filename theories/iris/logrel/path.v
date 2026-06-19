@@ -7,6 +7,7 @@ From RichWasm.compiler Require Import
 From RichWasm.iris.logrel Require Import
   instr.kinding
   instr.typing.common.
+From RichWasm.iris.logrel Require Export path_defs.
 
 Set Bullet Behavior "Strict Subproofs".
 (*Stuff to look at
@@ -42,6 +43,11 @@ Section PathFacts.
   Variable se : semantic_env (Σ:=Σ).
 
   Notation 𝕍 := (value_interp rti sr se).
+
+
+  Definition type_sz (fe : function_env) (τ : type) : option nat :=
+    σ ← type_size fe.(fe_type_vars) τ;
+    eval_size se σ.
 
   (* Lemma eval_rep_empty_ok_Some ρ : *)
   (*   rep_ok kc_empty ρ -> *)
@@ -112,18 +118,12 @@ Section PathFacts.
   (*   repeat eexists; eauto. *)
   (* Qed. *)
 
-  Definition get_path_words (off sz : nat) (ws : list word) : list word :=
-    firstn sz (skipn off ws).
-
   Lemma get_path_words_all ws :
     get_path_words 0 (length ws) ws = ws.
   Proof.
     unfold get_path_words.
     by rewrite skipn_0 firstn_all.
   Qed.
-
-  Definition update_path_words (off : nat) (ws ws' : list word) : list word :=
-    (firstn off ws) ++ ws' ++ (skipn (length ws') (skipn off ws)).
 
   Lemma update_path_words_size off ws ws' :
     off + length ws' <= length ws ->
@@ -148,16 +148,6 @@ Section PathFacts.
     rewrite take_0 app_nil_l.
     by rewrite drop_0 drop_all app_nil_r.
   Qed.
-
-  Definition pr_expected (pr : path_result) (τ__π: option type) :=
-    match τ__π with
-    | Some τ__π' => τ__π'
-    | None => pr.(pr_target)
-    end.
-
-  Definition type_sz (fe : function_env) (τ : type) : option nat :=
-    σ ← type_size fe.(fe_type_vars) τ;
-    eval_size se σ.
 
   Lemma mono_rep_eval_rep ρ :
     is_mono_rep ρ ->

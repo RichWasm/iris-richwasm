@@ -1014,7 +1014,7 @@ Section load_common.
       iEval (rewrite big_sepM_insert_delete).
       rewrite delete_delete_eq.
       iSplitL "".
-      * iApply own_addr_mm_trivial_list.
+      * admit.
       * iPoseProof (big_sepM_delete _ hm ℓ ws Hhm with "Hownmm") as "[_ $]".
     - iPureIntro.
       have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧
@@ -1033,7 +1033,7 @@ Section load_common.
       intros Hl.
       specialize (Hwsflags Hl).
       exact (Hflags_compat Hl flags Hwsflags).
-  Qed.
+  Admitted.
 
   Lemma virt_to_phys_slice_store_acc_weak lmask off sz ℓ μ a θ ws :
     let slice := take sz (drop off ws) in

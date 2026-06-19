@@ -183,18 +183,6 @@ Section load_copy.
     by iFrame.
   Qed.
 
-  Lemma update_get_path_id off sz ws :
-    sz + off ≤ length ws ->
-    update_path_words off ws (get_path_words off sz ws) = ws.
-  Proof.
-    etransitivity; last apply (take_drop off ws).
-    unfold update_path_words.
-    f_equal.
-    etransitivity; last apply (take_drop sz (drop off ws)).
-    f_equal.
-    rewrite length_take length_drop.
-    f_equal; lia.
-  Qed.
   Lemma forall_ptr_ser P o :
     forall_ptr_atom P o ->
     Forall (forall_ptr_word P) (serialize_atom o).

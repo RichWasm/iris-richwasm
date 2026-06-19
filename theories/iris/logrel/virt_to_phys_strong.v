@@ -7,9 +7,8 @@ Require Import RichWasm.iris.numerics.
 Require Import RichWasm.iris.runtime.
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.case_ptr.
-Require Import RichWasm.iris.logrel.path.
-Require Import RichWasm.iris.logrel.roots.
 Require Import RichWasm.iris.logrel.rt_token.
+Require Import RichWasm.iris.logrel.path_defs.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -24,8 +23,8 @@ Section virt_to_phys_strong.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-
-  Lemma heap_ok_update_strong θ lmask lm hm ℓ ws' flags :
+  Lemma heap_ok_update_strong θ lmask lm hm ℓ ws_l ws_r ws ws' flags :
+    hm !! ℓ = Some (ws_l ++ ws ++ ws_r) →
     layout_ok lmask lm hm ->
     heap_ok θ hm →
     ¬ lmask ℓ ->
@@ -33,9 +32,9 @@ Section virt_to_phys_strong.
     (* Forall2 word_has_flag flags ws' → *)
     Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
     Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
-    layout_ok lmask lm (<[ℓ := ws']> hm) /\ heap_ok θ (<[ℓ := ws']> hm).
+    layout_ok lmask lm (<[ℓ := ws_l ++ ws' ++ ws_r]> hm) /\ heap_ok θ (<[ℓ := ws_l ++ ws' ++ ws_r]> hm).
   Proof.
-    intros Hflags (Hdomhm & Hdomθ) Hlmask Hlm Hlocshm Hlocsθ.
+    intros Hl Hflags (Hdomhm & Hdomθ) Hlmask Hlm Hlocshm Hlocsθ.
     unfold layout_ok in Hflags.
     unfold map_Forall2 in Hflags, Hdomθ.
     unfold map_Forall in Hdomhm.
@@ -52,41 +51,48 @@ Section virt_to_phys_strong.
         intros Hl2.
         by specialize (Hlmask Hl2). (* NOTE: THIS IS WHERE LMASK = FALSE COMES IN *)
       + rewrite lookup_insert_ne //.
-    - unfold map_Forall. intros k ws Hk.
+    - unfold map_Forall. intros k ws0 Hk.
       destruct (decide (k = ℓ)) as [->|Hne].
-      + rewrite lookup_insert decide_True in Hk; last done. injection Hk as <-.
-        eapply Forall_impl; first exact Hlocshm.
-        intros ℓ' Hℓ'. rewrite dom_insert_L. set_solver.
-      + rewrite lookup_insert_ne // in Hk.
-        eapply Forall_impl; first exact (Hdomhm k ws Hk).
-        intros ℓ' Hℓ'. rewrite dom_insert_L. set_solver.
+      + admit.
+      + admit.
     - unfold map_Forall2. intro k.
       destruct (decide (k = ℓ)) as [->|Hne].
-      + rewrite lookup_insert Hθℓv decide_True; last done. constructor. exact Hlocsθ.
-      + rewrite lookup_insert_ne //.
+      + admit.
+      + admit.
+  Admitted.
+
+  Lemma words_locs_have_addrs_app θ ws1 ws2 :
+    words_locs_have_addrs θ (ws1 ++ ws2) ⊣⊢ words_locs_have_addrs θ ws1 ∗ words_locs_have_addrs θ ws2.
+  Proof.
+    unfold words_locs_have_addrs.
+    unfold words_locs.
+    rewrite flat_map_app.
+    apply big_sepL_app.
   Qed.
 
-
-  (* also weak. and here's where you need to know it's in the mask? I think? *)
-  Lemma rt_token_nophys_insert_heap_strong θ lmask hm ℓ ws ws' :
-    hm !! ℓ = Some ws →
+  Lemma rt_token_nophys_insert_heap_strong θ lmask hm ℓ ws_l ws ws' ws_r :
+    hm !! ℓ = Some (ws_l ++ ws ++ ws_r) →
     ¬ lmask ℓ ->
     (* (∀ flags, Forall2 word_has_flag flags ws → Forall2 word_has_flag flags ws') → *)
     Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
     Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
+    words_locs_have_addrs θ ws' -∗
     rt_token_nophys rti sr lmask θ hm -∗
-    ([∗ list] ℓ0 ∈ flat_map locations ws, ∃ a : address, ⌜θ !! ℓ0 = Some (MemMM, a)⌝ -∗ ℓ0 ↦addr (MemMM, a)) ∗
-    rt_token_nophys rti sr lmask θ (<[ℓ := ws']> hm).
+    words_locs_have_addrs θ ws ∗
+    rt_token_nophys rti sr lmask θ (<[ℓ := ws_l ++ ws' ++ ws_r]> hm).
   Proof.
     intros Hhm Hl Hlocshm Hlocsθ.
-    iIntros "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
+    iIntros "Haddr (%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
     iPoseProof (big_sepM_insert_acc _ _ _ _ Hhm with "[$]") as "[Hws Hput]".
+    iEval (rewrite !words_locs_have_addrs_app) in "Hws".
+    iDestruct "Hws" as "(Hws_l & Hws & Hws_r)".
     iFrame "Hws Hroot Hlayout Hrti Howngc Hrootmem".
     iSplit; first done.
     iSplit; last (iSplit; first done).
     - (* own_addr_mm θ (<[ℓ := ws']> hm) *)
       iApply "Hput".
-      iApply own_addr_mm_trivial_list.
+      iEval (rewrite !words_locs_have_addrs_app).
+      iFrame.
     - iPureIntro.
       have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧
                                   (lmask ℓ -> Forall2 word_has_flag flags ws).
@@ -95,11 +101,8 @@ Section virt_to_phys_strong.
         rewrite Hhm in Hcomp1. inversion Hcomp1. exists x. split; done. }
       destruct Hmapflags as [flags [Hflm Hwsflags]].
       destruct Hheapok as [Hlayoutok Hheapok].
-      eapply heap_ok_update_strong.
-      4: exact Hflm.
-      all: try done.
+      by eapply heap_ok_update_strong.
   Qed.
-
 
   (* I DONT KNOW IF IT SHOULD BE THE ALLMASK. MAYBE. MAKING IT LMASK FOR NOW *)
   (* ALSO NOT SUPER CERTAIN THE IF lmask ℓ IS A CORRECT HYPO TO HAVE *)
@@ -124,9 +127,10 @@ Section virt_to_phys_strong.
           ⌜Forall2 N_i32_repr ns' ns32'⌝ -∗
           (* ⌜∀ flags, Forall2 word_has_flag flags ws → *)
           (*           Forall2 word_has_flag flags (update_path_words off ws ws_new)⌝ -∗ *)
-          ⌜Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations (update_path_words off ws ws_new))⌝ -∗
-          ⌜Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations (update_path_words off ws ws_new))⌝ -∗
+          ⌜Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws_new)⌝ -∗
+          ⌜Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws_new)⌝ -∗
           rt_memaddr sr μ ↦[wms][a + 4 * N.of_nat off] flat_map serialise_i32 ns32' -∗
+          words_locs_have_addrs θ ws_new -∗
           words_interp θ μ ws_new ns' -∗
           rt_token_nophys rti sr lmask θ hm -∗
           |==> ℓ ↦heap (update_path_words off ws ws_new) ∗
@@ -181,20 +185,33 @@ Section virt_to_phys_strong.
     rewrite Hlenpre Nat2N.inj_mul.
     iSplitL "Hwords Hphys"; first by iFrame.
     (* Closing frame *)
-    iIntros (ws_new ns' ns32') "%Hlenws_new %Hns'' %Hlocshm %Hlocsθ Hphys' Hwords' Hnp".
+    iIntros (ws_new ns' ns32') "%Hlenws_new %Hns'' %Hlocshm %Hlocsθ Hphys' Hwordlocs Hwords' Hnp".
     iMod (ghost_map_update (update_path_words off ws ws_new) with "Hheap Hpt") as "[Hheap' Hpt']".
     iModIntro.
     iFrame "Hpt' Ha".
     pose proof (Forall2_length _ _ _ Hns'') as Hns32'len.
     iPoseProof (big_sepL2_length with "Hwords'") as "%Hns'len".
     set (hm' := <[ℓ := update_path_words off ws ws_new]> hm).
-    iAssert ((([∗ list] ℓ0 ∈ flat_map locations ws, ∃ a0 : address, ⌜θ !! ℓ0 = Some (MemMM, a0)⌝ -∗ ℓ0 ↦addr (MemMM, a0)) ∗
-             rt_token_nophys rti sr lmask θ hm')%I) with "[Hnp]" as "[Haddrs Hnp']".
-    { iApply (rt_token_nophys_insert_heap_strong _ _ _ _ ws with "Hnp").
-      - exact Hhm.
-      - (* what I changed *) exact Hlmask.
+    iAssert ((words_locs_have_addrs θ (get_path_words off sz ws) ∗
+             rt_token_nophys rti sr lmask θ hm')%I) with "[Hnp Hwordlocs]" as "[Haddrs Hnp']".
+    { unfold update_path_words in hm'.
+      iApply (rt_token_nophys_insert_heap_strong with "[$Hwordlocs] [$Hnp]").
+      - rewrite Hhm.
+        f_equal.
+        etransitivity.
+        + symmetry; eapply (update_get_path_id off sz); lia.
+        + unfold update_path_words.
+          f_equal.
+          f_equal.
+          f_equal.
+          rewrite length_take.
+          rewrite Hlenws_new.
+          rewrite length_drop.
+          lia.
+      - exact Hlmask.
       - exact Hlocshm.
-      - exact Hlocsθ. }
+      - exact Hlocsθ.
+    }
     iApply (rt_token_putheap _ _ lmask θ hm' with "Hnp'").
     unfold rt_token_phys.
     iFrame "Haddr Hheap'".

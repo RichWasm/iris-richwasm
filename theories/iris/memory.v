@@ -187,10 +187,24 @@ Section Token.
   Definition own_addr_gc (θ : address_map) : iProp Σ :=
     [∗ map] ℓ ↦ '(μ, a) ∈ θ, ⌜μ = MemGC⌝ -∗ ℓ ↦addr (MemGC, a).
 
+  Definition word_loc (w : word) : list location :=
+    match w with
+    | WordPtr (PtrHeap _ ℓ) => [ ℓ ]
+    | WordPtr (PtrInt _)
+    | WordInt _ => []
+    end.
+
+  Definition words_locs (ws : list word) : list location :=
+    flat_map word_loc ws.
+
+  Definition loc_has_addr (θ : address_map) (ℓ : location) : iProp Σ :=
+    ∃ a, ⌜θ !! ℓ = Some (MemMM, a)⌝ ∗ ℓ ↦addr (MemMM, a).
+
+  Definition words_locs_have_addrs (θ : address_map) (ws : list word) : iProp Σ :=
+    [∗ list] ℓ ∈ words_locs ws, loc_has_addr θ ℓ.
+
   Definition own_addr_mm (θ : address_map) (hm : heap_map) : iProp Σ :=
-    [∗ map] '_ ↦ ws ∈ hm,
-      [∗ list] ℓ ∈ flat_map locations ws,
-        ∃ a, ⌜θ !! ℓ = Some (MemMM, a)⌝ -∗ ℓ ↦addr (MemMM, a).
+    [∗ map] '_ ↦ ws ∈ hm, words_locs_have_addrs θ ws.
 
   Definition root_ok (θ : address_map) : root_map -> Prop :=
     map_Forall (fun _ ℓ => exists a, θ !! ℓ = Some (MemGC, a)).
@@ -199,8 +213,8 @@ Section Token.
     [∗ map] ar ↦ ℓ ∈ rm,
       ∃ ah ah32,
         ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
-          ⌜N_i32_repr ah ah32⌝ ∗
-          N.of_nat sr.(sr_mem_gc) ↦[wms][ar] bits (VAL_int32 ah32).
+        ⌜N_i32_repr ah ah32⌝ ∗
+        N.of_nat sr.(sr_mem_gc) ↦[wms][ar] bits (VAL_int32 ah32).
 
   Definition layout_ok (lmask : locpred) (lm : layout_map) (hm : heap_map) : Prop :=
     map_Forall2 (fun ℓ f w => lmask ℓ -> Forall2 word_has_flag f w) lm hm.
