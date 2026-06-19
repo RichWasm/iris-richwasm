@@ -145,11 +145,12 @@ Section store_strong.
     (* atom_to_words_mm consumes Hat; it also returns types_agree which is needed for Hstore_spec *)
     iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
     (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
-    iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok)".
-    iPoseProof (words_interp_locs_dom_θ θ rm MemMM _ ns_new Hrootok with "[$Hwords_new] [$Hroot]")
+    unfold rt_token_nophys.
+    iDestruct "Hnp" as "(Haddr & (%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok))".
+    iPoseProof (words_interp_locs_dom_θ θ rm MemMM _ ns_new Hrootok with "[$Hwords_new] [$Hroot] [$Haddr]")
       as "%Hlocsθ_new".
-    iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hrootmem]" as "Hnp".
-    { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
+    iAssert (rt_token_nophys rti sr lmask θ hm) with "[Hroot Hlayout Hrti Hrootmem Haddr]" as "Hnp".
+    { iFrame. iPureIntro. split; last split; done. }
     (* Compute byte-length of old slice *)
     iPoseProof (big_sepL2_length with "Hwords") as "%Hlenws".
     assert (Hlenbytes : length (flat_map serialise_i32 ns32) = length_t (translate_arep ι)).
