@@ -2436,13 +2436,13 @@ Section store_weak.
       (* note: this first set up has a lot of copying *)
       iEval (cbn) in "Ho1".
       iDestruct "Ho1" as "(%ℓ & %fs & %toinvert & Hτ)".
-      inversion toinvert; subst; clear toinvert.
+      inversion toinvert; subst o1; clear toinvert.
       iPoseProof (atom_interp_ptr_shaped with "Hv1") as
         "(%n & %n32 & %Hn32 & -> & %Hnshp & %rp & %Hreproot & Hv1)".
       apply has_values_app_inv in H0.
       destruct H0 as (ev1 & evs2 & -> & Hev1 & Hevs2).
       apply has_values_to_consts_inv in Hev1 as Hev1tosubst.
-      cbn in Hev1tosubst; subst.
+      cbn in Hev1tosubst; subst ev1.
 
       (* Summary:
          - o1 became (PtrHeap MemGC ℓ), v1 became (VAL_int32 n32), ev1 became BI_const...
@@ -2458,6 +2458,35 @@ Section store_weak.
 
       (** PUT FACTOIDS WE NEED HERE (THAT ARE MM/GC SPECIFIC) **)
 
+      iAssert (⌜Forall2 has_arep ιs os2 /\ has_areps ιs (SAtoms os2) /\
+               Forall (forall_ptr_word (ref_flag_ptr_interp ξser))
+                (concat (map serialize_atom os2))
+                  ⌝%I)
+         with "[Hvs2 Hos2]" as "%KindingQuarantine". {
+        rewrite value_interp_eq.
+        iEval (cbn -[pre_type_interp type_skind]) in "Hos2".
+        iDestruct "Hos2" as "(%sκ_temp & %Htypeskindtemp & %Harepsoon & pre)".
+        iPureIntro.
+        rewrite Htypeskindτval in Htypeskindtemp.
+        inversion Htypeskindtemp. subst sκ_temp.
+        destruct Harepsoon as (Hareps & Hforallatomref).
+
+        repeat split.
+        - unfold has_areps in Hareps.
+          destruct Hareps as (os & toinvert & yes).
+          inversion toinvert; subst; done.
+        - done.
+        - by apply forall_ptr_atom_to_word_ref_flag_interp.
+      }
+      destruct KindingQuarantine as (Harepιsos2 & Hareps & Hrefinterp).
+      assert (Hos2sz: length (concat (map serialize_atom os2)) = sz). {
+        assert (length (concat (map serialize_atom os2)) = length (flat_map arep_flags ιs)). {
+          rewrite flat_map_concat_map.
+          apply has_arep_means_equal_lengths; done.
+        }
+        by etransitivity.
+      }
+      iDestruct (result_type_interp_of_atoms_interp with "Hvs2") as "%Hres_type_vs2"; try done.
 
 
       (** TIME TO BOOGIE *)
@@ -2466,16 +2495,6 @@ Section store_weak.
       (* First, saving stack to clear evs2 and es_save *)
 
       (* apply lemma on the codegen. order of goals to help with evars *)
-      iAssert (⌜has_areps ιs (SAtoms os2)⌝%I) with "[Hos2]" as "%Hareps2". {
-        rewrite value_interp_eq.
-        iEval (cbn -[pre_type_interp type_skind]) in "Hos2".
-        iDestruct "Hos2" as "(%sκ_temp & %Htypeskindtemp & %Harepsoon & pre)".
-        iPureIntro.
-        rewrite Htypeskindτval in Htypeskindtemp.
-        inversion Htypeskindtemp; subst.
-        destruct Harepsoon as [H' _]; exact H'.
-      }
-      iDestruct (result_type_interp_of_atoms_interp with "Hvs2") as "%Hres_type_vs2"; [exact Hareps2|].
       eapply cwp_save_stack_w in Hsave; auto.
       4: exact Hevs2.
       3: {
@@ -2511,6 +2530,29 @@ Section store_weak.
       iIntros (fr_saved w) "(%val_idxs & -> & %Hfrel_fr_saved & %Hsaved & %Hval_idxs_seq & %Hval_localidxs) Hfr Hrun".
       clear Hsave.
 
+      iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved".
+      2, 3, 5: done.
+      { subst val_idxs fe. by rewrite fe_wlocal_offset_length. }
+      { subst wl_save.
+        by rewrite map_comp.
+      }
+
+      iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved".
+      pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len.
+
+      (* Reestablish ptr_local length *)
+      assert (Hptrlocalfrsaved: ptr_local < length (f_locs fr_saved)). {
+        (* If this isn't true this is weird, but seems hardish to prove *)
+        subst ptr_local.
+        simpl.
+        eapply Nat.lt_le_trans; last done.
+        - rewrite app_assoc.
+          subst fe.
+          repeat rewrite length_app.
+          unfold fe_wlocal_offset.
+          lias.
+      }
+
       (* Next: local_tee stuff *)
       set (f' := ({|
                      W.f_locs :=
@@ -2536,6 +2578,41 @@ Section store_weak.
         - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [VAL_int32 n32]⌝%I).
       }
       iIntros (? ?) "(-> & ->) Hf Hrun".
+
+      (* do some frame interp updating *)
+      iEval (rewrite app_assoc) in "Hframe_saved".
+      iPoseProof (frame_interp_update_frame' with "Hframe_saved") as "Hframe".
+      5: {
+        instantiate (1 := f').
+        instantiate (1 := [ptr_local]).
+        unfold f'.
+        unfold frame_rel.
+        cbn; split; [|done].
+        unfold mask_locs_eq. cbn.
+        intros i Hipls.
+        symmetry.
+        apply list_lookup_insert_ne.
+        intros ->; apply Hipls; left.
+      }
+      all: try done.
+      2: {
+        simpl.
+        instantiate (1 := [_]).
+        apply Forall2_cons.
+        split; [|done].
+        cbn.
+        by apply list_lookup_insert_eq.
+      }
+      2: {
+        apply Forall2_cons; split; last done.
+        by eexists.
+      }
+      {
+        subst ptr_local fe.
+        cbn.
+        rewrite sum_list_with_length_concat.
+        done.
+      }
 
       (* Summary:
          - Used up evs2 and es_save_stack and "put" the pointer in front of es_case_ptr block
@@ -2567,6 +2644,54 @@ Section store_weak.
       (* A cwp_val_app, which I'm confused why it's on the stack at all but oh well *)
       iApply cwp_val_app; first done.
       unfold fvs_combine.
+
+      (* I think that now we need to open the Hτ invariant. Bc we need in
+         cwp_store, which is inside the following cwp_seq block, and also need it
+         outside of it for flags. We'll restore it after flags. *)
+      (* NOTE: INVARIANT OPENED HERE *)
+      iApply fupd_cwp.
+      iMod (na_inv_acc with "Hτ Hown") as "U"; eauto.
+      iDestruct "U" as "[ (%ws & Hℓ_layout & Hℓ_heap & Hws) [Hown Hclose]]".
+      iModIntro.
+      iMod "Hℓ_layout".
+      iMod "Hℓ_heap".
+      set (E' := (⊤ ∖ ↑ns_ref ℓ)) in *.
+      assert (↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E')
+        by eauto with ndisj.
+      (* this may not be the right place for E' but I can't do it inside the cwp_seq *)
+      iApply (cwp_wand_strong NotStuck _ E' ⊤ with "[-]"); eauto.
+
+
+
+
+
+      iAssert (⌜Forall2 word_has_flag fs ws⌝%I) with "[Hℓ_layout Hℓ_heap Hrt]" as "%Hfswsmatch". {
+        open_rt "Hrt".
+        iPoseProof (ghost_map_lookup with "[$Hlayout] [$Hℓ_layout]") as "%Hθlayout".
+        iPoseProof (ghost_map_lookup with "[$Hheap] [$Hℓ_heap]") as "%Hθheap".
+        iPureIntro.
+        unfold layout_ok in Hlayoutok.
+        unfold map_Forall2 in Hlayoutok.
+        specialize (Hlayoutok ℓ).
+        rewrite Hθlayout in Hlayoutok; rewrite Hθheap in Hlayoutok.
+
+        inversion Hlayoutok; subst.
+        assert (ll: lpall ℓ) by done.
+        specialize (H3 ll).
+        eapply Forall2_impl; [exact H3|].
+        intros f''' w' Hwh; cbn in Hwh; apply Is_true_true; exact Hwh.
+      }
+
+
+      pose proof
+        (resolves_path_inv_sep_weak rti sr se
+           τ π pr Hresolves F off ρ σ ξ ξser sz) as Hpath_spec.
+      specialize (Hpath_spec H Hoff Hmonosize Hkind_τ Hkind_prtarget Hevalsize).
+
+      iPoseProof (Hpath_spec $! ws) as "Hpath_spec".
+      iPoseProof ("Hpath_spec" with "Hws") as "(Hwslengths & Htarget & Hcontinuation)".
+      (* iMod "Hws1". iDestruct "Hws1" as "%Hwslengths". *)
+
 
       (* Now we can cwp_seq and use the spec *)
 
@@ -2602,7 +2727,8 @@ Section store_weak.
         pose proof (wp_root_to_heap sr _ _ _ _ _ _ _ Hcg_root_gc) as Hrth_gc.
         specialize (Hrth_gc a_root n n32 ℓ θ rm_gc Hn32 Hreproot Hrootok_gc).
         (* Inner cwp_seq: split root_to_heap from memory.store *)
-        iApply (cwp_seq with "[Hfr Hrun Hv1 Hroot_gc_auth Hrootmem_gc]").
+        (* Note: passing target and continuation to get rid of later lol *)
+        iApply (cwp_seq with "[Hfr Hrun Hv1 Hroot_gc_auth Hrootmem_gc Htarget Hcontinuation]").
         {
           iApply (Hrth_gc with "[$Hfr] [$Hrun] [] [] [$Hv1] [$Hroot_gc_auth] [$Hrootmem_gc]").
           - (* f'.f_locs !! ptr_local = Some (VAL_int32 n32) *)
@@ -2621,37 +2747,32 @@ Section store_weak.
             exact Hgcmem.
           - (* After root_to_heap: ptr_local holds the actual GC heap address ah32 *)
             iIntros "!>!>!>" (ah ah32) "%Hah32 %Hrepr_gc Hv1' Hroot_gc_auth' Hrootmem_gc'".
+            let Q := open_constr:(_ : iProp Σ) in
             instantiate (1 := λ f'' v'', (
               ⌜v'' = []⌝ ∗
               ∃ ah ah32,
-              ⌜f''.(W.f_inst) = f_inst fr_saved⌝ ∗
-              ⌜f''.(W.f_locs) !! ptr_local = Some (VAL_int32 ah32)⌝ ∗
+              ⌜f'' = ({|
+                        W.f_locs := <[localimm (Mk_localidx ptr_local):=VAL_int32 ah32]> (f_locs f');
+                       W.f_inst := f_inst f'
+                    |})⌝ ∗
               ⌜N_i32_repr ah ah32⌝ ∗
               ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
               a_root ↦root ℓ ∗
               ghost_map_auth rw_root (1/2) rm_gc ∗
-              root_memory sr θ rm_gc)%I).
+              root_memory sr θ rm_gc ∗
+              Q)%I).
             iSplit; first done.
             iExists ah, ah32.
             iSplit; first done.
-            iSplit. { (* ptr_local is now ah32 in the new frame *)
-              iPureIntro. cbn. apply list_lookup_insert_eq.
-              rewrite length_insert.
-              assert (ptr_local ∉ val_idxs) as Hnotinval. {
-                rewrite Hval_idxs_seq. intro Hin. apply elem_of_seq in Hin.
-                rewrite /ptr_local length_app /fe_wlocal_offset in Hin. subst fe. simpl in Hin. lia.
-              }
-              rewrite <- lookup_lt_is_Some.
-              rewrite <- (proj1 Hfrel_fr_saved ptr_local Hnotinval).
-              rewrite lookup_lt_is_Some. exact Hptrlocalfr.
-            }
-            iSplit; first done.
-            iSplit; first done.
             iFrame.
+            iSplit; first done; iSplit; first done.
+            iAccu.
         }
         iIntros (f'' v'')
-          "(-> & %ah & %ah32 & %Hfinst & %Hflocs & %Hah32 & %Hrepr_gc & Hv1' & Hroot_gc_auth' & Hrootmem_gc')
+          "(-> & %ah & %ah32 & %Hf'' & %Hah32 & %Hrepr_gc & Hv1' &
+                  Hroot_gc_auth' & Hrootmem_gc' & Htarget & Hcontinuation)
            Hfr Hrun".
+        iMod "Hwslengths". iDestruct "Hwslengths" as "%Hwslengths".
         (* Restore rt_token *)
         iAssert (rt_token rti sr lpall θ) with
           "[Haddr_gc Hroot_gc_auth' Hlayout_gc Hheap_gc Hrti_gc
@@ -2660,7 +2781,125 @@ Section store_weak.
           iFrame. by iFrame (Hinj_gc Hrootok_gc Hheapok_gc).
         }
         iSimpl.
-        admit.
+
+        (* If we need any other frame facts, put them here *)
+        assert (Hf''2: f'' = ({|
+        W.f_locs := <[localimm (Mk_localidx ptr_local):=VAL_int32 ah32]> (f_locs fr_saved);
+                       W.f_inst := f_inst fr_saved
+                    |})
+               ). {
+          rewrite Hf''.
+          f_equal.
+          unfold f'; cbn.
+          apply list_insert_insert_eq.
+        }
+
+        (* need to reestablish frame_interp TODO *)
+
+
+        (* alright boys it's time  *)
+
+        assert (Hstupidlen: length val_localidxs = length ιs). {
+          move Hres_type_vs2 at bottom.
+          move Hsaved at bottom.
+          apply Forall2_length in Hsaved.
+          unfold result_type_interp in Hres_type_vs2.
+          apply Forall2_length in Hres_type_vs2.
+          rewrite length_map in Hres_type_vs2.
+          etransitivity; done.
+        }
+
+        pose proof (wp_store_weak_gc _ _ _ _ _ _ _ _ _ _ Hstupidlen Hcg_store_gc) as Hstore_spec.
+        destruct Hstore_spec as (_ & -> & -> & Hstore_spec).
+
+        inversion Hrepr_gc. subst θ0 μ0 ℓ0.
+
+        (* might be time? I think I have everything I need *)
+        specialize (Hstore_spec f'' ℓ a  ah32).
+        specialize (Hstore_spec vs2 lpall θ os2 ws).
+
+        rewrite <- H6 in Hah32.
+
+        (* hm I would *really* like Htarget to not have a later *)
+
+        iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w)
+           (concat (map arep_flags ιs))
+           (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". {
+          (* hm unsure how this will go *)
+
+          rewrite Hιssz.
+          unfold get_path_words.
+          iEval (rewrite value_interp_eq) in "Htarget".
+          iEval (cbn -[type_skind pre_type_interp]) in "Htarget".
+          iDestruct "Htarget" as "(%sκ & %Htemp & %Hyeah & Htype)".
+          rewrite Hser in Htemp.
+          rewrite Htypeskindsert in Htemp.
+          inversion Htemp; subst sκ.
+          destruct Hyeah as (_ & Hrefflag).
+          iEval (cbn) in "Htype".
+          (* I'm scared *)
+          rewrite !Hser.
+          iDestruct "Htype" as "(%os & %Hserialized & Htype)".
+          rewrite type_interp_eq.
+          iEval (cbn -[type_skind pre_type_interp]) in "Htype".
+          rewrite Htypeskindτval.
+          iDestruct "Htype" as "(%sκ & %toinvert & %Helpme & Htype)".
+          inversion toinvert; subst sκ. clear Htemp toinvert.
+          destruct Helpme as (Hosιs & Hptros).
+
+          iPureIntro.
+          inversion Hserialized.
+          rewrite !H2.
+          rewrite H2 in Hrefflag.
+
+          (* dealing with Is_true and is_true lol *)
+          eapply Forall2_impl.
+          1: by apply has_areps_imp_word_has_flag.
+          intros.
+          cbn in H0.
+          apply Is_true_true.
+          done.
+        }
+
+        iApply (Hstore_spec with "[$] [$] [$] [//] [%] [$] [] [$] [//] [%]
+                           [%] [//] [//] [//] [%] [%] [%] [//] [//] [%] [%] [$] [-]");
+          try (cbn; done).
+        - rewrite Hf''2; cbn.
+          destruct Hfrel_fr_saved as [masklocs <-].
+          iDestruct "Hinst" as "(_ & this & _)".
+          iDestruct "this" as "(_ & _ & _ & _ & _ & this)".
+          done.
+        - rewrite Hf''2; cbn.
+          apply list_lookup_insert_eq; done.
+        - cbn.
+          set (val_idx_upper_bound := (fe_wlocal_offset fe + length wl) +
+                                (length (map translate_prim (map arep_to_prim ιs)))).
+          assert (val_idx_upper_bound < ptr_local + 1). {
+            subst val_idx_upper_bound ptr_local.
+            cbn.
+            repeat rewrite length_app.
+            assert (length wl_save = length (map translate_prim (map arep_to_prim ιs))). {
+              rewrite Hwl_save; done.
+            }
+            rewrite H1.
+            lia.
+          }
+          (* the reason the +1 is on the right is bc technically possible *)
+          (* that everything is empty and val_localidx = [], and so then the *)
+          (* the negation saturates and there's an <= *)
+
+          eapply (forall2_lookup_same (f_locs fr_saved) _ _ _ ptr_local localimm).
+          + intros j Hneq.
+            rewrite Hf''2; cbn.
+            rewrite list_lookup_insert_ne; [done | lia].
+          + rewrite Hval_localidxs Hval_idxs_seq.
+            eapply Forall_impl; first apply (map_seq_forall_localidx_neq (fe_wlocal_offset fe + length wl) (length wl_save)).
+            intros i Hneq. unfold ptr_local. rewrite length_app. subst fe. unfold fe_wlocal_offset in Hneq. simpl in Hneq. lia.
+          + exact Hsaved.
+        - subst sz. done.
+        - admit.
+        - admit.
+        - admit. (* SAVE this is the next spot *)
       }
       iIntros (fr_store vs_store) "Hres Hfr Hrun".
       (* TODO: apply pointer flags spec, reestablish frame_rel and value_interp. *)
