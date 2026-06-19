@@ -1362,11 +1362,14 @@ Section CodeGen.
       + done.
       + iIntros "Hℓ Hrt Hnsfun Hown Hinst".
         iApply ("HΦ" with "[Hℓ] [$] [$] [$] [$]").
-        (* this is true because insertion is commutative iff *)
-        (* all of the indices are distinct *)
-        (* this is a bit annoying to prove and not the point of the proof *)
-        admit.
-
-  Admitted.
+        unfold set_flags_at.
+        assert (list_inserts (S i) fs (<[i:=f]> fsnew) =
+                  <[i:=f]> (list_inserts (S i) fs fsnew)). {
+          symmetry.
+          apply list_insert_inserts_lt.
+          lia.
+        }
+        rewrite H; done.
+  Qed.
 
 End CodeGen.
