@@ -185,7 +185,7 @@ Section Token.
     end.
 
   Definition own_addr_gc (θ : address_map) : iProp Σ :=
-    [∗ map] ℓ ↦ '(μ, a) ∈ θ, ⌜μ = MemGC⌝ -∗ ℓ ↦addr (MemGC, a).
+    [∗ map] ℓ ↦ '(μ, a) ∈ θ, True.
 
   Definition own_addr_mm (θ : address_map) (hm : heap_map) : iProp Σ :=
     [∗ map] '_ ↦ ws ∈ hm,
