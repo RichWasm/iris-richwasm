@@ -146,6 +146,8 @@ Section Token.
         match μ, p with
         | MemMM, PtrHeap MemGC ℓ =>
             ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
+        | _, PtrHeap MemMM ℓ =>
+            ∃ a, ⌜repr_root_pointer (RootHeap MemMM a) n⌝ ∗ a ↦root ℓ
         | _, _ => ⌜repr_pointer θ p n⌝
         end
     end.
@@ -184,14 +186,6 @@ Section Token.
     | MemGC => N.of_nat sr.(sr_mem_gc)
     end.
 
-  Definition own_addr_gc (θ : address_map) : iProp Σ :=
-    [∗ map] ℓ ↦ '(μ, a) ∈ θ, True.
-
-  Definition own_addr_mm (θ : address_map) (hm : heap_map) : iProp Σ :=
-    [∗ map] '_ ↦ ws ∈ hm,
-      [∗ list] ℓ ∈ flat_map locations ws,
-        ∃ a, ⌜θ !! ℓ = Some (MemMM, a)⌝ -∗ ℓ ↦addr (MemMM, a).
-
   Definition root_ok (θ : address_map) : root_map -> Prop :=
     map_Forall (fun _ ℓ => exists a, θ !! ℓ = Some (MemGC, a)).
 
@@ -224,8 +218,6 @@ Section Token.
       ghost_map_auth rw_heap 1 hm ∗
       rti θ rm lm ∗
       ⌜gmap_injective θ⌝ ∗
-      own_addr_mm θ hm ∗
-      own_addr_gc θ ∗
       ⌜root_ok θ rm⌝ ∗
       root_memory θ rm ∗
       ⌜layout_ok lmask lm hm⌝ ∗
@@ -243,8 +235,6 @@ Section Token.
       ghost_map_auth rw_layout (1/2) lm ∗
       rti θ rm lm ∗
       ⌜gmap_injective θ⌝ ∗
-      own_addr_mm θ hm ∗
-      own_addr_gc θ ∗
       ⌜root_ok θ rm⌝ ∗
       root_memory θ rm ∗
       ⌜layout_ok lmask lm hm⌝ ∗
