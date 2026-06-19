@@ -191,7 +191,7 @@ Section Token.
     flat_map locations ws.
 
   Definition loc_has_addr (θ : address_map) (ℓ : location) : iProp Σ :=
-    ∃ a, ⌜θ !! ℓ = Some (MemMM, a)⌝ ∗ ℓ ↦addr (MemMM, a).
+    ∀ a, ⌜θ !! ℓ = Some (MemMM, a)⌝ -∗ ℓ ↦addr (MemMM, a).
 
   Definition words_locs_have_addrs (θ : address_map) (ws : list word) : iProp Σ :=
     [∗ list] ℓ ∈ words_locs ws, loc_has_addr θ ℓ.
