@@ -70,14 +70,13 @@ Section load_move.
           cbn [bs flat_map];
           apply deserialise_serialise_i32
         ].
-      iDestruct "Hws" as "(%a & %Hrep & Ha)".
-      iSplitL.
-      + iExists n, n32.
-        iFrame.
-        iPureIntro.
-        intuition eauto.
-        apply deserialise_serialise_i32.
-      + done.
+      all: cbn;
+           iFrame.
+      all: iSplitR; last done.
+      all: iExists n32.
+      all: iSplitR; first done.
+      all: iPureIntro; cbn; clear_nils.
+      all: apply deserialise_serialise_i32.
     - rewrite -Hser.
       rewrite -Hser in Hlenws; cbn in Hlenws.
       destruct ns as [| n' [| n'' ns']]; cbn in Hlenws; try lia; clear Hlenws.
@@ -266,13 +265,12 @@ Section load_move.
             inversion Hat; subst; eauto.
             by constructor.
           + destruct μ; cbn.
-            -- iIntros "%Hat".
+            -- iIntros "(%rp & %Hat & Hℓ_addr)".
                inversion Hat; subst.
-               iExists (RootHeap MemMM a0).
+               iExists (RootHeap MemMM rp).
                cbn.
                iFrame.
-               (* TODO missing ↦addr here. *)
-               admit.
+               done. (* NOTE: addr used here, no longer missing *)
             -- iIntros "(%ah & %Hroot & Hroot)".
                iExists (RootHeap MemGC ah).
                iFrame.
