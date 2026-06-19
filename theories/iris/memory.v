@@ -187,15 +187,8 @@ Section Token.
   Definition own_addr_gc (θ : address_map) : iProp Σ :=
     [∗ map] ℓ ↦ '(μ, a) ∈ θ, ⌜μ = MemGC⌝ -∗ ℓ ↦addr (MemGC, a).
 
-  Definition word_loc (w : word) : list location :=
-    match w with
-    | WordPtr (PtrHeap _ ℓ) => [ ℓ ]
-    | WordPtr (PtrInt _)
-    | WordInt _ => []
-    end.
-
   Definition words_locs (ws : list word) : list location :=
-    flat_map word_loc ws.
+    flat_map locations ws.
 
   Definition loc_has_addr (θ : address_map) (ℓ : location) : iProp Σ :=
     ∃ a, ⌜θ !! ℓ = Some (MemMM, a)⌝ ∗ ℓ ↦addr (MemMM, a).
