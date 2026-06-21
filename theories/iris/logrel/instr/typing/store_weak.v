@@ -2932,6 +2932,14 @@ Section store_weak.
               ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
               ⌜repr_root_pointer (RootHeap MemGC a_root) n⌝ ∗
               a_root ↦root ℓ ∗
+              (instance_rt_func_interp (mr_func_unregisterroot mr) (sr_func_unregisterroot sr)
+               (runtime.spec_unregisterroot rti sr)
+               (f_inst
+                  {|
+                    W.f_locs :=
+                      <[localimm (Mk_localidx ptr_local):=VAL_int32 ah32]> (f_locs fr_saved);
+                    W.f_inst := f_inst fr_saved
+                  |})) ∗
               Q)%I).
           iEval (cbn).
           iSplitR; first done.
@@ -2969,9 +2977,9 @@ Section store_weak.
       iIntros (fr_store vs_store) "Hres Hfr Hrun".
 
       iDestruct "Hres" as "(-> & (%a_root & %ah & %ah32 & %Hfr_store & %Hah32 & %Hwslengths &
-                           %Hrepr_gc & %Hrepr_root & Hℓ_root & rest))".
+                           %Hrepr_gc & %Hrepr_root & Hℓ_root & Hunreg & rest))".
       iDestruct "rest" as "(Hframe & Hℓ_layout & Hclose & Htarget_OLD & rest )".
-      iDestruct "rest" as "(Hℓ_heap & Hown & Hunreg & Hrt & Hvalτ)".
+      iDestruct "rest" as "(Hℓ_heap & Hown & Hrt & Hvalτ)".
 
       (* TODO: apply pointer flags spec, reestablish frame_rel and value_interp. *)
 
