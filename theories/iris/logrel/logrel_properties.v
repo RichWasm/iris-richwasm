@@ -1789,6 +1789,41 @@ Section properties.
         iExists _; eauto.
   Qed.
 
+  Lemma atom_interp_to_weak_memGC_nonptr o v ι θ :
+    has_arep ι o -> ι <> PtrR ->
+    atom_interp o v -∗ atom_interp_weak θ MemGC o v.
+  Proof.
+    iIntros (Harep Hnot) "Hoa".
+    destruct ι; try done; cbn in Harep; destruct o; try inversion Harep; cbn; done.
+  Qed.
+
+  Lemma atom_interp_ptr_shaped_pure ptr v:
+    atom_interp (PtrA ptr) v -∗
+    ⌜∃ n n32, N_i32_repr n n32 /\ v = VAL_int32 n32 /\
+      ptr_shaped ptr n⌝.
+  Proof.
+    iIntros "Hat".
+    iPoseProof (atom_interp_ptr_shaped with "Hat") as
+      "(%n & %n32 & %nrepr & -> & %ptrshaped & (%rp & %hrepr & _))".
+    iPureIntro.
+    exists n, n32.
+    intuition.
+  Qed.
+
+
+  Lemma type_interp_implies_has_areps se τval:
+    ∀ ιs ξ os,
+      type_skind se τval = Some (SVALTYPE ιs ξ) ->
+      type_interp rti sr τval se (SAtoms os) -∗
+      ⌜has_areps ιs (SAtoms os)⌝.
+  Proof.
+    destruct τval; intros * Hsk; iIntros "Hτval";
+      rewrite type_interp_eq; iEval (cbn) in "Hτval"; cbn in Hsk;
+      rewrite Hsk; iDestruct "Hτval" as "(%sκ' & %toinv & %Facts & _)";
+      iPureIntro; inversion toinv; subst; clear toinv; intuition.
+  Qed.
+
+
   Lemma length_arep_flags_size ιs:
     length (concat (map arep_flags ιs)) = sum_list_with arep_size ιs.
   Proof.
