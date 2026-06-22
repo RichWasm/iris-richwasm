@@ -895,7 +895,10 @@ let rec elab_instruction (env : Env.t) :
   | Unreachable ->
       let* () = fail_if have_to_infer_lfx (NonTrivialLfxInfer `Unreachable) in
       let* st = get in
-      let* it = mono_in_out env.kinds "Unreachable" st.stack env.return in
+      let out =
+        match env.labels with [] -> env.return | result :: _ -> result
+      in
+      let* it = mono_in_out env.kinds "Unreachable" st.stack out in
       ret @@ IUnreachable it
   | Copy ->
       let* t = pop "Copy" in
