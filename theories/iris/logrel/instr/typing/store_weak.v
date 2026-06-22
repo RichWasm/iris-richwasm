@@ -1658,6 +1658,19 @@ Section store_weak.
     done.
   Qed.
 
+  Lemma type_interp_implies_has_areps se τval:
+    ∀ ιs ξ os,
+      type_skind se τval = Some (SVALTYPE ιs ξ) ->
+      type_interp rti sr τval se (SAtoms os) -∗
+      ⌜has_areps ιs (SAtoms os)⌝.
+  Proof.
+    destruct τval; intros * Hsk; iIntros "Hτval";
+      rewrite type_interp_eq; iEval (cbn) in "Hτval"; cbn in Hsk;
+      rewrite Hsk; iDestruct "Hτval" as "(%sκ' & %toinv & %Facts & _)";
+      iPureIntro; inversion toinv; subst; clear toinv; intuition.
+  Qed.
+
+
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -2817,6 +2830,45 @@ Section store_weak.
 
         (* need to reestablish frame_interp TODO *)
 
+        (* do some frame interp updating *)
+        clear_nils.
+        iEval (rewrite app_assoc) in "Hframe".
+        iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe".
+        5: {
+          instantiate (1 := f'').
+          instantiate (1 := [ptr_local]).
+          rewrite Hf''2.
+          unfold frame_rel.
+          cbn; split; [|done].
+          unfold mask_locs_eq. cbn.
+          intros i Hipls.
+          symmetry.
+          rewrite list_lookup_insert_ne.
+          2: set_solver.
+          rewrite list_lookup_insert_ne; first done.
+          set_solver.
+        }
+        all: try done.
+        2: {
+          simpl.
+          instantiate (1 := [_]).
+          apply Forall2_cons.
+          split; [|done].
+          cbn.
+          rewrite Hf''2.
+          by apply list_lookup_insert_eq.
+        }
+        2: {
+          apply Forall2_cons; split; last done.
+          by eexists.
+        }
+        {
+          subst ptr_local fe.
+          cbn.
+          rewrite sum_list_with_length_concat.
+          done.
+        }
+
 
         move Hrepr_gc at bottom.
         inversion Hrepr_gc. subst θ0 μ0 ℓ0.
@@ -2929,6 +2981,7 @@ Section store_weak.
                     |})⌝ ∗
               ⌜N_i32_repr ah ah32⌝ ∗
               ⌜off + sz ≤ length ws⌝ ∗
+              ⌜wl0 = []⌝ ∗
               ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
               ⌜repr_root_pointer (RootHeap MemGC a_root) n⌝ ∗
               a_root ↦root ℓ ∗
@@ -2940,12 +2993,20 @@ Section store_weak.
                       <[localimm (Mk_localidx ptr_local):=VAL_int32 ah32]> (f_locs fr_saved);
                     W.f_inst := f_inst fr_saved
                   |})) ∗
+              (frame_interp rti sr se (typing.fc_locals F) L
+               ((wl ++ wl_save) ++ [W.T_i32] ++ wl_unreach ++ wl_memMM ++ wl3 ++ wlf)
+               {|
+                 W.f_locs :=
+                   <[localimm (Mk_localidx ptr_local):=VAL_int32 ah32]> (f_locs fr_saved);
+                 W.f_inst := f_inst fr_saved
+               |}) ∗
               Q)%I).
           iEval (cbn).
           iSplitR; first done.
           iExists a_root, ah, ah32.
           iSplitR; first done.
           iSplitR; first (subst ah; done).
+          iSplitR; first done.
           iSplitR; first done.
           iSplitR; first done.
           iSplitR; first done.
@@ -2976,11 +3037,11 @@ Section store_weak.
       cbn [f_inst]. (* necessary for no crash for some god forsaken reason *)
       iIntros (fr_store vs_store) "Hres Hfr Hrun".
 
-      iDestruct "Hres" as "(-> & (%a_root & %ah & %ah32 & %Hfr_store & %Hah32 & %Hwslengths &
+      iDestruct "Hres" as "(-> & (%a_root & %ah & %ah32 & %Hfr_store & %Hah32 & %Hwslengths & -> &
                            %Hrepr_gc & %Hrepr_root & Hℓ_root & Hunreg & rest))".
       iDestruct "rest" as "(Hframe & Hℓ_layout & Hclose & Htarget_OLD & rest )".
       iDestruct "rest" as "(Hℓ_heap & Hown & Hrt & Hvalτ)".
-
+      rewrite <- Hfr_store.
       (* TODO: apply pointer flags spec, reestablish frame_rel and value_interp. *)
 
             (* in order to use the pointer flags spec, we need to intentionally weaken the rttoken *)
@@ -3158,10 +3219,19 @@ Section store_weak.
           iEval (cbn) in "Htarget_OLD".
           rewrite Hevalκser; iEval (cbn) in "Htarget_OLD".
           iDestruct "Htarget_OLD" as "(%sκ' & %toinv & there & here)".
-          inversion toinv; subst.
-          (* this gotta be true *)
-          (* annoying lemma probably *)
-          admit.
+          inversion toinv; subst; clear toinv.
+          (* has_areps_imp_word_has_flag *)
+          iDestruct "here" as "(%os_inner & %toinv & Hτval)".
+          inversion toinv; subst ws_old; clear toinv.
+
+          iAssert (⌜has_areps ιs (SAtoms os_inner)⌝%I) with "[Hτval]" as "%finally". {
+            iApply (type_interp_implies_has_areps with "[$Hτval]"); done.
+          }
+          iPureIntro.
+          rewrite flat_map_concat_map.
+          apply has_areps_imp_word_has_flag in finally.
+          eapply Forall2_impl; first (exact finally).
+          intros f''' w' Hwh; cbn in Hwh; apply Is_true_true; exact Hwh.
         }
         iPureIntro.
         apply app_inv_head_iff.
@@ -3176,7 +3246,7 @@ Section store_weak.
       (* need frame interp for iFrame *)
       iFrame.
       (* well.. let's try reestablishing stuff now then I guess *)
-      iSplitR; [|iSplitL "Hframe"].
+      iSplitR.
       - iPureIntro.
         unfold lmask.
         apply (frame_rel_trans lmask fr fr_saved fr_store).
@@ -3198,11 +3268,6 @@ Section store_weak.
           symmetry.
           apply list_lookup_insert_ne.
           unfold ptr_local. rewrite length_app. subst fe. unfold fe_wlocal_offset in *. simpl in *. lia.
-      - (* frame interp update *)
-        subst f'.
-        subst fr_store.
-        (* iApply (frame_interp_update_frame' with "[$Hframe]"). *)
-        admit.
       - (* Here lies reestablishing value interp *)
         (* the resources used here is everything leftover (except old val):
            - ℓ ↦heap, ℓ ↦addr, ℓ↦layout
@@ -3233,7 +3298,7 @@ Section store_weak.
           done.
     }
 
-  Admitted.
+  Qed.
 
 Lemma test : True. Proof. done. Qed.
 
