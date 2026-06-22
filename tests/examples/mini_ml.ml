@@ -118,15 +118,67 @@ let simple =
     ("tuple_nested", "(tup (tup 1 2) (tup 3 4))");
     ("tuple_project", "(proj 1 (tup 42 7))");
     ("utuple", "(tup# 1 2)");
-    ("utuple_project", "(proj 1 (tup# 42 7))");
-    ("utuple_let", "(let (p : (# int int)) (tup# 1 2) (proj 0 p))");
+    ("utuple_split", "(split# ((a : int) (b : int)) (tup# 42 7) b)");
+    ( "utuple_let",
+      "(let (p : (# int int)) (tup# 1 2) (split# ((a : int) (b : int)) p a))"
+    );
     ("utuple_in_tuple", "(tup (tup# 1 2) 3)");
     ("utuple_of_tuple", "(tup# (tup 1 2) 3)");
     ("utuple_ref", "(! (new (tup# 1 2)))");
     ( "utuple_fn",
-      "(app (fun () (x : (# int int)) : int (proj 0 x)) () (tup# 5 6))" );
+      {|
+        (app (fun () (x : (# int int)) : int
+               (split# ((a : int) (b : int)) x a))
+          () (tup# 5 6))
+      |}
+    );
     ( "utuple_ret",
-      "(proj 1 (app (fun () (x : int) : (# int int) (tup# x 9)) () 4))" );
+      {|
+        (split# ((a : int) (b : int))
+                (app (fun () (x : int) : (# int int) (tup# x 9)) () 4)
+          b)
+      |}
+    );
+    ( "lin_make",
+      {|
+        (import (mk : (() int -> (lin (ref int)))))
+        (app mk () 5)
+      |}
+    );
+    ( "lin_deref",
+      {|
+        (import (mk : (() int -> (lin (ref int)))))
+        (! (app mk () 5))
+      |}
+    );
+    ( "lin_assign",
+      {|
+        (import (mk : (() int -> (lin (ref int)))))
+        (assign (app mk () 5) 8)
+      |}
+    );
+    ( "lin_let",
+      {|
+        (import (mk : (() int -> (lin (ref int)))))
+        (let (r : (lin (ref int))) (app mk () 3)
+          (assign r 9))
+      |}
+    );
+    ( "lin_roundtrip",
+      {|
+        (import (mk : (() int -> (lin (ref int)))))
+        (split# ((r : (lin (ref int))) (old : int))
+                (! (assign (app mk () 3) 8))
+          (tup# r old))
+      |}
+    );
+    ( "lin_reuse_rejected",
+      {|
+        (import (mk : (() int -> (lin (ref int)))))
+        (let (r : (lin (ref int))) (app mk () 3)
+          (tup# (assign r 8) (assign r 9)))
+      |}
+    );
     ("sum_unit", "(inj 0 (tup) : (+ (*)))");
     ("sum_option", "(inj 1 15 : (+ (*) int))");
     ("basic_if", "(if 0 1 2)");

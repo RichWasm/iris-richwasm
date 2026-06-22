@@ -8,7 +8,11 @@ module Err = struct
     | UnboundVar of string
     | ApplyNonClosure of Closed.PreType.t
     | ProjectNonProd of Closed.PreType.t
+    | ProjectUnboxed of Closed.PreType.t
+    | SplitNonUnboxed of Closed.PreType.t
+    | SplitMismatch of Closed.Type.t list * Closed.PreType.t list
     | DerefNonRef of Closed.PreType.t
+    | LinNonRef of Closed.PreType.t
     | UnfoldNonRec of Closed.PreType.t
     | EmptyCases
     | ApplyForallsLengthMismatch of int * int
@@ -30,12 +34,27 @@ let rep : Representation.t = Atom Ptr
 
 (** the kind of mini-ml type binders: [VALTYPE ptr gcrefs]. Every type is
     uniformly represented except unboxed tuples, which therefore cannot
-    instantiate type variables. *)
+    instantiate type variables; [lin] refs are uncopyable (anyrefs), so they
+    cannot either. *)
 let kind : Kind.t = VALTYPE (rep, GCRefs)
 
 let rec rep_of_type : Type.t -> Representation.t = function
   | Prod ts -> Prod (List.map ~f:rep_of_type ts)
   | _ -> rep
+
+(** mirrors richwasm's kind flags: only a bare [lin] (mm/anyrefs) or an unboxed
+    tuple containing one is uncopyable; a boxed value is a gc ref no matter its
+    pointee, so it stays copyable. *)
+let rec is_uncopyable : Closed.PreType.t -> bool = function
+  | Lin _ -> true
+  | UProd ts -> List.exists ~f:is_uncopyable ts
+  | Int | Var _ | Code _ | Prod _ | Sum _ | Ref _ | Rec _ | Exists _ -> false
+
+(** boxed tuples are gc structs; one with a lin component must be [Mut] so the
+    component can be swapped out (TSwap is the only flag-agnostic elimination --
+    loads can neither copy nor move a lin out of gc memory) *)
+let prod_mut ts : Mutability.t =
+  if List.exists ~f:is_uncopyable ts then Mut else Imm
 
 let rec type_subst var replacement tau =
   let open Closed.PreType in
@@ -45,6 +64,7 @@ let rec type_subst var replacement tau =
   | UProd ts -> UProd (List.map ~f:(type_subst var replacement) ts)
   | Sum ts -> Sum (List.map ~f:(type_subst var replacement) ts)
   | Ref t -> Ref (type_subst var replacement t)
+  | Lin t -> Lin (type_subst var replacement t)
   | Rec (v, _) when equal_string v var -> tau
   | Rec (v, t) -> Rec (v, type_subst var replacement t)
   | Exists (v, _) when equal_string v var -> tau
@@ -89,7 +109,8 @@ let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
   | Project (i, v) ->
       let* vt = type_of_e gamma v in
       (match vt with
-      | Prod ts | UProd ts -> ret (List.nth_exn ts i)
+      | Prod ts -> ret (List.nth_exn ts i)
+      | UProd _ -> fail (ProjectUnboxed vt)
       | _ -> fail (ProjectNonProd vt))
   | Op _ -> ret Int
   | If0 (_, e, _) -> type_of_e gamma e
@@ -102,9 +123,17 @@ let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
       let* vt = type_of_e gamma v in
       (match vt with
       | Ref t -> ret t
+      (* reading a lin ref must give the (unboxed) ref back alongside the value *)
+      | Lin (Ref t) -> ret (UProd [ vt; t ])
       | _ -> fail (DerefNonRef vt))
-  | Assign _ -> ret (Prod [])
+  | Assign (re, _) ->
+      let* rt = type_of_e gamma re in
+      (* writing a lin ref must give the ref back; gc assigns return unit *)
+      (match rt with
+      | Lin _ -> ret rt
+      | _ -> ret (Prod []))
   | Let ((n, t), _, e) -> type_of_e ((n, t) :: gamma) e
+  | Split (bs, _, e) -> type_of_e (bs @ gamma) e
   | Fold (t, _) -> ret t
   | Unfold v ->
       let* vt = type_of_e gamma v in
@@ -121,11 +150,17 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
     let+ t' = r t in
     Ser t'
   in
+  let field_ser t =
+    if is_uncopyable t then
+      let+ o = option_rw delta t in
+      Ser o
+    else r_ser t
+  in
   match t with
   | Int -> ret I31
   | Prod ts ->
-      let+ ts' = mapM ~f:r_ser ts in
-      Ref (Base GC, Imm, Struct ts')
+      let+ ts' = mapM ~f:field_ser ts in
+      Ref (Base GC, prod_mut ts, Struct ts')
   | UProd ts ->
       let+ ts' = mapM ~f:r ts in
       Prod ts'
@@ -135,6 +170,10 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
   | Ref t ->
       let+ t' = r t in
       Ref (Base GC, Mut, Ser t')
+  | Lin (Ref inner) ->
+      let+ inner' = r inner in
+      Ref (Base MM, Mut, Ser inner')
+  | Lin t -> fail (LinNonRef t)
   | Rec (v, t) ->
       let+ t' = compile_type (v :: delta) t in
       Rec (kind, t')
@@ -158,6 +197,58 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
       | Some i -> ret (var i)
       | None -> fail (TypeVarNotInDelta v))
 
+(** the representation of a lin field auto-wrapped in an option: an [mm]
+    (unaliasable) variant [unit + (lin _)]. Being [mm] is what lets the [Some]
+    be case-moved back out ([TCaseLoadMove] is mm-only); being a variant is what
+    lets [None] stand in for it during a swap without fabricating the lin. *)
+and option_rw delta (t : Closed.PreType.t) : Type.t Res.t =
+  let open Type in
+  let open Res in
+  let* unit_rw = compile_type delta (Closed.PreType.Prod []) in
+  let+ t_rw = compile_type delta t in
+  Ref (Base MM, Imm, Variant [ Ser unit_rw; Ser t_rw ])
+
+(** [None]/[Some]/unwrap for a lin field auto-wrapped in an [option_rw].
+    [make_none] is the same-typed value swapped in to take the field out (a
+    [None] needs no value of the field's type, so it works for type variables
+    too); [wrap_some] boxes a lin on its way into a tuple; [unwrap] case-moves
+    the [Some] back to the bare lin. The [None] arm of the unwrap is unreachable
+    in a well-typed single-use program -- reaching it is a use-after-take. *)
+let make_none delta t : Instruction.t list Res.t =
+  let open Res in
+  let open Instruction in
+  let* unit_rw = compile_type delta (Closed.PreType.Prod []) in
+  let+ t_rw = compile_type delta t in
+  [ Group 0; New (GC, Imm); Cast unit_rw; InjectNew (MM, 0, [ unit_rw; t_rw ]) ]
+
+let wrap_some delta t : Instruction.t list Res.t =
+  let open Res in
+  let open Instruction in
+  let* unit_rw = compile_type delta (Closed.PreType.Prod []) in
+  let+ t_rw = compile_type delta t in
+  [ InjectNew (MM, 1, [ unit_rw; t_rw ]) ]
+
+let unwrap delta t : Instruction.t list Res.t =
+  let open Res in
+  let open Instruction in
+  let+ t_rw = compile_type delta t in
+  (* the branches touch no locals (Some leaves the payload as the result, None
+     diverges), so the local effect is empty; [InferFx] can't elaborate the
+     [Unreachable]. *)
+  [ CaseLoad (ValType [ t_rw ], Move, LocalFx [], [ [ Unreachable ]; [] ]) ]
+
+(** pull field [i] (type [ct]) off a boxed struct on the stack, leaving
+    [struct; field]: a lin field is swapped out for [None] and the [Some]
+    case-moved back; anything else copy-loads. *)
+let extract_field delta i ct : Instruction.t list Res.t =
+  let open Res in
+  let open Instruction in
+  if is_uncopyable ct then
+    let* none = make_none delta ct in
+    let+ unw = unwrap delta ct in
+    none @ [ Swap (Path [ i ]) ] @ unw
+  else ret [ Load (Path [ i ], Follow) ]
+
 let rec compile_expr delta gamma locals coderef_map e :
     (Instruction.t list * (string * Type.t) list * (int * Type.t) list) Res.t =
   let open Res in
@@ -180,9 +271,18 @@ let rec compile_expr delta gamma locals coderef_map e :
       let open NumType in
       ret ([ NumConst (Int I32, i); Tag ], locals, [])
   | Tuple vs ->
-      let* vs', locals', fx = r_list locals vs in
+      let* ts = mapM vs ~f:(type_of_e unindexed) in
+      let* vs', locals', fx =
+        foldM (List.zip_exn vs ts) ~init:([], locals, [])
+          ~f:(fun (instrs, locals, fx) (v, ft) ->
+            let* v', locals', fx' = compile_expr delta gamma locals coderef_map v in
+            let* wrap = if is_uncopyable ft then wrap_some delta ft else ret [] in
+            ret (instrs @ v' @ wrap, locals', fx @ fx'))
+      in
       ret
-        (vs' @ [ Group (List.length vs); New (GC, Imm); Cast rw_t ], locals', fx)
+        ( vs' @ [ Group (List.length vs); New (GC, prod_mut ts); Cast rw_t ],
+          locals',
+          fx )
   | UTuple vs ->
       let* vs', locals', fx = r_list locals vs in
       ret (vs' @ [ Group (List.length vs) ], locals', fx)
@@ -205,10 +305,14 @@ let rec compile_expr delta gamma locals coderef_map e :
       ret (v' @ [ Pack (Type witness', raw_t) ], locals', fx)
   | Var v ->
       (match
-         List.find_map gamma ~f:(fun (name, _, i) ->
-             Option.some_if (equal_string name v) i)
+         List.find_map gamma ~f:(fun (name, t, i) ->
+             Option.some_if (equal_string name v) (t, i))
        with
-      | Some idx ->
+      | Some (t, idx) when is_uncopyable t ->
+          (* lin values are uncopyable; move out and leave the plug behind, so
+             richwasm rejects any second use *)
+          ret ([ LocalGet (idx, Move) ], locals, [])
+      | Some (_, idx) ->
           (* local.get sets the value to plug so we have to copy and put it back *)
           ret ([ LocalGet (idx, Move); Copy; LocalSet idx ], locals, [])
       | None -> fail (VarNotInGamma v))
@@ -235,48 +339,43 @@ let rec compile_expr delta gamma locals coderef_map e :
           fx_l @ fx_r )
   | Project (n, v) ->
       let* vt = type_of_e unindexed v in
+      let* components =
+        match vt with
+        | Prod ts -> ret ts
+        | UProd _ -> fail (ProjectUnboxed vt)
+        | _ -> fail (ProjectNonProd vt)
+      in
       let* v', locals', fx = r v in
       let temp_idx = List.length locals' in
       let locals'' = locals' @ [ ("#temp", rw_t) ] in
-      let* suffix =
-        match vt with
-        | Prod _ ->
-            ret
-              [
-                Load (Path [ n ], Follow);
-                LocalSet temp_idx;
-                Drop;
-                LocalGet (temp_idx, Move);
-              ]
-        | UProd ts ->
-            (* stash component [n], dropping the components above and below it *)
-            let drops i = List.init i ~f:(Fn.const Drop) in
-            ret
-              ([ Ungroup ]
-              @ drops (List.length ts - 1 - n)
-              @ [ LocalSet temp_idx ]
-              @ drops n
-              @ [ LocalGet (temp_idx, Move) ])
-        | _ -> fail (ProjectNonProd vt)
+      let* extract = extract_field delta n (List.nth_exn components n) in
+      let suffix =
+        extract @ [ LocalSet temp_idx; Drop; LocalGet (temp_idx, Move) ]
       in
       ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ])
   | New v ->
       let* v', locals', fx = r v in
       ret (v' @ [ New (GC, Mut) ], locals', fx)
   | Deref v ->
+      let* vt = type_of_e unindexed v in
       let* v', locals', fx = r v in
-      let temp_idx = List.length locals' in
-      let locals'' = locals' @ [ ("#temp", rw_t) ] in
-      let suffix =
-        [
-          Load (Path [], Follow);
-          LocalSet temp_idx;
-          Drop;
-          LocalGet (temp_idx, Move);
-        ]
-      in
-      ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ])
+      (match vt with
+      | Lin _ -> ret (v' @ [ Load (Path [], Follow); Group 2 ], locals', fx)
+      | _ ->
+          let temp_idx = List.length locals' in
+          let locals'' = locals' @ [ ("#temp", rw_t) ] in
+          let suffix =
+            [
+              Load (Path [], Follow);
+              LocalSet temp_idx;
+              Drop;
+              LocalGet (temp_idx, Move);
+            ]
+          in
+          ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_t) ]))
   | Assign (re, v) ->
+      (* NOTE: the store leaves the ref on the stack, which for lin is exactly
+         the declared result *)
       let* re', locals', fx_re = r re in
       let* v', locals', fx_v = compile_expr delta gamma locals' coderef_map v in
       ret (re' @ v' @ [ Store (Path []) ], locals', fx_re @ fx_v)
@@ -336,6 +435,52 @@ let rec compile_expr delta gamma locals coderef_map e :
       ret
         ( e1' @ [ LocalSet var_idx ] @ e2' @ [ LocalGet (var_idx, Move); Drop ],
           locals''',
+          fx1 @ fx2 )
+  | Split (bs, e1, e2) ->
+      let* vt = type_of_e unindexed e1 in
+      let* components, boxed =
+        match vt with
+        | UProd ts -> ret (ts, false)
+        | Prod ts -> ret (ts, true)
+        | _ -> fail (SplitNonUnboxed vt)
+      in
+      let binder_ts = List.map ~f:snd bs in
+      let* () =
+        if List.equal Closed.Type.equal binder_ts components then
+          ret ()
+        else
+          fail (SplitMismatch (binder_ts, components))
+      in
+      let* e1', locals1, fx1 = r e1 in
+      let base_idx = List.length locals1 in
+      let* bound_locals =
+        mapM bs ~f:(fun (n, t) ->
+            let+ t' = compile_type delta t in
+            (n, t'))
+      in
+      let idxs = List.mapi bs ~f:(fun i _ -> base_idx + i) in
+      let* fill =
+        if not boxed then
+          ret ([ Ungroup ] @ List.rev_map ~f:(fun i -> LocalSet i) idxs)
+        else
+          let* per_field =
+            mapM (List.mapi components ~f:(fun i ct -> (i, ct)))
+              ~f:(fun (i, ct) ->
+                let+ extract = extract_field delta i ct in
+                extract @ [ LocalSet (base_idx + i) ])
+          in
+          ret (List.concat per_field @ [ Drop ])
+      in
+      let gamma' =
+        List.mapi bs ~f:(fun i (n, t) -> (n, t, base_idx + i)) @ gamma
+      in
+      let* e2', locals'', fx2 =
+        compile_expr delta gamma' (locals1 @ bound_locals) coderef_map e2
+      in
+      ret
+        ( e1' @ fill @ e2'
+          @ List.concat_map ~f:(fun i -> [ LocalGet (i, Move); Drop ]) idxs,
+          locals'',
           fx1 @ fx2 )
   | If0 (c, thn, els) ->
       let* c', locals', fx_c = r c in

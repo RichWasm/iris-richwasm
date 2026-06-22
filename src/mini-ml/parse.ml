@@ -9,6 +9,7 @@ module Err = struct
     | ExpectedExpr of Path.t * Sexp.t
     | ExpectedType of Path.t * Sexp.t
     | ExpectedTypeVar of Path.t * Sexp.t
+    | ExpectedLinRef of Path.t * Sexp.t
     | ExpectedBind of Path.t * Sexp.t
     | InvalidOp of Path.t * string
     | InvalidIndex of Path.t * string
@@ -26,6 +27,7 @@ module Err = struct
     | ExpectedExpr (p, _)
     | ExpectedType (p, _)
     | ExpectedTypeVar (p, _)
+    | ExpectedLinRef (p, _)
     | ExpectedBind (p, _)
     | InvalidIndex (p, _)
     | InvalidCaseBranch (p, _)
@@ -102,6 +104,11 @@ let rec parse_type p : Sexp.t -> Source.PreType.t Res.t =
   | List [ Atom "ref"; t ] ->
       let* t' = parse_type (Tag "ref" :: p) t in
       ret @@ Ref t'
+  | List [ Atom "lin"; t ] as v ->
+      let* t' = parse_type (Tag "lin" :: p) t in
+      (match t' with
+      | Ref _ -> ret @@ Lin t'
+      | _ -> fail @@ ExpectedLinRef (p, v))
   | v -> fail @@ ExpectedType (p, v)
 
 let parse_bind p : Sexp.t -> Source.Binding.t Res.t =
@@ -210,6 +217,17 @@ let rec parse_expr p : Sexp.t -> Source.Expr.t Res.t =
       let* e1' = parse_expr (p ~field:"e1") e1 in
       let* e2' = parse_expr (p ~field:"e1") e2 in
       ret @@ Let (b', e1', e2')
+  | List [ Atom "split#"; List bs; e1; e2 ] ->
+      let p = Path.add p ~tag:"split" in
+      let* bs' =
+        bs
+        |> List.mapi ~f:(fun i ->
+            parse_bind (p ~field:("bind" ^ Int.to_string i)))
+        |> Res.all
+      in
+      let* e1' = parse_expr (p ~field:"e1") e1 in
+      let* e2' = parse_expr (p ~field:"e2") e2 in
+      ret @@ Split (bs', e1', e2')
   | List [ Atom "fun"; List foralls; b; Atom ":"; t; e ]
   | List [ Atom "lam"; List foralls; b; Atom ":"; t; e ] ->
       let p = Path.add p ~tag:"fun" in

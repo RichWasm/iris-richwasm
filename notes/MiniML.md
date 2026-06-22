@@ -14,6 +14,7 @@ System F with refs, universals, _no existentials_, products, sums.
     | (+ τ₁ ... τₙ)
     | (rec (x) τ)
     | (ref τ)
+    | (lin (ref τ))
 
 binop := + | - | * | /
 
@@ -26,7 +27,8 @@ e ::=
     | (app f (τ₁ ... τₙ) e)
     | (tup e₁ ... eₙ)
     | (tup# e₁ ... eₙ)
-    | (proj i e)
+    | (proj i e)                               ; boxed
+    | (split# ((x₁ : τ₁) ... (xₙ : τₙ)) e₁ e₂) ; unboxed
     | (inj i e : τ)
     | (cases e ((x₁ : τ₁) e₁) ... ((xₙ : τₙ) eₙ))
     | (fold τ e)

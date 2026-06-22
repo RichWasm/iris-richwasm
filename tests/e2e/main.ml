@@ -375,5 +375,175 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                 |> Triple.M.run
               in
               check_result "7" Triple.E2Err.pp logs result);
+          (* --------------------------------------------------- *)
+          test_case "lin ref interop (rw -> ml)" `Quick (fun () ->
+              let module Err = struct
+                type t =
+                  | Module1 of RW.CompilerError.t
+                  | Module2 of MM.CompilerError.t
+                  | BadInfo of String.t Option.t
+                [@@deriving sexp_of, variants]
+
+                let pp ff = function
+                  | Module1 err ->
+                      fprintf ff "Module1: %a" RW.CompilerError.pp err
+                  | Module2 err ->
+                      fprintf ff "Module2: %a" MM.CompilerError.pp err
+                  | BadInfo err ->
+                      fprintf ff "BadInfo: %a"
+                        (pp_print_option pp_print_string)
+                        err
+              end in
+              let module SL : SurfaceLang = struct
+                module CompilerError = Err
+
+                let compile_to_richwasm
+                    ?info
+                    ~(asprintf : EndToEnd.asprintf)
+                    src =
+                  let module M = LogResultM (CompilerError) (String) in
+                  let open M in
+                  match info with
+                  | Some "m1" ->
+                      RW.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module1
+                  | Some "m2" ->
+                      MM.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module2
+                  | _ -> fail (CompilerError.badinfo info)
+              end in
+              let module Double = Run_rw.EndToEnd.Make2 (SL) (DoubleRW) in
+              let module1 =
+                (* rwasm: allocates the linear cell mini-ml will borrow.
+                   mini-ml calls with its closure convention (boxed (env, i31)
+                   pair); the cell holds the i31 payload directly. *)
+                {|
+                  ((imports ())
+                   (functions
+                    (((typ
+                       (FunctionType ()
+                        ((Ref (Base GC) Imm
+                          (Struct
+                           ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
+                        ((Ref (Base MM) Mut (Ser I31)))))
+                      (locals ((Atom Ptr)))
+                      (body
+                       ((LocalGet 0 Move)
+                        ;; pull the i31 payload out of the arg pair
+                        (Load (Path (1)) Follow)
+                        (LocalSet 1)
+                        Drop
+                        ;; allocate the linear cell
+                        (LocalGet 1 Move)
+                        (New MM Mut))))))
+                   (table ())
+                   (exports (((name mk) (desc (Func 0))))))
+                |}
+              in
+              let module2 =
+                (* mini-ml: read the borrowed cell, write it, and return the
+                   ref unboxed-paired with the value read before the write *)
+                {|
+                  (import (mk : (() int -> (lin (ref int)))))
+
+                  (split# ((r : (lin (ref int))) (old : int))
+                          (! (app mk () 3))
+                    (tup# (assign r 8) old))
+                |}
+              in
+              let result, logs =
+                Double.run2 ~asprintf ~link:"mk" module1 module2
+                |> Double.M.run
+              in
+              check_result "(tup# (ref 8) 3)" Double.E2Err.pp logs result);
+          (* --------------------------------------------------- *)
+          test_case "lin ref through boxed tuple (rw -> ml)" `Quick (fun () ->
+              let module Err = struct
+                type t =
+                  | Module1 of RW.CompilerError.t
+                  | Module2 of MM.CompilerError.t
+                  | BadInfo of String.t Option.t
+                [@@deriving sexp_of, variants]
+
+                let pp ff = function
+                  | Module1 err ->
+                      fprintf ff "Module1: %a" RW.CompilerError.pp err
+                  | Module2 err ->
+                      fprintf ff "Module2: %a" MM.CompilerError.pp err
+                  | BadInfo err ->
+                      fprintf ff "BadInfo: %a"
+                        (pp_print_option pp_print_string)
+                        err
+              end in
+              let module SL : SurfaceLang = struct
+                module CompilerError = Err
+
+                let compile_to_richwasm
+                    ?info
+                    ~(asprintf : EndToEnd.asprintf)
+                    src =
+                  let module M = LogResultM (CompilerError) (String) in
+                  let open M in
+                  match info with
+                  | Some "m1" ->
+                      RW.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module1
+                  | Some "m2" ->
+                      MM.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module2
+                  | _ -> fail (CompilerError.badinfo info)
+              end in
+              let module Double = Run_rw.EndToEnd.Make2 (SL) (DoubleRW) in
+              let module1 =
+                (* rwasm: same linear-cell allocator as the test above. *)
+                {|
+                  ((imports ())
+                   (functions
+                    (((typ
+                       (FunctionType ()
+                        ((Ref (Base GC) Imm
+                          (Struct
+                           ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
+                        ((Ref (Base MM) Mut (Ser I31)))))
+                      (locals ((Atom Ptr)))
+                      (body
+                       ((LocalGet 0 Move)
+                        (Load (Path (1)) Follow)
+                        (LocalSet 1)
+                        Drop
+                        (LocalGet 1 Move)
+                        (New MM Mut))))))
+                   (table ())
+                   (exports (((name mk) (desc (Func 0))))))
+                |}
+              in
+              (* the lin ref is stored in a boxed tuple -- auto-wrapped in an mm
+                 option behind the gc struct -- then pulled back out (once by
+                 [proj], once by a boxed [split#]), assigned, and returned. *)
+              let via_proj =
+                {|
+                  (import (mk : (() int -> (lin (ref int)))))
+
+                  (split# ((r : (lin (ref int))) (old : int))
+                          (! (proj 0 (tup (app mk () 5) 99)))
+                    (tup# (assign r 7) old))
+                |}
+              in
+              let via_split =
+                {|
+                  (import (mk : (() int -> (lin (ref int)))))
+
+                  (split# ((r : (lin (ref int))) (n : int))
+                          (tup (app mk () 6) 11)
+                    (tup# (assign r 7) n))
+                |}
+              in
+              let run src =
+                Double.run2 ~asprintf ~link:"mk" module1 src |> Double.M.run
+              in
+              let result, logs = run via_proj in
+              check_result "(tup# (ref 7) 5)" Double.E2Err.pp logs result;
+              let result, logs = run via_split in
+              check_result "(tup# (ref 7) 11)" Double.E2Err.pp logs result);
         ] );
     ]

@@ -327,7 +327,7 @@ let%expect_test "apply_id" =
     (export "id" (func 0))
     (export "_start" (func 1))) |}]
 
-let utuple_and_project =
+let utuple_and_split =
   Module.Module
     ( [],
       [],
@@ -335,15 +335,18 @@ let utuple_and_project =
         (Expr.Let
            ( ("p", PreType.UProd [ PreType.Int; PreType.Int ]),
              Expr.UTuple [ Expr.Int 42; Expr.Int 7 ],
-             Expr.Project (0, Expr.Var "p") )) )
+             Expr.Split
+               ( [ ("a", PreType.Int); ("b", PreType.Int) ],
+                 Expr.Var "p",
+                 Expr.Var "a" ) )) )
 
-let%expect_test "utuple_and_project" =
-  run "utuple_and_project" utuple_and_project;
+let%expect_test "utuple_and_split" =
+  run "utuple_and_split" utuple_and_split;
   [%expect
     {|
-    -------[utuple_and_project]-------
+    -------[utuple_and_split]-------
     (module
-      (func ((ref (base gc) imm (struct)) -> i31) (local (prod ptr ptr) ptr)
+      (func ((ref (base gc) imm (struct)) -> i31) (local (prod ptr ptr) ptr ptr)
         i32.const 42
         tag
         i32.const 7
@@ -354,15 +357,22 @@ let%expect_test "utuple_and_project" =
         copy
         local.set 1
         ungroup
-        drop
+        local.set 3
         local.set 2
         local.get 2 move
+        copy
+        local.set 2
+        local.get 2 move
+        drop
+        local.get 3 move
+        drop
         local.get 1 move
         drop
         local.get 0 move
         drop)
       (table 0)
-      (export "_start" (func 0))) |}]
+      (export "_start" (func 0)))
+    |}]
 
 let tuple_and_project =
   Module.Module
