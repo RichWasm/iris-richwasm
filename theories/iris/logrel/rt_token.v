@@ -33,9 +33,8 @@ Section rt_token.
     rt_token rti sr lmask θ.
   Proof.
     iIntros "Hnph Hph".
-    iDestruct "Hnph" as "(%rm & %lm & Hnoheap)".
-    iDestruct "Hph" as "(? & ? & ?)".
-    iExists rm, lm, hm.
-    by iFrame.
+    iDestruct "Hnph" as "(Haddr & %rm & %lm & Hnoheap)".
+    iDestruct "Hph" as "(? & ?)".
+    iFrame.
   Qed.
 End rt_token.

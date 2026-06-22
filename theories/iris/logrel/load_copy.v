@@ -175,14 +175,14 @@ Section load_copy.
         pose proof (wp_duproot rti sr mr _ _ _ _ _ _ Hcg3) as Hduproot.
         destruct Hduproot as (_ & -> & -> & Hduproot).
         clear Hes_rest2.
-        iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & Hinj & Hownmm & Howngc & Hrest)".
+        iDestruct "Hnp" as "(Haddr & (%rm & %lm & Hroot & Hlayout & Hrti & Hinj & Hrest))".
         iDestruct "Hrest" as "(%Hrootok & Hrootmem & Hheapok)".
         iCombine "Hrt" "Hroot" gives "%Hrm".
         unfold PHYS.
         rewrite -Hserws.
         iApply (Hduproot with "[$] [$] [//] [//] [$] [$] [$]
                   [Hphys Hclose Hret Hlayout
-                   Hrti Hinj Hownmm Howngc Hheapok] [$] [$]"); eauto.
+                   Hrti Hinj Hheapok Haddr] [$] [$]"); eauto.
         {
           apply Is_true_true.
           inversion Hpn32'.

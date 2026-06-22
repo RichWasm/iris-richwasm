@@ -75,29 +75,22 @@ Section virt_to_phys_strong.
     Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
     Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
     rt_token_nophys rti sr lmask θ hm -∗
-    ([∗ list] ℓ0 ∈ flat_map locations ws, ∃ a : address, ⌜θ !! ℓ0 = Some (MemMM, a)⌝ -∗ ℓ0 ↦addr (MemMM, a)) ∗
     rt_token_nophys rti sr lmask θ (<[ℓ := ws']> hm).
   Proof.
     intros Hhm Hl Hlocshm Hlocsθ.
-    iIntros "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
-    iPoseProof (big_sepM_insert_acc _ _ _ _ Hhm with "[$]") as "[Hws Hput]".
-    iFrame "Hws Hroot Hlayout Hrti Howngc Hrootmem".
+    iIntros "(Haddr & %rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hlayoutok & %Hheapok)".
+    iFrame.
     iSplit; first done.
-    iSplit; last (iSplit; first done).
-    - (* own_addr_mm θ (<[ℓ := ws']> hm) *)
-      iApply "Hput".
-      iApply own_addr_mm_trivial_list.
-    - iPureIntro.
-      have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧
-                                  (lmask ℓ -> Forall2 word_has_flag flags ws).
-      { destruct Hheapok as (Hcomp1 & _).
-        unfold map_Forall2 in Hcomp1. specialize (Hcomp1 ℓ).
-        rewrite Hhm in Hcomp1. inversion Hcomp1. exists x. split; done. }
-      destruct Hmapflags as [flags [Hflm Hwsflags]].
-      destruct Hheapok as [Hlayoutok Hheapok].
-      eapply heap_ok_update_strong.
-      4: exact Hflm.
-      all: try done.
+    iSplit; first done.
+    iPureIntro.
+    have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧
+                                (lmask ℓ -> Forall2 word_has_flag flags ws).
+    { unfold map_Forall2 in Hlayoutok. specialize (Hlayoutok ℓ).
+      rewrite Hhm in Hlayoutok. inversion Hlayoutok. exists x. split; done. }
+    destruct Hmapflags as [flags [Hflm Hwsflags]].
+    eapply heap_ok_update_strong.
+    4: exact Hflm.
+    all: try done.
   Qed.
 
 
@@ -150,7 +143,7 @@ Section virt_to_phys_strong.
     iSplit; first (iPureIntro; exact Hhm).
     iSplit; first (iPureIntro; exact Hdomθhm).
     iSplit; first (iPureIntro; exact Hlocsθ_ws).
-    iSplitL "Hroot Hlayout Hrti Hownmm Howngc Hrootmem"; first by iFrame.
+    iSplitL "Hroot Haddr Hlayout Hrti Hrootmem"; first by iFrame.
     iDestruct "HR" as "(%ns_all & %ns32_all & %Hns_all & Hphys_all & Hwords_all)".
     assert (ws = take off ws ++ slice ++ drop (off + sz) ws) as Hws.
     {
@@ -188,8 +181,7 @@ Section virt_to_phys_strong.
     pose proof (Forall2_length _ _ _ Hns'') as Hns32'len.
     iPoseProof (big_sepL2_length with "Hwords'") as "%Hns'len".
     set (hm' := <[ℓ := update_path_words off ws ws_new]> hm).
-    iAssert ((([∗ list] ℓ0 ∈ flat_map locations ws, ∃ a0 : address, ⌜θ !! ℓ0 = Some (MemMM, a0)⌝ -∗ ℓ0 ↦addr (MemMM, a0)) ∗
-             rt_token_nophys rti sr lmask θ hm')%I) with "[Hnp]" as "[Haddrs Hnp']".
+    iAssert ((rt_token_nophys rti sr lmask θ hm')%I) with "[Hnp]" as "Hnp'".
     { iApply (rt_token_nophys_insert_heap_strong _ _ _ _ ws with "Hnp").
       - exact Hhm.
       - (* what I changed *) exact Hlmask.
@@ -197,7 +189,7 @@ Section virt_to_phys_strong.
       - exact Hlocsθ. }
     iApply (rt_token_putheap _ _ lmask θ hm' with "Hnp'").
     unfold rt_token_phys.
-    iFrame "Haddr Hheap'".
+    iFrame.
     iApply ("Hheapcont" $! (update_path_words off ws ws_new)).
     iExists (ns_pre ++ ns' ++ ns_post), (ns32_pre ++ ns32' ++ ns32_post).
     iSplit; first by (iPureIntro; eauto using Forall2_app).

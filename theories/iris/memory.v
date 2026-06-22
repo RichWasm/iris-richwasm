@@ -146,6 +146,8 @@ Section Token.
         match μ, p with
         | MemMM, PtrHeap MemGC ℓ =>
             ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
+        | _, PtrHeap MemMM ℓ =>
+            ∃ a, ⌜repr_root_pointer (RootHeap MemMM a) n⌝ ∗ ℓ ↦addr (MemMM, a)
         | _, _ => ⌜repr_pointer θ p n⌝
         end
     end.
@@ -163,6 +165,8 @@ Section Token.
           match μ, p with
           | MemMM, PtrHeap MemGC ℓ =>
               ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
+          | _, PtrHeap MemMM ℓ =>
+              ∃ a, ⌜repr_root_pointer (RootHeap MemMM a) n⌝ ∗ ℓ ↦addr (MemMM, a)
           | _, _ => ⌜repr_pointer θ p n⌝
           end
     | I32A n => ⌜v = VAL_int32 n⌝
@@ -183,14 +187,6 @@ Section Token.
     | MemMM => N.of_nat sr.(sr_mem_mm)
     | MemGC => N.of_nat sr.(sr_mem_gc)
     end.
-
-  Definition own_addr_gc (θ : address_map) : iProp Σ :=
-    [∗ map] ℓ ↦ '(μ, a) ∈ θ, True.
-
-  Definition own_addr_mm (θ : address_map) (hm : heap_map) : iProp Σ :=
-    [∗ map] '_ ↦ ws ∈ hm,
-      [∗ list] ℓ ∈ flat_map locations ws,
-        ∃ a, ⌜θ !! ℓ = Some (MemMM, a)⌝ -∗ ℓ ↦addr (MemMM, a).
 
   Definition root_ok (θ : address_map) : root_map -> Prop :=
     map_Forall (fun _ ℓ => exists a, θ !! ℓ = Some (MemGC, a)).
@@ -224,8 +220,6 @@ Section Token.
       ghost_map_auth rw_heap 1 hm ∗
       rti θ rm lm ∗
       ⌜gmap_injective θ⌝ ∗
-      own_addr_mm θ hm ∗
-      own_addr_gc θ ∗
       ⌜root_ok θ rm⌝ ∗
       root_memory θ rm ∗
       ⌜layout_ok lmask lm hm⌝ ∗
@@ -233,18 +227,16 @@ Section Token.
       heap_memory θ hm.
 
   Definition rt_token_phys θ hm : iProp Σ :=
-      ghost_map_auth rw_addr (1/2) θ ∗
       heap_memory θ hm ∗
       ghost_map_auth rw_heap 1 hm.
 
   Definition rt_token_nophys (lmask : locpred) (θ : address_map) hm : iProp Σ :=
+    ghost_map_auth rw_addr (1/2) θ ∗
     ∃ rm lm,
       ghost_map_auth rw_root (1/2) rm ∗
       ghost_map_auth rw_layout (1/2) lm ∗
       rti θ rm lm ∗
       ⌜gmap_injective θ⌝ ∗
-      own_addr_mm θ hm ∗
-      own_addr_gc θ ∗
       ⌜root_ok θ rm⌝ ∗
       root_memory θ rm ∗
       ⌜layout_ok lmask lm hm⌝ ∗
@@ -255,8 +247,7 @@ End Token.
 Ltac open_rt H :=
   iDestruct H
     as "(%rm & %lm & %hm &
-         Haddr & Hroot & Hlayout & Hheap & Hrti & %Hinj & Hownmm &
-         Howngc & %Hrootok & Hrootmem & %Hlayoutok & %Hheapok & Hheapmem)".
+         Haddr & Hroot & Hlayout & Hheap & Hrti & %Hinj & %Hrootok & Hrootmem & %Hlayoutok & %Hheapok & Hheapmem)".
 
 Section Rules.
 

@@ -1341,7 +1341,7 @@ Section load_copy.
       inversion Hrepah; subst.
       rename a into a'.
       rename a0 into a.
-      iAssert (rt_token rti sr lpall θ) with "[Haddr Hlayout Hheap Hrti Hownmm Howngc Hheapmem Hrm Hrmem]" as "Hrt".
+      iAssert (rt_token rti sr lpall θ) with "[Haddr Hlayout Hheap Hrti Hheapmem Hrm Hrmem]" as "Hrt".
       {
         by iFrame.
       }
@@ -1660,7 +1660,7 @@ Section load_copy.
       inversion Hrepah; subst.
       rename a into a'.
       rename a0 into a.
-      iAssert (rt_token rti sr lpall θ) with "[Haddr Hlayout Hheap Hrti Hownmm Howngc Hheapmem Hrm Hrmem]" as "Hrt".
+      iAssert (rt_token rti sr lpall θ) with "[Haddr Hlayout Hheap Hrti Hheapmem Hrm Hrmem]" as "Hrt".
       {
         by iFrame.
       }

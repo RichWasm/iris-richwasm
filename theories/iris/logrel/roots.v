@@ -383,4 +383,14 @@ Section roots.
     by inv_cg_ret Hcg.
   Qed.
 
+  Lemma wp_root_to_heap_gc locidx wt wl wt' wl' es ret :
+    run_codegen (root_to_heap mr MemGC locidx) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\ wt' = [] /\ wl' = [].
+  Proof.
+    intros Hcg.
+    cbn in Hcg.
+    inversion Hcg.
+    done.
+  Qed.
+
 End roots.
