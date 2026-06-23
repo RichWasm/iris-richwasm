@@ -1915,4 +1915,137 @@ Section load_common.
         lia.
   Qed.
 
+  Lemma mk_load_frame_locs F wl f vs_l vs0 vs vs_r :
+    let fe := fe_of_context F in
+    length vs_l = sum_list_with length (typing.fc_locals F) + length wl ->
+    length vs = length vs0 ->
+    f_locs f = vs_l ++ vs0 ++ vs_r ->
+    f_locs (mk_load_frame (fe_of_context F) f wl vs) = vs_l ++ vs ++ vs_r.
+  Proof.
+    revert vs0 vs_r.
+    induction vs as [|vs v] using seq.last_ind; cbn; intros * Hvss Hvs0 Hf.
+    - destruct vs0; cbn in * ;try lia.
+      done.
+    - destruct vs0 using seq.last_ind;
+        first (change @length with @seq.size in Hvs0;
+                 by rewrite seq.size_rcons in Hvs0).
+      change @length with @seq.size in Hvs0.
+      unfold mk_load_frame in *.
+      rewrite imap_rcons seq.foldl_rcons.
+      rewrite !seq.size_rcons in Hvs0.
+      cbn.
+      setoid_rewrite IHvs;
+        last (by rewrite Hf rcons_app -app_assoc);
+        eauto.
+      rewrite sum_list_with_list_sum.
+      rewrite -length_concat.
+      rewrite Nat.add_assoc.
+      assert (length vs_l = length (concat (typing.fc_locals F)) + length wl) as Hvsslen.
+      {
+        rewrite !length_concat Hvss.
+        by rewrite sum_list_with_list_sum.
+      }
+      rewrite -Hvsslen.
+      rewrite insert_app_r; f_equal.
+      rewrite app_assoc.
+      rewrite insert_app_l; f_equal.
+      + rewrite rcons_app.
+        replace (length vs) with (length vs + 0) by lia.
+        by rewrite insert_app_r.
+      + rewrite length_app; cbn.
+        lia.
+  Qed.
+
+  Lemma types_agree_val_interp t v :
+    types_agree t v <-> value_type_interp t v.
+  Proof.
+    unfold types_agree, value_type_interp.
+    destruct t, v; cbn;
+      match goal with
+      | |- is_true true <-> _ =>
+          split; [eexists; eauto | done]
+      | |- is_true false <-> _ =>
+          split; [intros f; inversion f |
+                  intros (v & Hv); inversion Hv ]
+      end.
+  Qed.
+
+
+  Lemma load_restore_frame wl wlf1 wlf2 se F L ah32 vn32 fr ptr_local vs ιs :
+    let wls := wl ++ T_i32 :: wlf1 ++ map translate_arep ιs ++ wlf2 in
+    "Hframe" ∷ frame_interp rti sr se (typing.fc_locals F) L wls fr -∗
+    "%Hptr_local" ∷ ⌜(ptr_local = sum_list_with length (typing.fc_locals F) + length wl)%nat⌝ -∗
+    "%Hvs" ∷ ⌜Forall2 (λ ι v, types_agree (translate_arep ι) v) ιs vs⌝ -∗
+    frame_interp rti sr se (typing.fc_locals F) L wls
+      (mk_load_frame (fe_of_context F)
+        {|
+          W.f_locs :=
+            <[localimm (Mk_localidx ptr_local):=VAL_int32 ah32]>
+              (f_locs {| W.f_locs := <[ptr_local:=VAL_int32 vn32]> (f_locs fr); W.f_inst := f_inst fr |});
+          W.f_inst := f_inst {| W.f_locs := <[ptr_local:=VAL_int32 vn32]> (f_locs fr); W.f_inst := f_inst fr |}
+        |} (wl ++ [T_i32] ++ wlf1) vs).
+  Proof.
+    iIntros (wls).
+    repeat iIntros "@".
+    unfold frame_interp.
+    iDestruct "Hframe" as "(%ηss & %vss_L' & %vs_WL' & %fr' & Hframe)".
+    iDestruct "Hframe" as "(%Hprims & %Hres & Hats & Hlocs)".
+    apply Forall2_app_inv_l in Hres.
+    destruct Hres as (vs1 & vs' & Hvs1 & Hvs' & ->).
+    apply Forall2_cons_inv_l in Hvs'.
+    destruct Hvs' as (v1 & vs'' & Hv1 & Hvs'' & ->).
+    change (v1 :: vs'') with ([v1] ++ vs'') in *.
+    apply Forall2_app_inv_l in Hvs''.
+    destruct Hvs'' as (?vs & ?vs & ?Hvs & ?Hv1 & ->).
+    apply Forall2_app_inv_l in Hv0.
+    destruct Hv0 as (?vs & ?vs & ?Hvs & ?Hvs & ->).
+    subst ptr_local.
+    pose proof Hvs as Hvslen; apply Forall2_length in Hvslen.
+    pose proof Hvs0 as Hvs0len; apply Forall2_length in Hvs0len.
+    pose proof Hvs1 as Hvs1len; apply Forall2_length in Hvs1len.
+    pose proof Hvs2 as Hvs3len; apply Forall2_length in Hvs3len.
+    pose proof Hvs3 as Hvs4len; apply Forall2_length in Hvs4len.
+    pose proof Hprims as Hvsslen. apply Forall2_Forall2_length in Hvsslen.
+    iExists _, vss_L', _.
+    iFrame.
+    iPureIntro.
+    intuition.
+    - assert (map length vss_L' = map length (typing.fc_locals F)) as Hvss.
+      { apply Forall2_Forall2_length in Hprims. congruence. }
+      cbn.
+      erewrite mk_load_frame_locs.
+      + instantiate (2 := vs4).
+        instantiate (2 := concat vss_L' ++ vs1 ++ [VAL_int32 ah32] ++ vs0).
+        instantiate (1 := vs1 ++ [VAL_int32 ah32] ++ vs0 ++ vs ++ vs4).
+        rewrite -!app_assoc.
+        cbn.
+        f_equal.
+      + rewrite !length_app !length_cons length_concat.
+        rewrite Hvss sum_list_with_list_sum; cbn.
+        lia.
+      + instantiate (1 := vs3).
+        by rewrite -Hvs3len -Hvslen length_map.
+      + cbn -[app].
+        rewrite fr'.
+        rewrite !Hvs1len.
+        rewrite !sum_list_with_list_sum -!Hvss -length_concat.
+        repeat rewrite insert_app_r.
+        cbn [app].
+        rewrite insert_app_r_alt; last done.
+        rewrite insert_app_r_alt; last done.
+        rewrite !Nat.sub_diag; cbn.
+        by rewrite -!app_assoc; cbn.
+    - unfold result_type_interp, wls.
+      cbn [app].
+      repeat (constructor || apply Forall2_app); eauto.
+      + (* val_interp for ah32 *)
+        eexists; eauto.
+      + (* val_interps for vs *)
+        rewrite Forall2_fmap_l.
+        eapply Forall2_impl; first eapply Hvs.
+        intros ι v Hv.
+        by rewrite types_agree_val_interp in Hv.
+  Qed.
+
+
 End load_common.

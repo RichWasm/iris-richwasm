@@ -17,6 +17,18 @@ Section load_move.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Ltac inv_app_l H :=
+    let r1 := fresh "r" in
+    let r2 := fresh "r" in
+    let Hall1 := fresh "Hall1" in
+    let Hall2 := fresh "Hall2" in
+    let Heq := fresh "Heq" in
+    apply Forall2_app_inv_l in H;
+    destruct H as (r1 & r2 & Hall1 & Hall2 & Heq);
+    try rewrite -> !Heq in *;
+    try inv_app_l Hall1;
+    try inv_app_l Hall2.
+
   Lemma has_areps_one ι sv :
     has_areps [ι] sv ->
     ∃ o, sv = SAtoms [o] /\ has_arep ι o.
@@ -152,6 +164,15 @@ Section load_move.
     destruct rp as [|[|]]; iEval (cbn) in "Hrp"; try done; [].
     inversion Hrp.
     apply has_values_to_consts_inv in Hevs; subst.
+
+
+    (* Frame facts *)
+    iPoseProof (frame_interp_locs_len with "[$]") as "%Hlocs_len".
+    iPoseProof (frame_interp_locs_len with "[$]") as "%Hlocs_len_simp".
+    rewrite !length_concat !length_app !length_map !Nat.add_assoc in Hlocs_len_simp.
+    cbn in Hlocs_len_simp.
+    rewrite -sum_list_with_list_sum in Hlocs_len_simp.
+
     (* 1: storing locals *)
     iEval (rewrite app_assoc).
       set (Q := (λ f' v',
@@ -164,9 +185,8 @@ Section load_move.
       instantiate (1 := Q).
       cbn.
       iApply (cwp_local_tee with "[Ht] [$] [$]").
-      { (* TODO length of f_locs *)
-        admit. }
-      by iFrame.
+      - lia.
+      - by iFrame.
     }
     unfold Q; clear Q.
 
@@ -242,8 +262,7 @@ Section load_move.
       { eauto. }
       { cbn.
         rewrite list_lookup_insert_eq; first done.
-        (* TODO characterize the length of f_locs *)
-        admit. }
+        lia. }
       { done. }
       { cbn.
         unfold instance_interp, instance_runtime_interp.
@@ -273,8 +292,9 @@ Section load_move.
       by constructor. }
     { done. }
     { cbn.
-      (* TODO length of f_locs *)
-      admit. }
+      iPureIntro.
+      rewrite list_lookup_insert_eq; first done.
+      lia. }
     iIntros "!> Hf Hr".
     clear_nils.
 
@@ -290,12 +310,16 @@ Section load_move.
     - iPureIntro.
       eapply ser_offsets; eauto.
     - done.
-    - (* TODO length of f_locs *)
-      admit.
-    - (* TODO lookup in f_locs *)
-      admit.
-    - (* TODO length of f_locs *)
-      admit.
+    - iPureIntro.
+      rewrite length_insert length_app length_map.
+      cbn.
+      lia.
+    - iPureIntro.
+      rewrite list_lookup_insert_eq; first done.
+      cbn; lia.
+    - iPureIntro.
+      rewrite length_app; cbn.
+      lia.
     - done.
     - done.
     - done.
@@ -334,11 +358,35 @@ Section load_move.
         - apply Forall_map.
           by apply Forall_true.
       }
-      iSplitR; last iSplitR; last iSplitR "Htok Hown"; last iSplitL "Htok".
-      + (* TODO reestablish frame_rel *)
-        admit.
-      + (* TODO reestablish frame_interp *)
-        admit.
+      iSplitR; last iSplitL "Hframe"; last iSplitR "Htok Hown"; last iSplitL "Htok".
+      + iPureIntro.
+        rewrite Hf'.
+        split; last by rewrite load_frame_inst.
+        intros i Hmask.
+        destruct Hmask as [Hmask1 Hmask2].
+        rewrite mk_load_frame_stable_part.
+        * rewrite list_lookup_insert.
+          assert (¬ (i = sum_list_with length (typing.fc_locals F) + length wl)).
+          {
+            intros ->.
+            cbn in Hmask2.
+            rewrite !sum_list_with_list_sum in Hmask2.
+            lia.
+          }
+          rewrite decide_False; first done.
+          cbn; lia.
+        * rewrite length_app.
+          unfold fe in Hmask2.
+          lia.
+      + iPoseProof (load_restore_frame _ _ wl [] (wl3 ++ wlf) with "Hframe [//] [//]") as "Hframe".
+        instantiate (1 := n32).
+        Unshelve.
+        2:by eauto.
+        clear_nils.
+        iEval (rewrite Hf').
+        iEval (cbn [f_inst localimm f_locs]) in "Hframe".
+        rewrite list_insert_insert_eq.
+        done.
       + iExists (PtrA (PtrHeap MemMM ℓ) :: os).
         iSplitR "Haddr Hos".
         * iEval (cbn).
@@ -374,6 +422,6 @@ Section load_move.
           iExists _, _; eauto.
       + by eauto.
       + done.
-  Admitted.
+  Qed.
 
 End load_move.
