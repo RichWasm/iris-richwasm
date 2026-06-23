@@ -89,6 +89,13 @@ type run_env = {
 
 let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
   let open Alcotest in
+  (* NOTE: dune>=3.22 sandboxes (test) runs; Alcotest's default
+     $PWD/_build/_tests would resolve inside the sandbox dune deletes. *)
+  let log_dir =
+    match Sys.getenv "DUNE_SOURCEROOT" with
+    | Some root -> Some (Filename.concat root "_build/_tests")
+    | None -> None
+  in
   let module SingleRW = Run_rw.SingleRichWasm (struct
     let rw_runtime_path = rw_runtime
     let host_runtime_path = host_single
@@ -129,7 +136,7 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
         let result, logs = Single.run ~asprintf src |> Single.M.run in
         check_result expected Single.E2Err.pp logs result)
   in
-  run "e2e"
+  run ?log_dir "e2e"
     [
       ( "lin-lang-single",
         Lin_lang_single.simple_tests |> List.map ~f:(simple_mapper (module LL))
