@@ -1790,119 +1790,6 @@ Section store_common.
 (* -------------------- STORE STRONG GC ----------------------- *)
 
 
-  Lemma virt_to_phys_slice_store_acc_strong_gc lmask off sz ℓ μ a θ ws :
-    let slice := take sz (drop off ws) in
-    ⊢ ⌜off + sz <= length ws⌝ -∗
-      rt_token rti sr lmask θ -∗
-      ℓ ↦heap ws -∗
-      (* ℓ ↦addr (μ, a) -∗ *)
-      ⌜ θ !! ℓ = Some (μ, a)⌝ -∗
-      ⌜ ¬ lmask ℓ ⌝ -∗
-      ∃ hm,
-        ⌜hm !! ℓ = Some ws⌝ ∗
-        ⌜dom θ = dom hm⌝ ∗
-        ⌜Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws)⌝ ∗
-        rt_token_nophys rti sr lmask θ hm ∗
-        (∃ (ns : list N) (ns32 : list i32),
-          ⌜Forall2 N_i32_repr ns ns32⌝ ∗
-          rt_memaddr sr μ ↦[wms][a + 4 * N.of_nat off] flat_map serialise_i32 ns32 ∗
-          words_interp θ μ slice ns) ∗
-        (∀ (ws_new : list word) (ns' : list N) (ns32' : list i32),
-          ⌜length ws_new = sz⌝ -∗
-          ⌜Forall2 N_i32_repr ns' ns32'⌝ -∗
-          (* ⌜∀ flags, Forall2 word_has_flag flags ws → *)
-          (*           Forall2 word_has_flag flags (update_path_words off ws ws_new)⌝ -∗ *)
-          ⌜Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations (update_path_words off ws ws_new))⌝ -∗
-          ⌜Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations (update_path_words off ws ws_new))⌝ -∗
-          rt_memaddr sr μ ↦[wms][a + 4 * N.of_nat off] flat_map serialise_i32 ns32' -∗
-          words_interp θ μ ws_new ns' -∗
-          rt_token_nophys rti sr lmask θ hm -∗
-          |==> ℓ ↦heap (update_path_words off ws ws_new) ∗
-               (* ℓ ↦addr (μ, a) ∗ *)
-               rt_token rti sr lmask θ).
-  Proof.
-    iIntros (slice) "%Hlenbdd Hrt Hpt %Hθℓ %Hℓmask".
-    open_rt "Hrt".
-    iExists hm.
-    iCombine "Hpt Hheap" gives "%Hhm".
-    (* iCombine "Ha Haddr" gives "%Hθℓ". *)
-    iPoseProof (heap_memory_dom_eq with "Hheapmem") as "%Hdomθhm".
-    iPoseProof (heap_memory_delete sr ℓ _ _ ws with "Hheapmem") as "(HR & Hheapcont)"; eauto.
-    (* Derive Forall (ℓ' ∈ dom θ) (flat_map locations ws) from heap_ok condition 3 *)
-    have Hlocsθ_ws : Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws).
-    { destruct Hheapok as (_ & Hdomθ).
-      unfold map_Forall2 in Hdomθ.
-      specialize (Hdomθ ℓ).
-      rewrite Hhm Hθℓ in Hdomθ.
-      inversion Hdomθ. exact H1. }
-    iSplit; first (iPureIntro; exact Hhm).
-    iSplit; first (iPureIntro; exact Hdomθhm).
-    iSplit; first (iPureIntro; exact Hlocsθ_ws).
-    iFrame "Haddr".
-    iSplitL "Hroot Hlayout Hrti Hrootmem"; first by iFrame.
-    iDestruct "HR" as "(%ns_all & %ns32_all & %Hns_all & Hphys_all & Hwords_all)".
-    assert (ws = take off ws ++ slice ++ drop (off + sz) ws) as Hws.
-    {
-      rewrite app_assoc. unfold slice. by rewrite take_take_drop take_drop.
-    }
-    assert (length slice = sz) as Hslicelen.
-    { unfold slice; apply length_take_le; rewrite length_drop; lia. }
-    iEval (setoid_rewrite Hws) in "Hwords_all".
-    iPoseProof (big_sepL2_app_inv_l with "Hwords_all") as "(%ns_pre & %ns_rest & -> & Hpre & Hwords_rest)".
-    iPoseProof (big_sepL2_app_inv_l with "Hwords_rest") as "(%ns_mid & %ns_post & -> & Hwords & Hpost)".
-    pose proof Hns_all as Hns_all'.
-    apply Forall2_app_inv_l in Hns_all'.
-    destruct Hns_all' as (ns32_pre & ns32_rest & Hns_pre & Hns_rest & ->).
-    apply Forall2_app_inv_l in Hns_rest.
-    destruct Hns_rest as (ns32_mid & ns32_post & Hns_mid & Hns_post & ->).
-    rewrite !flat_map_app.
-    rewrite !wms_app; try by eauto.
-    iDestruct "Hphys_all" as "(Hphys_pre & Hphys & Hphys_post)".
-    pose proof (Forall2_length _ _ _ Hns_pre) as Hnslenpre.
-    pose proof (Forall2_length _ _ _ Hns_mid) as Hnslen.
-    iPoseProof (big_sepL2_length with "Hpre") as "%Hlenpre'".
-    iPoseProof (big_sepL2_length with "Hpost") as "%Hlenpost'".
-    iPoseProof (big_sepL2_length with "Hwords") as "%Hlenws'".
-    assert (length (flat_map serialise_i32 ns32_pre) = 4 * off) as Hlenpre.
-    {
-      rewrite len_ser32. rewrite -Hnslenpre -Hlenpre' length_take_le; lia.
-    }
-    rewrite Hlenpre Nat2N.inj_mul.
-    iSplitL "Hwords Hphys"; first by iFrame.
-    (* Closing frame *)
-    iIntros (ws_new ns' ns32') "%Hlenws_new %Hns'' %Hlocshm %Hlocsθ Hphys' Hwords' Hnp".
-    iMod (ghost_map_update (update_path_words off ws ws_new) with "Hheap Hpt") as "[Hheap' Hpt']".
-    iModIntro.
-    iFrame "Hpt'".
-    pose proof (Forall2_length _ _ _ Hns'') as Hns32'len.
-    iPoseProof (big_sepL2_length with "Hwords'") as "%Hns'len".
-    set (hm' := <[ℓ := update_path_words off ws ws_new]> hm).
-    iAssert (rt_token_nophys rti sr lmask θ hm') with "[Hnp]" as "Hnp'".
-    { iApply (rt_token_nophys_insert_heap_strong _ _ _ _ _ _ ws with "Hnp").
-      - exact Hhm.
-      - intro Hcontra; done.
-      - eauto.
-      - eauto. }
-    iApply (rt_token_putheap rti sr lmask θ hm' with "Hnp'").
-    unfold rt_token_phys.
-    iFrame "Hheap'".
-    iApply ("Hheapcont" $! (update_path_words off ws ws_new)).
-    iExists (ns_pre ++ ns' ++ ns_post), (ns32_pre ++ ns32' ++ ns32_post).
-    iSplit; first by (iPureIntro; eauto using Forall2_app).
-    iSplitL "Hphys_pre Hphys' Hphys_post".
-    - iCombine "Hphys_pre Hphys' Hphys_post" as "Hphys_all".
-      rewrite -wms_app; last by (rewrite !len_ser32; lia).
-      rewrite -wms_app; last (rewrite !len_ser32 -Hnslenpre -Hlenpre' length_take_le; lia).
-      rewrite -!flat_map_app.
-      iFrame "Hphys_all".
-    - unfold update_path_words; rewrite Hlenws_new.
-      unfold words_interp.
-      iCombine "Hpre Hwords' Hpost" as "Hwords_all".
-      repeat (rewrite <- big_sepL2_app_same_length; last by (rewrite -?Hlenpre' -?Hns'len; lia)).
-      rewrite drop_drop.
-      iFrame.
-  Qed.
-
 
   Lemma wp_store1_gc_strong a_idx off ι v_idx wt wl ret wt' wl' es :
     run_codegen (store1 mr MemGC a_idx off v_idx ι) wt wl = inr (ret, wt', wl', es) ->
@@ -2011,7 +1898,7 @@ Section store_common.
         apply wp_store_w in Hcg1 as (_ & -> & -> & Hcg1spec).
 
         (* Note: this happens so late because the MM case needs full rttoken *)
-        iPoseProof (virt_to_phys_slice_store_acc_strong_gc lmask off (arep_size PtrR)
+        iPoseProof (virt_to_phys_slice_store_acc_strong_gc rti sr lmask off (arep_size PtrR)
                      with "[//] [$Htok] [$Hptr] [//] [//]")
           as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
           (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
@@ -2123,7 +2010,7 @@ Section store_common.
         }
 
         (* we can not break the token up again *)
-        iPoseProof (virt_to_phys_slice_store_acc_strong_gc lmask off (arep_size PtrR)
+        iPoseProof (virt_to_phys_slice_store_acc_strong_gc rti sr lmask off (arep_size PtrR)
                      with "[//] [$Htok] [$Hptr] [//] [//]")
           as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
           (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
@@ -2237,7 +2124,7 @@ Section store_common.
         }
         subst a1.
 
-        iPoseProof (virt_to_phys_slice_store_acc_strong_gc lmask off (arep_size PtrR)
+        iPoseProof (virt_to_phys_slice_store_acc_strong_gc rti sr lmask off (arep_size PtrR)
                      with "[//] [$Htok] [$Hptr] [//] [//]")
           as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
           (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
@@ -2401,7 +2288,7 @@ Section store_common.
       apply wp_store_w in Hcg as (_ & _ & _ & Hcgspec).
 
 
-      iPoseProof (virt_to_phys_slice_store_acc_strong_gc lmask off (arep_size ι)
+      iPoseProof (virt_to_phys_slice_store_acc_strong_gc rti sr lmask off (arep_size ι)
                    with "[//] [$Htok] [$Hptr] [//] [//]")
         as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp &
           (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
