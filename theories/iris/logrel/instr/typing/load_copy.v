@@ -1348,7 +1348,7 @@ Section load_copy.
         }
         {
           (* restore frame_interp *)
-          iPoseProof (load_restore_frame wl (wl1 ++ wl2 ++ wl0) wlf) as "Hframe'".
+          iPoseProof (load_restore_frame _ _ wl (wl1 ++ wl2 ++ wl0) wlf) as "Hframe'".
           rewrite -!app_assoc.
           iSpecialize ("Hframe'" with "Hframe [//] [//]").
           iApply "Hframe'".
@@ -1677,7 +1677,7 @@ Section load_copy.
         }
         {
           (* restore frame_interp *)
-          iPoseProof (load_restore_frame wl (wl1 ++ wl2 ++ wl0) wlf) as "Hframe'".
+          iPoseProof (load_restore_frame _ _ wl (wl1 ++ wl2 ++ wl0) wlf) as "Hframe'".
           rewrite -!app_assoc.
           iSpecialize ("Hframe'" with "Hframe [//] [//]").
           iApply "Hframe'".
