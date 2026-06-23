@@ -253,7 +253,18 @@ Section copy.
       split; last congruence.
       intros i Hmask.
       unfold wlmask in Hmask.
-      admit.
+      rewrite Hsame; swap 1 2.
+      { intros Hi.
+        apply list_elem_of_fmap_inj_2 in Hi;
+          last (intros ? ? ?; congruence).
+        rewrite elem_of_seq in Hi.
+        rewrite length_map in Hi.
+        lia. }
+      rewrite H; swap 1 2.
+      { intros Hi.
+        rewrite elem_of_seq in Hi.
+        lia. }
+      reflexivity.
     - (* frame_interp *)
       admit.
     - iExists (concat [os; os]).
