@@ -25,6 +25,17 @@ Section load_move.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma Forall_repeat {A} {P : A → Prop} n a :
+    P a →
+    Forall P (repeat a n).
+  Proof.
+    induction n; intros Hp.
+    - done.
+    - cbn.
+      constructor; eauto.
+  Qed.
+
+
   Lemma reconstitute_val_strong θ μ o ws off ι ns ns32 :
     "Hws" ∷ words_interp θ μ (get_path_words off (arep_size ι) ws) ns -∗
     "%Hbound" ∷ ⌜off + arep_size ι <= length ws⌝ -∗
@@ -135,6 +146,15 @@ Section load_move.
       + admit.
   Admitted.
 
+  Lemma types_agree_atom_interp ι o v :
+    ι ≠ PtrR →
+    types_agree (translate_arep ι) v →
+    has_arep ι o →
+    ⊢ atom_interp o v.
+  Proof.
+    intros Hcontra Hag Harep.
+    destruct ι, o, v; try done; unfold atom_interp; cbn.
+  Abort.
 
   Lemma wp_load1_move_mm (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
     let fe := fe_of_context F in
@@ -226,12 +246,44 @@ Section load_move.
       - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [v]⌝%I).
     }
     iIntros (? ?) "(-> & ->) Hf Hrun".
-
+    assert (length ns = arep_size ι) as Hlenns.
+    {
+      pose proof (length_bits v _ ltac:(eassumption)) as Hbits.
+      rewrite length_t_translate_arep in Hbits.
+      erewrite Forall2_length by eauto.
+      rewrite -Hserws in Hbits.
+      rewrite len_ser32 in Hbits.
+      lia.
+    }
+    assert (off + length (map WordInt ns) ≤ length ws) as Hbdns.
+    { rewrite length_map; lia. }
+    pose proof (updating_words off (map WordInt ns) ws ltac:(assumption))
+      as (ws_l & ws0 & ws_r & -> & Hupdate & Hlenws0 & Hlenws_l).
     iSpecialize ("Hclose" with "[] [] [] [] [Hphys] [Hret] [$Hnp]").
-    { admit. }
-    { admit. }
-    { admit. }
-    { admit. }
+    { iPureIntro.
+      instantiate (1:=(map WordInt ns)).
+      rewrite length_map.
+      done.
+    }
+    { iPureIntro. apply Hns. }
+    { iPureIntro.
+      revert Hlocsθ_ws.
+      rewrite Hupdate !flat_map_app !Forall_app -Hdomθhm.
+      intuition.
+      replace (flat_map _ _) with (@nil location); first done.
+      symmetry.
+      rewrite flat_map_concat_map map_map map_const.
+      eapply concat_nil_Forall.
+      by apply Forall_repeat. }
+    { iPureIntro.
+      revert Hlocsθ_ws.
+      rewrite Hupdate !flat_map_app !Forall_app.
+      intuition.
+      replace (flat_map _ _) with (@nil location); first done.
+      symmetry.
+      rewrite flat_map_concat_map map_map map_const.
+      eapply concat_nil_Forall.
+      by apply Forall_repeat. }
     { unfold PHYS. rewrite -Hserws.
       done. }
     { by iApply "Hret". }
@@ -241,52 +293,61 @@ Section load_move.
     destruct (atomic_rep_eq_dec ι PtrR).
     + subst ι.
       destruct o; try (exfalso; tauto).
-      eapply wp_ite_gc_ptr_ptr with (evs:= to_consts [v]) (vs:=[v]) in Hcompile;
-        [|by apply Is_true_true, has_values_to_consts|done| by econstructor |done].
+      iPoseProof (atom_interp_weak_ptr_shaped with "Hat") as "(%av & %av32 & -> & %Hav32 & %Hshp)".
+      eapply wp_ite_gc_ptr_ptr with (evs:= to_consts [VAL_int32 av32]) (vs:=[VAL_int32 av32]) in Hcompile;
+        [|by apply Is_true_true, has_values_to_consts| done | by eauto | eapply Hav32 ].
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hcg1 & Hcg2 & Hcg3 & Hwt7 & Hwl7 & Hes_rest2).
       iApply (Hes_rest2 with "[$] [$] []").
-      { admit. }
-      { iIntros "!> Hf Hr".
-        inv_cg_ret Hcg2.
-        iApply (cwp_val with "[$] [$]"); first (clear_nils; eauto using has_values_to_consts).
-        iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] [-]").
-        - admit.
-        - admit.
-        - admit.
-        - iDestruct "Hat" as "(%n & %n32 & %Hn32 & -> & Hat)".
-          iExists n, n32.
-          repeat (iSplit; first done).
-          destruct p; iRevert "Hat".
-          + iIntros "%Hat".
-            iExists (RootInt n0).
-            iSplit; auto.
-            iPureIntro.
-            inversion Hat; subst; eauto.
-            by constructor.
-          + destruct μ; cbn.
-            -- iIntros "(%rp & %Hat & Hℓ_addr)".
-               inversion Hat; subst.
-               iExists (RootHeap MemMM rp).
-               cbn.
-               iFrame.
-               done. (* NOTE: addr used here, no longer missing *)
-            -- iIntros "(%ah & %Hroot & Hroot)".
-               iExists (RootHeap MemGC ah).
-               iFrame.
-               iPureIntro.
-               inversion Hroot.
-               by constructor.
-      }
+      { iPureIntro.
+        rewrite list_lookup_insert_eq; first done.
+        cbn in Hfsz; cbn; lia. }
+      iIntros "!> Hf Hr".
+      inv_cg_ret Hcg1.
+      inv_cg_ret Hcg2.
+      inv_cg_ret Hcg3.
+      clear_nils.
+      iAssert ((CWP to_consts [VAL_int32 av32] @ s; E UNDER []; R {{ f0; vs, Φ f0 vs }})%I) with "[-]" as "H";
+        last (destruct p as [| [|]]; by iApply "H").
+      iApply (cwp_val with "[$] [$]"); first (clear_nils; eauto using has_values_to_consts).
+      iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] [-]").
+      - done.
+      - unfold f', mk_load1_frame.
+        unfold vloc.
+        iPureIntro; done.
+      - done.
+      - iDestruct "Hat" as "(%n & %n32 & %Hn32 & -> & Hat)".
+        iExists n, n32.
+        repeat (iSplit; first done).
+        destruct p; iRevert "Hat".
+        * iIntros "%Hat".
+          iExists (RootInt n0).
+          iSplit; auto.
+          iPureIntro.
+          inversion Hat; subst; eauto.
+          by constructor.
+        * destruct μ; cbn.
+          -- iIntros "(%rp & %Hat & Hℓ_addr)".
+             inversion Hat; subst.
+             iExists (RootHeap MemMM rp).
+             cbn.
+             iFrame.
+             done. (* NOTE: addr used here, no longer missing *)
+          -- iIntros "(%ah & %Hroot & Hroot)".
+             iExists (RootHeap MemGC ah).
+             iFrame.
+             iPureIntro.
+             inversion Hroot.
+             by constructor.
     + eapply wp_ite_gc_ptr_nonptr in Hcompile; last assumption.
       inv_cg_ret Hcompile; subst; clear_nils.
       iApply (cwp_val with "[$] [$]"); first eauto using has_values_to_consts.
-      iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] []").
-      * admit.
-      * admit.
-      * admit.
-      * admit.
-  Admitted.
+      iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] [Hat]").
+      * done.
+      * eauto.
+      * done.
+      * destruct ι, o, v; done.
+  Qed.
 
   Lemma wp_mem_load_move_inner ιs :
     ∀ (se : @semantic_env Σ) F lidx off wt wl ret wt' wl' es,
@@ -384,7 +445,13 @@ Section load_move.
           destruct (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off')) (
                         off, []) ιs) as [off0 offs0] eqn:Heqfold.
           assert (seq.size offs0 = seq.size (seq.map arep_size ιs)).
-          { admit. }
+          {
+            erewrite load_fold_offs_len ; eauto.
+            change @seq.size with @length.
+            change @seq.map with @map.
+            rewrite length_map.
+            by apply Nat.add_0_r.
+          }
           cbn in Hoffs_szs.
           rewrite seq.zip_rcons in Hoffs_szs; last done.
           eapply seq.rcons_inj in Hoffs_szs.
@@ -419,9 +486,72 @@ Section load_move.
         first eassumption;
         try done.
       + by rewrite load_frame_inst.
-      + admit.
-      + admit.
-      + admit.
+      + rewrite simple_fold_sum_list_with.
+        iPureIntro.
+        rewrite sum_list_with_rcons in Hbound.
+        rewrite update_path_words_size; first lia.
+        rewrite length_map Hns'.
+        unfold areps_size.
+        cbn.
+        rewrite -sum_list_with_list_sum.
+        lia.
+      + iPureIntro.
+        rewrite simple_fold_sum_list_with.
+        unfold offs_szs, offs in Hser.
+        rewrite seq.foldl_rcons in Hser.
+        destruct (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off')) (off, []) ιs) as [off' offs'] eqn:Hfold'.
+        cbn in Hser.
+        change @map with @seq.map in Hser.
+        rewrite seq.map_rcons in Hser.
+
+        assert (seq.size offs' = seq.size (seq.map arep_size ιs)).
+        { erewrite load_fold_offs_len; eauto.
+          cbn.
+          rewrite seq.size_map.
+          change @seq.size with @length.
+          lia. }
+
+        assert (off + length (map WordInt ns') ≤ length ws).
+        {
+          rewrite length_map Hns'.
+          rewrite sum_list_with_rcons sum_list_with_list_sum in Hbound.
+          unfold areps_size; cbn; lia.
+        }
+        pose proof (updating_words off (map WordInt ns') ws ltac:(auto))
+          as (ws_l & ws0 & ws_r & -> & Hupdate & Hlen0 & Hlen_l).
+        rewrite seq.zip_rcons in Hser; last done.
+        rewrite !rcons_app in Hser.
+        apply Forall2_app_inv in Hser.
+        {
+          destruct Hser as [Hsers Hser].
+          inversion Hser; subst.
+          rewrite H4.
+          rewrite Hupdate.
+          unfold get_path_words.
+          rewrite !app_assoc.
+          erewrite <- (simple_fold_fancy_fold rti sr mr ιs off'); last by eauto.
+          rewrite simple_fold_sum_list_with.
+          rewrite !drop_app_length'; first done.
+          {
+            rewrite !length_app !length_map.
+            rewrite sum_list_with_list_sum.
+            unfold areps_size in Hns'; cbn in Hns'.
+            congruence.
+          }
+          {
+            rewrite !length_app Hlen0 !length_map.
+            rewrite sum_list_with_list_sum.
+            unfold areps_size in Hns'; cbn in Hns'.
+            congruence.
+          }
+        }
+        apply Forall2_length in Hser.
+        rewrite !length_app in Hser; cbn in Hser; lia.
+      + iPureIntro.
+        rewrite !length_app !length_map; cbn.
+        rewrite !length_app !length_map in Hfsz; cbn in Hfsz.
+        rewrite load_frame_length.
+        lia.
       + iPureIntro.
         by rewrite mk_load_frame_stable_part.
       + by rewrite load_frame_inst.
@@ -449,7 +579,7 @@ Section load_move.
           rewrite rcons_app.
           apply Forall2_app; first done.
           by constructor.
-  Admitted.
+  Qed.
 
   Lemma wp_mem_load_move (se : @semantic_env Σ) F lidx off ιs wt wl ret wt' wl' es :
     let fe := fe_of_context F in

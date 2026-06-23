@@ -39,27 +39,103 @@ Section load_move.
     inversion H3; subst; eauto.
   Qed.
 
+  Lemma set_flags_at_take_drop off fs' fs :
+    off + length fs' ≤ length fs →
+    set_flags_at off fs' fs = take off fs ++ fs' ++ drop (length fs') (drop off fs).
+  Proof.
+    unfold set_flags_at.
+    intros Hoff.
+    revert off fs  Hoff.
+    induction fs'; intros off fs Hoff.
+    - cbn.
+      rewrite drop_0.
+      by rewrite take_drop.
+     - cbn.
+      cbn in Hoff.
+      rewrite IHfs'; last lia.
+      rewrite !drop_drop.
+      rewrite -plus_n_Sm; cbn.
+      change (off + S (length fs')) with (S off + length fs').
+      rewrite list_extra.cons_app.
+      rewrite (app_assoc _ [a] _).
+      rewrite insert_app_l.
+      {
+        f_equal.
+        rewrite -take_insert_lt; last lia.
+        rewrite insert_take_drop; last lia.
+        rewrite take_app take_take.
+        rewrite length_take.
+        replace (S off `min` off) with off by lia.
+        replace (off `min` length fs) with off by lia.
+        replace (S off - off) with 1 by lia.
+        cbn.
+        rewrite take_0.
+        done.
+      }
+      rewrite length_take.
+      lia.
+   Qed.
+
+  Lemma word_has_flag_set off ws fs ws' fs' :
+    off + length fs' ≤ length fs →
+    Forall2 word_has_flag fs ws →
+    Forall2 word_has_flag fs' ws' →
+    Forall2 word_has_flag (set_flags_at off fs' fs) (update_path_words off ws ws').
+  Proof.
+    intros Hlt Hws Hws'.
+    rewrite set_flags_at_take_drop; last done.
+    unfold update_path_words.
+    assert (length fs' = length ws') by eauto using Forall2_length.
+    assert (length fs = length ws) by eauto using Forall2_length.
+    replace ws with (take off ws ++ take (length ws') (drop off ws) ++ drop (length ws') (drop off ws)) in Hws; swap 1 2.
+    { by rewrite !take_drop. }
+    replace fs with (take off fs ++ take (length fs') (drop off fs) ++ drop (length fs') (drop off fs)) in Hws; swap 1 2.
+    { by rewrite !take_drop. }
+    apply Forall2_app_inv in Hws; last (rewrite !length_take; congruence).
+    destruct Hws as [Hws_l Hws].
+    apply Forall2_app_inv in Hws; last (rewrite !length_take !length_drop; congruence).
+    destruct Hws as [Hws0 Hws_r].
+    by repeat apply Forall2_app.
+  Qed.
+
   Lemma rt_token_update_flags ℓ off fs ws fs' ws' θ lmask :
     "Hfs" ∷ ℓ ↦layout set_flags_at off fs' fs -∗
     "Hptr" ∷ ℓ ↦heap update_path_words off ws ws' -∗
     "Htok" ∷ rt_token rti sr lmask θ -∗
+    "%Hfsws" ∷ ⌜Forall2 word_has_flag fs ws⌝ -∗
     "%Hfs'" ∷ ⌜Forall2 word_has_flag fs' ws'⌝ -∗
+    "%Hbd" ∷ ⌜off + length fs' ≤ length ws⌝ -∗
     "%Hmask" ∷ ⌜∀ ℓ', lmask ℓ' ↔ ℓ' ≠ ℓ⌝ -∗
     ("Hfs" ∷ ℓ ↦layout set_flags_at off fs' fs ∗
      "Hptr" ∷ ℓ ↦heap update_path_words off ws ws' ∗
      "Htok" ∷ rt_token rti sr lpall θ).
   Proof.
-  Admitted.
-
-
-  Lemma Forall_repeat {A} {P : A → Prop} n a :
-    P a →
-    Forall P (repeat a n).
-  Proof.
-    induction n; intros Hp.
-    - done.
-    - cbn.
-      constructor; eauto.
+    repeat iIntros "@".
+    open_rt "Htok".
+    iCombine "Hptr" "Hheap" gives "%Hptr".
+    iCombine "Hfs" "Hlayout" gives "%Hlay".
+    unfold rt_token.
+    iFrame.
+    iSplit; first done.
+    iSplit; first done.
+    iSplit; last done.
+    iPureIntro.
+    unfold layout_ok, map_Forall2 in *.
+    intros ℓ'.
+    destruct (N.eq_dec ℓ' ℓ).
+    - subst.
+      rewrite Hptr Hlay.
+      constructor.
+      intros _.
+      apply word_has_flag_set; eauto.
+      erewrite (Forall2_length _ fs ws) by eauto.
+      done.
+    - subst.
+      specialize (Hlayoutok ℓ').
+      inversion Hlayoutok; constructor.
+      intros _.
+      rewrite <- Hmask in n.
+      eauto.
   Qed.
 
   Lemma compat_load_move M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ τ τval π pr :
@@ -204,6 +280,18 @@ Section load_move.
       inversion H2.
       done. }
 
+    iAssert (⌜Forall2 word_has_flag fs ws⌝%I) with "[Hfs Hws Hrt]" as "%Hwordsok".
+    {
+      open_rt "Hrt".
+      iCombine "Hfs" "Hlayout" gives "%Hlm".
+      iCombine "Hws" "Hheap" gives "%Hhm".
+      iPureIntro.
+      specialize (Hlayoutok ℓ).
+      rewrite Hlm Hhm in Hlayoutok.
+      inversion Hlayoutok; subst.
+      eauto.
+    }
+
     iDestruct "U" as "(%Hbd & Hval & Hvput)".
     set (mask' ℓ' := ℓ' ≠ ℓ).
     iPoseProof (rt_token_mono rti sr lpall mask' with "[$Hrt]") as "Hrt".
@@ -328,7 +416,7 @@ Section load_move.
     - by iDestruct "Hinst" as "(? & ? & ? & ? & ? & ?)".
     - iIntros (f' vs' vsf ns').
       repeat iIntros "@".
-      iPoseProof (rt_token_update_flags with "[$] [$] [$] [] [//]") as "(@ & @ & @)".
+      iPoseProof (rt_token_update_flags with "[$] [$] [$] [//] [] [] [//]") as "(@ & @ & @)".
       {
         iPureIntro.
         rewrite Forall2_fmap_r.
@@ -336,6 +424,7 @@ Section load_move.
         - by rewrite length_repeat.
         - by apply Forall_repeat.
       }
+      { by rewrite length_repeat. }
       unfold fvs_combine.
       iSpecialize ("Hvput" $! (map WordInt ns') with "[] []").
       {
