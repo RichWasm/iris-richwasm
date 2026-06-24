@@ -102,7 +102,26 @@ Section load_copy.
     (([∗ list] x;y ∈ take n (drop m xs);take n (drop m ys), P x y) -∗
      ([∗ list] x;y ∈ xs;ys, P x y)).
   Proof.
-  Admitted.
+    iIntros "H".
+    iDestruct (big_sepL2_length with "H") as "%Hlen".
+    rewrite -{1}(take_drop m xs).
+    rewrite -{1}(take_drop m ys).
+    iDestruct (big_sepL2_app_inv with "H") as "[Htakem Hdropm]".
+    { rewrite !length_take. lias. }
+    rewrite -{1}(take_drop n (drop m xs)).
+    rewrite -{1}(take_drop n (drop m ys)).
+    iDestruct (big_sepL2_app_inv with "Hdropm") as "[Htaken_dropm Hdropnm]".
+    { rewrite !length_drop. lias. }
+    iFrame.
+    iIntros "Htaken_dropm".
+    iFrame.
+    iEval (rewrite -(take_drop m xs)).
+    iEval (rewrite -(take_drop m ys)).
+
+    iEval (rewrite -(take_drop n (drop m xs))).
+    iEval (rewrite -(take_drop n (drop m ys))).
+    iFrame.
+  Qed.
 
   Lemma length_bits_words ns32 :
     length (flat_map bits (map VAL_int32 ns32)) = 4 * length ns32.

@@ -166,8 +166,11 @@ Section load_common.
     (a <> 0 ->
      a `mod` b = 0 ->
      b <= a)%N.
-  Proof using.
-  Admitted.
+  Proof.
+    intros.
+    apply N.Div0.mod_divides in H0 as [c ->].
+    destruct c; lias.
+  Qed.
 
   (* This version is looser about the offset in the points-to,
      but it needs to know that l mod 4 = 0 and l <> 0. *)
