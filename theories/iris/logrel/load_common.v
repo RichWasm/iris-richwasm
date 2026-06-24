@@ -2212,4 +2212,55 @@ Section load_common.
   Qed.
 
 
+  Lemma load_restore_frame_one_step wl_start wlf se F L fr vs_new ιs :
+    "Hframe" ∷ frame_interp rti sr se (typing.fc_locals F) L
+      (wl_start ++ map translate_arep ιs ++ wlf) fr -∗
+    "%Hvs" ∷ ⌜Forall2 (λ ι v, types_agree (translate_arep ι) v) ιs vs_new⌝ -∗
+    frame_interp rti sr se (typing.fc_locals F) L (wl_start ++ map translate_arep ιs ++ wlf)
+    (mk_load_frame (fe_of_context F) fr wl_start vs_new).
+  Proof.
+    repeat (iIntros "@").
+    unfold frame_interp.
+    iDestruct "Hframe" as "(%ηss & %vss_L' & %vs_WL' & %fr' & Hframe)".
+    iDestruct "Hframe" as "(%Hprims & %Hres & Hats & Hlocs)".
+    apply Forall2_app_inv_l in Hres.
+    destruct Hres as (vs1 & vs' & Hvs1 & Hvs' & ->).
+    apply Forall2_app_inv_l in Hvs'.
+    destruct Hvs' as (v1 & vs'' & Hv1 & Hvs'' & ->).
+    Opaque atoms_interp.
+    cbn.
+    Transparent atoms_interp.
+    iExists ηss, vss_L', (vs1 ++ vs_new ++ vs'').
+    iFrame.
+    iPureIntro.
+
+    intuition.
+    - assert (map length vss_L' = map length (typing.fc_locals F)) as Hvss.
+      { apply Forall2_Forall2_length in Hprims. congruence. }
+      cbn.
+      erewrite mk_load_frame_locs.
+      + instantiate (1 := vs'').
+        instantiate (1 := concat vss_L' ++ vs1).
+        rewrite -!app_assoc.
+        cbn.
+        done.
+      + rewrite !length_app length_concat.
+        rewrite Hvss sum_list_with_list_sum; cbn.
+        apply Forall2_length in Hvs1.
+        lia.
+      + instantiate (1 := v1). (* I'm guessing v1, unsure *)
+        apply Forall2_length in Hvs.
+        apply Forall2_length in Hv1.
+        rewrite length_map in Hv1.
+        lia.
+      + rewrite <- app_assoc.
+        done.
+    - unfold result_type_interp.
+      repeat (constructor || apply Forall2_app); eauto.
+      rewrite Forall2_fmap_l.
+      eapply Forall2_impl; first eapply Hvs.
+      intros ι v Hv.
+      by rewrite types_agree_val_interp in Hv.
+  Qed.
+
 End load_common.

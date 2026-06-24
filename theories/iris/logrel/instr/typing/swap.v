@@ -953,7 +953,23 @@ Section swap.
         iSplitL "Hframe". {
           (* ugh I don't want to *)
           (* smthn like load_restore_frame but that one is too specific *)
-          admit. (* frame interp update *)
+          subst fr_load.
+
+          set (wl_start:= wl ++ map translate_prim (map arep_to_prim ιs) ++ [instruction.W.T_i32] ++
+                            wl_unreach).
+          set (wl_final:= wl_memGC ++ wlf).
+          assert (((wl ++
+                map translate_prim (map arep_to_prim ιs) ++
+                [instruction.W.T_i32] ++
+                wl_unreach ++ map translate_arep ιs ++ wl_memGC ++ wlf)) =
+                    wl_start ++ map translate_arep ιs ++ wl_final). {
+            unfold wl_start, wl_final.
+            rewrite !app_assoc; done.
+          }
+          rewrite !H1.
+          iApply (load_restore_frame_one_step with "[$]").
+          iPureIntro.
+          done.
         }
 
         (* -------------- RESTORING VALUE INTERP ------------- *)
@@ -1419,6 +1435,52 @@ Section swap.
       }
 
       (* I think it's time to continue. Hopefully. *)
+      (* I want to frame interp update here for f'' *)
+      iAssert (frame_interp rti sr se (typing.fc_locals F) L
+               (wl ++
+                wl_save ++
+                [instruction.W.T_i32] ++
+                wl_unreach ++ wl_memMM ++ wl0 ++ map translate_arep ιs ++ wlf)
+               f'') with "[Hframe]" as "Hframe". {
+        iEval (rewrite app_assoc) in "Hframe".
+        iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe".
+        5: {
+          instantiate (1 := f'').
+          instantiate (1 := [ptr_local]).
+          subst f''.
+          unfold frame_rel.
+          cbn; split; [|done].
+          unfold mask_locs_eq. cbn.
+          intros i Hipls.
+          symmetry.
+          apply list_lookup_insert_ne.
+          intros ->; apply Hipls; left.
+        }
+        all: try done.
+        2: {
+          simpl.
+          instantiate (1 := [VAL_int32 ah32]).
+          apply Forall2_cons.
+          split; [|done].
+          cbn.
+          subst f''; cbn.
+          apply list_lookup_insert_eq.
+          rewrite length_insert.
+          done.
+        }
+        2: {
+          apply Forall2_cons; split; last done.
+          by eexists.
+        }
+        {
+          subst ptr_local fe.
+          cbn.
+          rewrite sum_list_with_length_concat.
+          done.
+        }
+        iEval (rewrite <- app_assoc) in "Hframe".
+        done.
+      }
 
       (* probably Now I should weaken the token *)
       set (rtmask := (λ l, l ≠ ℓ)).
@@ -1505,6 +1567,8 @@ Section swap.
       (* so we must hide the vs_load consts *)
       iApply cwp_val_app; first (by apply has_values_to_consts).
       unfold fvs_combine.
+
+      (* I'm going to do frame updating here SAVE *)
 
       (* iPoseProof (atoms_interp_to_weak_memMM with "[$] [$Hvs2]") as "[Hrt Hvs2]". *)
 
@@ -1745,7 +1809,22 @@ Section swap.
         iSplitL "Hframe". {
           (* ugh I don't want to *)
           (* smthn like load_restore_frame but that one is too specific *)
-          admit. (* frame interp update *)
+          subst fr_load.
+          set (wl_start:= wl ++ wl_save ++ [instruction.W.T_i32] ++
+                            wl_unreach ++ wl_memMM ++ wl0).
+          assert ((wl ++
+                wl_save ++
+                [instruction.W.T_i32] ++
+                wl_unreach ++ wl_memMM ++ wl0 ++ map translate_arep ιs ++ wlf) =
+                    wl_start ++ map translate_arep ιs ++ wlf). {
+            unfold wl_start.
+            rewrite !app_assoc; done.
+          }
+          rewrite !H1.
+          (* now I think I can make a load_restore_frame that's more generic *)
+          iApply (load_restore_frame_one_step with "[$]").
+          iPureIntro.
+          done.
         }
 
         (* -------------- RESTORING VALUE INTERP ------------- *)
