@@ -216,7 +216,7 @@ Section store_common.
     iPoseProof (virt_to_phys_slice_store_acc_weak _ _ lmask off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr]")
       as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
     (* atom_to_words_mm consumes Hat; it also returns types_agree which is needed for Hstore_spec *)
-    iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
+    iPoseProof (atom_to_words_mm θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
     (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
     iDestruct "Hnp" as "(Haddr & %rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok)".
     iPoseProof (words_interp_locs_dom_θ θ rm MemMM _ ns_new Hrootok with "[$] [$] [$]")
@@ -1515,7 +1515,7 @@ Section store_common.
     iPoseProof (virt_to_phys_slice_store_acc_strong rti sr lmask off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr] [//]")
       as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
     (* atom_to_words_mm consumes Hat; it also returns types_agree which is needed for Hstore_spec *)
-    iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
+    iPoseProof (atom_to_words_mm θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
     (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
     unfold rt_token_nophys.
     iDestruct "Hnp" as "(Haddr & (%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & %Hrootok & Hrootmem & %Hheapok))".

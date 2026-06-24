@@ -1175,21 +1175,146 @@ Section load_common.
       unfold word_interp.
       iExists [(Z.to_N (Wasm_int.Int32.Z_mod_modulus (Wasm_int.Int64.unsigned n)));
         (Z.to_N (Wasm_int.Int64.unsigned n ≫ 32))].
-      iExists _.
-  (* I'm pretty confident this is true but splitting apart the serializing
-     is tricky? *)
-      admit.
-      (* iSplitR; [|iSplitR; [|iSplitR]]; try iPureIntro; try done; try (constructor;done). *)
-      (* 2: { *)
-      (*   Search serialise_i64. *)
-      (* } *)
-      (* + constructor. *)
-      (*   * Check ((Wasm_int.Int32.Z_mod_modulus (Wasm_int.Int64.unsigned n))). *)
-      (*     Search i64. *)
-      (*     Search (Wasm_int.Int32.Z_mod_modulus). *)
-      (*     instantiate (1:= ((Wasm_int.Int32.Z_mod_modulus (Wasm_int.Int64.unsigned n)))). *)
-      (* auto. *)
-  Admitted.
+      iExists [Wasm_int.int_of_Z i32m (Wasm_int.Int64.unsigned n);
+               Wasm_int.int_of_Z i32m (Wasm_int.Int64.unsigned n ≫ 32)].
+      (* TODO: could use some simplifcation... *)
+      set (n' := Wasm_int.Int64.unsigned n).
+      have Hrange := Wasm_int.Int64.unsigned_range n.
+      replace Wasm_int.Int64.modulus with (256 * 2 ^ 56 : Z) in Hrange by done.
+      iSplitR.
+      { iPureIntro.
+        constructor; last (constructor; last constructor).
+        - eapply N_Z_i32_comp.
+          + unfold N_Z_repr.
+            rewrite Z2N.id; [reflexivity |].
+            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+            apply Z.mod_pos.
+            lia.
+          + unfold Z_i32_repr, Wasm_int.int_of_Z; reflexivity.
+        - eapply N_Z_i32_comp.
+          + unfold N_Z_repr.
+            rewrite Z2N.id; [reflexivity |].
+            apply Z.shiftr_nonneg; lia.
+          + unfold Z_i32_repr, Wasm_int.int_of_Z.
+            cbn.
+            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            symmetry; apply Z.mod_small; split.
+            * apply Z.shiftr_nonneg; lia.
+            * rewrite Z.shiftr_div_pow2; last lia.
+              replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+              apply Z.div_lt_upper_bound; lia. }
+      iSplitR.
+      { iPureIntro.
+        cbn [flat_map app].
+        rewrite app_nil_r.
+        change (bits (VAL_int64 n)) with (serialise_i64 n).
+        rewrite serialise_split_i64.
+        f_equal.
+        replace (Wasm_int.Int32.Z_mod_modulus n' + (n' ≫ 32) ≪ 32)%Z with n'.
+        - unfold Wasm_int.int_of_Z; apply Wasm_int.Int64.repr_unsigned.
+        - rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          rewrite Z.shiftl_mul_pow2; last lia.
+          rewrite Z.shiftr_div_pow2; last lia.
+          replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+          have Hdiv := Z.div_mod n' (2^32) ltac:(lia).
+          rewrite Z.add_comm.
+          rewrite Z.mul_comm.
+          lias. }
+      iSplitR.
+      { iPureIntro. done. }
+      { unfold words_interp; cbn.
+        iSplit; [iPureIntro; done | iSplit; [iPureIntro; done | done]]. }
+    - destruct o; cbn in Harep; try inversion Harep; clear Harep.
+      iEval (cbn) in "Hat".
+      iDestruct "Hat" as "->".
+      cbn. unfold word_interp.
+      iExists [Z.to_N (Integers.Int.unsigned (Wasm_float.FloatSize32.to_bits n))].
+      iExists [Wasm_int.int_of_Z i32m (Integers.Int.unsigned (Wasm_float.FloatSize32.to_bits n))].
+      have Hrange := Integers.Int.unsigned_range (Wasm_float.FloatSize32.to_bits n).
+      replace Integers.Int.modulus with (256 * 2^24 : Z) in Hrange by done.
+      iSplitR.
+      { iPureIntro.
+        constructor; last constructor.
+        eapply N_Z_i32_comp.
+        - unfold N_Z_repr. rewrite Z2N.id; [reflexivity | lia].
+        - unfold Z_i32_repr, Wasm_int.int_of_Z.
+          cbn.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          symmetry. apply Z.mod_small.
+          replace Wasm_int.Int32.modulus with (256 * 2^24 : Z) by done. lia. }
+      iSplitR.
+      { iPureIntro.
+        cbn [flat_map app]. rewrite app_nil_r.
+        unfold serialise_i32, serialise_f32, Wasm_int.int_of_Z.
+        cbn.
+        rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+        f_equal. apply Z.mod_small.
+        replace Wasm_int.Int32.modulus with (256 * 2^24 : Z) by done. lia. }
+      iSplitR.
+      { iPureIntro. done. }
+      { cbn. iSplit; [iPureIntro; done | done]. }
+    - destruct o; cbn in Harep; try inversion Harep; clear Harep.
+      iEval (cbn) in "Hat".
+      iDestruct "Hat" as "->".
+      cbn. unfold word_interp.
+      set (n' := Integers.Int64.unsigned (Wasm_float.FloatSize64.to_bits n)).
+      iExists [Z.to_N (Wasm_int.Int32.Z_mod_modulus n'); Z.to_N (n' ≫ 32)].
+      iExists [Wasm_int.int_of_Z i32m n'; Wasm_int.int_of_Z i32m (n' ≫ 32)].
+      have Hrange : (0 ≤ n' < 256 * 2 ^ 56)%Z.
+      { unfold n'.
+        replace (256 * 2 ^ 56 : Z) with Wasm_int.Int64.modulus by done.
+        apply (Integers.Int64.unsigned_range _). }
+      iSplitR.
+      { iPureIntro.
+        constructor; last (constructor; last constructor).
+        - eapply N_Z_i32_comp.
+          + unfold N_Z_repr.
+            rewrite Z2N.id; first done.
+            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+            apply Z.mod_pos.
+            lia.
+          + unfold Z_i32_repr, Wasm_int.int_of_Z; reflexivity.
+        - eapply N_Z_i32_comp.
+          + unfold N_Z_repr.
+            rewrite Z2N.id; first done.
+            apply Z.shiftr_nonneg; lia.
+          + unfold Z_i32_repr, Wasm_int.int_of_Z.
+            cbn.
+            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            symmetry; apply Z.mod_small; split.
+            * apply Z.shiftr_nonneg; lia.
+            * rewrite Z.shiftr_div_pow2; last lia.
+              replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+              apply Z.div_lt_upper_bound; lia. }
+      iSplitR.
+      { iPureIntro.
+        cbn [flat_map app].
+        rewrite app_nil_r.
+        transitivity (serialise_i64 (Wasm_int.int_of_Z i64m n')).
+        - rewrite serialise_split_i64.
+          f_equal.
+          replace (Wasm_int.Int32.Z_mod_modulus n' + (n' ≫ 32) ≪ 32)%Z with n'.
+          + reflexivity.
+          + rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            rewrite Z.shiftl_mul_pow2; last lia.
+            rewrite Z.shiftr_div_pow2; last lia.
+            replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+            have Hdiv := Z.div_mod n' (2^32) ltac:(lia).
+            rewrite Z.add_comm.
+            rewrite Z.mul_comm.
+            lias.
+        - unfold serialise_f64, serialise_i64, Wasm_int.int_of_Z.
+          cbn.
+          rewrite Wasm_int.Int64.Z_mod_modulus_eq.
+          f_equal. apply Z.mod_small.
+          replace Wasm_int.Int64.modulus with (256 * 2^56 : Z) by done. lia. }
+      iSplitR.
+      { iPureIntro. done. }
+      { unfold words_interp; cbn.
+        iSplit; done. }
+  Qed.
 
 
   Lemma atom_to_words_gc θ ι o val_v :
