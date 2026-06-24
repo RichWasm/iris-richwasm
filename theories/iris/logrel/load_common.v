@@ -1625,8 +1625,17 @@ Section load_common.
   Lemma Forall2_rcons_inv_l:
     ∀ {A B : Type} (P : A → B → Prop) (x : A) (l : list A) (k : list B),
       Forall2 P (seq.rcons l x) k → ∃ (y : B) (k' : list B), P x y ∧ Forall2 P l k' ∧ k = seq.rcons k' y.
-  Proof using.
-  Admitted.
+  Proof.
+    intros A B P x l k H.
+    rewrite rcons_app in H.
+    apply Forall2_app_inv_l in H as [k1 [k2 [Heq [Hk1 Hk2]]]].
+    apply Forall2_length in Hk1 as Hlen2. simpl in Hlen2.
+    destruct k2 as [| y []]; simpl in Hlen2; try lia.
+    inversion Hk1 as [| ay bl al1 al2 Hpair Hfl]; subst.
+    exists y, k1.
+    repeat split; try done.
+    by rewrite rcons_app.
+  Qed.
 
   Lemma big_sepL2_rcons_inv_l:
     ∀ {PROP : bi} {A B : Type} (Φ : nat → A → B → PROP) (x1 : A) (l1 : list A) (l2 : list B),
@@ -1748,7 +1757,13 @@ Section load_common.
       ref_flag_atoms_interp ξ (SAtoms (seq.rcons os o)) ↔
       forall_ptr_atom (ref_flag_ptr_interp ξ) o ∧ ref_flag_atoms_interp ξ (SAtoms os).
   Proof.
-  Admitted.
+    intros ξ o os.
+    unfold ref_flag_atoms_interp, forall_satoms.
+    rewrite rcons_app Forall_app.
+    split.
+    - intros [Hos Ho]. split; [by apply Forall_inv in Ho | done].
+    - intros [Ho Hos]. split; [done |]. constructor; [done | constructor].
+  Qed.
 
   (* Lemma rcons_app {X} : forall (xs : list X) x, *)
   (*     seq.rcons xs x = xs ++ [x]. *)
@@ -1772,7 +1787,9 @@ Section load_common.
     mk_load1_frame fe (mk_load_frame fe f wl vs) (length wl + length vs) v =
       mk_load_frame fe f wl (vs ++ [v]).
   Proof.
-  Admitted.
+    unfold mk_load_frame.
+    by rewrite -rcons_app imap_rcons seq.foldl_rcons.
+  Qed.
 
   Lemma load_fold_offs_len ιs : ∀ off' offs' off offs,
     seq.foldl (λ '(off, offs) ι, (off + arep_size ι, seq.rcons offs off)) (off, offs) ιs = (off', offs') ->
@@ -1793,7 +1810,14 @@ Section load_common.
     seq.foldl (λ '(off, offs) ι, (off + arep_size ι, seq.rcons offs off)) (off, offs) ιs = (off', offs') ->
     seq.foldl (λ off' ι, off' + arep_size ι) off ιs = off'.
   Proof.
-  Admitted.
+    induction ιs as [| ιs ι IH] using seq.last_ind; intros off' offs' off offs Hfold.
+    - by inversion Hfold.
+    - rewrite seq.foldl_rcons in Hfold.
+      destruct seq.foldl as [off'' offs''] eqn:Hf.
+      inversion Hfold; subst.
+      rewrite seq.foldl_rcons.
+      by erewrite (IH _ _ _ _ Hf).
+  Qed.
 
   Lemma simple_fold_sum_list_with ιs : ∀ off,
     seq.foldl (λ off' ι, off' + arep_size ι) off ιs = off + sum_list_with arep_size ιs.
@@ -1819,14 +1843,32 @@ Section load_common.
     ∀ {A B : Type} (P : A → B → Prop) (x : B) (l : list B) (k : list A),
       Forall2 P k (seq.rcons l x) → ∃ (y : A) (k' : list A), P y x ∧ Forall2 P k' l ∧ k = seq.rcons k' y.
   Proof.
-  Admitted.
+    intros A B P x l.
+    induction l as [| l0 l IH]; intros k H.
+    - simpl in H.
+      destruct k as [| y []]; [by inversion H | | apply Forall2_length in H; simpl in H; lia].
+      inversion H as [| ay bl al1 al2 Hpair Hfl]; subst.
+      inversion Hfl; subst.
+      exists y, []. simpl. eauto.
+    - simpl in H.
+      apply Forall2_length in H as Hlen. simpl in Hlen.
+      destruct k as [| y k']; [simpl in Hlen; lia |].
+      inversion H as [| ay bl al1 al2 Hpair Hfl]; subst.
+      apply IH in Hfl as [z [k1 [Hz [Hfl2 ->]]]].
+      exists z, (y :: k1).
+      split; [done|]. split; [constructor; done|]. done.
+  Qed.
 
   Lemma Forall2_rcons {A B : Type} (P : A -> B -> Prop) xs x ys y :
     Forall2 P xs ys ->
     P x y ->
     Forall2 P (seq.rcons xs x) (seq.rcons ys y).
   Proof.
-  Admitted.
+    intros H Hxy.
+    rewrite !rcons_app.
+    apply Forall2_app; [done|].
+    by constructor.
+  Qed.
 
   Lemma get_path_split_app ι o os off sz ws :
     off + sz <= length ws ->

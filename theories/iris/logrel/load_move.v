@@ -529,7 +529,7 @@ Section load_move.
           rewrite Hupdate.
           unfold get_path_words.
           rewrite !app_assoc.
-          erewrite <- (simple_fold_fancy_fold rti sr mr ιs off'); last by eauto.
+          erewrite <- (simple_fold_fancy_fold ιs off'); last by eauto.
           rewrite simple_fold_sum_list_with.
           rewrite !drop_app_length'; first done.
           {
@@ -1184,7 +1184,7 @@ Section load_move.
           rewrite Hupdate.
           unfold get_path_words.
           rewrite !app_assoc.
-          erewrite <- (simple_fold_fancy_fold rti sr mr ιs off'); last by eauto.
+          erewrite <- (simple_fold_fancy_fold ιs off'); last by eauto.
           rewrite simple_fold_sum_list_with.
           rewrite !drop_app_length'; first done.
           {

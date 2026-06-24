@@ -584,7 +584,7 @@ Section load_copy.
       iApply cwp_val_app; first eauto using has_values_to_consts.
       iEval (erewrite <- (load_frame_inst fe f wl vsf)) in "Hregf".
       pose proof Hfold as Hfold'.
-      apply (simple_fold_fancy_fold rti sr mr) in Hfold'.
+      apply simple_fold_fancy_fold in Hfold'.
       replace offs with (seq.rcons offs0 off0) in *;
         last by rewrite /offs Heqbig_fold.
       iApply (wp_load1_copy_mm with "[$] [$] [$] [$] [$] [$] [$]").
@@ -840,7 +840,7 @@ Section load_copy.
       iApply cwp_val_app; first eauto using has_values_to_consts.
       iEval (erewrite <- (load_frame_inst fe f wl vsf)) in "Hregf".
       pose proof Hfold as Hfold'.
-      apply (simple_fold_fancy_fold rti sr mr) in Hfold'.
+      apply simple_fold_fancy_fold in Hfold'.
       replace offs with (seq.rcons offs0 off0) in *;
         last by rewrite /offs Heqbig_fold.
       iApply (wp_load1_copy_gc with "[$] [$] [$] [//] [$] [$] [$]").
