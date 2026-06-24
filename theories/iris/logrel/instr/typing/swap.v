@@ -206,6 +206,22 @@ Section swap.
     done.
   Qed.
 
+  (* this honestly might not be useful elsewhere *)
+  Lemma get_path_words_grab_inner ws1 off sz wsinner ws2 result:
+    get_path_words off sz (ws1 ++ wsinner ++ ws2) = result ->
+    length ws1 = off -> length wsinner = sz ->
+    wsinner = result.
+  Proof.
+    intros * Hres Hlen1 Hleninner.
+    unfold get_path_words in Hres.
+    subst off.
+    rewrite drop_app_length in Hres.
+    subst sz.
+    rewrite take_app_length in Hres.
+    done.
+  Qed.
+
+
   Lemma compat_swap M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
      let fe := fe_of_context F in
      let WT := wt ++ wt' ++ wtf in
@@ -787,13 +803,27 @@ Section swap.
         subst fr_load; cbn.
         rewrite mk_load_frame_stable_part; last first. {
           (* this is lia action because of hix, idk how to exactly do it *)
-          admit. (* number stuff *)
+          rewrite list_lookup_fmap in hix. cbn.
+          cbn in hix.
+          apply fmap_Some in hix.
+          destruct hix as (ix & hix & ->).
+          apply lookup_seq in hix as (eq1 & eq2).
+          subst.
+          rewrite !length_app. cbn.
+          lia.
         }
         unfold fr'; cbn.
         rewrite list_lookup_insert_ne; last first. {
           unfold ptr_local.
           (* ptr_local is the next idx after the range of hix, so good *)
-          admit. (* number stuff *)
+          rewrite list_lookup_fmap in hix. cbn.
+          cbn in hix.
+          apply fmap_Some in hix.
+          destruct hix as (ix & hix & ->).
+          apply lookup_seq in hix as (eq1 & eq2).
+          subst.
+          rewrite !length_app. cbn.
+          lia.
         }
         done.
       - subst.
@@ -840,7 +870,27 @@ Section swap.
             done.
           }
           (* ugh okay do literally the same thing again, but yes it's true *)
-          admit. (* make some helper lemmas it's annoying *)
+          assert (off + length (concat (map serialize_atom os2)) ≤
+                          length (ws1 ++ map WordInt ns' ++ ws2)). {
+            rewrite !length_app.
+            lia.
+          }
+          apply updating_words in H0.
+          destruct H0 as (ws1'' & wsold'' & ws2'' & Hws'' & -> & lenold'' & lenws1'').
+          assert (ws1 = ws1'' /\ ws2 = ws2'') as (<- & <-). {
+
+            pose proof (app_inj_1 ws1 ws1'' _ _ ltac:(transitivity off; auto) Hws'')
+                       as (<- & H0).
+            split; first done.
+            assert (length (map WordInt ns') = length wsold''). {
+              rewrite -lenold' lenold''.
+              lia.
+            }
+            pose proof (app_inj_1 (map WordInt ns') wsold'' _ _ ltac:(auto) H0)
+              as (<- & <-).
+            done.
+          }
+          done.
         }
         rewrite H0.
         (* step 2: word has flag *)
@@ -862,7 +912,8 @@ Section swap.
           assert (wsold = flat_map serialize_atom os_inner). {
             (* use Hgetpath_ws_osinner and all the equal lengths *)
             (* probably another lemma about something of this form *)
-            admit. (* get path words lemma *)
+            eapply get_path_words_grab_inner; try done.
+            lia.
           }
           subst wsold.
           apply has_areps_imp_word_has_flag in Hareps_inner as Hinnerhasflag.
@@ -947,7 +998,9 @@ Section swap.
           unfold mask_locs_eq in Hff.
           specialize (Hff i).
           apply Hff.
-          admit. (* simple set stuff, set_solver doesn't work quickly *)
+          intros contra.
+          apply elem_of_seq in contra.
+          lia.
         }
 
         iSplitL "Hframe". {
@@ -1607,21 +1660,29 @@ Section swap.
         apply Forall2_same_length_lookup_2; first by (apply Forall2_length in Hsaved).
         intros i idx vx hix hvx hsavedx.
         subst fr_load; cbn.
+        subst val_localidxs.
+        rewrite list_lookup_fmap in hix. cbn.
+        cbn in hix.
+        apply fmap_Some in hix.
+        destruct hix as (ix & hix & ->).
+        apply lookup_seq in hix as (eq1 & eq2).
+        subst.
+        cbn.
         rewrite mk_load_frame_stable_part; last first. {
-          (* this is lia action because of hix, idk how to exactly do it *)
-          admit. (* number stuff *)
+          rewrite !length_app. cbn.
+          lia.
         }
-        subst f''; cbn.
+        cbn.
         rewrite list_lookup_insert_ne; last first. {
           unfold ptr_local.
           (* ptr_local is the next idx after the range of hix, so good *)
-          admit. (* number stuff *)
+          rewrite !length_app; cbn.
+          lia.
         }
         rewrite list_lookup_insert_ne; try done.
-        subst val_localidxs.
         unfold ptr_local.
-        (* and length wl_save is length the map translate prim thing *)
-        admit. (* number/list stuff *)
+        rewrite !length_app.
+        lia.
       - subst.
         rewrite update_path_words_size; first done.
         rewrite length_map.
@@ -1669,7 +1730,28 @@ Section swap.
             done.
           }
           (* ugh okay do literally the same thing again, but yes it's true *)
-          admit. (* make some helper lemmas it's annoying *)
+          assert (off + length (concat (map serialize_atom os2)) ≤
+                          length (ws1 ++ map WordInt ns' ++ ws2)). {
+            rewrite !length_app.
+            lia.
+          }
+          apply updating_words in H0.
+          destruct H0 as (ws1'' & wsold'' & ws2'' & Hws'' & -> & lenold'' & lenws1'').
+          assert (ws1 = ws1'' /\ ws2 = ws2'') as (<- & <-). {
+
+            pose proof (app_inj_1 ws1 ws1'' _ _ ltac:(transitivity off; auto) Hws'')
+                       as (<- & H0).
+            split; first done.
+            assert (length (map WordInt ns') = length wsold''). {
+              rewrite -lenold' lenold''.
+              lia.
+            }
+            pose proof (app_inj_1 (map WordInt ns') wsold'' _ _ ltac:(auto) H0)
+              as (<- & <-).
+            done.
+          }
+          done.
+          (* TODO make the above annoyances helper lemmas *)
         }
         rewrite H0.
         (* step 2: word has flag *)
@@ -1689,9 +1771,8 @@ Section swap.
           move Hgetpath_ws_osinner at bottom.
           move Hareps_inner at bottom.
           assert (wsold = flat_map serialize_atom os_inner). {
-            (* use Hgetpath_ws_osinner and all the equal lengths *)
-            (* probably another lemma about something of this form *)
-            admit. (* get path words lemma *)
+            eapply get_path_words_grab_inner; try done.
+            lia.
           }
           subst wsold.
           apply has_areps_imp_word_has_flag in Hareps_inner as Hinnerhasflag.
@@ -1803,7 +1884,9 @@ Section swap.
           specialize (Hff i).
           apply Hff.
           subst val_idxs.
-          admit. (* simple set stuff, set_solver doesn't work quickly *)
+          intros contra.
+          apply elem_of_seq in contra.
+          lia.
         }
 
         iSplitL "Hframe". {
@@ -1856,6 +1939,6 @@ Section swap.
           done.
     }
 
-  Admitted.
+  Qed.
 
 End swap.
