@@ -1243,8 +1243,6 @@ Section CodeGen.
     }
   Qed.
 
-(* done except for an annoying "inserts commute if all indices are different" lemma under a foldr
- *)
   Lemma cwp_set_pointer_flags :
     ∀ a fs i wt wl ret wt' wl' es_set_ptr_flags,
     run_codegen (set_pointer_flags mr a i fs) wt wl =
@@ -1370,6 +1368,131 @@ Section CodeGen.
           lia.
         }
         rewrite H; done.
+  Qed.
+
+  Lemma cwp_alloc_mm n wt wl wt' wl' es_alloc ret :
+    run_codegen (alloc mr MemMM n) wt wl = inr (ret, wt', wl', es_alloc) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+    ∀ Φ B R s E fr θ,
+    ⊢ ↪[frame] fr -∗
+      ↪[RUN] -∗
+      ⌜↑ns_fun (N.of_nat sr.(sr_func_mmalloc)) ⊆ E⌝ -∗
+      na_own logrel_nais E -∗
+      rt_token rti sr lpall θ -∗
+      instance_rt_func_interp mr.(mr_func_mmalloc) sr.(sr_func_mmalloc) (spec_mmalloc rti sr) fr.(f_inst) -∗
+      ((∃ θ', rt_token rti sr lpall θ') -∗
+       na_own logrel_nais E -∗
+       instance_rt_func_interp mr.(mr_func_mmalloc) sr.(sr_func_mmalloc) (spec_mmalloc rti sr) fr.(f_inst) -∗
+       ∀ ℓ a ta ta32 ws,
+         ⌜N_i32_repr ta ta32⌝ -∗
+         ⌜repr_root_pointer (RootHeap MemMM a) ta⌝ -∗
+         ℓ ↦addr (MemMM, a) -∗
+         ℓ ↦layout repeat FlagInt n -∗
+         ℓ ↦heap ws -∗
+         Φ fr [VAL_int32 ta32]) -∗
+      CWP es_alloc @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    inv_cg_bind Hcg () ?wt ?wt ?wl ?wl ?es ?es Hcg1 Hcg2; subst.
+    inv_cg_bind Hcg2 () ?wt ?wt ?wl ?wl ?es ?es Hcg2 Hcg3; subst.
+    apply wp_assume in Hcg1.
+    destruct Hcg1 as (_ & -> & -> & -> & Hb).
+    apply Z.ltb_lt in Hb.
+    inv_cg_emit Hcg2; subst.
+    inv_cg_emit Hcg3; subst.
+    clear_nils.
+    do 3 split; first done.
+    intros ???????.
+    iIntros "Hf Hrun %HE Htok Hrt Hmmalloc HΦ".
+    unfold instance_rt_func_interp.
+    iDestruct "Hmmalloc" as "(%cl & %Hspec & %Hcl & #Hinv)".
+    iPoseProof (na_inv_acc with "Hinv Htok") as "Hopen"; eauto.
+    iApply fupd_cwp.
+    iMod "Hopen".
+    iDestruct "Hopen" as "[Hop [Htok Hsave]]".
+    iMod "Hop".
+    iModIntro.
+    iAssert ((▷ N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl ={E}=∗ na_own logrel_nais E)%I)
+      with "[Hsave Htok]" as "Hsave".
+    { iIntros "Hcl". iApply "Hsave". iFrame. }
+    iApply (cwp_wand_strong with "[Hop Hrt Hf Hrun]").
+    - iApply (Hspec with "Hop Hrt Hf Hrun").
+      + apply nat_repr_i32repr; exact Hb.
+      + exact Hcl.
+    - eauto.
+    - eauto.
+    - iIntros (f' vs) "(-> & Hcl' & Hrt' & %ℓ & %a & %ta & %ta32 & %ws & -> & %Htarepr & %Hrootrepr & Haddr & Hlayout & Hheap)".
+      iSpecialize ("Hsave" with "Hcl'").
+      iMod "Hsave".
+      iSpecialize ("HΦ" with "Hrt' Hsave []").
+      { iExists cl. eauto. }
+      iApply ("HΦ" $! ℓ a ta ta32 ws with "[%] [%] Haddr Hlayout Hheap").
+      + exact Htarepr.
+      + exact Hrootrepr.
+  Qed.
+
+  Lemma cwp_alloc_gc n wt wl wt' wl' es_alloc ret :
+    run_codegen (alloc mr MemGC n) wt wl = inr (ret, wt', wl', es_alloc) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+    ∀ Φ B R s E fr θ,
+    ⊢ ↪[frame] fr -∗
+      ↪[RUN] -∗
+      ⌜↑ns_fun (N.of_nat sr.(sr_func_gcalloc)) ⊆ E⌝ -∗
+      na_own logrel_nais E -∗
+      rt_token rti sr lpall θ -∗
+      instance_rt_func_interp mr.(mr_func_gcalloc) sr.(sr_func_gcalloc) (spec_gcalloc rti sr) fr.(f_inst) -∗
+      (na_own logrel_nais E -∗
+       instance_rt_func_interp mr.(mr_func_gcalloc) sr.(sr_func_gcalloc) (spec_gcalloc rti sr) fr.(f_inst) -∗
+       ∀ θ' ℓ ta ta32 ws,
+         ⌜N_i32_repr ta ta32⌝ -∗
+         ⌜repr_pointer θ' (PtrHeap MemGC ℓ) ta⌝ -∗
+         rt_token rti sr lpall θ' -∗
+         ℓ ↦layout repeat FlagInt n -∗
+         ℓ ↦heap ws -∗
+         Φ fr [VAL_int32 ta32]) -∗
+      CWP es_alloc @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    inv_cg_bind Hcg () ?wt ?wt ?wl ?wl ?es ?es Hcg1 Hcg2; subst.
+    inv_cg_bind Hcg2 () ?wt ?wt ?wl ?wl ?es ?es Hcg2 Hcg3; subst.
+    apply wp_assume in Hcg1.
+    destruct Hcg1 as (_ & -> & -> & -> & Hb).
+    apply Z.ltb_lt in Hb.
+    inv_cg_emit Hcg2; subst.
+    inv_cg_emit Hcg3; subst.
+    clear_nils.
+    do 3 split; first done.
+    intros ???????.
+    iIntros "Hf Hrun %HE Htok Hrt Hgcalloc HΦ".
+    unfold instance_rt_func_interp.
+    iDestruct "Hgcalloc" as "(%cl & %Hspec & %Hcl & #Hinv)".
+    iPoseProof (na_inv_acc with "Hinv Htok") as "Hopen"; eauto.
+    iApply fupd_cwp.
+    iMod "Hopen".
+    iDestruct "Hopen" as "[Hop [Htok Hsave]]".
+    iMod "Hop".
+    iModIntro.
+    iAssert ((▷ N.of_nat sr.(sr_func_gcalloc) ↦[wf] cl ={E}=∗ na_own logrel_nais E)%I)
+      with "[Hsave Htok]" as "Hsave".
+    { iIntros "Hcl". iApply "Hsave". iFrame. }
+    iApply (cwp_wand_strong with "[Hop Hrt Hf Hrun]").
+    - iApply (Hspec with "Hop Hrt Hf Hrun").
+      + apply nat_repr_i32repr; exact Hb.
+      + exact Hcl.
+    - eauto.
+    - eauto.
+    - iIntros (f' vs) "(<- & Hcl' & %θ' & %ℓ & %ta & %ta32 & %ws & -> & %Htarepr & %Hptrrepr & Hrt' & Hlayout & Hheap)".
+      iSpecialize ("Hsave" with "Hcl'").
+      iMod "Hsave".
+      iSpecialize ("HΦ" with "Hsave []").
+      { iExists cl. eauto. }
+      iApply ("HΦ" $! θ' ℓ ta ta32 ws with "[%] [%] Hrt' Hlayout Hheap").
+      + exact Htarepr.
+      + exact Hptrrepr.
   Qed.
 
 End CodeGen.
