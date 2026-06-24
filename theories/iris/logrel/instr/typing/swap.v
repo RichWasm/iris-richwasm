@@ -1526,10 +1526,38 @@ Section swap.
                                 [] [] [] [] [$]"); try done.
       - unfold rtmask; set_solver.
       - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & _ & this) & _)".
-      - subst fr_load.
-      (* frame stuff ew *)
-        admit.
-      - (* need to prove val_idxs didn't change *) admit.
+      - rewrite Hfr_load; cbn.
+        rewrite mk_load_frame_stable_part; last first. {
+          unfold ptr_local.
+          unfold fe_wlocal_offset. cbn.
+          rewrite !length_app. cbn.
+          lia.
+        }
+        subst f''. cbn.
+        apply list_lookup_insert_eq.
+        rewrite length_insert.
+        done.
+      - (* need to prove val_idxs didn't change *)
+        move Hsaved at bottom.
+        eapply Forall2_mini_impl; first exact Hsaved.
+        apply Forall2_same_length_lookup_2; first by (apply Forall2_length in Hsaved).
+        intros i idx vx hix hvx hsavedx.
+        subst fr_load; cbn.
+        rewrite mk_load_frame_stable_part; last first. {
+          (* this is lia action because of hix, idk how to exactly do it *)
+          admit. (* number stuff *)
+        }
+        subst f''; cbn.
+        rewrite list_lookup_insert_ne; last first. {
+          unfold ptr_local.
+          (* ptr_local is the next idx after the range of hix, so good *)
+          admit. (* number stuff *)
+        }
+        rewrite list_lookup_insert_ne; try done.
+        subst val_localidxs.
+        unfold ptr_local.
+        (* and length wl_save is length the map translate prim thing *)
+        admit. (* number/list stuff *)
       - subst.
         rewrite update_path_words_size; first done.
         rewrite length_map.
@@ -1541,18 +1569,212 @@ Section swap.
       - by iDestruct "Hinst" as "(_ & _ & _ & _ & _ & that)".
       - iIntros "Hℓ_heap Hown Hunreg Hrt".
         clear_nils.
-        (* alright. it's time to fight. *)
-        (* 1: frame stuff. Prove fr fr_load related with lmask and prove frame_interp *)
 
-        (* 2: rt token stuff. Prove that the flags are restored (word has flag) and restore
-              lpall *)
 
-        (* 3: restore the value/atom interp *)
+        (* ----------- RESTABLISH RUNTIME TOKEN --------------- *)
+        (* step 1: make concrete what the new words are *)
+        rename H0 into Hnsfunup.
+        assert (update_path_words off (update_path_words off ws (map WordInt ns'))
+                  (concat (map serialize_atom os2)) =
+                  update_path_words off ws (concat (map serialize_atom os2))). {
+          assert (off + length (concat (map serialize_atom os2)) ≤ length ws)
+            by (rewrite Hos2sz; done).
+          apply updating_words in H0.
+          destruct H0 as (ws1 & wsold & ws2 & Hws & -> & lenold & lenws1).
+          assert (off + length (map WordInt ns') ≤ length ws). {
+            rewrite length_map.
+            rewrite Hlengnsιs.
+            unfold areps_size. cbn.
+            rewrite <- sum_list_with_list_sum.
+            done.
+          }
+          apply updating_words in H0.
+          destruct H0 as (ws1' & wsold' & ws2' & Hws' & -> & lenold' & lenws1').
+          assert (ws1 = ws1' /\ wsold = wsold' /\ ws2 = ws2') as (<- & <- & <-). {
+            rewrite Hws in Hws'.
+            pose proof (app_inj_1 ws1 ws1' _ _ ltac:(transitivity off; auto) Hws')
+                       as (<- & H0).
+            split; first done.
+            assert (length wsold = length wsold'). {
+              rewrite lenold lenold'.
+              rewrite length_map; rewrite Hlengnsιs; unfold areps_size; cbn;
+                rewrite <- sum_list_with_list_sum; done.
+            }
+            pose proof (app_inj_1 wsold wsold' _ _ ltac:(auto) H0)
+              as (<- & <-).
+            done.
+          }
+          (* ugh okay do literally the same thing again, but yes it's true *)
+          admit. (* make some helper lemmas it's annoying *)
+        }
+        rewrite H0.
+        (* step 2: word has flag *)
+        set (new_ws := update_path_words off ws (concat (map serialize_atom os2))).
+        assert (Hfsnewwsmatch: Forall2 word_has_flag fs new_ws). {
+          move Hfswsmatch at bottom.
+          apply has_areps_imp_word_has_flag in Hareps as Hnewinhasflag.
+          move Hos2sz at bottom.
+          (* okay yes  *)
+          clear H0.
+          subst new_ws.
+          assert (off + length (concat (map serialize_atom os2)) ≤ length ws)
+            by (rewrite Hos2sz; done).
+          apply updating_words in H0.
+          destruct H0 as (ws1 & wsold & ws2 & Hws & -> & lenold & lenws1).
+          subst ws.
+          move Hgetpath_ws_osinner at bottom.
+          move Hareps_inner at bottom.
+          assert (wsold = flat_map serialize_atom os_inner). {
+            (* use Hgetpath_ws_osinner and all the equal lengths *)
+            (* probably another lemma about something of this form *)
+            admit. (* get path words lemma *)
+          }
+          subst wsold.
+          apply has_areps_imp_word_has_flag in Hareps_inner as Hinnerhasflag.
 
-        (* this has a subgoal of restoring the invariant, which will include copy pasting stuff about
-                flags being equal from store weak *)
+          (* okay almost there. Time for some Forall2 splitting *)
+          apply Forall2_app_inv_r in Hfswsmatch.
+          destruct Hfswsmatch as (fs1 & fsrest & Hfs1 & Hfsrest & ->).
+          apply Forall2_app_inv_r in Hfsrest as (fsold & fs2 & Hfold & Hfs2 & ->).
+          assert (fsold = (concat (map arep_flags ιs))) as ->. {
+            eapply Forall2_word_has_flag_inj.
+            - eapply Forall2_impl; first exact Hfold.
+              intros f' w' Hws; cbn in Hws; apply Is_true_true; exact Hws.
+            - eapply Forall2_impl; first exact Hinnerhasflag.
+              intros f' w' Hws; cbn in Hws; apply Is_true_true; exact Hws.
+          }
+          apply Forall2_app; first done.
+          apply Forall2_app; last done.
+          rewrite flat_map_concat_map in Hnewinhasflag.
+          done.
+        }
 
-      admit.
+        open_rt "Hrt".
+        iAssert (⌜lm !! ℓ = Some fs⌝%I) with "[Hℓ_fs Hlayout]" as "%Hlmℓ". {
+          iApply (ghost_map_lookup with "[$] [$]").
+        }
+        iAssert (⌜hm !! ℓ = Some new_ws⌝%I) with "[Hℓ_heap Hheap]" as "%Hhmℓ". {
+          iApply (ghost_map_lookup with "[$] [$]").
+        }
+        assert (Hnewlayout: layout_ok lpall lm hm). {
+          unfold layout_ok in *.
+          unfold map_Forall2 in *.
+          unfold rtmask in Hlayoutok.
+          intros k.
+          specialize (Hlayoutok k).
+          destruct (decide (k=ℓ)); subst => //=.
+          - rewrite Hlmℓ; rewrite Hhmℓ.
+            constructor.
+            intros.
+            done.
+          - inversion Hlayoutok.
+            + specialize (H4 n0); constructor; done.
+            + constructor.
+        }
+        clear Hlayoutok. (* don't want to accidentally use it *)
+
+        iAssert (rt_token rti sr lpall θ) with
+          "[Haddr Hroot Hlayout Hheap Hrti Hrootmem Hheapmem]" as "Hrt". {
+          unfold rt_token.
+          iExists rm, lm, hm.
+          iFrame.
+          done.
+        }
+        (* I don't think we wwant some of these pure things since we've closed rt_token *)
+        clear dependent rm.
+        clear dependent lm.
+        clear dependent hm.
+        clear Hinj.
+        iFrame.
+
+        (* ----------------- CLOSING THE INVARIANT ------------------ *)
+
+        iSpecialize ("Hcontinuation" $! (concat (map serialize_atom os2)) Hos2sz).
+        iSpecialize ("Hcontinuation" with "[Hval_os2]"). {
+          iEval (rewrite value_interp_eq).
+          iEval (cbn).
+          rewrite Hevalκser.
+          iExists (SMEMTYPE (sum_list_with arep_size ιs) ξser).
+          iSplitR; first done.
+          iSplitR; first done.
+          iExists os2; iFrame.
+          rewrite flat_map_concat_map.
+          done.
+        }
+
+        iSpecialize ("Hclose" with "[$]").
+        iMod "Hclose". iModIntro.
+        iFrame.
+
+
+        (* ------------------ REESTABLISHING FRAME FACTS ------------------ *)
+        (* we'll start digging into the goal to do do these *)
+        iSplitR; first iPureIntro. {
+          unfold frame_rel.
+          split; last (transitivity (f_inst f''); done).
+          unfold mask_locs_eq; unfold lmask; unfold wlmask.
+          intros i (iLower & iUpper).
+          subst fr_load.
+          rewrite mk_load_frame_stable_part; last first. {
+            rewrite !length_app; cbn.
+            unfold fe_wlocal_offset in iUpper; cbn in iUpper.
+            lia.
+          }
+          subst f''; cbn.
+          rewrite list_lookup_insert_ne; last first. {
+            unfold ptr_local.
+            unfold fe_wlocal_offset in *. cbn in iLower; cbn in iUpper.
+            rewrite !length_app; cbn.
+            lia.
+          }
+          rewrite list_lookup_insert_ne; last first. {
+            unfold ptr_local.
+            unfold fe_wlocal_offset in *; cbn in iLower; cbn in iUpper.
+            rewrite !length_app.
+            lia.
+          }
+          move Hfrel_fr_saved at bottom.
+          destruct Hfrel_fr_saved as (Hff & _).
+          unfold mask_locs_eq in Hff.
+          specialize (Hff i).
+          apply Hff.
+          subst val_idxs.
+          admit. (* simple set stuff, set_solver doesn't work quickly *)
+        }
+
+        iSplitL "Hframe". {
+          (* ugh I don't want to *)
+          (* smthn like load_restore_frame but that one is too specific *)
+          admit. (* frame interp update *)
+        }
+
+        (* -------------- RESTORING VALUE INTERP ------------- *)
+        (* okay so we have that os2 was put into memory. Continuation now *)
+        iExists ((PtrA (PtrHeap MemGC ℓ)) :: os_inner).
+        iSplitR "Hatom_target Haroot".
+        + cbn.
+          iExists [[PtrA (PtrHeap MemGC ℓ)];os_inner].
+          cbn.
+          clear_nils.
+          iSplitR; first done.
+          iFrame.
+          rewrite type_interp_eq.
+          cbn.
+          iExists (SVALTYPE [PtrR] ξ_ref).
+          iSplitR; first done. iSplitR; first done.
+          rewrite evalμ; cbn.
+          iExists ℓ, fs.
+          iFrame "#".
+          done.
+        + change ([?x] ++ ?y) with (x::y).
+          rewrite atoms_interp_cons.
+          iFrame.
+          cbn.
+          iExists _, n32.
+          iSplitR; first done. iSplitR; first done.
+          iExists _. iSplitR; first done.
+          cbn.
+          done.
     }
 
   Admitted.
