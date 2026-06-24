@@ -1314,10 +1314,8 @@ Section load_common.
           subst n'.
           inversion Hrep; subst.
           inversion Hrep'; subst.
-          assert ((a' >= 4)%N).
-          { admit. }
-          assert ((a >= 4)%N).
-          { admit. }
+          assert ((4 <= a')%N) by (by eapply mod_bound_nonzero).
+          assert ((4 <= a)%N) by (by eapply mod_bound_nonzero).
           assert (a' = a) by lia.
           subst a'.
           iExists a.
@@ -1337,10 +1335,8 @@ Section load_common.
           subst n'.
           inversion Hrep; subst.
           inversion Hrep'; subst.
-          assert ((a' >= 4)%N).
-          { admit. }
-          assert ((a >= 4)%N).
-          { admit. }
+          assert ((4 <= a')%N) by (by eapply mod_bound_nonzero).
+          assert ((4 <= a)%N) by (by eapply mod_bound_nonzero).
           assert (a' = a) by lia.
           subst a'.
           iExists a.
@@ -1366,10 +1362,8 @@ Section load_common.
           subst n'.
           inversion Hrep; subst.
           inversion Hrep'; subst.
-          assert ((a' >= 4)%N).
-          { admit. }
-          assert ((a >= 4)%N).
-          { admit. }
+          assert ((4 <= a')%N) by (by eapply mod_bound_nonzero).
+          assert ((4 <= a)%N) by (by eapply mod_bound_nonzero).
           assert (a' = a) by lia.
           subst a'.
           iExists a.
