@@ -155,6 +155,17 @@ Section copy.
     }
     iIntros (f' vs') "(-> & %Hfrel & %Hall) Hf Hr".
 
+    iDestruct (result_type_interp_of_atoms_interp with "Hvs") as "%Hres_type_vs"; try done.
+    iAssert (frame_interp rti sr se (typing.fc_locals F) L
+      (wl ++ map translate_prim (map arep_to_prim ιs) ++ wl4 ++ wl6 ++ wl7 ++ wlf) f')
+      with "[Hframe]" as "Hframe". {
+      iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe".
+      2, 3, 5: done.
+      { subst fe. by rewrite fe_wlocal_offset_length. }
+      { by rewrite map_comp.  }
+      done.
+    }
+
     (* 2: restore_stack (first time). *)
     cbn in Hareps.
     simpl to_consts; simpl app.
@@ -170,18 +181,7 @@ Section copy.
     (* 3: map_gc_ptrs ... (duproot ...) *)
     iApply cwp_val_app; first eauto using has_values_to_consts.
     (* decomposing the frame *)
-    iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
-    iDestruct "Hframe" as "(%oss & %vss_L & %vs_WL & %Hlocs & %Hhasp & %Hrest & [Hatsf Hlocsf])".
-    (*
-    apply Forall2_app_inv_l in Hrest.
-    destruct Hrest as (vsf1 & vsf' & Hvsf1 & Hvsf' & ->).
-    apply Forall2_app_inv_l in Hvsf'.
-    destruct Hvsf' as (vsf2 & vsf'' & Hvsf2 & Hvsf'' & ->).
-    pose proof (Forall2_Forall2_length _ _ Hhasp) as Hlenvss_L.
-    pose proof (Forall2_length _ _ _ Hvsf1) as Hlenvsf1.
-    pose proof (Forall2_length _ _ _ Hvsf2) as Hlenvsf2.
-    rewrite !length_map in Hlenvsf2.
-    *)
+
     eapply wp_map_gc_ptrs_duproot in Hgcs;
       [
       | by rewrite !length_map length_seq
@@ -208,6 +208,7 @@ Section copy.
     {
       instantiate (1 := Q).
       rewrite -> !(frame_rel_inst _ _ _ Hfrel) in *.
+      iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
       iApply (Hgcs with "[$] [$] [$] [//] [$] [$]").
       - iPureIntro.
         unfold frame_rel in Hfrel.
@@ -223,6 +224,41 @@ Section copy.
     }
     iIntros (f'' vs') "(%vsf' & -> & H) Hf Hr".
     repeat iDestruct "H" as "[@ H]"; iDestruct "H" as "@".
+    clear_nils.
+
+    (* 3.5: restore frame interp *)
+    (* we need atom_interp to get result_type_interp *)
+
+    iPoseProof (gcrefs_atoms_copyable with "[$Hats']") as "Hats'"; eauto.
+    iDestruct (result_type_interp_of_atoms_interp with "Hats'") as "%Hres_type_vsf'"; try done.
+    iAssert (frame_interp rti sr se (typing.fc_locals F) L
+      (wl ++ map translate_prim (map arep_to_prim ιs) ++ wl4 ++ wl7 ++ wlf) f'')
+      with "[Hframe]" as "Hframe". {
+      set (vs_idxs := seq (fe_wlocal_offset fe + length wl)
+                        (length (map translate_prim (map arep_to_prim ιs)))) in *.
+      set (vs_localidxs := map prelude.W.Mk_localidx vs_idxs) in *.
+      (* the order is strange for simpler evar instantiation *)
+      iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe".
+      2: done.
+      3: { rewrite map_comp. exact Hres_type_vsf'. }
+      1: { instantiate (1:= vs_idxs). subst fe vs_idxs. by rewrite fe_wlocal_offset_length. }
+      2: {
+        instantiate (1:= f'').
+        split; last done.
+        unfold mask_locs_eq.
+        symmetry.
+        apply Hsame.
+        unfold vs_localidxs.
+        set_solver.
+      }
+      {
+        fold vs_localidxs.
+        apply Forall2_fmap_l in Hupd.
+        exact Hupd.
+      }
+      done.
+    }
+
 
     (* 4: restore_stack (second time) *)
 
@@ -245,7 +281,7 @@ Section copy.
     rewrite /fvs_combine.
     clear_nils.
     iFrame.
-    iSplit; [|iSplit].
+    iSplitR.
     - (* frame_rel. *)
       iPureIntro.
       unfold lmask.
@@ -265,8 +301,6 @@ Section copy.
         rewrite elem_of_seq in Hi.
         lia. }
       reflexivity.
-    - (* frame_interp *)
-      admit.
     - iExists (concat [os; os]).
       iSplitL "Hty' Hpty".
       + iExists [os; os].
@@ -280,7 +314,6 @@ Section copy.
         cbn -[atom_interp].
         iApply big_sepL2_app_same_length; first tauto; [].
         iFrame.
-        iApply (gcrefs_atoms_copyable with "[$Hats']"); eauto.
-  Admitted.
+  Qed.
 
 End copy.
