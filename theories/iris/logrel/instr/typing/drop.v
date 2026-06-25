@@ -15,82 +15,12 @@ Section drop.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_drop M F L wt wt' wtf wl wl' wlf τ es' :
-    let fe := fe_of_context F in
-    let WT := wt ++ wt' ++ wtf in
-    let WL := wl ++ wl' ++ wlf in
-    let lmask := wlmask fe wl  in
-    let ψ := InstrT [τ] [] in
-    has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IDrop ψ)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
-  Proof.
-    intros * Hty Hcg.
-    unfold WT, WL; clear WT WL.
-    iIntros (se fr os vs evs θ B R).
-    repeat iIntros "@".
-    inv_cg_bind Hcg ρ wt1 wt1' wl1 wl1' es_nil es1 Htype_rep Hcg.
-    inv_cg_bind Hcg ιs wt2 wt2' wl2 wl2' es_nil' es_drops Heval_rep Hdrop.
-    inv_cg_try_option Heval_rep; rename Heq_some into Hρ.
-    inv_cg_try_option Htype_rep; rename Heq_some into Htype_rep.
-    subst; clear_nils.
-
-    (* Kinding quarantine goes here! *)
-    rewrite values_interp_one_eq.
-    iAssert (⌜Forall2 has_arep ιs os /\ has_areps ιs (SAtoms os)
-             /\ (∃ ξ,
-                   type_skind se τ = Some (SVALTYPE ιs ξ) /\
-                   has_kind F τ (VALTYPE ρ ξ)
-               )⌝%I)
-      with "[Hvs Hos]" as "%KindingQuarantine". {
-      rewrite value_interp_eq.
-      iEval (cbn -[pre_type_interp type_skind]) in "Hos".
-      iDestruct "Hos" as "(%sκ_temp & %Htypeskindtemp & %Harepsoon & pre)".
-      iPureIntro.
-
-      assert (∃ ξ_τ, has_kind F τ (VALTYPE ρ ξ_τ)). {
-        inversion Hty; clear Hty; subst.
-        inversion H; clear H; subst.
-        clear H2.
-        inversion H1; clear H1; subst; clear H4.
-        destruct H3 as (?ρ & ?Hrep & ?Hmono).
-        cbn in Htype_rep.
-        inversion Hrep; subst; clear Hrep.
-        exists ξ.
-        apply type_rep_has_kind_agree in H as H'.
-        rewrite H' in Htype_rep; inversion Htype_rep; subst.
-        done.
-      }
-      destruct H as (ξ & Hkindτ).
-
-
-      destruct sκ_temp; try (inversion Harepsoon; done).
-      assert (ιs = l /\ ξ = r) as (<- & <-). {
-        pose proof (type_skind_eval_rep_emptyenv se F ρ _ _ τ _ _
-                      Hkindτ Hse Hρ Htypeskindtemp).
-        done.
-      }
-      (* note we can get ref_flag_interp if we need it here *)
-      destruct Harepsoon as (Hareps & Hforallatomref).
-
-      repeat split.
-      - unfold has_areps in Hareps.
-        destruct Hareps as (os' & toinvert & yes).
-        inversion toinvert; subst; done.
-      - done.
-      - exists ξ; done.
-    }
-    destruct KindingQuarantine as (Harep & Hareps & (ξ & Htypeskindτ & Hkindτ)).
-
-
-    (* TODO: mapM_ drop1 *)
-  Admitted.
 
   Lemma cwp_drop1_nonptr fe ι wt wl ret wt' wl' es_drop1:
     ι <> PtrR ->
     run_codegen (drop1 mr fe ι) wt wl = inr (ret, wt', wl', es_drop1) ->
     ret = () /\ wt' = [] /\ wl' = [] /\
-      ∀ s E f v L R Φ,
+      ∀ s E f L R Φ v,
         ↪[frame] f -∗
         ↪[RUN] -∗
         ▷ Φ f [] -∗
@@ -121,8 +51,8 @@ Section drop.
       "%nsunr"  ∷ ⌜↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E⌝ -∗
       "Hrt"     ∷ rt_token rti sr lpall θ -∗
       "Hown"    ∷ na_own logrel_nais E -∗
-      "Hunreg"  ∷ instance_rt_func_interp (mr_func_unregisterroot mr) (sr_func_unregisterroot sr) (runtime.spec_unregisterroot rti sr) (f_inst f) -∗
-      "Hfree"   ∷ instance_rt_func_interp (mr_func_free mr) (sr_func_free sr) (runtime.spec_free rti sr) (f_inst f) -∗
+      "#Hunreg" ∷ instance_rt_func_interp (mr_func_unregisterroot mr) (sr_func_unregisterroot sr) (runtime.spec_unregisterroot rti sr) (f_inst f) -∗
+      "#Hfree"  ∷ instance_rt_func_interp (mr_func_free mr) (sr_func_free sr) (runtime.spec_free rti sr) (f_inst f) -∗
       "Hat"     ∷ atom_interp (PtrA ptr) (VAL_int32 n32) -∗
       "HΦ"      ∷ ((∃ θ', rt_token rti sr lpall θ') -∗
                     na_own logrel_nais E -∗
@@ -209,6 +139,7 @@ Section drop.
 
       (* step 1: get local *)
       iApply (cwp_seq with "[Hf Hrun]"). {
+        iClear "Hunreg Hfree".
         iApply (cwp_local_get with "[] [$] [$]"); try done.
         iModIntro.
         now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [VAL_int32 n32]⌝%I).
@@ -218,7 +149,7 @@ Section drop.
       (* step 2: use the spec *)
       iApply (Hmm with "[$] [$] [$] [//] [$] [$] [$] [-]"); try done.
       { apply has_values_to_consts. }
-      iIntros "Hrt Hown Hfree".
+      iIntros "Hrt Hown _".
       iApply ("HΦ" with "[$] [$]").
     - (** ------------- Ptr MemGC ---------------- *)
       apply (wp_unregisterroot rti sr) in Hgc.
@@ -230,6 +161,7 @@ Section drop.
 
       (* step 1: get local *)
       iApply (cwp_seq with "[Hf Hrun]"). {
+        iClear "Hfree Hunreg".
         iApply (cwp_local_get with "[] [$] [$]"); try done.
         iModIntro.
         now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [VAL_int32 n32]⌝%I).
@@ -239,9 +171,193 @@ Section drop.
       (* step 2: use the spec *)
       iApply (Hgc with "[$] [Hfree HΦ] [$] [$] [//] [$] [$] [$]"); try done.
       { apply Is_true_true. apply has_values_to_consts. }
-      iIntros "Hrt Hown Hunreg".
+      iIntros "Hrt Hown _".
       iApply ("HΦ" with "[$] [$]").
   Qed.
+
+  Fixpoint only_ptr_atoms (os:list atom) :=
+    (* @filter atom atom (λ o, match o with | PtrA _ => True | _ => False end) os. *)
+    match os with
+    | (PtrA p)::os => (PtrA p)::(only_ptr_atoms os)
+    | _::os => only_ptr_atoms os
+    | [] => []
+    end.
+  Fixpoint only_ptr_rep (ιs:list atomic_rep) :=
+    match ιs with
+    | PtrR::ιs => PtrR::(only_ptr_rep ιs)
+    | _::ιs => only_ptr_rep ιs
+    | [] => []
+    end.
+  Lemma filter_ptrs_same_length os ιs :
+    Forall2 has_arep ιs os -> length (only_ptr_atoms os) = length (only_ptr_rep ιs).
+  Proof. Admitted.
+  Lemma only_ptr_rep_rcons ιs ι:
+    only_ptr_rep (seq.rcons ιs ι) =
+      only_ptr_rep ιs ++ (λ r, match r with | PtrR => [PtrR] | _ => [] end) ι.
+  Proof. Admitted.
+
+
+  Lemma cwp_drop_state ιs :
+    ∀ fe wt wl wt' wl' es_drops,
+    run_codegen (mapM_ (drop1 mr fe) (rev ιs)) wt wl = inr ((), wt', wl', es_drops) ->
+    wt' = [] /\ wl' = repeat (W.T_i32) (length (only_ptr_rep ιs)).
+  Proof.
+    induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg.
+    - cbn in Hcg. cbn.
+      inversion Hcg; subst; done.
+    - rewrite rcons_app in Hcg.
+      rewrite rev_unit in Hcg.
+      apply wp_mapM__cons in Hcg.
+      destruct Hcg as (?r&?wt&?wl&?es&?wt&?wl&?es & Hι & Hιs & _ & hwt' & hwl' & hes_drops).
+
+      destruct (atomic_rep_eq_dec ι PtrR).
+      + subst ι.
+        apply cwp_drop1_ptr in Hι.
+        destruct Hι as (-> & -> & -> & _).
+        apply IHιs in Hιs.
+        destruct Hιs as (-> & ->).
+        rewrite only_ptr_rep_rcons.
+        change ([?x] ++ ?y) with (x::y) in hwl'.
+        rewrite repeat_cons in hwl'.
+        change ([W.T_i32]) with (repeat W.T_i32 1) in hwl'.
+        rewrite <- repeat_app in hwl'.
+        rewrite length_app; cbn.
+        clear_nils.
+        done.
+      + apply cwp_drop1_nonptr in Hι; try done.
+        destruct Hι as (-> & -> & -> & _).
+        apply IHιs in Hιs.
+        destruct Hιs as (-> & ->).
+        rewrite only_ptr_rep_rcons.
+        assert ((match ι with | PtrR => [PtrR] | _ => [] end) = []). { destruct ι; try done. }
+        rewrite H.
+        clear_nils.
+        done.
+  Qed.
+
+
+  Lemma cwp_drop ιs :
+    ∀ fe wt wl wt' wl' es_drops,
+    run_codegen (mapM_ (drop1 mr fe) (rev ιs)) wt wl = inr ((), wt', wl', es_drops) ->
+    wt' = [] /\ wl' = repeat (W.T_i32) (length (only_ptr_rep ιs)) /\
+    ∀ s E f L R Φ θ vs os,
+    let ixs := seq (fe_wlocal_offset fe + length wl) (length wl') in
+    let os_ptr := only_ptr_atoms os in
+    ⊢ "Hf"      ∷ ↪[frame] f -∗
+      "Hrun"    ∷ ↪[RUN] -∗
+      "%Hfsz"   ∷ ⌜fe_wlocal_offset fe + length wl + length wl' < length (f_locs f)⌝ -∗
+      "%nsfree" ∷ ⌜↑ns_fun (N.of_nat (sr_func_free sr)) ⊆ E⌝ -∗
+      "%nsunr"  ∷ ⌜↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E⌝ -∗
+      "Hrt"     ∷ rt_token rti sr lpall θ -∗
+      "Hown"    ∷ na_own logrel_nais E -∗
+      "#Hunreg" ∷ instance_rt_func_interp (mr_func_unregisterroot mr) (sr_func_unregisterroot sr) (runtime.spec_unregisterroot rti sr) (f_inst f) -∗
+      "#Hfree"  ∷ instance_rt_func_interp (mr_func_free mr) (sr_func_free sr) (runtime.spec_free rti sr) (f_inst f) -∗
+      "Hat"     ∷ atoms_interp os vs -∗
+      "%Harep"  ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+      "HΦ"      ∷ (∀ f' vs_wl', ⌜frame_rel (λ i:nat, i ∉ ixs) f f'⌝ -∗
+                    ⌜(Forall2 (λ i v, f_locs f' !! i = Some v) ixs vs_wl')⌝ -∗
+                    ⌜result_type_interp wl' vs_wl'⌝ -∗
+                    (∃ θ', rt_token rti sr lpall θ') -∗
+                    na_own logrel_nais E -∗
+                    Φ f' []) -∗
+      CWP to_consts vs ++ es_drops @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+
+  Admitted.
+
+
+  Lemma compat_drop M F L wt wt' wtf wl wl' wlf τ es' :
+    let fe := fe_of_context F in
+    let WT := wt ++ wt' ++ wtf in
+    let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl  in
+    let ψ := InstrT [τ] [] in
+    has_instruction_type_ok F ψ L ->
+    run_codegen (compile_instr mr fe (IDrop ψ)) wt wl = inr ((), wt', wl', es') ->
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
+  Proof.
+    intros * Hty Hcg.
+    unfold WT, WL; clear WT WL.
+    iIntros (se fr os vs evs θ B R).
+    repeat iIntros "@".
+    inv_cg_bind Hcg ρ wt1 wt1' wl1 wl1' es_nil es1 Htype_rep Hcg.
+    inv_cg_bind Hcg ιs wt2 wt2' wl2 wl2' es_nil' es_drops Heval_rep Hdrop.
+    inv_cg_try_option Heval_rep; rename Heq_some into Hρ.
+    inv_cg_try_option Htype_rep; rename Heq_some into Htype_rep.
+    subst; clear_nils.
+
+    (* Kinding quarantine goes here! *)
+    rewrite values_interp_one_eq.
+    iAssert (⌜Forall2 has_arep ιs os /\ has_areps ιs (SAtoms os)
+             /\ (∃ ξ,
+                   type_skind se τ = Some (SVALTYPE ιs ξ) /\
+                   has_kind F τ (VALTYPE ρ ξ)
+               )⌝%I)
+      with "[Hvs Hos]" as "%KindingQuarantine". {
+      rewrite value_interp_eq.
+      iEval (cbn -[pre_type_interp type_skind]) in "Hos".
+      iDestruct "Hos" as "(%sκ_temp & %Htypeskindtemp & %Harepsoon & pre)".
+      iPureIntro.
+
+      assert (∃ ξ_τ, has_kind F τ (VALTYPE ρ ξ_τ)). {
+        inversion Hty; clear Hty; subst.
+        inversion H; clear H; subst.
+        clear H2.
+        inversion H1; clear H1; subst; clear H4.
+        destruct H3 as (?ρ & ?Hrep & ?Hmono).
+        cbn in Htype_rep.
+        inversion Hrep; subst; clear Hrep.
+        exists ξ.
+        apply type_rep_has_kind_agree in H as H'.
+        rewrite H' in Htype_rep; inversion Htype_rep; subst.
+        done.
+      }
+      destruct H as (ξ & Hkindτ).
+
+
+      destruct sκ_temp; try (inversion Harepsoon; done).
+      assert (ιs = l /\ ξ = r) as (<- & <-). {
+        pose proof (type_skind_eval_rep_emptyenv se F ρ _ _ τ _ _
+                      Hkindτ Hse Hρ Htypeskindtemp).
+        done.
+      }
+      (* note we can get ref_flag_interp if we need it here *)
+      destruct Harepsoon as (Hareps & Hforallatomref).
+
+      repeat split.
+      - unfold has_areps in Hareps.
+        destruct Hareps as (os' & toinvert & yes).
+        inversion toinvert; subst; done.
+      - done.
+      - exists ξ; done.
+    }
+    destruct KindingQuarantine as (Harep & Hareps & (ξ & Htypeskindτ & Hkindτ)).
+
+    apply (cwp_drop) in Hdrop.
+    destruct Hdrop as (-> & Hwl2' & Hdrop_spec).
+    apply has_values_to_consts_inv in Hevs; subst evs.
+
+    iApply (Hdrop_spec with "[$] [$] [] [%] [%] [$] [$] [] [] [$] [//]").
+    { (* will need to do with frame, slight scary but probably fine? *) admit. }
+    { solve_ndisj. }
+    { solve_ndisj. }
+    { (* just hinst *) admit. }
+    { (* just hinst *) admit. }
+    iIntros (fr' vs_wl) " %Hframerel  %Hnewidxs %Hresinterp Hrt Hown".
+    iPoseProof (frame_interp_update_frame with "[$Hframe]") as "Hframe".
+    4: exact Hframerel.
+    all: try done.
+    { rewrite fe_wlocal_offset_length. done. }
+    iFrame.
+    iSplitR.
+    - (* frame stuff, only one level should be fine *)
+      admit.
+    - iExists [].
+      cbn.
+      iSplitR; try done.
+      iExists [].
+      cbn; done.
+  Admitted.
 
 
 
