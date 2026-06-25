@@ -1370,6 +1370,7 @@ Section CodeGen.
         rewrite H; done.
   Qed.
 
+
   Lemma cwp_alloc_mm n wt wl wt' wl' es_alloc ret :
     run_codegen (alloc mr MemMM n) wt wl = inr (ret, wt', wl', es_alloc) ->
     ret = () /\
@@ -1493,6 +1494,63 @@ Section CodeGen.
       iApply ("HΦ" $! θ' ℓ ta ta32 ws with "[%] [%] Hrt' Hlayout Hheap").
       + exact Htarepr.
       + exact Hptrrepr.
+  Qed.
+
+  Lemma cwp_free wt wl wt' wl' es_free ret:
+    run_codegen (free mr) wt wl = inr (ret, wt', wl', es_free) ->
+    ret = () /\ wt' = [] /\ wl' = [] /\
+    ∀ Φ B R s E fr θ ℓ a ta ta32 evs,
+      N_i32_repr ta ta32 ->
+      repr_root_pointer (RootHeap MemMM a) ta ->
+      has_values evs [VAL_int32 ta32] ->
+    ⊢ ↪[frame] fr -∗
+      ↪[RUN] -∗
+      ℓ ↦addr (MemMM, a) -∗
+      ⌜↑ns_fun (N.of_nat sr.(sr_func_free)) ⊆ E⌝ -∗
+      na_own logrel_nais E -∗
+      rt_token rti sr lpall θ -∗
+      instance_rt_func_interp mr.(mr_func_free) sr.(sr_func_free) (spec_free rti sr) fr.(f_inst) -∗
+      ((∃ θ', rt_token rti sr lpall θ') -∗
+       na_own logrel_nais E -∗
+       instance_rt_func_interp mr.(mr_func_free) sr.(sr_func_free) (spec_free rti sr) fr.(f_inst) -∗
+        Φ fr []) -∗
+      CWP evs ++ es_free @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg. cbn in Hcg; inversion Hcg; subst; clear Hcg.
+    do 3 (split; first done).
+
+    (* iris proof time *)
+    intros * nrepr Hroot Hevs.
+    iIntros "Hfr Hrun Hℓ_addr %Hnsfun Htok Hrt Hfree HΦ".
+
+    (* step one: evs *)
+    apply has_values_to_consts_inv in Hevs; subst.
+    cbn.
+    (* step two: get the spec_free out of Hfree *)
+    unfold instance_rt_func_interp.
+    iDestruct "Hfree" as "(%cl & %Hspec & %Hcl & #Hinv)".
+    iPoseProof (na_inv_acc with "Hinv Htok") as "Hopen"; eauto.
+    iApply fupd_cwp.
+    iMod "Hopen".
+    iDestruct "Hopen" as "[Hop [Htok Hsave]]".
+    iMod "Hop".
+    iModIntro.
+    iAssert ((▷ N.of_nat sr.(sr_func_free) ↦[wf] cl ={E}=∗ na_own logrel_nais E)%I)
+      with "[Hsave Htok]" as "Hsave".
+    { iIntros "Hcl". iApply "Hsave". iFrame. }
+    (* step three: use the spec *)
+    unfold spec_free in Hspec.
+    iApply (cwp_wand_strong with "[Hℓ_addr Hfr Hrun Hrt Hop]").
+    - iApply (Hspec with "[$] [$] [$] [$] [$]"); try done.
+    - eauto.
+    - eauto.
+    - iIntros (f' v') "(<- & -> & Hop & Hrt)".
+      iSpecialize ("Hsave" with "Hop").
+      iMod "Hsave".
+      iSpecialize ("HΦ" with "Hrt Hsave []").
+      { iExists cl; eauto. }
+      iModIntro.
+      done.
   Qed.
 
 End CodeGen.
