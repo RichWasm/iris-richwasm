@@ -1120,8 +1120,8 @@ Section instr.
     [∗ list] i ↦ ϕ ∈ M.(mc_functions),
       ∃ i' cl,
         ⌜inst.(inst_funcs) !! (funcimm mr.(mr_func_user) + i)%nat = Some i'⌝ ∗
-          closure_interp ϕ senv_empty cl ∗
-          na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
+        closure_interp ϕ senv_empty cl ∗
+        na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
   Definition table_entry_interp (off : nat) (i : nat) (ϕ : function_type) : iProp Σ :=
     ∃ i' cl nt zt,
@@ -1312,16 +1312,20 @@ Section module.
         N.of_nat m ↦[wf] cl ∗
         closure_interp rti sr ϕ senv_empty cl.
 
-  Definition module_interp (mt : module_type) (module : W.module) : iProp Σ :=
-    ∀ i js_rt js_imp js_exp,
+  (* the parameter gen_exps is for additional ("generated") exports which may
+     not appear in the module type but are used in compilation. *)
+  Definition module_interp (mr : module_runtime) (mt : module_type) (gen_exp_ts : list function_type) (module : W.module) : iProp Σ :=
+    ∀ i js_rt js_imp js_exp js_gen rt_inst,
       i ↪[mods] module -∗
       ([∗ list] j;f ∈ js_rt;rt_exports, f j) -∗
       function_exports js_imp mt.(mt_imports) -∗
       ⌜length js_exp = length mt.(mt_exports)⌝ -∗
+      ⌜length js_gen = length gen_exp_ts⌝ -∗
       ([∗ list] j ∈ js_exp, ∃ x, j ↪[vis] x) -∗
+      instance_runtime_interp rti sr mr rt_inst -∗
       ↪[frame] empty_frame -∗
       ↪[RUN] -∗
-      WP ([ID_instantiate js_exp i (js_rt ++ js_imp)], []) : host_expr @ top
+      WP ([ID_instantiate (js_exp ++ js_gen) i (js_rt ++ js_imp)], []) : host_expr @ top
          {{ v, ⌜v = immHV []⌝ ∗
                  ↪[frame] empty_frame ∗
                  ↪[RUN] ∗

@@ -49,14 +49,19 @@ Section Fundamental.
     eauto.
   Qed.
 
-  Definition mt_imps (mt : module_type) : list extern_t.
-  Admitted.
-
-  Definition mt_exps (mt : module_type) : list extern_t.
-  Admitted.
-
   Definition translate_function_type : Core.function_type → function_type.
   Admitted.
+
+  Definition rt_imps : list extern_t := map ET_func rt_types.
+
+  Definition mt_imps (mt : module_type) : list extern_t :=
+    rt_imps ++ map (ET_func ∘ translate_function_type) mt.(mt_imports).
+
+  Definition mt_table_exps (mt : module_type) : list extern_t.
+  Admitted.
+
+  Definition mt_exps (mt : module_type) : list extern_t :=
+    map (ET_func ∘ translate_function_type) mt.(mt_exports) ++ mt_table_exps mt.
 
   Lemma type_functions rt_types wt m wt' defs c table :
     let ϕs := m_imports m ++ map mf_type (m_functions m) in
@@ -117,18 +122,23 @@ Section Fundamental.
     - admit.
     - done.
     - done.
-    - admit.
+    - unfold c.
+      cbn.
+      admit.
     - admit.
     - admit.
   Admitted.
 
+  Definition mk_gen_exp_ts (m  : module.module) (mt : module_type) : list Core.function_type.
+  Admitted.
 
   Theorem fundamental_module m m' mt :
     has_module_type m mt ->
     compile_module m = inr m' ->
-    ⊢ module_interp rti sr mt m'.
+    ⊢ module_interp rti sr compiler.module.mr mt (mk_gen_exp_ts m mt) m'.
   Proof.
-    iIntros (Hmt Hm ????) "Hmod Hrt Himps %Hlen_exps Hexps Hfr Hrun".
+    iIntros (Hmt Hm ??????) "Hmod Hrt Himps %Hlen_exps %Hlen_extra Hexps Hrt_inst Hfr Hrun".
+    pose proof (type_module _ _ _ Hmt Hm) as Hmct.
     apply bind_inr in Hm as ([wt imps] & Himps_try & Hm).
     destruct (user_imports rt_types m.(module.m_imports)) as [[wt' imps']|] eqn:Himps;
       last inversion Himps_try.
@@ -160,15 +170,31 @@ Section Fundamental.
 
     iApply (instantiation_spec_operational_start with "[$] [$] [-]").
     - instantiate (2 := m'). by rewrite Hm'.
-    - instantiate (1 := []).
-      instantiate (1 := []).
-      do 2 eexists.
-      rewrite Hm'.
-      intros.
-      admit.
-    - admit.
-    - iFrame.
-      admit.
+    - apply Hmct.
+    - repeat split.
+      + rewrite Hm'.
+        eexists [_]; eauto.
+      + rewrite Hm'.
+        exists []; eauto.
+      + rewrite Hm'.
+        exists []; eauto.
+    - unfold instantiation_resources_pre.
+      iSplitR; last iSplitR; last iSplitR; last iSplitR.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + iPureIntro.
+        rewrite Hm'.
+        cbn.
+        unfold user_exps.
+        rewrite length_app.
+        rewrite Hlen_exps.
+        inversion Hmt.
+        eapply util.nths_error_length in H0.
+        rewrite -H0.
+        rewrite !length_map.
+        admit.
     - iIntros (?) "Hfr Hrun (Hmod & Himp & %inst & Hpost & Hhost)".
       iDestruct "Hpost" as
         "(% & % & % & % & % & % & Htypeck & %Hexps & %Htab_allocs & %Hwts' & %Helem_bound &
@@ -176,6 +202,7 @@ Section Fundamental.
       destruct Hexps as
         (Hinst_types & Hext_funcs & Hext_tab & Hext_mem & Hext_globs & Hcheck_start).
       iDestruct "Hinst" as "(Hinst_func & Hinst_tab & Hinst_mem & Hinst_glob)".
+
 
       rewrite Hm' in Hcheck_start.
       eapply check_start_Some in Hcheck_start.
