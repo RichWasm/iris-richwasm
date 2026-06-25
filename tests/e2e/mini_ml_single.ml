@@ -117,21 +117,21 @@ let simple_tests =
       "(split# ((a : int) (b : int)) (tup# 1 2) (tup# b a))",
       "(tup# 2 1)" );
     ( "unboxed let",
-      "(let (p : (# int int)) (tup# 1 2) (split# ((a : int) (b : int)) p a))",
+      "(let (p : (*# int int)) (tup# 1 2) (split# ((a : int) (b : int)) p a))",
       i31 1 );
     ("unboxed in boxed", "(tup (tup# 1 2) 3)", "(tup (tup# 1 2) 3)");
     ("boxed in unboxed", "(tup# (tup 1 2) 3)", "(tup# (tup 1 2) 3)");
     ("unboxed ref", "(! (new (tup# 4 5)))", "(tup# 4 5)");
     ( "unboxed nested split",
       {|
-        (split# ((p : (# int int)) (c : int)) (tup# (tup# 1 2) 3)
+        (split# ((p : (*# int int)) (c : int)) (tup# (tup# 1 2) 3)
           (split# ((a : int) (b : int)) p
             (op + a (op + b c))))
       |},
       i31 (1 + 2 + 3) );
     ( "unboxed fn arg",
       {|
-        (app (fun () (x : (# int int)) : int
+        (app (fun () (x : (*# int int)) : int
                (split# ((a : int) (b : int)) x a))
           () (tup# 5 6))
       |},
@@ -139,10 +139,21 @@ let simple_tests =
     ( "unboxed fn ret",
       {|
         (split# ((a : int) (b : int))
-                (app (fun () (x : int) : (# int int) (tup# x 9)) () 4)
+                (app (fun () (x : int) : (*# int int) (tup# x 9)) () 4)
           b)
       |},
       i31 9 );
+    ("unboxed sum none", "(inj# 0 (tup) : (+# (*) int))", "(inj# 0)");
+    ("unboxed sum some", "(inj# 1 42 : (+# (*) int))", "(inj# 1 42)");
+    ( "unboxed sum in tuple",
+      "(tup (inj# 1 7 : (+# (*) int)) 9)",
+      "(tup (inj# 1 7) 9)" );
+    ( "unboxed case some",
+      "(case# (inj# 1 42 : (+# (*) int)) ((_ : (*)) 0) ((v : int) v))",
+      i31 42 );
+    ( "unboxed case none",
+      "(case# (inj# 0 (tup) : (+# (*) int)) ((_ : (*)) 7) ((v : int) v))",
+      i31 7 );
     ("boxed split", "(split# ((a : int) (b : int)) (tup 42 7) b)", i31 7);
     ( "boxed split swapped",
       "(split# ((a : int) (b : int)) (tup 1 2) (tup# b a))",
@@ -150,15 +161,10 @@ let simple_tests =
     ( "boxed split sum",
       "(split# ((a : int) (b : int)) (tup 4 5) (op + a b))",
       i31 (4 + 5) );
-    (* a lin (ref a) round-tripped through a boxed tuple at a *type variable*:
-       construction option-wraps it and proj swaps None + case-moves it back,
-       all with a being abstract -- the case swap-with-a-dummy can't handle.
-       rt is elaborated (validating the polymorphic path) though _start is just
-       1. *)
-    ( "poly lin through boxed tuple",
+    ( "ref-wrapped lin through boxed tuple",
       {|
-        (export (rt : ((a) (lin (ref a)) -> (lin (ref a))))
-          (fun (a) (r : (lin (ref a))) : (lin (ref a))
+        (export (rt : ((a) (ref (lin (ref a))) -> (ref (lin (ref a)))))
+          (fun (a) (r : (ref (lin (ref a)))) : (ref (lin (ref a)))
             (proj 0 (tup r))))
         1
       |},

@@ -82,7 +82,7 @@ let rec parse_type p : Sexp.t -> Source.PreType.t Res.t =
         |> Res.all
       in
       ret @@ Prod ts'
-  | List (Atom "#" :: ts) ->
+  | List (Atom "*#" :: ts) ->
       let* ts' =
         ts
         |> List.mapi ~f:(fun i ->
@@ -90,6 +90,14 @@ let rec parse_type p : Sexp.t -> Source.PreType.t Res.t =
         |> Res.all
       in
       ret @@ UProd ts'
+  | List (Atom "+#" :: ts) ->
+      let* ts' =
+        ts
+        |> List.mapi ~f:(fun i ->
+            parse_type (Path.add p ~tag:"usum" ~field:("t" ^ Int.to_string i)))
+        |> Res.all
+      in
+      ret @@ USum ts'
   | List (Atom "+" :: ts) ->
       let* ts' =
         ts
@@ -158,6 +166,16 @@ let rec parse_expr p : Sexp.t -> Source.Expr.t Res.t =
       let* e' = parse_expr (p ~field:"e") e in
       let* t' = parse_type (p ~field:"t") t in
       ret @@ Inj (i', e', t')
+  | List [ Atom "inj#"; Atom i; e; Atom ":"; t ] ->
+      let* i' =
+        match Int.of_string_opt i with
+        | Some i -> ret i
+        | None -> fail @@ InvalidIndex (p, i)
+      in
+      let p = Path.add p ~tag:"uinj" in
+      let* e' = parse_expr (p ~field:"e") e in
+      let* t' = parse_type (p ~field:"t") t in
+      ret @@ UInj (i', e', t')
   | List [ Atom "app"; f; List ts; arg ] ->
       let p = Path.add p ~tag:"app" in
       let* f' = parse_expr (p ~field:"f") f in
@@ -203,6 +221,11 @@ let rec parse_expr p : Sexp.t -> Source.Expr.t Res.t =
       let* r' = parse_expr (p ~field:"e") r in
       let* v' = parse_expr (p ~field:"e") v in
       ret @@ Assign (r', v')
+  | List [ Atom "swap"; r; v ] ->
+      let p = Path.add p ~tag:"swap" in
+      let* r' = parse_expr (p ~field:"e") r in
+      let* v' = parse_expr (p ~field:"e") v in
+      ret @@ Swap (r', v')
   | List [ Atom "fold"; t; e ] ->
       let p = Path.add p ~tag:"fold" in
       let* t' = parse_type (p ~field:"t") t in
@@ -255,6 +278,20 @@ let rec parse_expr p : Sexp.t -> Source.Expr.t Res.t =
       in
       let* branches' = branches |> List.mapi ~f:parse_branch |> Res.all in
       ret @@ Cases (e', branches')
+  | List (Atom "case#" :: e :: branches) ->
+      let p = Tag "ucase" :: p in
+      let* e' = parse_expr (Field "e" :: p) e in
+      let parse_branch idx =
+        let p = Idx idx :: Field "ucase" :: p in
+        function
+        | Sexp.List [ b; e ] ->
+            let* b' = parse_bind (Field "bind" :: p) b in
+            let* e' = parse_expr (Field "e" :: p) e in
+            ret (b', e')
+        | s -> fail @@ InvalidCaseBranch (p, s)
+      in
+      let* branches' = branches |> List.mapi ~f:parse_branch |> Res.all in
+      ret @@ UCase (e', branches')
   | s -> fail @@ ExpectedExpr (p, s)
 
 let parse_import p : Sexp.t -> Source.Module.import Res.t =

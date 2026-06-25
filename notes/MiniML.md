@@ -10,8 +10,9 @@ System F with refs, universals, _no existentials_, products, sums.
     | x
     | ((x₁ ... xₙ) τ₁ -> τ₂)
     | (* τ₁ ... τₙ)
-    | (# τ₁ ... τₙ)
+    | (*# τ₁ ... τₙ)
     | (+ τ₁ ... τₙ)
+    | (+# τ₁ ... τₙ)
     | (rec (x) τ)
     | (ref τ)
     | (lin (ref τ))
@@ -30,7 +31,9 @@ e ::=
     | (proj i e)                               ; boxed
     | (split# ((x₁ : τ₁) ... (xₙ : τₙ)) e₁ e₂) ; unboxed
     | (inj i e : τ)
+    | (inj# i e : τ)
     | (cases e ((x₁ : τ₁) e₁) ... ((xₙ : τₙ) eₙ))
+    | (case# e ((x₁ : τ₁) e₁) ... ((xₙ : τₙ) eₙ))
     | (fold τ e)
     | (unfold e)
     | (if c t e)
@@ -38,6 +41,7 @@ e ::=
     | (new e)
     | (! e)
     | (assign e₁ e₂)
+    | (swap e₁ e₂)
 
 im := (import (x : τ))
 fn := (export (x : τ) e)
@@ -90,7 +94,10 @@ Use the boxed/unboxed difference between the two languages
 
 Handle `NoCopy NoDrop` in the kind (not the default ML kind translation!), some kind of foreign value annotation
 
-Unboxed tuples `(# τ₁ ... τₙ)` / `(tup# e₁ ... eₙ)` compile to RichWasm `Prod`
-instead of a boxed `Struct` -- which is a departure from the uniform `ptr`
-representation. We let the RichWasm typechecker police errors, and since they
-cannot instantiate type variables, polymorphism stays uniform.
+Unboxed tuples `(*# τ₁ ... τₙ)` / `(tup# e₁ ... eₙ)` compile to RichWasm `Prod`
+instead of a boxed `Struct` (and unboxed sums `(+# τ₁ ... τₙ)` / `(inj# i e : τ)`
+to RichWasm `Sum` instead of a boxed `Variant`) -- which is a departure from the
+uniform `ptr` representation. We let the RichWasm typechecker police errors, and
+since they cannot instantiate type variables, polymorphism stays uniform. Their
+only eliminators are `split#` and `case#` since we'd otherwise need to drop other
+elements of tuple (there are not stack references).

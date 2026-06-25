@@ -120,14 +120,14 @@ let simple =
     ("utuple", "(tup# 1 2)");
     ("utuple_split", "(split# ((a : int) (b : int)) (tup# 42 7) b)");
     ( "utuple_let",
-      "(let (p : (# int int)) (tup# 1 2) (split# ((a : int) (b : int)) p a))"
+      "(let (p : (*# int int)) (tup# 1 2) (split# ((a : int) (b : int)) p a))"
     );
     ("utuple_in_tuple", "(tup (tup# 1 2) 3)");
     ("utuple_of_tuple", "(tup# (tup 1 2) 3)");
     ("utuple_ref", "(! (new (tup# 1 2)))");
     ( "utuple_fn",
       {|
-        (app (fun () (x : (# int int)) : int
+        (app (fun () (x : (*# int int)) : int
                (split# ((a : int) (b : int)) x a))
           () (tup# 5 6))
       |}
@@ -135,7 +135,7 @@ let simple =
     ( "utuple_ret",
       {|
         (split# ((a : int) (b : int))
-                (app (fun () (x : int) : (# int int) (tup# x 9)) () 4)
+                (app (fun () (x : int) : (*# int int) (tup# x 9)) () 4)
           b)
       |}
     );

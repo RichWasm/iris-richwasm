@@ -29,7 +29,7 @@ let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
       else
         [ v ]
   | Tuple vs | UTuple vs -> List.concat_map ~f:fe vs
-  | Inj (_, v, _) -> fe v
+  | Inj (_, v, _) | UInj (_, v, _) -> fe v
   | Fun { arg = n, _; body; _ } -> fv ~bound:(n :: bound) body
   | Apply (f, _, arg) -> fe f @ fe arg
   | Project (_, v) -> fe v
@@ -37,13 +37,13 @@ let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   | If0 (c, t, e) -> fe c @ fe t @ fe e
   | New v -> fe v
   | Deref v -> fe v
-  | Assign (r, v) -> fe r @ fe v
+  | Assign (r, v) | Swap (r, v) -> fe r @ fe v
   | Fold (_, v) -> fe v
   | Unfold v -> fe v
   | Let ((n, _), e1, e2) -> fe e1 @ fv ~bound:(n :: bound) e2
   | Split (bs, e1, e2) ->
       fe e1 @ fv ~bound:(List.map ~f:fst bs @ bound) e2
-  | Cases (v, branches) ->
+  | Cases (v, branches) | UCase (v, branches) ->
       fe v
       @ List.concat_map
           ~f:(fun ((n, _), e) -> fv ~bound:(n :: bound) e)
@@ -59,7 +59,7 @@ let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
           []
         else
           [ v ]
-    | Prod ts | UProd ts | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
+    | Prod ts | UProd ts | USum ts | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
     | Ref t | Lin t -> ftv ~bound t
     | Rec (v, t) -> ftv ~bound:(v :: bound) t
     | Fun { foralls; arg; ret } ->
@@ -72,7 +72,7 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   let open Source.Expr in
   let r = ftv_e ~bound in
   match e with
-  | Inj (_, _, t) -> ftv ~bound t
+  | Inj (_, _, t) | UInj (_, _, t) -> ftv ~bound t
   | Fun { foralls; arg = _, t; ret_type; body } ->
       (* TODO: do both of these have to be here? *)
       ftv (Fun { foralls; arg = t; ret = ret_type }) @ ftv_e ~bound:foralls body
@@ -82,11 +82,11 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   | Project (_, v) -> r v
   | Op (_, left, right) -> r left @ r right
   | If0 (c, t, e) -> r c @ r t @ r e
-  | Cases (v, branches) ->
+  | Cases (v, branches) | UCase (v, branches) ->
       r v @ (branches |> List.unzip |> snd |> List.concat_map ~f:(ftv_e ~bound))
   | New v -> r v
   | Deref v -> r v
-  | Assign (re, v) -> r re @ r v
+  | Assign (re, v) | Swap (re, v) -> r re @ r v
   | Let (_, e1, e2) -> r e1 @ r e2
   | Split (bs, e1, e2) ->
       List.concat_map ~f:(fun (_, t) -> ftv ~bound t) bs @ r e1 @ r e2
@@ -106,6 +106,7 @@ and cc_pt ?(pack = true) (pt : Source.PreType.t) =
   | Var v -> Var v
   | Prod ts -> Prod (List.map ~f:cc_t ts)
   | UProd ts -> UProd (List.map ~f:cc_t ts)
+  | USum ts -> USum (List.map ~f:cc_t ts)
   | Sum ts -> Sum (List.map ~f:cc_t ts)
   | Ref t -> Ref (cc_t t)
   | Lin t -> Lin (cc_t t)
@@ -186,6 +187,9 @@ let rec cc_e
   | Inj (i, v, t) ->
       let* v, code = r acc v in
       ret (Inj (i, v, cc_t t), code)
+  | UInj (i, v, t) ->
+      let* v, code = r acc v in
+      ret (UInj (i, v, cc_t t), code)
   | Fun { foralls; arg = (n, t) as arg; ret_type; body } ->
       let gamma = arg :: gamma in
       let free_vars = fv ~bound:[ n ] body in
@@ -276,6 +280,10 @@ let rec cc_e
       let* r', acc' = r acc re in
       let* v', code = r acc' v in
       ret (Assign (r', v'), code)
+  | Swap (re, v) ->
+      let* r', acc' = r acc re in
+      let* v', code = r acc' v in
+      ret (Swap (r', v'), code)
   | Fold (t, v) ->
       let t' = cc_t t in
       let* v', code = r acc v in
@@ -309,6 +317,17 @@ let rec cc_e
           ~init:([], acc') branches
       in
       ret (Cases (v', List.rev branches_rev), code)
+  | UCase (v, branches) ->
+      let* v', acc' = r acc v in
+      let* branches_rev, code =
+        foldM
+          ~f:(fun (branches, code) ((n, t), e) ->
+            let t' = cc_t t in
+            let* e', new_code = cc_e user_fns ((n, t) :: gamma) tagger code e in
+            ret (((n, t'), e') :: branches, new_code))
+          ~init:([], acc') branches
+      in
+      ret (UCase (v', List.rev branches_rev), code)
   | Apply (f, ts, arg) ->
       let* f', acc' = r acc f in
       let* arg', code = r acc' arg in

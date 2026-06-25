@@ -10,7 +10,8 @@ let rec pp_pretype ff pt =
   | Ref t -> fprintf ff "@[(ref@ %a)@]" pp_type t
   | Lin t -> fprintf ff "@[(lin@ %a)@]" pp_type t
   | Prod ts -> fprintf ff "@[<hov 2>(*@ %a)@]" (pp_print_list pp_type) ts
-  | UProd ts -> fprintf ff "@[<hov 2>(#@ %a)@]" (pp_print_list pp_type) ts
+  | UProd ts -> fprintf ff "@[<hov 2>(*#@ %a)@]" (pp_print_list pp_type) ts
+  | USum ts -> fprintf ff "@[<hov 2>(+#@ %a)@]" (pp_print_list pp_type) ts
   | Sum ts -> fprintf ff "@[<hov 2>(+@ %a)@]" (pp_print_list pp_type) ts
   | Rec (v, t) -> fprintf ff "@[<hov 2>(rec@ %s@ %a)]" v pp_type t
   | Fun { foralls; arg; ret } ->
@@ -38,6 +39,8 @@ let rec pp_expr ff e =
   | UTuple vs -> fprintf ff "@[<hov 2>(tup#@ %a)@]" (pp_print_list pp_expr) vs
   | Inj (case, v, t) ->
       fprintf ff "@[<hov 2>(inj@ %i@ %a@ %a)@]" case pp_expr v pp_type t
+  | UInj (case, v, t) ->
+      fprintf ff "@[<hov 2>(inj#@ %i@ %a@ %a)@]" case pp_expr v pp_type t
   | Fun { foralls; arg; ret_type; body } ->
       fprintf ff "@[<hov 2>(λ@ [%a]@ @[<hov 2>(:@ (%a)@ %a)@]@,@[<v 2>%a@])]"
         (pp_print_list pp_print_string)
@@ -59,9 +62,16 @@ let rec pp_expr ff e =
              fprintf ff "@,@[<v 2>[@[<hov 2>(:@ %s@ %a)@]@ %a]@]" v pp_type t
                pp_expr e))
         branches
+  | UCase (v, branches) ->
+      fprintf ff "@[<hov 2>(case#@ %a%a)@]" pp_expr v
+        (pp_print_list (fun ff ((v, t), e) ->
+             fprintf ff "@,@[<v 2>[@[<hov 2>(:@ %s@ %a)@]@ %a]@]" v pp_type t
+               pp_expr e))
+        branches
   | New v -> fprintf ff "@[<hov 2>(new@ %a)@]" pp_expr v
   | Deref v -> fprintf ff "@[<hov 2>(!@ %a)@]" pp_expr v
   | Assign (r, v) -> fprintf ff "@[<hov 2>(:=@ %a@  %a)@]" pp_expr r pp_expr v
+  | Swap (r, v) -> fprintf ff "@[<hov 2>(swap@ %a@  %a)@]" pp_expr r pp_expr v
   | Let ((name, ty), v, body) ->
       fprintf ff "@[<hov 2>(let@ @[<hov 2>([:@ %s@ %a]@ %a)@]@,@[<v 2>%a@])@]"
         name pp_type ty pp_expr v pp_expr body

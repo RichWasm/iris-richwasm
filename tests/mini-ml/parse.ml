@@ -45,7 +45,7 @@ let%expect_test "parse tuple" =
 let%expect_test "parse unboxed tuple" =
   parse
     {|
-    (let (p : (# int (* int int))) (tup# 1 (tup 2 3))
+    (let (p : (*# int (* int int))) (tup# 1 (tup 2 3))
       (split# ((a : int) (b : (* int int))) p
         a))
     |};

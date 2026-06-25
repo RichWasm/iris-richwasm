@@ -524,33 +524,49 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                    (exports (((name mk) (desc (Func 0))))))
                 |}
               in
-              (* the lin ref is stored in a boxed tuple -- auto-wrapped in an mm
-                 option behind the gc struct -- then pulled back out (once by
-                 [proj], once by a boxed [split#]), assigned, and returned. *)
+              (* the lin ref is stashed in a boxed tuple by hand: wrapped in an
+                 unboxed-sum option behind a gc ref (so the cell is mutable),
+                 then pulled back out by swapping a None in and casing the Some.
+                 the recovered lin is read (via_proj) or written then re-read
+                 (via_assign); it leaks at the end, which the affine model
+                 tolerates. *)
               let via_proj =
                 {|
                   (import (mk : (() int -> (lin (ref int)))))
 
-                  (split# ((r : (lin (ref int))) (old : int))
-                          (! (proj 0 (tup (app mk () 5) 99)))
-                    (tup# (assign r 7) old))
+                  (let (cell : (ref (+# (*) (lin (ref int)))))
+                         (new (inj# 1 (app mk () 5) : (+# (*) (lin (ref int)))))
+                    (let (t : (* (ref (+# (*) (lin (ref int)))) int)) (tup cell 99)
+                      (case# (swap (proj 0 t)
+                                   (inj# 0 (tup) : (+# (*) (lin (ref int)))))
+                        ((_ : (*)) 0)
+                        ((r : (lin (ref int)))
+                          (split# ((rr : (lin (ref int))) (old : int)) (! r)
+                            old)))))
                 |}
               in
-              let via_split =
+              let via_assign =
                 {|
                   (import (mk : (() int -> (lin (ref int)))))
 
-                  (split# ((r : (lin (ref int))) (n : int))
-                          (tup (app mk () 6) 11)
-                    (tup# (assign r 7) n))
+                  (let (cell : (ref (+# (*) (lin (ref int)))))
+                         (new (inj# 1 (app mk () 6) : (+# (*) (lin (ref int)))))
+                    (let (t : (* int (ref (+# (*) (lin (ref int)))))) (tup 11 cell)
+                      (case# (swap (proj 1 t)
+                                   (inj# 0 (tup) : (+# (*) (lin (ref int)))))
+                        ((_ : (*)) 0)
+                        ((r : (lin (ref int)))
+                          (split# ((rr : (lin (ref int))) (n : int))
+                                  (! (assign r 7))
+                            n)))))
                 |}
               in
               let run src =
                 Double.run2 ~asprintf ~link:"mk" module1 src |> Double.M.run
               in
               let result, logs = run via_proj in
-              check_result "(tup# (ref 7) 5)" Double.E2Err.pp logs result;
-              let result, logs = run via_split in
-              check_result "(tup# (ref 7) 11)" Double.E2Err.pp logs result);
+              check_result "5" Double.E2Err.pp logs result;
+              let result, logs = run via_assign in
+              check_result "7" Double.E2Err.pp logs result);
         ] );
     ]

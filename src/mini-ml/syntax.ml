@@ -16,6 +16,7 @@ module Source = struct
         }
       | Prod of Type.t list
       | UProd of Type.t list
+      | USum of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
       | Lin of Type.t
@@ -32,6 +33,7 @@ module Source = struct
         }
       | Prod of Type.t list
       | UProd of Type.t list
+      | USum of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
       | Lin of Type.t
@@ -56,6 +58,7 @@ module Source = struct
       | Tuple of t list
       | UTuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
+      | UInj of int * t * Type.t (* unboxed sum injection *)
       | Fun of {
           foralls : Variable.t list;
           arg : Binding.t;
@@ -67,9 +70,11 @@ module Source = struct
       | Op of [ `Add | `Sub | `Mul | `Div ] * t * t
       | If0 of t * t * t
       | Cases of t * (Binding.t * t) list
+      | UCase of t * (Binding.t * t) list
       | New of t
       | Deref of t
       | Assign of t * t
+      | Swap of t * t
       | Let of Binding.t * t * t
       | Split of Binding.t list * t * t
       | Fold of Type.t * t
@@ -106,6 +111,7 @@ module Closed = struct
         }
       | Prod of Type.t list
       | UProd of Type.t list
+      | USum of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
       | Lin of Type.t
@@ -123,6 +129,7 @@ module Closed = struct
         }
       | Prod of Type.t list
       | UProd of Type.t list
+      | USum of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
       | Lin of Type.t
@@ -148,6 +155,7 @@ module Closed = struct
       | Tuple of t list
       | UTuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
+      | UInj of int * t * Type.t (* unboxed sum injection *)
       | Coderef of PreType.t * Variable.t
       | Pack of Type.t * t * Type.t
       | Apply of t * Type.t list * t
@@ -155,9 +163,11 @@ module Closed = struct
       | Op of [ `Add | `Sub | `Mul | `Div ] * t * t
       | If0 of t * t * t
       | Cases of t * (Binding.t * t) list
+      | UCase of t * (Binding.t * t) list
       | New of t
       | Deref of t
       | Assign of t * t
+      | Swap of t * t
       | Let of Binding.t * t * t
       | Split of Binding.t list * t * t
       | Fold of Type.t * t
