@@ -13,7 +13,6 @@ module Err = struct
     | SplitMismatch of Closed.Type.t list * Closed.PreType.t list
     | DerefNonRef of Closed.PreType.t
     | SwapNonRef of Closed.PreType.t
-    | LinNonRef of Closed.PreType.t
     | UnfoldNonRec of Closed.PreType.t
     | EmptyCases
     | ApplyForallsLengthMismatch of int * int
@@ -49,7 +48,7 @@ let rec rep_of_type : Type.t -> Representation.t = function
     tuple/sum containing one is uncopyable; a boxed value is a gc ref no matter
     its pointee, so it stays copyable. *)
 let rec is_uncopyable : Closed.PreType.t -> bool = function
-  | Lin _ -> true
+  | LinRef _ -> true
   | UProd ts | USum ts -> List.exists ~f:is_uncopyable ts
   | Int | Var _ | Code _ | Prod _ | Sum _ | Ref _ | Rec _ | Exists _ -> false
 
@@ -62,7 +61,7 @@ let rec type_subst var replacement tau =
   | USum ts -> USum (List.map ~f:(type_subst var replacement) ts)
   | Sum ts -> Sum (List.map ~f:(type_subst var replacement) ts)
   | Ref t -> Ref (type_subst var replacement t)
-  | Lin t -> Lin (type_subst var replacement t)
+  | LinRef t -> LinRef (type_subst var replacement t)
   | Rec (v, _) when equal_string v var -> tau
   | Rec (v, t) -> Rec (v, type_subst var replacement t)
   | Exists (v, _) when equal_string v var -> tau
@@ -124,13 +123,13 @@ let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
       (match vt with
       | Ref t -> ret t
       (* reading a lin ref must give the (unboxed) ref back alongside the value *)
-      | Lin (Ref t) -> ret (UProd [ vt; t ])
+      | LinRef t -> ret (UProd [ vt; t ])
       | _ -> fail (DerefNonRef vt))
   | Assign (re, _) ->
       let* rt = type_of_e gamma re in
       (* writing a lin ref must give the ref back; gc assigns return unit *)
       (match rt with
-      | Lin _ -> ret rt
+      | LinRef _ -> ret rt
       | _ -> ret (Prod []))
   | Swap (re, _) ->
       let* rt = type_of_e gamma re in
@@ -172,10 +171,9 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
   | Ref t ->
       let+ t' = r t in
       Ref (Base GC, Mut, Ser t')
-  | Lin (Ref inner) ->
+  | LinRef inner ->
       let+ inner' = r inner in
       Ref (Base MM, Mut, Ser inner')
-  | Lin t -> fail (LinNonRef t)
   | Rec (v, t) ->
       let+ t' = compile_type (v :: delta) t in
       Rec (kind, t')
@@ -313,7 +311,7 @@ let rec compile_expr delta gamma locals coderef_map e :
       let* vt = type_of_e unindexed v in
       let* v', locals', fx = r v in
       (match vt with
-      | Lin _ -> ret (v' @ [ Load (Path [], Follow); Group 2 ], locals', fx)
+      | LinRef _ -> ret (v' @ [ Load (Path [], Follow); Group 2 ], locals', fx)
       | _ ->
           let temp_idx = List.length locals' in
           let locals'' = locals' @ [ ("#temp", rw_t) ] in

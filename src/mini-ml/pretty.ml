@@ -8,7 +8,7 @@ let rec pp_pretype ff pt =
   | Int -> fprintf ff "int"
   | Var v -> fprintf ff "'%s" v
   | Ref t -> fprintf ff "@[(ref@ %a)@]" pp_type t
-  | Lin t -> fprintf ff "@[(lin@ %a)@]" pp_type t
+  | LinRef t -> fprintf ff "@[(lin-ref@ %a)@]" pp_type t
   | Prod ts -> fprintf ff "@[<hov 2>(*@ %a)@]" (pp_print_list pp_type) ts
   | UProd ts -> fprintf ff "@[<hov 2>(*#@ %a)@]" (pp_print_list pp_type) ts
   | USum ts -> fprintf ff "@[<hov 2>(+#@ %a)@]" (pp_print_list pp_type) ts

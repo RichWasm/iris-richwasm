@@ -451,9 +451,9 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                 (* mini-ml: read the borrowed cell, write it, and return the
                    ref unboxed-paired with the value read before the write *)
                 {|
-                  (import (mk : (() int -> (lin (ref int)))))
+                  (import (mk : (() int -> (lin-ref int))))
 
-                  (split# ((r : (lin (ref int))) (old : int))
+                  (split# ((r : (lin-ref int)) (old : int))
                           (! (app mk () 3))
                     (tup# (assign r 8) old))
                 |}
@@ -532,31 +532,31 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                  tolerates. *)
               let via_proj =
                 {|
-                  (import (mk : (() int -> (lin (ref int)))))
+                  (import (mk : (() int -> (lin-ref int))))
 
-                  (let (cell : (ref (+# (*) (lin (ref int)))))
-                         (new (inj# 1 (app mk () 5) : (+# (*) (lin (ref int)))))
-                    (let (t : (* (ref (+# (*) (lin (ref int)))) int)) (tup cell 99)
+                  (let (cell : (ref (+# (*) (lin-ref int))))
+                         (new (inj# 1 (app mk () 5) : (+# (*) (lin-ref int))))
+                    (let (t : (* (ref (+# (*) (lin-ref int))) int)) (tup cell 99)
                       (case# (swap (proj 0 t)
-                                   (inj# 0 (tup) : (+# (*) (lin (ref int)))))
+                                   (inj# 0 (tup) : (+# (*) (lin-ref int))))
                         ((_ : (*)) 0)
-                        ((r : (lin (ref int)))
-                          (split# ((rr : (lin (ref int))) (old : int)) (! r)
+                        ((r : (lin-ref int))
+                          (split# ((rr : (lin-ref int)) (old : int)) (! r)
                             old)))))
                 |}
               in
               let via_assign =
                 {|
-                  (import (mk : (() int -> (lin (ref int)))))
+                  (import (mk : (() int -> (lin-ref int))))
 
-                  (let (cell : (ref (+# (*) (lin (ref int)))))
-                         (new (inj# 1 (app mk () 6) : (+# (*) (lin (ref int)))))
-                    (let (t : (* int (ref (+# (*) (lin (ref int)))))) (tup 11 cell)
+                  (let (cell : (ref (+# (*) (lin-ref int))))
+                         (new (inj# 1 (app mk () 6) : (+# (*) (lin-ref int))))
+                    (let (t : (* int (ref (+# (*) (lin-ref int))))) (tup 11 cell)
                       (case# (swap (proj 1 t)
-                                   (inj# 0 (tup) : (+# (*) (lin (ref int)))))
+                                   (inj# 0 (tup) : (+# (*) (lin-ref int))))
                         ((_ : (*)) 0)
-                        ((r : (lin (ref int)))
-                          (split# ((rr : (lin (ref int))) (n : int))
+                        ((r : (lin-ref int))
+                          (split# ((rr : (lin-ref int)) (n : int))
                                   (! (assign r 7))
                             n)))))
                 |}

@@ -19,7 +19,7 @@ module Source = struct
       | USum of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
-      | Lin of Type.t
+      | LinRef of Type.t
       | Rec of Variable.t * Type.t
     [@@deriving sexp, eq]
   end = struct
@@ -36,7 +36,7 @@ module Source = struct
       | USum of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
-      | Lin of Type.t
+      | LinRef of Type.t
       | Rec of Variable.t * Type.t
     [@@deriving sexp, eq]
   end
@@ -114,7 +114,7 @@ module Closed = struct
       | USum of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
-      | Lin of Type.t
+      | LinRef of Type.t
       | Rec of Variable.t * Type.t
       | Exists of Variable.t * Type.t
     [@@deriving sexp, eq]
@@ -132,7 +132,7 @@ module Closed = struct
       | USum of Type.t list
       | Sum of Type.t list
       | Ref of Type.t
-      | Lin of Type.t
+      | LinRef of Type.t
       | Rec of Variable.t * Type.t
       | Exists of Variable.t * Type.t
     [@@deriving sexp, eq]

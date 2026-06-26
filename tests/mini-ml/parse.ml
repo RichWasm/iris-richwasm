@@ -10,17 +10,6 @@ let parse s =
   |> Sexp.to_string_hum
   |> Stdlib.print_endline
 
-(* errors carry parser paths, which are too brittle for goldens; just print the
-   constructor *)
-let parse_err s =
-  match from_string s with
-  | Ok _ -> Stdlib.print_endline "unexpected success"
-  | Error e ->
-      (match Err.sexp_of_t e with
-      | Sexp.List (Sexp.Atom name :: _) | Sexp.Atom name ->
-          Stdlib.print_endline name
-      | _ -> Stdlib.print_endline "unprintable error")
-
 let%expect_test "parse one" =
   parse "1";
   [%expect {| (Module () () ((Int 1))) |}]
@@ -59,14 +48,10 @@ let%expect_test "parse unboxed tuple" =
 let%expect_test "parse lin" =
   parse
     {|
-    (import (mk : (() int -> (lin (ref int)))))
+    (import (mk : (() int -> (lin-ref int))))
     (assign (app mk () 5) 8)
     |};
   [%expect
     {|
-  (Module ((Import (mk (Fun (foralls ()) (arg Int) (ret (Lin (Ref Int))))))) ()
+  (Module ((Import (mk (Fun (foralls ()) (arg Int) (ret (LinRef Int)))))) ()
    ((Assign (Apply (Var mk) () (Int 5)) (Int 8)))) |}]
-
-let%expect_test "parse lin non-ref" =
-  parse_err {|(let (r : (lin int)) 1 2)|};
-  [%expect {| ExpectedLinRef |}]

@@ -141,41 +141,41 @@ let simple =
     );
     ( "lin_make",
       {|
-        (import (mk : (() int -> (lin (ref int)))))
+        (import (mk : (() int -> (lin-ref int))))
         (app mk () 5)
       |}
     );
     ( "lin_deref",
       {|
-        (import (mk : (() int -> (lin (ref int)))))
+        (import (mk : (() int -> (lin-ref int))))
         (! (app mk () 5))
       |}
     );
     ( "lin_assign",
       {|
-        (import (mk : (() int -> (lin (ref int)))))
+        (import (mk : (() int -> (lin-ref int))))
         (assign (app mk () 5) 8)
       |}
     );
     ( "lin_let",
       {|
-        (import (mk : (() int -> (lin (ref int)))))
-        (let (r : (lin (ref int))) (app mk () 3)
+        (import (mk : (() int -> (lin-ref int))))
+        (let (r : (lin-ref int)) (app mk () 3)
           (assign r 9))
       |}
     );
     ( "lin_roundtrip",
       {|
-        (import (mk : (() int -> (lin (ref int)))))
-        (split# ((r : (lin (ref int))) (old : int))
+        (import (mk : (() int -> (lin-ref int))))
+        (split# ((r : (lin-ref int)) (old : int))
                 (! (assign (app mk () 3) 8))
           (tup# r old))
       |}
     );
     ( "lin_reuse_rejected",
       {|
-        (import (mk : (() int -> (lin (ref int)))))
-        (let (r : (lin (ref int))) (app mk () 3)
+        (import (mk : (() int -> (lin-ref int))))
+        (let (r : (lin-ref int)) (app mk () 3)
           (tup# (assign r 8) (assign r 9)))
       |}
     );

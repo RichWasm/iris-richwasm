@@ -163,8 +163,8 @@ let simple_tests =
       i31 (4 + 5) );
     ( "ref-wrapped lin through boxed tuple",
       {|
-        (export (rt : ((a) (ref (lin (ref a))) -> (ref (lin (ref a)))))
-          (fun (a) (r : (ref (lin (ref a)))) : (ref (lin (ref a)))
+        (export (rt : ((a) (ref (lin-ref a)) -> (ref (lin-ref a))))
+          (fun (a) (r : (ref (lin-ref a))) : (ref (lin-ref a))
             (proj 0 (tup r))))
         1
       |},

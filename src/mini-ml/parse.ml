@@ -9,7 +9,6 @@ module Err = struct
     | ExpectedExpr of Path.t * Sexp.t
     | ExpectedType of Path.t * Sexp.t
     | ExpectedTypeVar of Path.t * Sexp.t
-    | ExpectedLinRef of Path.t * Sexp.t
     | ExpectedBind of Path.t * Sexp.t
     | InvalidOp of Path.t * string
     | InvalidIndex of Path.t * string
@@ -27,7 +26,6 @@ module Err = struct
     | ExpectedExpr (p, _)
     | ExpectedType (p, _)
     | ExpectedTypeVar (p, _)
-    | ExpectedLinRef (p, _)
     | ExpectedBind (p, _)
     | InvalidIndex (p, _)
     | InvalidCaseBranch (p, _)
@@ -112,11 +110,9 @@ let rec parse_type p : Sexp.t -> Source.PreType.t Res.t =
   | List [ Atom "ref"; t ] ->
       let* t' = parse_type (Tag "ref" :: p) t in
       ret @@ Ref t'
-  | List [ Atom "lin"; t ] as v ->
-      let* t' = parse_type (Tag "lin" :: p) t in
-      (match t' with
-      | Ref _ -> ret @@ Lin t'
-      | _ -> fail @@ ExpectedLinRef (p, v))
+  | List [ Atom "lin-ref"; t ] ->
+      let* t' = parse_type (Tag "lin-ref" :: p) t in
+      ret @@ LinRef t'
   | v -> fail @@ ExpectedType (p, v)
 
 let parse_bind p : Sexp.t -> Source.Binding.t Res.t =

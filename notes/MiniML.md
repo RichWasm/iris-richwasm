@@ -15,7 +15,7 @@ System F with refs, universals, _no existentials_, products, sums.
     | (+# τ₁ ... τₙ)
     | (rec (x) τ)
     | (ref τ)
-    | (lin (ref τ))
+    | (lin-ref τ)
 
 binop := + | - | * | /
 

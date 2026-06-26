@@ -60,7 +60,7 @@ let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
         else
           [ v ]
     | Prod ts | UProd ts | USum ts | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
-    | Ref t | Lin t -> ftv ~bound t
+    | Ref t | LinRef t -> ftv ~bound t
     | Rec (v, t) -> ftv ~bound:(v :: bound) t
     | Fun { foralls; arg; ret } ->
         let bound = foralls @ bound in
@@ -109,7 +109,7 @@ and cc_pt ?(pack = true) (pt : Source.PreType.t) =
   | USum ts -> USum (List.map ~f:cc_t ts)
   | Sum ts -> Sum (List.map ~f:cc_t ts)
   | Ref t -> Ref (cc_t t)
-  | Lin t -> Lin (cc_t t)
+  | LinRef t -> LinRef (cc_t t)
   | Rec (v, t) -> Rec (v, cc_t t)
   | Fun { foralls; arg; ret } ->
       if pack then
