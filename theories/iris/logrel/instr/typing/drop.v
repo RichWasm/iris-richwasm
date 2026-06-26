@@ -23,7 +23,7 @@ Section drop.
       ∀ s E f L R Φ v,
         ↪[frame] f -∗
         ↪[RUN] -∗
-        ▷ Φ f [] -∗
+        Φ f [] -∗
         CWP BI_const v :: es_drop1 @ s; E UNDER L; R {{ Φ }}.
   Proof.
     intros Hι Hcg.
@@ -33,7 +33,8 @@ Section drop.
     do 3 (split; first done).
     intros *.
     iIntros "Hfr Hrun HΦ".
-    iApply (cwp_drop with "[$] [$] [$]").
+    iApply (cwp_drop with "[$] [$] [-]").
+    iModIntro. done.
   Qed.
 
   (* note: i'm not having HΦ give back unreg and free because they're goddam
@@ -188,13 +189,18 @@ Section drop.
     | _::ιs => only_ptr_rep ιs
     | [] => []
     end.
-  Lemma filter_ptrs_same_length os ιs :
-    Forall2 has_arep ιs os -> length (only_ptr_atoms os) = length (only_ptr_rep ιs).
-  Proof. Admitted.
+
   Lemma only_ptr_rep_rcons ιs ι:
     only_ptr_rep (seq.rcons ιs ι) =
       only_ptr_rep ιs ++ (λ r, match r with | PtrR => [PtrR] | _ => [] end) ι.
-  Proof. Admitted.
+  Proof.
+    induction ιs as [| ι' ιs].
+    - cbn. done.
+    - cbn.
+      rewrite !IHιs.
+      cbn.
+      destruct ι'; cbn; done.
+  Qed.
 
 
   Lemma cwp_drop_state ιs :
@@ -245,7 +251,7 @@ Section drop.
     let os_ptr := only_ptr_atoms os in
     ⊢ "Hf"      ∷ ↪[frame] f -∗
       "Hrun"    ∷ ↪[RUN] -∗
-      "%Hfsz"   ∷ ⌜fe_wlocal_offset fe + length wl + length wl' < length (f_locs f)⌝ -∗
+      "%Hfsz"   ∷ ⌜fe_wlocal_offset fe + length wl + length wl' ≤ length (f_locs f)⌝ -∗
       "%nsfree" ∷ ⌜↑ns_fun (N.of_nat (sr_func_free sr)) ⊆ E⌝ -∗
       "%nsunr"  ∷ ⌜↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E⌝ -∗
       "Hrt"     ∷ rt_token rti sr lpall θ -∗
@@ -262,8 +268,237 @@ Section drop.
                     Φ f' []) -∗
       CWP to_consts vs ++ es_drops @ s; E UNDER L; R {{ Φ }}.
   Proof.
+    induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg.
+    - cbn in Hcg.
+      inversion Hcg; subst; clear Hcg.
+      do 2 (split; first done).
+      intros *. intros os_ptr.
+      repeat (iIntros "@").
+      clear_nils.
+      apply Forall2_length in Harep as lenos.
+      destruct os; cbn in lenos; try inversion lenos; clear lenos.
+      iPoseProof (big_sepL2_length with "[$Hat]") as "%lenvs".
+      destruct vs; cbn in lenvs; try inversion lenvs; clear lenvs.
+      cbn.
+      iApply (cwp_nil with "[$] [$]").
+      iSpecialize ("HΦ" $! f []).
+      iApply ("HΦ" with "[//] [//] [%] [$] [$]").
+      constructor.
+    - (* first, state stuff real quick *)
+      apply cwp_drop_state in Hcg as Hcg_state.
+      destruct Hcg_state as (-> & ->).
+      do 2 (split; first done).
+      (* now actually do stuff *)
+      rewrite rcons_app in Hcg.
+      rewrite rev_unit in Hcg.
+      apply wp_mapM__cons in Hcg.
+      destruct Hcg as (rι&wtι&wlι&esι&wtιs&wlιs&esιs &
+                         Hι & Hιs & _ & hwt' & hwl' & hes_drops).
+      subst.
+      destruct wtι; try inversion hwt'; destruct wtιs; try inversion hwt'.
+      clear_nils; clear H hwt'.
+      (* specialize IHιs *)
+      specialize (IHιs fe wt (wl ++ wlι) [] wlιs esιs Hιs).
+      destruct IHιs as (_ & hwlιs & IHιs). (* keeping wlιs folded for now *)
 
-  Admitted.
+      (* start iris proof! goal is to separate to_consts vs into
+        to_consts vsιs ++ to_consts [vι] *)
+      intros * os_ptr.
+      repeat (iIntros "@").
+      (* splitting time. first Harep to split os, then Hat to split vs *)
+      rewrite rcons_app in Harep.
+      apply Forall2_app_inv_l in Harep.
+      destruct Harep as (osιs & osι & Hosιs & Hoι & ->).
+      apply Forall2_length in Hoι as osιlen.
+      destruct osι as [|o [|a b]]; try inversion osιlen; clear osιlen.
+      iPoseProof (atoms_interp_app_l with "[$Hat]") as
+        "(%vsιs & %vsι & -> & Hatιs & Hatι)".
+      iPoseProof (big_sepL2_length with "[$Hatι]") as "%lenvs".
+      destruct vsι as [|v [|a b]]; try inversion lenvs; clear lenvs.
+      assert (to_consts (vsιs ++ [v]) = to_consts vsιs ++ to_consts [v]). {
+        unfold to_consts. by rewrite map_app.
+      }
+      rewrite H; clear H.
+
+      (* time to do some sequencing. I *think* the strat will be all consts
+         and esι in seq, then inside that do drop1 *)
+      (* or hm maybe actually I do destruct ι PtrR first... yeah okay let's do that now *)
+      destruct (atomic_rep_eq_dec ι PtrR).
+      + (* ι = PtrR *)
+        subst ι.
+        apply (cwp_drop1_ptr) in Hι.
+        destruct Hι as (-> & _ & hwlι & Hι).
+        (* step 1: drat out as much info from o and v as possible *)
+        inversion Hoι; subst.
+        clear Hoι; rename H2 into Hoι; clear H4.
+        destruct o; try inversion Hoι.
+        iEval (unfold atoms_interp) in "Hatι".
+        Opaque atom_interp.
+        iEval (cbn) in "Hatι".
+        Transparent atom_interp.
+        iDestruct "Hatι" as "(Hatι & _)".
+        iAssert (⌜∃ n32, v = VAL_int32 n32⌝%I) with "[Hatι]" as "%hv". {
+          iDestruct "Hatι" as "(%n & %n32 & _ & %this & _)".
+          iPureIntro; exists n32; exact this.
+        }
+        destruct hv as (n32 & ->).
+
+        (* step 2: actually cwp_seq *)
+        set (f':= ({|
+                      W.f_locs := <[fe_wlocal_offset fe + length wl:=VAL_int32 n32]> (f_locs f);
+                      W.f_inst := f_inst f
+                    |})).
+        rewrite app_assoc.
+        iApply (cwp_seq with "[Hf Hrun Hrt Hown Hatι]"). {
+          rewrite <- app_assoc.
+          iApply cwp_val_app; first apply has_values_to_consts.
+          unfold fvs_combine.
+          iApply (Hι with "[$] [$] [%] [//] [//] [$] [$] [//] [//] [$] [-]"). {
+            rewrite rcons_app in Hfsz.
+            rewrite hwl' in Hfsz.
+            rewrite length_app in Hfsz; cbn in Hfsz.
+            lia.
+          }
+          iIntros "Hrt Hown".
+          clear_nils.
+          let Q := open_constr:(_ : iProp Σ) in
+          instantiate (1 :=
+            (λ f'' vs'',
+              ⌜f'' = f'⌝ ∗ ⌜vs'' = vsιs⌝ ∗ Q)%I
+            ).
+          cbn.
+          iSplitR; first done. iSplitR; first done.
+          iAccu.
+        }
+
+        (* step 3: IH *)
+        iIntros (f0 vs0) "(-> & -> & Hrt & Hown) Hf Hrun".
+        clear θ; iDestruct "Hrt" as "(%θ & Hrt)".
+        clear Hι. move IHιs at bottom.
+        iApply (IHιs with "[$] [$] [%] [//] [//] [$] [$] [//] [//] [$] [//] [-]"). {
+          rewrite !length_repeat. rewrite length_repeat in Hfsz.
+          rewrite only_ptr_rep_rcons in Hfsz.
+          rewrite length_app in Hfsz.
+          unfold f'; cbn.
+          rewrite length_insert.
+          cbn in Hfsz.
+          rewrite length_app; cbn.
+          lia.
+        }
+        clear IHιs θ.
+        iIntros (f'' vs_wl) "%Hfr_f'_f'' %Hf''locs %Hresinterp Hrt Hown".
+        iSpecialize ("HΦ" $! f'' ((VAL_int32 n32)::vs_wl)).
+        iApply ("HΦ" with "[%] [%] [%] [$] [$]").
+        (* all we have to do now is a BUNCH of frame manipulation *)
+        * (* combine frame rels *)
+          assert (frame_rel (λ i, i ∉ ixs) f f'). {
+            apply (frame_rel_mask_mono (λ i, i ≠ fe_wlocal_offset fe + length wl)).
+            - intros i Hiixs.
+              subst ixs.
+              intros contra.
+              apply Hiixs.
+              apply elem_of_seq.
+              subst i.
+              rewrite length_repeat.
+              rewrite only_ptr_rep_rcons.
+              rewrite length_app; cbn.
+              lia.
+            - unfold f'.
+              split; last done.
+              unfold mask_locs_eq. cbn.
+              intros i Hiixs.
+              rewrite list_lookup_insert_ne; try done.
+          }
+          assert (frame_rel (λ i, i ∉ ixs) f' f''). {
+            eapply frame_rel_mask_mono; last exact Hfr_f'_f''.
+            cbn.
+            intros i Hiixs.
+            unfold ixs in Hiixs.
+            rewrite only_ptr_rep_rcons in Hiixs.
+            rewrite length_repeat; rewrite length_repeat in Hiixs.
+            rewrite length_app; rewrite length_app in Hiixs; cbn; cbn in Hiixs.
+            rewrite elem_of_seq. rewrite elem_of_seq in Hiixs.
+            lia.
+          }
+          eapply frame_rel_trans; first exact H; done.
+        * (* frame locs *)
+          assert (ixs = (fe_wlocal_offset fe + length wl)::
+                          (seq (fe_wlocal_offset fe + length (wl ++ [W.T_i32]))
+                             (length (repeat W.T_i32 (length (only_ptr_rep ιs)))))). {
+            unfold ixs.
+            rewrite !length_repeat.
+            rewrite only_ptr_rep_rcons.
+            rewrite !length_app; cbn.
+            symmetry.
+            cbn.
+            rewrite Nat.add_assoc.
+            rewrite !Nat.add_1_r.
+            apply cons_seq.
+          }
+          rewrite H.
+          constructor; last done.
+          set (i := fe_wlocal_offset fe + length wl) in *.
+          assert (f_locs f'' !! i = f_locs f' !! i). {
+            destruct Hfr_f'_f'' as (this & _).
+            unfold mask_locs_eq in this.
+            symmetry.
+            apply this.
+            rewrite elem_of_seq.
+            unfold i. rewrite !length_app. cbn. lia.
+          }
+          rewrite H0.
+          unfold f'.
+          apply list_lookup_insert_eq.
+          rewrite rcons_app in Hfsz; rewrite hwl' in Hfsz; cbn in Hfsz.
+          lia.
+        * (* result type interp *)
+          rewrite only_ptr_rep_rcons.
+          rewrite length_app.
+          rewrite repeat_app. cbn.
+          rewrite <- repeat_cons.
+          constructor; last done.
+          cbn.
+          exists n32; done.
+
+      + (* ι <> PtrR *)
+        assert (HR: only_ptr_rep (seq.rcons ιs ι) = only_ptr_rep ιs). {
+          rewrite only_ptr_rep_rcons.
+          destruct ι; cbn; clear_nils; try done.
+        }
+        rewrite <- rcons_app in hwl'.
+        rewrite HR in hwl'.
+        rewrite HR in Hfsz.
+        rewrite HR.
+
+        apply cwp_drop1_nonptr in Hι; try done.
+        destruct Hι as (-> & _ & -> & Hι).
+        clear_nils.
+      
+        rewrite app_assoc.
+        rewrite app_assoc.
+        iApply (cwp_seq with "[Hf Hrun]"). {
+          rewrite <- app_assoc.
+          iApply cwp_val_app; first apply has_values_to_consts.
+          unfold fvs_combine.
+          iApply (Hι with "[$] [$]").
+          clear_nils.
+          instantiate (1 :=
+            (λ f'' vs'',
+              ⌜f'' = f⌝ ∗ ⌜vs'' = vsιs⌝)%I
+            ).
+          cbn.
+          done.
+        }
+        iIntros (f'' vs_wl) "(-> & ->) Hfr Hrun".
+        move IHιs at bottom.
+        subst ixs. rewrite !HR.
+        rewrite hwl' in Hfsz.
+        specialize IHιs with (os:=osιs) (vs:=vsιs).
+        iApply (IHιs with "[$] [$] [//] [//] [//] [$] [$] [//] [//] [$] [//] [-]").
+        iIntros (f'' vs_wl) "%Hfr_f'_f'' %Hf''locs %Hresinterp Hrt Hown".
+        iSpecialize ("HΦ" $! f'' vs_wl).
+        iApply ("HΦ" with "[%] [%] [%] [$] [$]"); try (rewrite hwl'; done).
+  Qed.
 
 
   Lemma compat_drop M F L wt wt' wtf wl wl' wlf τ es' :
@@ -337,12 +572,21 @@ Section drop.
     destruct Hdrop as (-> & Hwl2' & Hdrop_spec).
     apply has_values_to_consts_inv in Hevs; subst evs.
 
-    iApply (Hdrop_spec with "[$] [$] [] [%] [%] [$] [$] [] [] [$] [//]").
-    { (* will need to do with frame, slight scary but probably fine? *) admit. }
+    iAssert (⌜fe_wlocal_offset fe + length wl + length wl2' <= length (f_locs fr)⌝%I)
+      with "[Hframe]" as "%Hlocslen". {
+      iPoseProof (frame_interp_locs_len with "[$Hframe]") as "%Hlenmini".
+      iPureIntro.
+      rewrite fe_wlocal_offset_length.
+      rewrite !length_app in Hlenmini.
+      rewrite Hlenmini.
+      lia.
+    }
+
+    iApply (Hdrop_spec with "[$] [$] [//] [%] [%] [$] [$] [] [] [$] [//]").
     { solve_ndisj. }
     { solve_ndisj. }
-    { (* just hinst *) admit. }
-    { (* just hinst *) admit. }
+    { by iDestruct "Hinst" as "(_ & (_ & _ & _ & this & _ & that) & _)". }
+    { by iDestruct "Hinst" as "(_ & (_ & _ & _ & this & _ & that) & _)". }
     iIntros (fr' vs_wl) " %Hframerel  %Hnewidxs %Hresinterp Hrt Hown".
     iPoseProof (frame_interp_update_frame with "[$Hframe]") as "Hframe".
     4: exact Hframerel.
@@ -351,13 +595,19 @@ Section drop.
     iFrame.
     iSplitR.
     - (* frame stuff, only one level should be fine *)
-      admit.
+      iPureIntro.
+      eapply frame_rel_mask_mono; last exact Hframerel.
+      intros i Hlm; cbn; unfold lmask in Hlm; unfold wlmask in Hlm.
+      rewrite elem_of_seq.
+      rewrite !fe_wlocal_offset_length in Hlm.
+      rewrite !sum_list_with_length_concat.
+      lia.
     - iExists [].
       cbn.
       iSplitR; try done.
       iExists [].
       cbn; done.
-  Admitted.
+  Qed.
 
 
 
