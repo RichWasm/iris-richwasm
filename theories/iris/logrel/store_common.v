@@ -775,7 +775,7 @@ Section store_common.
         (* I. didnd't have to eat Hat. What. It's still there.
           I guess bc it's all numbers it's fine. Rest of proof continues as normal *)
 
-        iPoseProof (atom_to_words_gc rti sr mr θ PtrR _ _ Harepsave with "[$Hat2]") as
+        iPoseProof (atom_to_words_gc θ PtrR _ _ Harepsave with "[$Hat2]") as
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
@@ -884,7 +884,7 @@ Section store_common.
           constructor; try done.
         }
 
-        iPoseProof (atom_to_words_gc rti sr mr θ PtrR _ _ Harepsave with "[$Hat2]") as
+        iPoseProof (atom_to_words_gc θ PtrR _ _ Harepsave with "[$Hat2]") as
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
@@ -1038,7 +1038,7 @@ Section store_common.
           done.
         }
 
-        iPoseProof (atom_to_words_gc rti sr mr θ PtrR _ _ Harepsave with "[$Hat]") as
+        iPoseProof (atom_to_words_gc θ PtrR _ _ Harepsave with "[$Hat]") as
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
@@ -1146,7 +1146,7 @@ Section store_common.
 
       iPoseProof ((atom_interp_to_weak_memGC_nonptr o val_v ι θ Harep n) with "[$Hat]") as "Hat".
 
-      iPoseProof (atom_to_words_gc rti sr mr θ ι _ _ Harep with "[$Hat]") as
+      iPoseProof (atom_to_words_gc θ ι _ _ Harep with "[$Hat]") as
         "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
       (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
@@ -1915,7 +1915,7 @@ Section store_common.
         (* I. didnd't have to eat Hat. What. It's still there.
           I guess bc it's all numbers it's fine. Rest of proof continues as normal *)
 
-        iPoseProof (atom_to_words_gc rti sr mr θ PtrR _ _ Harepsave with "[$Hat2]") as
+        iPoseProof (atom_to_words_gc θ PtrR _ _ Harepsave with "[$Hat2]") as
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
@@ -2027,7 +2027,7 @@ Section store_common.
           constructor; try done.
         }
 
-        iPoseProof (atom_to_words_gc rti sr mr θ PtrR _ _ Harepsave with "[$Hat2]") as
+        iPoseProof (atom_to_words_gc θ PtrR _ _ Harepsave with "[$Hat2]") as
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
@@ -2184,7 +2184,7 @@ Section store_common.
           done.
         }
 
-        iPoseProof (atom_to_words_gc rti sr mr θ PtrR _ _ Harepsave with "[$Hat]") as
+        iPoseProof (atom_to_words_gc θ PtrR _ _ Harepsave with "[$Hat]") as
           "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
         (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
@@ -2295,7 +2295,7 @@ Section store_common.
 
       iPoseProof ((atom_interp_to_weak_memGC_nonptr o val_v ι θ Harep n) with "[$Hat]") as "Hat".
 
-      iPoseProof (atom_to_words_gc rti sr mr θ ι _ _ Harep with "[$Hat]") as
+      iPoseProof (atom_to_words_gc θ ι _ _ Harep with "[$Hat]") as
         "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
 
       (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
