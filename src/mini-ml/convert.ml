@@ -121,12 +121,12 @@ and cc_pt ?(pack = true) (pt : Source.PreType.t) =
                 Code
                   {
                     foralls;
-                    arg = Prod [ Var "#cc-env"; cc_t arg ];
+                    args = [ Var "#cc-env"; cc_t arg ];
                     ret = cc_t ret;
                   };
               ] )
       else
-        Code { foralls; arg = Prod [ Prod []; cc_t arg ]; ret = cc_t ret }
+        Code { foralls; args = [ Prod []; cc_t arg ]; ret = cc_t ret }
 
 let rec cc_e
     (user_fns : (string * Source.PreType.t) list)
@@ -169,7 +169,7 @@ let rec cc_e
                           ( Code
                               {
                                 foralls;
-                                arg = Prod [ Prod []; cc_t arg ];
+                                args = [ Prod []; cc_t arg ];
                                 ret = cc_t ret_t;
                               },
                             v );
@@ -217,7 +217,7 @@ let rec cc_e
         Code
           {
             foralls = free_type_vars @ foralls;
-            arg = Prod [ env_prod; cc_t t ];
+            args = [ env_prod; cc_t t ];
             ret = cc_t ret_type;
           }
       in
@@ -237,7 +237,7 @@ let rec cc_e
                       Code
                         {
                           foralls = free_type_vars @ foralls;
-                          arg = Prod [ Var "#cc-env"; cc_t t ];
+                          args = [ Var "#cc-env"; cc_t t ];
                           ret = cc_t ret_type;
                         };
                     ] ) ),
@@ -245,22 +245,16 @@ let rec cc_e
             {
               name = code_name;
               foralls = free_type_vars @ foralls;
-              arg = ("#env_and_arg", Prod [ env_prod; cc_t t ]);
+              args = [ ("#env", env_prod); (n, cc_t t) ];
               ret_type = cc_t ret_type;
               body =
-                Let
-                  ( ("#env", env_prod),
-                    Project (0, Var "#env_and_arg"),
-                    Let
-                      ( (n, cc_t t),
-                        Project (1, Var "#env_and_arg"),
-                        List.fold_right
-                          ~f:(fun (idx, (name, ty)) acc ->
-                            Let ((name, ty), Project (idx, Var "#env"), acc))
-                          ~init:cced_body
-                          (List.zip_exn
-                             (List.range 0 (List.length free_bindings))
-                             free_bindings) ) );
+                List.fold_right
+                  ~f:(fun (idx, (name, ty)) acc ->
+                    Let ((name, ty), Project (idx, Var "#env"), acc))
+                  ~init:cced_body
+                  (List.zip_exn
+                     (List.range 0 (List.length free_bindings))
+                     free_bindings);
             }
           :: code )
   | Project (i, v) ->
@@ -352,7 +346,7 @@ let rec cc_e
                   Let
                     ( ("#actual_fn", ft),
                       Project (1, Var "#env_and_fn"),
-                      Apply (Var "#actual_fn", ts', Tuple [ Var "#env"; arg' ])
+                      Apply (Var "#actual_fn", ts', [ Var "#env"; arg' ])
                     ) ) ),
           code )
 
@@ -369,8 +363,8 @@ let cc_item user_fns gamma tagger acc item :
   | Export ((n, t), Fun { foralls; arg = arg_name, arg_type; ret_type; body })
   | Private ((n, t), Fun { foralls; arg = arg_name, arg_type; ret_type; body })
     ->
-      (* top-level functions have a unit environment, but it still needs to
-         be added to the argument type for uniformity *)
+      (* top-level functions have a unit environment, passed as the first
+         argument for uniformity with closures *)
       let* body', extra =
         cc_e user_fns
           (("#env", unit_type) :: (arg_name, arg_type) :: gamma)
@@ -382,7 +376,6 @@ let cc_item user_fns gamma tagger acc item :
         | Export _ -> fun (a, b) -> Export (a, b)
         | Private _ -> fun (a, b) -> Private (a, b)
       in
-      let arg_type' = Prod [ Prod []; arg_type ] in
       ret
         ( packer
             ( (n, cc_t t),
@@ -390,14 +383,9 @@ let cc_item user_fns gamma tagger acc item :
                 {
                   name = n;
                   foralls;
-                  arg = ("#env_and_arg", cc_t arg_type');
+                  args = [ ("#env", cc_t unit_type); (arg_name, cc_t arg_type) ];
                   ret_type = cc_t ret_type;
-                  body =
-                    Closed.Expr.(
-                      Let
-                        ( (arg_name, cc_t arg_type),
-                          Project (1, Var "#env_and_arg"),
-                          body' ));
+                  body = body';
                 } ),
           extra )
   | _ -> fail ItemNotFunction
@@ -406,8 +394,10 @@ let cc_module (Source.Module.Module (imps, items, body)) : Closed.Module.t Res.t
     =
   let open Res in
   let mk_private : Closed.Function.t -> Closed.Module.item = function
-    | Function { name; foralls; arg = _, t; ret_type; _ } as f ->
-        Private ((name, Code { foralls; arg = t; ret = ret_type }), f)
+    | Function { name; foralls; args; ret_type; _ } as f ->
+        Private
+          ( (name, Code { foralls; args = List.map ~f:snd args; ret = ret_type }),
+            f )
   in
   let tagger = Tag.new_counter () in
   let user_fns =

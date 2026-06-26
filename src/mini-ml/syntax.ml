@@ -106,7 +106,7 @@ module Closed = struct
       | Var of Variable.t
       | Code of {
           foralls : Variable.t list;
-          arg : Type.t;
+          args : Type.t list;
           ret : Type.t;
         }
       | Prod of Type.t list
@@ -124,7 +124,7 @@ module Closed = struct
       | Var of Variable.t
       | Code of {
           foralls : Variable.t list;
-          arg : Type.t;
+          args : Type.t list;
           ret : Type.t;
         }
       | Prod of Type.t list
@@ -158,7 +158,7 @@ module Closed = struct
       | UInj of int * t * Type.t (* unboxed sum injection *)
       | Coderef of PreType.t * Variable.t
       | Pack of Type.t * t * Type.t
-      | Apply of t * Type.t list * t
+      | Apply of t * Type.t list * t list
       | Project of int * t
       | Op of [ `Add | `Sub | `Mul | `Div ] * t * t
       | If0 of t * t * t
@@ -181,7 +181,7 @@ module Closed = struct
       | Function of {
           name : Variable.t;
           foralls : Variable.t list;
-          arg : Binding.t;
+          args : Binding.t list;
           ret_type : Type.t;
           body : Expr.t;
         }

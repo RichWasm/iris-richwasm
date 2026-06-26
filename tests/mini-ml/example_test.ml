@@ -226,45 +226,23 @@ let%expect_test "examples" =
       (export "_start" (func 0)))
     -----------utuple_fn-----------
     (module
-      (func
-          ((ref (base gc) imm
-             (struct (ser (ref (base gc) imm (struct))) (ser (prod i31 i31))))
-            -> i31)
-          (local ptr ptr (prod ptr ptr) (prod ptr ptr) ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [0]) follow
-        local.set 1
-        drop
+      (func ((ref (base gc) imm (struct)) (prod i31 i31) -> i31) (local ptr ptr)
         local.get 1 move
-        local.set 2
-        local.get 0 move
         copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 3
-        drop
-        local.get 3 move
-        local.set 4
-        local.get 4 move
-        copy
-        local.set 4
+        local.set 1
         ungroup
-        local.set 6
-        local.set 5
-        local.get 5 move
+        local.set 3
+        local.set 2
+        local.get 2 move
         copy
-        local.set 5
-        local.get 5 move
-        drop
-        local.get 6 move
-        drop
-        local.get 4 move
-        drop
+        local.set 2
         local.get 2 move
         drop
+        local.get 3 move
+        drop
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
         group 0
@@ -276,19 +254,10 @@ let%expect_test "examples" =
         cast
           (ref (base gc) imm
             (struct (ser (ref (base gc) imm (struct)))
-              (ser
-                (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct)))
-                       (ser (prod i31 i31))))
-                    -> i31)))))
+              (ser (coderef ((ref (base gc) imm (struct)) (prod i31 i31) -> i31)))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
-            (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser (prod i31 i31))))
-                    -> i31)))))
+            (struct (ser (var 0)) (ser (coderef ((var 0) (prod i31 i31) -> i31)))))
         unpack (result i31) inferfx
           local.set 1
           local.get 1 move
@@ -315,9 +284,6 @@ let%expect_test "examples" =
           i32.const 6
           tag
           group 2
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser (prod i31 i31))))
           local.get 5 move
           copy
           local.set 5
@@ -335,38 +301,16 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------utuple_ret-----------
     (module
-      (func
-          ((ref (base gc) imm
-             (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-            -> (prod i31 i31))
-          (local ptr ptr ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [0]) follow
-        local.set 1
-        drop
+      (func ((ref (base gc) imm (struct)) i31 -> (prod i31 i31))
         local.get 1 move
-        local.set 2
-        local.get 0 move
         copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 3
-        drop
-        local.get 3 move
-        local.set 4
-        local.get 4 move
-        copy
-        local.set 4
+        local.set 1
         i32.const 9
         tag
         group 2
-        local.get 4 move
-        drop
-        local.get 2 move
-        drop
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr
           ptr)
@@ -379,18 +323,10 @@ let%expect_test "examples" =
         cast
           (ref (base gc) imm
             (struct (ser (ref (base gc) imm (struct)))
-              (ser
-                (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                    -> (prod i31 i31))))))
+              (ser (coderef ((ref (base gc) imm (struct)) i31 -> (prod i31 i31))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
-            (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
-                    (prod i31 i31))))))
+            (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> (prod i31 i31))))))
         unpack (result (prod i31 i31)) inferfx
           local.set 1
           local.get 1 move
@@ -414,9 +350,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 4
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -444,9 +377,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------lin_make-----------
     (module
-      (import ((ref (base gc) imm
-                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                -> (ref (base mm) mut (ser i31))))
+      (import ((ref (base gc) imm (struct)) i31 -> (ref (base mm) mut (ser i31))))
       (func ((ref (base gc) imm (struct)) -> (ref (base mm) mut (ser i31))) (local
           ptr ptr ptr ptr ptr)
         group 0
@@ -460,16 +391,12 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                    -> (ref (base mm) mut (ser i31)))))))
+                  ((ref (base gc) imm (struct)) i31 ->
+                    (ref (base mm) mut (ser i31)))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
-                    (ref (base mm) mut (ser i31)))))))
+              (ser (coderef ((var 0) i31 -> (ref (base mm) mut (ser i31)))))))
         unpack (result (ref (base mm) mut (ser i31))) inferfx
           local.set 1
           local.get 1 move
@@ -493,9 +420,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 5
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -513,9 +437,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------lin_deref-----------
     (module
-      (import ((ref (base gc) imm
-                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                -> (ref (base mm) mut (ser i31))))
+      (import ((ref (base gc) imm (struct)) i31 -> (ref (base mm) mut (ser i31))))
       (func
           ((ref (base gc) imm (struct)) ->
             (prod (ref (base mm) mut (ser i31)) i31))
@@ -531,16 +453,12 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                    -> (ref (base mm) mut (ser i31)))))))
+                  ((ref (base gc) imm (struct)) i31 ->
+                    (ref (base mm) mut (ser i31)))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
-                    (ref (base mm) mut (ser i31)))))))
+              (ser (coderef ((var 0) i31 -> (ref (base mm) mut (ser i31)))))))
         unpack (result (ref (base mm) mut (ser i31))) inferfx
           local.set 1
           local.get 1 move
@@ -564,9 +482,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 5
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -586,9 +501,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------lin_assign-----------
     (module
-      (import ((ref (base gc) imm
-                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                -> (ref (base mm) mut (ser i31))))
+      (import ((ref (base gc) imm (struct)) i31 -> (ref (base mm) mut (ser i31))))
       (func ((ref (base gc) imm (struct)) -> (ref (base mm) mut (ser i31))) (local
           ptr ptr ptr ptr ptr)
         group 0
@@ -602,16 +515,12 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                    -> (ref (base mm) mut (ser i31)))))))
+                  ((ref (base gc) imm (struct)) i31 ->
+                    (ref (base mm) mut (ser i31)))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
-                    (ref (base mm) mut (ser i31)))))))
+              (ser (coderef ((var 0) i31 -> (ref (base mm) mut (ser i31)))))))
         unpack (result (ref (base mm) mut (ser i31))) inferfx
           local.set 1
           local.get 1 move
@@ -635,9 +544,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 5
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -658,9 +564,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------lin_let-----------
     (module
-      (import ((ref (base gc) imm
-                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                -> (ref (base mm) mut (ser i31))))
+      (import ((ref (base gc) imm (struct)) i31 -> (ref (base mm) mut (ser i31))))
       (func ((ref (base gc) imm (struct)) -> (ref (base mm) mut (ser i31))) (local
           ptr ptr ptr ptr ptr ptr)
         group 0
@@ -674,16 +578,12 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                    -> (ref (base mm) mut (ser i31)))))))
+                  ((ref (base gc) imm (struct)) i31 ->
+                    (ref (base mm) mut (ser i31)))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
-                    (ref (base mm) mut (ser i31)))))))
+              (ser (coderef ((var 0) i31 -> (ref (base mm) mut (ser i31)))))))
         unpack (result (ref (base mm) mut (ser i31))) inferfx
           local.set 1
           local.get 1 move
@@ -707,9 +607,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 3
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -734,9 +631,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------lin_roundtrip-----------
     (module
-      (import ((ref (base gc) imm
-                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                -> (ref (base mm) mut (ser i31))))
+      (import ((ref (base gc) imm (struct)) i31 -> (ref (base mm) mut (ser i31))))
       (func
           ((ref (base gc) imm (struct)) ->
             (prod (ref (base mm) mut (ser i31)) i31))
@@ -752,16 +647,12 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                    -> (ref (base mm) mut (ser i31)))))))
+                  ((ref (base gc) imm (struct)) i31 ->
+                    (ref (base mm) mut (ser i31)))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
-                    (ref (base mm) mut (ser i31)))))))
+              (ser (coderef ((var 0) i31 -> (ref (base mm) mut (ser i31)))))))
         unpack (result (ref (base mm) mut (ser i31))) inferfx
           local.set 1
           local.get 1 move
@@ -785,9 +676,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 3
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -822,9 +710,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------lin_reuse_rejected-----------
     (module
-      (import ((ref (base gc) imm
-                 (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                -> (ref (base mm) mut (ser i31))))
+      (import ((ref (base gc) imm (struct)) i31 -> (ref (base mm) mut (ser i31))))
       (func
           ((ref (base gc) imm (struct)) ->
             (prod (ref (base mm) mut (ser i31)) (ref (base mm) mut (ser i31))))
@@ -840,16 +726,12 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                    -> (ref (base mm) mut (ser i31)))))))
+                  ((ref (base gc) imm (struct)) i31 ->
+                    (ref (base mm) mut (ser i31)))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
-                    (ref (base mm) mut (ser i31)))))))
+              (ser (coderef ((var 0) i31 -> (ref (base mm) mut (ser i31)))))))
         unpack (result (ref (base mm) mut (ser i31))) inferfx
           local.set 1
           local.get 1 move
@@ -873,9 +755,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 3
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -1046,46 +925,19 @@ let%expect_test "examples" =
       (export "_start" (func 0)))
     -----------return_one-----------
     (module
-      (func
-          ((ref (base gc) imm
-             (struct (ser (ref (base gc) imm (struct)))
-               (ser (ref (base gc) imm (struct)))))
-            -> i31)
-          (local ptr ptr ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [0]) follow
-        local.set 1
-        drop
-        local.get 1 move
-        local.set 2
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 3
-        drop
-        local.get 3 move
-        local.set 4
+      (func ((ref (base gc) imm (struct)) (ref (base gc) imm (struct)) -> i31)
         i32.const 1
         tag
-        local.get 4 move
-        drop
-        local.get 2 move
-        drop
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (func
           ((ref (base gc) imm (struct)) ->
             (exists type (val ptr gcrefs)
               (ref (base gc) imm
                 (struct (ser (var 0))
-                  (ser
-                    (coderef
-                      ((ref (base gc) imm
-                         (struct (ser (var 0)) (ser (ref (base gc) imm (struct)))))
-                        -> i31)))))))
+                  (ser (coderef ((var 0) (ref (base gc) imm (struct)) -> i31)))))))
         group 0
         new gc imm
         cast (ref (base gc) imm (struct))
@@ -1097,53 +949,24 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct)))
-                       (ser (ref (base gc) imm (struct)))))
-                    -> i31)))))
+                  ((ref (base gc) imm (struct)) (ref (base gc) imm (struct)) ->
+                    i31)))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (var 0)) (ser (ref (base gc) imm (struct)))))
-                    -> i31)))))
+              (ser (coderef ((var 0) (ref (base gc) imm (struct)) -> i31)))))
         local.get 0 move
         drop)
       (table 0 1)
       (export "_start" (func 1)))
     -----------iife-----------
     (module
-      (func
-          ((ref (base gc) imm
-             (struct (ser (ref (base gc) imm (struct)))
-               (ser (ref (base gc) imm (struct)))))
-            -> i31)
-          (local ptr ptr ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [0]) follow
-        local.set 1
-        drop
-        local.get 1 move
-        local.set 2
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 3
-        drop
-        local.get 3 move
-        local.set 4
+      (func ((ref (base gc) imm (struct)) (ref (base gc) imm (struct)) -> i31)
         i32.const 1
         tag
-        local.get 4 move
-        drop
-        local.get 2 move
-        drop
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
         group 0
@@ -1157,18 +980,12 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct)))
-                       (ser (ref (base gc) imm (struct)))))
-                    -> i31)))))
+                  ((ref (base gc) imm (struct)) (ref (base gc) imm (struct)) ->
+                    i31)))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (var 0)) (ser (ref (base gc) imm (struct)))))
-                    -> i31)))))
+              (ser (coderef ((var 0) (ref (base gc) imm (struct)) -> i31)))))
         unpack (result i31) inferfx
           local.set 1
           local.get 1 move
@@ -1193,11 +1010,6 @@ let%expect_test "examples" =
           group 0
           new gc imm
           cast (ref (base gc) imm (struct))
-          group 2
-          new gc imm
-          cast
-            (ref (base gc) imm
-              (struct (ser (var 0)) (ser (ref (base gc) imm (struct)))))
           local.get 5 move
           copy
           local.set 5
@@ -1215,35 +1027,13 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -------------------------------
     (module
-      (func
-          ((ref (base gc) imm
-             (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-            -> i31)
-          (local ptr ptr ptr ptr)
-        local.get 0 move
+      (func ((ref (base gc) imm (struct)) i31 -> i31)
+        local.get 1 move
         copy
-        local.set 0
-        load (Path [0]) follow
         local.set 1
+        local.get 0 move
         drop
         local.get 1 move
-        local.set 2
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 3
-        drop
-        local.get 3 move
-        local.set 4
-        local.get 4 move
-        copy
-        local.set 4
-        local.get 4 move
-        drop
-        local.get 2 move
-        drop
-        local.get 0 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
         group 0
@@ -1255,17 +1045,10 @@ let%expect_test "examples" =
         cast
           (ref (base gc) imm
             (struct (ser (ref (base gc) imm (struct)))
-              (ser
-                (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-                    -> i31)))))
+              (ser (coderef ((ref (base gc) imm (struct)) i31 -> i31)))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
-            (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) -> i31)))))
+            (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> i31)))))
         unpack (result i31) inferfx
           local.set 1
           local.get 1 move
@@ -1289,9 +1072,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 5
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -1309,56 +1089,33 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------add_one-----------
     (module
-      (func
-          ((ref (base gc) imm
-             (struct (ser (ref (base gc) imm (struct))) (ser i31)))
-            -> i31)
-          (local ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 1
-        drop
+      (func ((ref (base gc) imm (struct)) i31 -> i31)
         local.get 1 move
-        local.set 2
-        local.get 2 move
         copy
-        local.set 2
+        local.set 1
         untag
         i32.const 1
         tag
         untag
         i32.add
         tag
-        local.get 2 move
-        drop
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (table 0)
       (export "add1" (func 0)))
     -----------id-----------
     (module
       (func
-          (forall.type (val ptr gcrefs)
-            (ref (base gc) imm
-              (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
-            -> (var 0))
-          (local ptr ptr)
-        local.get 0 move
+          (forall.type (val ptr gcrefs) (ref (base gc) imm (struct)) (var 0) ->
+            (var 0))
+        local.get 1 move
         copy
-        local.set 0
-        load (Path [1]) follow
         local.set 1
+        local.get 0 move
         drop
         local.get 1 move
-        local.set 2
-        local.get 2 move
-        copy
-        local.set 2
-        local.get 2 move
-        drop
-        local.get 0 move
         drop)
       (table 0)
       (export "id" (func 0)))
@@ -1394,25 +1151,14 @@ let%expect_test "examples" =
     -----------apply_id-----------
     (module
       (func
-          (forall.type (val ptr gcrefs)
-            (ref (base gc) imm
-              (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
-            -> (var 0))
-          (local ptr ptr)
-        local.get 0 move
+          (forall.type (val ptr gcrefs) (ref (base gc) imm (struct)) (var 0) ->
+            (var 0))
+        local.get 1 move
         copy
-        local.set 0
-        load (Path [1]) follow
         local.set 1
+        local.get 0 move
         drop
         local.get 1 move
-        local.set 2
-        local.get 2 move
-        copy
-        local.set 2
-        local.get 2 move
-        drop
-        local.get 0 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
         group 0
@@ -1426,18 +1172,13 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  (forall.type (val ptr gcrefs)
-                    (ref (base gc) imm
-                      (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
-                    -> (var 0))))))
+                  (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+                    (var 0) -> (var 0))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
               (ser
-                (coderef
-                  (forall.type (val ptr gcrefs)
-                    (ref (base gc) imm (struct (ser (var 1)) (ser (var 0)))) ->
-                    (var 0))))))
+                (coderef (forall.type (val ptr gcrefs) (var 1) (var 0) -> (var 0))))))
         unpack (result i31) inferfx
           local.set 1
           local.get 1 move
@@ -1461,9 +1202,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 42
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -1518,38 +1256,26 @@ let%expect_test "examples" =
     -----------poly_len-----------
     (module
       (func
-          (forall.type (val ptr gcrefs)
-            (ref (base gc) imm
-              (struct (ser (ref (base gc) imm (struct)))
-                (ser
-                  (rec (val ptr gcrefs)
-                    (ref (base gc) imm
-                      (variant (ser (ref (base gc) imm (struct)))
-                        (ser
-                          (ref (base gc) imm (struct (ser (var 1)) (ser (var 0)))))))))))
+          (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+            (rec (val ptr gcrefs)
+              (ref (base gc) imm
+                (variant (ser (ref (base gc) imm (struct)))
+                  (ser (ref (base gc) imm (struct (ser (var 1)) (ser (var 0))))))))
             -> i31)
-          (local ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 1
-        drop
+          (local ptr ptr ptr ptr ptr ptr ptr ptr ptr)
         local.get 1 move
-        local.set 2
-        local.get 2 move
         copy
-        local.set 2
+        local.set 1
         unfold
         case_load (result i31) copy inferfx
           (0
-            local.set 3
+            local.set 2
             i32.const 0
             tag
-            local.get 3 move
+            local.get 2 move
             drop)
           (1
-            local.set 4
+            local.set 3
             i32.const 1
             tag
             untag
@@ -1564,97 +1290,79 @@ let%expect_test "examples" =
                 (struct (ser (ref (base gc) imm (struct)))
                   (ser
                     (coderef
-                      (forall.type (val ptr gcrefs)
-                        (ref (base gc) imm
-                          (struct (ser (ref (base gc) imm (struct)))
-                            (ser
-                              (rec (val ptr gcrefs)
+                      (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+                        (rec (val ptr gcrefs)
+                          (ref (base gc) imm
+                            (variant (ser (ref (base gc) imm (struct)))
+                              (ser
                                 (ref (base gc) imm
-                                  (variant (ser (ref (base gc) imm (struct)))
-                                    (ser
-                                      (ref (base gc) imm
-                                        (struct (ser (var 1)) (ser (var 0)))))))))))
+                                  (struct (ser (var 1)) (ser (var 0))))))))
                         -> i31)))))
             pack (type (ref (base gc) imm (struct)))
               (ref (base gc) imm
                 (struct (ser (var 0))
                   (ser
                     (coderef
-                      (forall.type (val ptr gcrefs)
-                        (ref (base gc) imm
-                          (struct (ser (var 1))
-                            (ser
-                              (rec (val ptr gcrefs)
+                      (forall.type (val ptr gcrefs) (var 1)
+                        (rec (val ptr gcrefs)
+                          (ref (base gc) imm
+                            (variant (ser (ref (base gc) imm (struct)))
+                              (ser
                                 (ref (base gc) imm
-                                  (variant (ser (ref (base gc) imm (struct)))
-                                    (ser
-                                      (ref (base gc) imm
-                                        (struct (ser (var 1)) (ser (var 0)))))))))))
+                                  (struct (ser (var 1)) (ser (var 0))))))))
                         -> i31)))))
             unpack (result i31) inferfx
-              local.set 5
-              local.get 5 move
+              local.set 4
+              local.get 4 move
               copy
-              local.set 5
+              local.set 4
               load (Path [0]) follow
-              local.set 6
-              drop
-              local.get 6 move
-              local.set 7
-              local.get 5 move
-              copy
               local.set 5
-              load (Path [1]) follow
-              local.set 8
               drop
-              local.get 8 move
-              local.set 9
-              local.get 7 move
-              copy
-              local.set 7
+              local.get 5 move
+              local.set 6
               local.get 4 move
               copy
               local.set 4
               load (Path [1]) follow
-              local.set 10
-              drop
-              local.get 10 move
-              group 2
-              new gc imm
-              cast
-                (ref (base gc) imm
-                  (struct (ser (var 0))
-                    (ser
-                      (rec (val ptr gcrefs)
-                        (ref (base gc) imm
-                          (variant (ser (ref (base gc) imm (struct)))
-                            (ser
-                              (ref (base gc) imm
-                                (struct (ser (var 2)) (ser (var 0)))))))))))
-              local.get 9 move
-              copy
-              local.set 9
-              inst (type (var 1))
-              call_indirect
-              local.get 9 move
+              local.set 7
               drop
               local.get 7 move
+              local.set 8
+              local.get 6 move
+              copy
+              local.set 6
+              local.get 3 move
+              copy
+              local.set 3
+              load (Path [1]) follow
+              local.set 9
               drop
-              local.get 5 move
+              local.get 9 move
+              local.get 8 move
+              copy
+              local.set 8
+              inst (type (var 1))
+              call_indirect
+              local.get 8 move
+              drop
+              local.get 6 move
+              drop
+              local.get 4 move
               drop
             end
             untag
             i32.add
             tag
-            local.get 4 move
+            local.get 3 move
             drop)
         end
-        local.set 11
+        local.set 10
         drop
-        local.get 11 move
-        local.get 2 move
-        drop
+        local.get 10 move
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
         group 0
@@ -1668,32 +1376,26 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  (forall.type (val ptr gcrefs)
-                    (ref (base gc) imm
-                      (struct (ser (ref (base gc) imm (struct)))
-                        (ser
-                          (rec (val ptr gcrefs)
+                  (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+                    (rec (val ptr gcrefs)
+                      (ref (base gc) imm
+                        (variant (ser (ref (base gc) imm (struct)))
+                          (ser
                             (ref (base gc) imm
-                              (variant (ser (ref (base gc) imm (struct)))
-                                (ser
-                                  (ref (base gc) imm
-                                    (struct (ser (var 1)) (ser (var 0)))))))))))
+                              (struct (ser (var 1)) (ser (var 0))))))))
                     -> i31)))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
               (ser
                 (coderef
-                  (forall.type (val ptr gcrefs)
-                    (ref (base gc) imm
-                      (struct (ser (var 1))
-                        (ser
-                          (rec (val ptr gcrefs)
+                  (forall.type (val ptr gcrefs) (var 1)
+                    (rec (val ptr gcrefs)
+                      (ref (base gc) imm
+                        (variant (ser (ref (base gc) imm (struct)))
+                          (ser
                             (ref (base gc) imm
-                              (variant (ser (ref (base gc) imm (struct)))
-                                (ser
-                                  (ref (base gc) imm
-                                    (struct (ser (var 1)) (ser (var 0)))))))))))
+                              (struct (ser (var 1)) (ser (var 0))))))))
                     -> i31)))))
         unpack (result i31) inferfx
           local.set 1
@@ -1757,16 +1459,6 @@ let%expect_test "examples" =
               (ref (base gc) imm
                 (variant (ser (ref (base gc) imm (struct)))
                   (ser (ref (base gc) imm (struct (ser i31) (ser (var 0))))))))
-          group 2
-          new gc imm
-          cast
-            (ref (base gc) imm
-              (struct (ser (var 0))
-                (ser
-                  (rec (val ptr gcrefs)
-                    (ref (base gc) imm
-                      (variant (ser (ref (base gc) imm (struct)))
-                        (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))))
           local.get 5 move
           copy
           local.set 5
@@ -1787,40 +1479,19 @@ let%expect_test "examples" =
     -----------poly_id_apply-----------
     (module
       (func
-          (forall.type (val ptr gcrefs)
-            (ref (base gc) imm
-              (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
-            -> (var 0))
-          (local ptr ptr)
-        local.get 0 move
+          (forall.type (val ptr gcrefs) (ref (base gc) imm (struct)) (var 0) ->
+            (var 0))
+        local.get 1 move
         copy
-        local.set 0
-        load (Path [1]) follow
         local.set 1
+        local.get 0 move
         drop
         local.get 1 move
-        local.set 2
-        local.get 2 move
-        copy
-        local.set 2
-        local.get 2 move
-        drop
-        local.get 0 move
         drop)
       (func
-          (forall.type (val ptr gcrefs)
-            (ref (base gc) imm
-              (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
-            -> (var 0))
-          (local ptr ptr ptr ptr ptr ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 1
-        drop
-        local.get 1 move
-        local.set 2
+          (forall.type (val ptr gcrefs) (ref (base gc) imm (struct)) (var 0) ->
+            (var 0))
+          (local ptr ptr ptr ptr ptr)
         group 0
         new gc imm
         cast (ref (base gc) imm (struct))
@@ -1832,60 +1503,52 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  (forall.type (val ptr gcrefs)
-                    (ref (base gc) imm
-                      (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
-                    -> (var 0))))))
+                  (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+                    (var 0) -> (var 0))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
               (ser
-                (coderef
-                  (forall.type (val ptr gcrefs)
-                    (ref (base gc) imm (struct (ser (var 1)) (ser (var 0)))) ->
-                    (var 0))))))
+                (coderef (forall.type (val ptr gcrefs) (var 1) (var 0) -> (var 0))))))
         unpack (result (var 1)) inferfx
-          local.set 3
-          local.get 3 move
-          copy
-          local.set 3
-          load (Path [0]) follow
-          local.set 4
-          drop
-          local.get 4 move
-          local.set 5
-          local.get 3 move
-          copy
-          local.set 3
-          load (Path [1]) follow
-          local.set 6
-          drop
-          local.get 6 move
-          local.set 7
-          local.get 5 move
-          copy
-          local.set 5
+          local.set 2
           local.get 2 move
           copy
           local.set 2
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser (var 1))))
-          local.get 7 move
-          copy
-          local.set 7
-          inst (type (var 1))
-          call_indirect
-          local.get 7 move
-          drop
-          local.get 5 move
+          load (Path [0]) follow
+          local.set 3
           drop
           local.get 3 move
+          local.set 4
+          local.get 2 move
+          copy
+          local.set 2
+          load (Path [1]) follow
+          local.set 5
+          drop
+          local.get 5 move
+          local.set 6
+          local.get 4 move
+          copy
+          local.set 4
+          local.get 1 move
+          copy
+          local.set 1
+          local.get 6 move
+          copy
+          local.set 6
+          inst (type (var 1))
+          call_indirect
+          local.get 6 move
+          drop
+          local.get 4 move
+          drop
+          local.get 2 move
           drop
         end
-        local.get 2 move
-        drop
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr)
         group 0
@@ -1899,18 +1562,13 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct)))
               (ser
                 (coderef
-                  (forall.type (val ptr gcrefs)
-                    (ref (base gc) imm
-                      (struct (ser (ref (base gc) imm (struct))) (ser (var 0))))
-                    -> (var 0))))))
+                  (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+                    (var 0) -> (var 0))))))
         pack (type (ref (base gc) imm (struct)))
           (ref (base gc) imm
             (struct (ser (var 0))
               (ser
-                (coderef
-                  (forall.type (val ptr gcrefs)
-                    (ref (base gc) imm (struct (ser (var 1)) (ser (var 0)))) ->
-                    (var 0))))))
+                (coderef (forall.type (val ptr gcrefs) (var 1) (var 0) -> (var 0))))))
         unpack (result i31) inferfx
           local.set 1
           local.get 1 move
@@ -1934,9 +1592,6 @@ let%expect_test "examples" =
           local.set 3
           i32.const 5
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 5 move
           copy
           local.set 5
@@ -1959,99 +1614,68 @@ let%expect_test "examples" =
     (module
       (func
           (forall.type (val ptr gcrefs)
-            (forall.type (val ptr gcrefs)
+            (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
               (ref (base gc) imm
-                (struct (ser (ref (base gc) imm (struct)))
-                  (ser
-                    (ref (base gc) imm
-                      (struct (ser (ref (base gc) mut (ser (var 0))))
-                        (ser (ref (base gc) mut (ser (var 1)))))))))
+                (struct (ser (ref (base gc) mut (ser (var 0))))
+                  (ser (ref (base gc) mut (ser (var 1))))))
               ->
               (ref (base gc) mut
                 (ser (ref (base gc) imm (struct (ser (var 0)) (ser (var 1))))))))
-          (local ptr ptr ptr ptr ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 1
-        drop
+          (local ptr ptr ptr ptr)
         local.get 1 move
-        local.set 2
-        local.get 2 move
         copy
-        local.set 2
+        local.set 1
         load (Path [0]) follow
+        local.set 2
+        drop
+        local.get 2 move
+        load (Path []) follow
         local.set 3
         drop
         local.get 3 move
-        load (Path []) follow
+        local.get 1 move
+        copy
+        local.set 1
+        load (Path [1]) follow
         local.set 4
         drop
         local.get 4 move
-        local.get 2 move
-        copy
-        local.set 2
-        load (Path [1]) follow
+        load (Path []) follow
         local.set 5
         drop
         local.get 5 move
-        load (Path []) follow
-        local.set 6
-        drop
-        local.get 6 move
         group 2
         new gc imm
         cast (ref (base gc) imm (struct (ser (var 0)) (ser (var 1))))
         new gc mut
-        local.get 2 move
-        drop
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (table 0)
       (export "mini_zip" (func 0)))
     -----------closure_simpl-----------
     (module
       (func
-          ((ref (base gc) imm
-             (struct (ser (ref (base gc) imm (struct (ser i31))))
-               (ser (ref (base gc) imm (struct)))))
-            -> i31)
-          (local ptr ptr ptr ptr ptr ptr)
+          ((ref (base gc) imm (struct (ser i31))) (ref (base gc) imm (struct)) ->
+            i31)
+          (local ptr ptr)
         local.get 0 move
         copy
         local.set 0
         load (Path [0]) follow
-        local.set 1
+        local.set 2
+        drop
+        local.get 2 move
+        local.set 3
+        local.get 3 move
+        copy
+        local.set 3
+        local.get 3 move
+        drop
+        local.get 0 move
         drop
         local.get 1 move
-        local.set 2
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 3
-        drop
-        local.get 3 move
-        local.set 4
-        local.get 2 move
-        copy
-        local.set 2
-        load (Path [0]) follow
-        local.set 5
-        drop
-        local.get 5 move
-        local.set 6
-        local.get 6 move
-        copy
-        local.set 6
-        local.get 6 move
-        drop
-        local.get 4 move
-        drop
-        local.get 2 move
-        drop
-        local.get 0 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr
           ptr)
@@ -2072,18 +1696,12 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) imm (struct (ser i31))))
               (ser
                 (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct (ser i31))))
-                       (ser (ref (base gc) imm (struct)))))
-                    -> i31)))))
+                  ((ref (base gc) imm (struct (ser i31)))
+                    (ref (base gc) imm (struct)) -> i31)))))
         pack (type (ref (base gc) imm (struct (ser i31))))
           (ref (base gc) imm
             (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (var 0)) (ser (ref (base gc) imm (struct)))))
-                    -> i31)))))
+              (ser (coderef ((var 0) (ref (base gc) imm (struct)) -> i31)))))
         local.set 2
         local.get 2 move
         copy
@@ -2112,11 +1730,6 @@ let%expect_test "examples" =
           group 0
           new gc imm
           cast (ref (base gc) imm (struct))
-          group 2
-          new gc imm
-          cast
-            (ref (base gc) imm
-              (struct (ser (var 0)) (ser (ref (base gc) imm (struct)))))
           local.get 7 move
           copy
           local.set 7
@@ -2142,157 +1755,105 @@ let%expect_test "examples" =
           ((ref (base gc) imm
              (struct
                (ser
-                 (ref (base gc) imm
-                   (struct
-                     (ser
-                       (exists type (val ptr gcrefs)
-                         (ref (base gc) imm
-                           (struct (ser (var 0))
-                             (ser
-                               (coderef
-                                 ((ref (base gc) imm
-                                    (struct (ser (var 0)) (ser i31)))
-                                   -> i31)))))))
-                     (ser i31))))
+                 (exists type (val ptr gcrefs)
+                   (ref (base gc) imm
+                     (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> i31)))))))
                (ser i31)))
-            -> i31)
-          (local ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr)
+            i31 -> i31)
+          (local ptr ptr ptr ptr ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
         load (Path [0]) follow
-        local.set 1
-        drop
-        local.get 1 move
         local.set 2
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
+        drop
+        local.get 2 move
         local.set 3
-        drop
-        local.get 3 move
-        local.set 4
-        local.get 2 move
+        local.get 0 move
         copy
-        local.set 2
-        load (Path [0]) follow
-        local.set 5
-        drop
-        local.get 5 move
-        local.set 6
-        local.get 2 move
-        copy
-        local.set 2
+        local.set 0
         load (Path [1]) follow
-        local.set 7
+        local.set 4
         drop
-        local.get 7 move
-        local.set 8
-        local.get 6 move
+        local.get 4 move
+        local.set 5
+        local.get 3 move
         copy
-        local.set 6
+        local.set 3
         unpack (result i31) inferfx
-          local.set 9
-          local.get 9 move
+          local.set 6
+          local.get 6 move
           copy
-          local.set 9
+          local.set 6
           load (Path [0]) follow
-          local.set 10
+          local.set 7
           drop
-          local.get 10 move
-          local.set 11
-          local.get 9 move
+          local.get 7 move
+          local.set 8
+          local.get 6 move
           copy
-          local.set 9
+          local.set 6
           load (Path [1]) follow
-          local.set 12
-          drop
-          local.get 12 move
-          local.set 13
-          local.get 11 move
-          copy
-          local.set 11
-          local.get 4 move
-          copy
-          local.set 4
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
-          local.get 13 move
-          copy
-          local.set 13
-          call_indirect
-          local.get 13 move
-          drop
-          local.get 11 move
+          local.set 9
           drop
           local.get 9 move
+          local.set 10
+          local.get 8 move
+          copy
+          local.set 8
+          local.get 1 move
+          copy
+          local.set 1
+          local.get 10 move
+          copy
+          local.set 10
+          call_indirect
+          local.get 10 move
+          drop
+          local.get 8 move
+          drop
+          local.get 6 move
           drop
         end
         untag
-        local.get 8 move
+        local.get 5 move
         copy
-        local.set 8
+        local.set 5
         untag
         i32.add
         tag
-        local.get 8 move
-        drop
-        local.get 6 move
-        drop
-        local.get 4 move
-        drop
-        local.get 2 move
-        drop
-        local.get 0 move
-        drop)
-      (func
-          ((ref (base gc) imm
-             (struct (ser (ref (base gc) imm (struct (ser i31)))) (ser i31)))
-            -> i31)
-          (local ptr ptr ptr ptr ptr ptr)
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [0]) follow
-        local.set 1
-        drop
-        local.get 1 move
-        local.set 2
-        local.get 0 move
-        copy
-        local.set 0
-        load (Path [1]) follow
-        local.set 3
+        local.get 5 move
         drop
         local.get 3 move
-        local.set 4
-        local.get 2 move
-        copy
-        local.set 2
-        load (Path [0]) follow
-        local.set 5
         drop
-        local.get 5 move
-        local.set 6
-        local.get 6 move
+        local.get 0 move
+        drop
+        local.get 1 move
+        drop)
+      (func ((ref (base gc) imm (struct (ser i31))) i31 -> i31) (local ptr ptr)
+        local.get 0 move
         copy
-        local.set 6
+        local.set 0
+        load (Path [0]) follow
+        local.set 2
+        drop
+        local.get 2 move
+        local.set 3
+        local.get 3 move
+        copy
+        local.set 3
         untag
-        local.get 4 move
+        local.get 1 move
         copy
-        local.set 4
+        local.set 1
         untag
         i32.add
         tag
-        local.get 6 move
-        drop
-        local.get 4 move
-        drop
-        local.get 2 move
+        local.get 3 move
         drop
         local.get 0 move
+        drop
+        local.get 1 move
         drop)
       (func ((ref (base gc) imm (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr
           ptr ptr)
@@ -2311,18 +1872,10 @@ let%expect_test "examples" =
         cast
           (ref (base gc) imm
             (struct (ser (ref (base gc) imm (struct (ser i31))))
-              (ser
-                (coderef
-                  ((ref (base gc) imm
-                     (struct (ser (ref (base gc) imm (struct (ser i31))))
-                       (ser i31)))
-                    -> i31)))))
+              (ser (coderef ((ref (base gc) imm (struct (ser i31))) i31 -> i31)))))
         pack (type (ref (base gc) imm (struct (ser i31))))
           (ref (base gc) imm
-            (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) -> i31)))))
+            (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> i31)))))
         local.set 2
         local.get 2 move
         copy
@@ -2338,11 +1891,7 @@ let%expect_test "examples" =
               (ser
                 (exists type (val ptr gcrefs)
                   (ref (base gc) imm
-                    (struct (ser (var 0))
-                      (ser
-                        (coderef
-                          ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) ->
-                            i31)))))))
+                    (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> i31)))))))
               (ser i31)))
         coderef 0
         group 2
@@ -2357,31 +1906,19 @@ let%expect_test "examples" =
                       (exists type (val ptr gcrefs)
                         (ref (base gc) imm
                           (struct (ser (var 0))
-                            (ser
-                              (coderef
-                                ((ref (base gc) imm
-                                   (struct (ser (var 0)) (ser i31)))
-                                  -> i31)))))))
+                            (ser (coderef ((var 0) i31 -> i31)))))))
                     (ser i31))))
               (ser
                 (coderef
                   ((ref (base gc) imm
                      (struct
                        (ser
-                         (ref (base gc) imm
-                           (struct
-                             (ser
-                               (exists type (val ptr gcrefs)
-                                 (ref (base gc) imm
-                                   (struct (ser (var 0))
-                                     (ser
-                                       (coderef
-                                         ((ref (base gc) imm
-                                            (struct (ser (var 0)) (ser i31)))
-                                           -> i31)))))))
-                             (ser i31))))
+                         (exists type (val ptr gcrefs)
+                           (ref (base gc) imm
+                             (struct (ser (var 0))
+                               (ser (coderef ((var 0) i31 -> i31)))))))
                        (ser i31)))
-                    -> i31)))))
+                    i31 -> i31)))))
         pack
           (type
             (ref (base gc) imm
@@ -2389,17 +1926,10 @@ let%expect_test "examples" =
                 (ser
                   (exists type (val ptr gcrefs)
                     (ref (base gc) imm
-                      (struct (ser (var 0))
-                        (ser
-                          (coderef
-                            ((ref (base gc) imm (struct (ser (var 0)) (ser i31)))
-                              -> i31)))))))
+                      (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> i31)))))))
                 (ser i31))))
           (ref (base gc) imm
-            (struct (ser (var 0))
-              (ser
-                (coderef
-                  ((ref (base gc) imm (struct (ser (var 0)) (ser i31))) -> i31)))))
+            (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> i31)))))
         local.set 3
         local.get 3 move
         copy
@@ -2427,9 +1957,6 @@ let%expect_test "examples" =
           local.set 6
           i32.const 3
           tag
-          group 2
-          new gc imm
-          cast (ref (base gc) imm (struct (ser (var 0)) (ser i31)))
           local.get 8 move
           copy
           local.set 8
@@ -2450,4 +1977,5 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (table 0 1 2)
-      (export "_start" (func 2))) |}]
+      (export "_start" (func 2)))
+    |}]

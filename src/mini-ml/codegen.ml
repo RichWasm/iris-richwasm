@@ -69,11 +69,11 @@ let rec type_subst var replacement tau =
   | Var v when equal_string v var -> replacement
   | Var _ -> tau
   | Code { foralls; _ } when List.mem ~equal:equal_string foralls var -> tau
-  | Code { foralls; arg; ret } ->
+  | Code { foralls; args; ret } ->
       Code
         {
           foralls;
-          arg = type_subst var replacement arg;
+          args = List.map ~f:(type_subst var replacement) args;
           ret = type_subst var replacement ret;
         }
 
@@ -180,14 +180,14 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
   | Exists (v, t) ->
       let+ t' = compile_type (v :: delta) t in
       Exists (Type kind, t')
-  | Code { foralls; arg; ret = ret_t } ->
+  | Code { foralls; args; ret = ret_t } ->
       let r = compile_type (foralls @ delta) in
-      let* arg' = r arg in
+      let* args' = mapM ~f:r args in
       let+ ret' = r ret_t in
       CodeRef
         (FunctionType
            ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
-             [ arg' ],
+             args',
              [ ret' ] ))
   | Var v ->
       (match
@@ -351,17 +351,15 @@ let rec compile_expr delta gamma locals coderef_map e :
   | Unfold v ->
       let* v', locals', fx = r v in
       ret (v' @ [ Unfold ], locals', fx)
-  | Apply (f, ts, arg) ->
+  | Apply (f, ts, args) ->
       let* f', locals', fx_f = r f in
-      let* arg', locals', fx_arg =
-        compile_expr delta gamma locals' coderef_map arg
-      in
+      let* args', locals', fx_args = r_list locals' args in
       let* insts =
         mapM ts ~f:(fun t ->
             let+ t' = compile_type delta t in
             Inst (Type t'))
       in
-      ret (arg' @ f' @ insts @ [ CallIndirect ], locals', fx_arg @ fx_f)
+      ret (args' @ f' @ insts @ [ CallIndirect ], locals', fx_args @ fx_f)
   | Unpack (var, (n, var_t), v, e) ->
       let* v', locals', fx_v = r v in
       let tmp_local = List.length locals' in
@@ -517,28 +515,34 @@ let rec compile_expr delta gamma locals coderef_map e :
           fx_v @ fx )
 
 let compile_fun coderef_map : Closed.Function.t -> Module.Function.t Res.t =
- fun (Function { name = _; foralls; arg = arg_name, arg_type; ret_type; body }) ->
+ fun (Function { name = _; foralls; args; ret_type; body }) ->
   let open Res in
-  let* arg_rw_type = compile_type foralls arg_type in
+  let* arg_rw_types = mapM args ~f:(fun (_, t) -> compile_type foralls t) in
   let* ret_rw_type = compile_type foralls ret_type in
-  let* body', locals, _ =
-    compile_expr foralls
-      [ (arg_name, arg_type, 0) ]
-      [ (arg_name, arg_rw_type) ]
-      coderef_map body
+  let init_gamma = List.mapi args ~f:(fun i (n, t) -> (n, t, i)) in
+  let init_locals =
+    List.map2_exn args arg_rw_types ~f:(fun (n, _) rw -> (n, rw))
   in
+  let* body', locals, _ =
+    compile_expr foralls init_gamma init_locals coderef_map body
+  in
+  let num_args = List.length args in
   ret
     Module.Function.
       {
         typ =
           FunctionType
             ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
-              [ arg_rw_type ],
+              arg_rw_types,
               [ ret_rw_type ] );
-        (* NOTE: declared locals come after the argument, whose slot the
+        (* NOTE: declared locals come after the arguments, whose slots the
            function type already accounts for *)
-        locals = List.map ~f:(fun (_, t) -> rep_of_type t) (List.tl_exn locals);
-        body = body' @ [ LocalGet (0, Move); Drop ];
+        locals =
+          List.map ~f:(fun (_, t) -> rep_of_type t) (List.drop locals num_args);
+        body =
+          body'
+          @ List.concat_map (List.range 0 num_args) ~f:(fun i ->
+                Instruction.[ LocalGet (i, Move); Drop ]);
       }
 
 let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
@@ -569,12 +573,13 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
           @ [
               Export
                 ( ( "_start",
-                    Code { foralls = []; arg = closed_unit; ret = ret_type } ),
+                    Code { foralls = []; args = [ closed_unit ]; ret = ret_type }
+                  ),
                   Function
                     {
                       name = "_start";
                       foralls = [];
-                      arg = ("#_env", closed_unit);
+                      args = [ ("#_env", closed_unit) ];
                       ret_type;
                       body;
                     } );

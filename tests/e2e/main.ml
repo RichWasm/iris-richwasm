@@ -227,9 +227,9 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                 (* rwasm *)
                 {|
                   ;; Glue module: adapts mini-ml's closure-style `add1` import
-                  ;; to lin-lang's `add1` (m1). mini-ml calls with a GC closure
-                  ;; struct (env, i31); lin-lang expects an unboxed (env, i32)
-                  ;; product with an MM-allocated environment.
+                  ;; to lin-lang's `add1` (m1). mini-ml calls with two args (a
+                  ;; GC unit env and an i31); lin-lang expects an unboxed
+                  ;; (env, i32) product with an MM-allocated environment.
                   ((imports
                     ((FunctionType ()
                       ((Prod ((Ref (Base MM) Mut (Ser (Prod ()))) (Num (Int I32)))))
@@ -237,16 +237,12 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                    (functions
                     (((typ
                        (FunctionType ()
-                        ((Ref (Base GC) Imm
-                          (Struct
-                           ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
+                        ((Ref (Base GC) Imm (Struct ())) I31)
                         (I31)))
-                      (locals ((Atom Ptr)))
+                      (locals ())
                       (body
                        ((LocalGet 0 Move)
-                        ;; pull the i31 argument out of the closure struct
-                        (Load (Path (1)) Follow)
-                        (LocalSet 1)
+                        ;; drop the unit env; the i31 arrives as the 2nd arg
                         Drop
                         ;; build lin-lang's (env, i32) argument
                         (Group 0)
@@ -334,13 +330,11 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                 {|
                   ;; Glue module: adapts lin-lang's closure-style `add3` import
                   ;; to mini-ml's `add3` (m1). lin-lang calls with a MM closure
-                  ;; struct (env, i32); mini-ml expects an boxed (env, i31)
-                  ;; product with an GC-allocated environment.
+                  ;; struct (env, i32); mini-ml expects two args (a GC unit env
+                  ;; and an i31).
                   ((imports
                     ((FunctionType ()
-                      ((Ref (Base GC) Imm
-                        (Struct
-                           ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
+                      ((Ref (Base GC) Imm (Struct ())) I31)
                       (I31))))
                    (functions
                     (((typ
@@ -353,15 +347,12 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                         Ungroup
                         (LocalSet 1) ;; i32
                         Drop ;; env
-                        ;; build mini-ml's (env, i32) argument
+                        ;; build mini-ml's two args: a GC unit env, then the i31
                         (Group 0)
                         (New GC Imm)
                         (Cast (Ref (Base GC) Imm (Struct ())))
                         (LocalGet 1 Move)
                         Tag ;; can error!!!
-                        (Group 2) ;; ((), i31)
-                        (New GC Imm)
-                        (Cast (Ref (Base GC) Imm (Struct ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
                         (Call 0 ())
                         Untag)))))
                    (table ())
@@ -422,23 +413,19 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
               let module Double = Run_rw.EndToEnd.Make2 (SL) (DoubleRW) in
               let module1 =
                 (* rwasm: allocates the linear cell mini-ml will borrow.
-                   mini-ml calls with its closure convention (boxed (env, i31)
-                   pair); the cell holds the i31 payload directly. *)
+                   mini-ml calls with its closure convention (two args: a unit
+                   env and an i31); the cell holds the i31 payload directly. *)
                 {|
                   ((imports ())
                    (functions
                     (((typ
                        (FunctionType ()
-                        ((Ref (Base GC) Imm
-                          (Struct
-                           ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
+                        ((Ref (Base GC) Imm (Struct ())) I31)
                         ((Ref (Base MM) Mut (Ser I31)))))
-                      (locals ((Atom Ptr)))
+                      (locals ())
                       (body
                        ((LocalGet 0 Move)
-                        ;; pull the i31 payload out of the arg pair
-                        (Load (Path (1)) Follow)
-                        (LocalSet 1)
+                        ;; drop the unit env; the i31 arrives as the 2nd arg
                         Drop
                         ;; allocate the linear cell
                         (LocalGet 1 Move)
@@ -508,15 +495,11 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                    (functions
                     (((typ
                        (FunctionType ()
-                        ((Ref (Base GC) Imm
-                          (Struct
-                           ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
+                        ((Ref (Base GC) Imm (Struct ())) I31)
                         ((Ref (Base MM) Mut (Ser I31)))))
-                      (locals ((Atom Ptr)))
+                      (locals ())
                       (body
                        ((LocalGet 0 Move)
-                        (Load (Path (1)) Follow)
-                        (LocalSet 1)
                         Drop
                         (LocalGet 1 Move)
                         (New MM Mut))))))
