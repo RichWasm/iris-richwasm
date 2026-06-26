@@ -1309,8 +1309,7 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func))
       (type (;5;) (func (param i32 i32) (result i32)))
-      (type (;6;) (func (param i32 i32) (result i32)))
-      (type (;7;) (func (result i32)))
+      (type (;6;) (func (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -1387,7 +1386,7 @@ let%expect_test "examples" =
         end
         local.get 3
         drop)
-      (func (;8;) (type 7) (result i32)
+      (func (;8;) (type 6) (result i32)
         (local i32 i32 i32 i32 i32)
         i32.const 0
         global.get 1
@@ -1441,8 +1440,7 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func))
       (type (;5;) (func (param i32 i32) (result i32)))
-      (type (;6;) (func (param i32 i32) (result i32)))
-      (type (;7;) (func (result i32)))
+      (type (;6;) (func (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -1527,7 +1525,7 @@ let%expect_test "examples" =
         end
         local.get 3
         drop)
-      (func (;8;) (type 7) (result i32)
+      (func (;8;) (type 6) (result i32)
         (local i32 i32 i32 i32 i32)
         i32.const 0
         global.get 1
@@ -1812,8 +1810,7 @@ let%expect_test "examples" =
       (type (;4;) (func))
       (type (;5;) (func (param i32 i32) (result i32)))
       (type (;6;) (func (param i32 i32 i32) (result i32)))
-      (type (;7;) (func (param i32 i32 i32) (result i32)))
-      (type (;8;) (func (result i32)))
+      (type (;7;) (func (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -2088,7 +2085,7 @@ let%expect_test "examples" =
         local.get 5
         drop
         drop)
-      (func (;9;) (type 8) (result i32)
+      (func (;9;) (type 7) (result i32)
         (local i32 i32 i32 i32 i32 i32 i32 i32)
         i32.const 10
         local.set 5
@@ -3074,14 +3071,11 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func))
       (type (;5;) (func (param i32 i32 i32 i32 i32) (result i32 i32)))
-      (type (;6;) (func (param i32 i32 i32 i32 i32) (result i32 i32)))
-      (type (;7;) (func (param i32 i32) (result i32 i32)))
-      (type (;8;) (func (param i32 i32) (result i32 i32)))
-      (type (;9;) (func (param i32 i32 i32) (result i32)))
-      (type (;10;) (func (param i32 i32 i32) (result i32)))
-      (type (;11;) (func (result i32)))
-      (type (;12;) (func (result i32 i32)))
-      (type (;13;) (func (param i32 i32) (result i32)))
+      (type (;6;) (func (param i32 i32) (result i32 i32)))
+      (type (;7;) (func (param i32 i32 i32) (result i32)))
+      (type (;8;) (func (result i32)))
+      (type (;9;) (func (result i32 i32)))
+      (type (;10;) (func (param i32 i32) (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -3323,7 +3317,7 @@ let%expect_test "examples" =
         drop
         drop
         drop)
-      (func (;8;) (type 7) (param i32 i32) (result i32 i32)
+      (func (;8;) (type 6) (param i32 i32) (result i32 i32)
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
@@ -3356,7 +3350,7 @@ let%expect_test "examples" =
             i32.const 1
             i32.sub
             local.get 6
-            call_indirect (type 7)
+            call_indirect (type 6)
             local.get 6
             drop
             local.get 7
@@ -3415,7 +3409,7 @@ let%expect_test "examples" =
         end
         local.get 3
         drop)
-      (func (;9;) (type 9) (param i32 i32 i32) (result i32)
+      (func (;9;) (type 7) (param i32 i32 i32) (result i32)
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
@@ -3553,7 +3547,7 @@ let%expect_test "examples" =
             local.get 11
             local.get 12
             local.get 9
-            call_indirect (type 9)
+            call_indirect (type 7)
             local.get 9
             drop
             local.get 10
@@ -3591,7 +3585,7 @@ let%expect_test "examples" =
         local.get 5
         drop
         drop)
-      (func (;10;) (type 11) (result i32)
+      (func (;10;) (type 8) (result i32)
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         i32.const 1
         global.get 1
@@ -3610,7 +3604,7 @@ let%expect_test "examples" =
           local.get 3
           i32.const 6
           local.get 2
-          call_indirect (type 7)
+          call_indirect (type 6)
           local.get 2
           drop
           local.get 3
@@ -3639,7 +3633,7 @@ let%expect_test "examples" =
           local.get 9
           i32.const 7
           local.get 8
-          call_indirect (type 7)
+          call_indirect (type 6)
           local.get 8
           drop
           local.get 9
@@ -3701,7 +3695,7 @@ let%expect_test "examples" =
           local.get 16
           local.get 17
           local.get 20
-          call_indirect (type 9)
+          call_indirect (type 7)
           local.get 20
           drop
           local.get 21
@@ -5155,9 +5149,8 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func))
       (type (;5;) (func (param i32 i32) (result i32)))
-      (type (;6;) (func (param i32 i32) (result i32)))
-      (type (;7;) (func (param i32 i32 i32) (result i32)))
-      (type (;8;) (func (result i32)))
+      (type (;6;) (func (param i32 i32 i32) (result i32)))
+      (type (;7;) (func (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -5234,7 +5227,7 @@ let%expect_test "examples" =
         end
         local.get 3
         drop)
-      (func (;8;) (type 7) (param i32 i32 i32) (result i32)
+      (func (;8;) (type 6) (param i32 i32 i32) (result i32)
         (local i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
@@ -5288,7 +5281,7 @@ let%expect_test "examples" =
         local.get 5
         drop
         drop)
-      (func (;9;) (type 8) (result i32)
+      (func (;9;) (type 7) (result i32)
         (local i32 i32 i32 i32 i32 i32)
         i32.const 1
         global.get 1
@@ -5313,7 +5306,7 @@ let%expect_test "examples" =
           local.set 5
           local.get 5
           local.get 2
-          call_indirect (type 7)
+          call_indirect (type 6)
           local.get 2
           drop
           local.get 3
@@ -5344,4 +5337,5 @@ let%expect_test "examples" =
       (export "_start" (func 9))
       (export "__rw_table_func_7" (func 7))
       (export "__rw_table_func_8" (func 8))
-      (start 10)) |}]
+      (start 10))
+    |}]
