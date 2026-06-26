@@ -1139,14 +1139,14 @@ Section load_common.
       iFrame.
   Qed.
 
-  Lemma atom_to_words_mm θ ι o val_v :
+  Lemma atom_to_words θ μ ι o val_v :
     has_arep ι o ->
-    atom_interp_weak θ MemMM o val_v -∗
+    atom_interp_weak θ μ o val_v -∗
     ∃ (ns : list N) (ns32 : list i32),
       ⌜Forall2 N_i32_repr ns ns32⌝ ∗
       ⌜flat_map serialise_i32 ns32 = bits val_v⌝ ∗
       ⌜types_agree (translate_arep ι) val_v⌝ ∗
-      words_interp θ MemMM (serialize_atom o) ns.
+      words_interp θ μ (serialize_atom o) ns.
   Proof.
     iIntros (Harep) "Hat".
     destruct ι.
@@ -1177,7 +1177,6 @@ Section load_common.
         (Z.to_N (Wasm_int.Int64.unsigned n ≫ 32))].
       iExists [Wasm_int.int_of_Z i32m (Wasm_int.Int64.unsigned n);
                Wasm_int.int_of_Z i32m (Wasm_int.Int64.unsigned n ≫ 32)].
-      (* TODO: could use some simplifcation... *)
       set (n' := Wasm_int.Int64.unsigned n).
       have Hrange := Wasm_int.Int64.unsigned_range n.
       replace Wasm_int.Int64.modulus with (256 * 2 ^ 56 : Z) in Hrange by done.
@@ -1317,6 +1316,16 @@ Section load_common.
   Qed.
 
 
+  Lemma atom_to_words_mm θ ι o val_v :
+    has_arep ι o ->
+    atom_interp_weak θ MemMM o val_v -∗
+    ∃ (ns : list N) (ns32 : list i32),
+      ⌜Forall2 N_i32_repr ns ns32⌝ ∗
+      ⌜flat_map serialise_i32 ns32 = bits val_v⌝ ∗
+      ⌜types_agree (translate_arep ι) val_v⌝ ∗
+      words_interp θ MemMM (serialize_atom o) ns.
+  Proof. exact (atom_to_words θ MemMM ι o val_v). Qed.
+
   Lemma atom_to_words_gc θ ι o val_v :
     has_arep ι o ->
     atom_interp_weak θ MemGC o val_v -∗
@@ -1325,29 +1334,7 @@ Section load_common.
       ⌜flat_map serialise_i32 ns32 = bits val_v⌝ ∗
       ⌜types_agree (translate_arep ι) val_v⌝ ∗
       words_interp θ MemGC (serialize_atom o) ns.
-  Proof.
-    iIntros (Harep) "Hat".
-    destruct ι.
-    - pose proof Harep as Harepsave.
-      destruct o; cbn in Harep; try inversion Harep; clear Harep.
-      iEval (cbn) in "Hat".
-      iDestruct "Hat" as "(%n & %n32 & %Nrepr & -> & Hat)".
-      iExists [n], [n32].
-      iSplitR; [|iSplitR; [|iSplitR]]; try iPureIntro; try done; try (constructor;done).
-      cbn.
-      iFrame.
-      (* okay cool! I expect the other cases to be as true as the mm ones *)
-    - destruct o; cbn in Harep; try inversion Harep; clear Harep.
-      iEval (cbn) in "Hat".
-      iDestruct "Hat" as "->".
-      cbn.
-      unfold word_interp.
-      iExists [(Z.to_N (Wasm_int.Int32.unsigned n))].
-      iExists [n].
-      iSplitR; [|iSplitR; [|iSplitR]]; try iPureIntro; try done; try (constructor;done).
-      cbn.
-      auto.
-  Admitted.
+  Proof. exact (atom_to_words θ MemGC ι o val_v). Qed.
 
   Lemma has_areps_size ιs os :
     Forall2 has_arep ιs os ->
