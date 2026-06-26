@@ -332,7 +332,9 @@ let rec compile_expr delta gamma locals coderef_map e :
       ret (re' @ v' @ [ Store (Path []) ], locals', fx_re @ fx_v)
   | Swap (re, v) ->
       let* re', locals', fx_re = r re in
-      let* v', locals'', fx_v = compile_expr delta gamma locals' coderef_map v in
+      let* v', locals'', fx_v =
+        compile_expr delta gamma locals' coderef_map v
+      in
       let temp_idx = List.length locals'' in
       let locals''' = locals'' @ [ ("#swap-temp", rw_t) ] in
       let suffix =
@@ -434,7 +436,9 @@ let rec compile_expr delta gamma locals coderef_map e :
         compile_expr delta gamma' (locals1 @ bound_locals) coderef_map e2
       in
       ret
-        ( e1' @ fill @ e2'
+        ( e1'
+          @ fill
+          @ e2'
           @ List.concat_map ~f:(fun i -> [ LocalGet (i, Move); Drop ]) idxs,
           locals'',
           fx1 @ fx2 )
@@ -542,7 +546,7 @@ let compile_fun coderef_map : Closed.Function.t -> Module.Function.t Res.t =
         body =
           body'
           @ List.concat_map (List.range 0 num_args) ~f:(fun i ->
-                Instruction.[ LocalGet (i, Move); Drop ]);
+              Instruction.[ LocalGet (i, Move); Drop ]);
       }
 
 let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
@@ -573,7 +577,8 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
           @ [
               Export
                 ( ( "_start",
-                    Code { foralls = []; args = [ closed_unit ]; ret = ret_type }
+                    Code
+                      { foralls = []; args = [ closed_unit ]; ret = ret_type }
                   ),
                   Function
                     {

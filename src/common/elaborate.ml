@@ -896,7 +896,9 @@ let rec elab_instruction (env : Env.t) :
       let* () = fail_if have_to_infer_lfx (NonTrivialLfxInfer `Unreachable) in
       let* st = get in
       let out =
-        match env.labels with [] -> env.return | result :: _ -> result
+        match env.labels with
+        | [] -> env.return
+        | result :: _ -> result
       in
       let* it = mono_in_out env.kinds "Unreachable" st.stack out in
       ret @@ IUnreachable it

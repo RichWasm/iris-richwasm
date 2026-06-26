@@ -409,7 +409,8 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                       MM.compile_to_richwasm ~asprintf src
                       |> map_error_into CompilerError.module2
                   | _ -> fail (CompilerError.badinfo info)
-              end in
+              end
+              in
               let module Double = Run_rw.EndToEnd.Make2 (SL) (DoubleRW) in
               let module1 =
                 (* rwasm: allocates the linear cell mini-ml will borrow.
@@ -446,8 +447,7 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                 |}
               in
               let result, logs =
-                Double.run2 ~asprintf ~link:"mk" module1 module2
-                |> Double.M.run
+                Double.run2 ~asprintf ~link:"mk" module1 module2 |> Double.M.run
               in
               check_result "(tup# (ref 8) 3)" Double.E2Err.pp logs result);
           (* --------------------------------------------------- *)
@@ -486,7 +486,8 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                       MM.compile_to_richwasm ~asprintf src
                       |> map_error_into CompilerError.module2
                   | _ -> fail (CompilerError.badinfo info)
-              end in
+              end
+              in
               let module Double = Run_rw.EndToEnd.Make2 (SL) (DoubleRW) in
               let module1 =
                 (* rwasm: same linear-cell allocator as the test above. *)

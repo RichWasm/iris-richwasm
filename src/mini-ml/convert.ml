@@ -41,8 +41,7 @@ let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   | Fold (_, v) -> fe v
   | Unfold v -> fe v
   | Let ((n, _), e1, e2) -> fe e1 @ fv ~bound:(n :: bound) e2
-  | Split (bs, e1, e2) ->
-      fe e1 @ fv ~bound:(List.map ~f:fst bs @ bound) e2
+  | Split (bs, e1, e2) -> fe e1 @ fv ~bound:(List.map ~f:fst bs @ bound) e2
   | Cases (v, branches) | UCase (v, branches) ->
       fe v
       @ List.concat_map
@@ -59,7 +58,8 @@ let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
           []
         else
           [ v ]
-    | Prod ts | UProd ts | USum ts | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
+    | Prod ts | UProd ts | USum ts | Sum ts ->
+        List.concat_map ~f:(ftv ~bound) ts
     | Ref t | LinRef t -> ftv ~bound t
     | Rec (v, t) -> ftv ~bound:(v :: bound) t
     | Fun { foralls; arg; ret } ->
@@ -346,8 +346,7 @@ let rec cc_e
                   Let
                     ( ("#actual_fn", ft),
                       Project (1, Var "#env_and_fn"),
-                      Apply (Var "#actual_fn", ts', [ Var "#env"; arg' ])
-                    ) ) ),
+                      Apply (Var "#actual_fn", ts', [ Var "#env"; arg' ]) ) ) ),
           code )
 
 let cc_imp (Source.Module.Import (n, t)) = Closed.Module.Import (n, cc_t t)
