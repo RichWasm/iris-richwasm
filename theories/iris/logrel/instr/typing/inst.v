@@ -506,7 +506,7 @@ Section inst.
     type_skind (Σ:=Σ) (senv_insert_rep ιs se) (up_representation_type sub_t i) .
   Proof.
     asimpl'; unfold core.funcomp.
-    induction (sub_t i) using type_ind with (P0 := λ ft, True);
+    induction (sub_t i) using type_ind with (P0 := λ ft, True) (Pi := λ ft, True);
       cbn in *; auto; by apply eval_kind_up_shift_rep_eq.
   Qed.
 
@@ -522,7 +522,7 @@ Section inst.
     type_skind (Σ:=Σ) (senv_insert_mem μ se) (up_memory_type sub_t i) .
   Proof.
     asimpl'; unfold core.funcomp.
-    induction (sub_t i) using type_ind with (P0 := λ ft, True);
+    induction (sub_t i) using type_ind with (P0 := λ ft, True) (Pi := λ ft, True);
       cbn in *; auto; rewrite rinstId'_kind; by apply eval_kind_mem_irrel_eq.
   Qed.
 
@@ -538,7 +538,7 @@ Section inst.
     type_skind (Σ:=Σ) (senv_insert_type sκ' T se) (up_type_type sub_t (S i)) .
   Proof.
     asimpl'; unfold core.funcomp.
-    induction (sub_t i) using type_ind with (P0 := λ ft, True);
+    induction (sub_t i) using type_ind with (P0 := λ ft, True) (Pi := λ ft, True);
       cbn in *; auto; rewrite rinstId'_kind; by apply eval_kind_type_irrel_eq.
   Qed.
 
@@ -1258,7 +1258,17 @@ Section inst.
            (sem_env_rel_sκ_eq se' se sub_t) ->
            (sem_env_rel_type_eq se' se sub_t) ->
            closure_interp rti sr ft se' cl ∗-∗
-              closure_interp rti sr (subst_function_type sub_m sub_r sub_s sub_t ft) se cl).
+              closure_interp rti sr (subst_function_type sub_m sub_r sub_s sub_t ft) se cl)
+      (Pi := λ ft, ∀ se se' cl sub_m sub_r sub_s sub_t,
+           (sem_env_types_well_formed se') ->
+           (sem_env_types_well_formed se) ->
+           (sem_env_rel_rep_eq se' se sub_r) ->
+           (sem_env_rel_size_eq se' se sub_s) ->
+           (sem_env_rel_mem_eq se' se sub_m) ->
+           (sem_env_rel_sκ_eq se' se sub_t) ->
+           (sem_env_rel_type_eq se' se sub_t) ->
+           inner_closure_interp rti sr ft se' cl ∗-∗
+              inner_closure_interp rti sr (subst_inner_function_type sub_m sub_r sub_s sub_t ft) se cl).
     * (** vart, qed *)
       intros. cbn.
       iSplitR.
@@ -1770,9 +1780,9 @@ Section inst.
       admit.
     * (* mono fun, qed *)
       intros.
-      rewrite !closure_interp_eq.
+      rewrite !inner_closure_interp_eq.
       asimpl'.
-      unfold closure_interp'.
+      unfold inner_closure_interp'.
       rename H into IHτs1. rename H0 into IHτs2.
       rename H1 into Hse'. rename H2 into Hse.
       rename H3 into Hsub_r. rename H4 into Hsub_s.
@@ -2010,6 +2020,38 @@ Section inst.
           by setoid_rewrite FlipSepL2τs2.
 
       }
+    * (* foralltype, should finish a bit more *)
+      intros.
+      rename H into Hse'. rename H0 into Hse.
+      rename H1 into Hsub_r. rename H2 into Hsub_s.
+      rename H3 into Hsub_m. rename H4 into Hsub_sκ.
+      rename H5 into Hsub_T.
+
+      rewrite !inner_closure_interp_eq.
+      cbn.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+
+      iSplitR.
+      all: iIntros "Hoa".
+      all: iDestruct "Hoa" as "(%sκ & #hsk & #Hoa)".
+      all: iExists sκ; iFrame "#".
+      all: iModIntro.
+      all: iIntros (sκ_T T sksk sktype).
+      all: iSpecialize ("Hoa" $! sκ_T T sksk sktype).
+      (* and yup we're okay, good stuff *)
+      (* the only interesting thing is showing sκ_T, T is well formed addition *)
+      (* but it is by skind has stype so we're chill *)
+
+      all: admit.
+
+    * (* forall inner *)
+      intros.
+      rewrite !closure_interp_eq; cbn.
+      rewrite <- !inner_closure_interp_eq; cbn.
+      by iApply IHτ.
+
     * (* forallmem *)
       intros.
       rename H into Hse'. rename H0 into Hse.
@@ -2035,32 +2077,6 @@ Section inst.
       admit.
     * (* forallsize *)
       admit.
-    * (* foralltype, should finish a bit more *)
-      intros.
-      rename H into Hse'. rename H0 into Hse.
-      rename H1 into Hsub_r. rename H2 into Hsub_s.
-      rename H3 into Hsub_m. rename H4 into Hsub_sκ.
-      rename H5 into Hsub_T.
-
-      rewrite !closure_interp_eq.
-      cbn.
-      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
-                    Hsub_r Hsub_s) as Hevalκ.
-      rewrite !Hevalκ.
-
-      iSplitR.
-      all: iIntros "Hoa".
-      all: iDestruct "Hoa" as "(%sκ & #hsk & #Hoa)".
-      all: iExists sκ; iFrame "#".
-      all: iModIntro.
-      all: iIntros (sκ_T T sksk sktype).
-      all: iSpecialize ("Hoa" $! sκ_T T sksk sktype).
-      (* and yup we're okay, good stuff *)
-      (* the only interesting thing is showing sκ_T, T is well formed addition *)
-      (* but it is by skind has stype so we're chill *)
-
-      all: admit.
-
 
   Admitted.
 
@@ -2511,10 +2527,10 @@ Section inst.
 
     (* TODO(caused by owen): admit pending structural kinding soundness (the svalue
        analogue of the admitted [kinding_sound_ref_flag]), which the refined ϕ' needs. *)
-    4: { admit. }
+    1: { admit. }
 
     (* dig into all at once down to closure interp *)
-    all: unfold ϕ'.
+    all: (unfold ϕ' || unfold ϕ).
 
     all: iDestruct "Hos" as "(%sκ & %toinvert & HKindInterp & Rest)".
     all: inversion toinvert; subst; clear toinvert.

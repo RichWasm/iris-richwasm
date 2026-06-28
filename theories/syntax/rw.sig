@@ -70,12 +70,15 @@ ExistsRepT : kind -> (bind representation in type) -> type
 ExistsSizeT : kind -> (bind size in type) -> type
 ExistsTypeT : kind -> kind -> (bind type in type) -> type
 
+inner_function_type : Type
+MonoFunT : "list" (type) -> "list" (type) -> inner_function_type
+ForallTypeT : kind -> (bind type in inner_function_type) -> inner_function_type
+
 function_type : Type
-MonoFunT : "list" (type) -> "list" (type) -> function_type
+InnerFunT : inner_function_type -> function_type
 ForallMemT : (bind memory in function_type) -> function_type
 ForallRepT : (bind representation in function_type) -> function_type
 ForallSizeT : (bind size in function_type) -> function_type
-ForallTypeT : kind -> (bind type in function_type) -> function_type
 
 instruction_type : Type
 InstrT : "list" (type) -> "list" (type) -> instruction_type

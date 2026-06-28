@@ -71,9 +71,9 @@ Section function.
   Qed.
 
   Theorem fund_function_mono τs1 τs2 M wt wt' wtf mf mf' :
-    has_function_type M mf (MonoFunT τs1 τs2) →
+    has_function_type M mf (InnerFunT (MonoFunT τs1 τs2)) →
     compile_function wt mf = inr (wt', mf') →
-    ⊢ has_func_type_sem rti sr module.mr M (wt ++ wt' ++ wtf) mf' (MonoFunT τs1 τs2).
+    ⊢ has_func_type_sem rti sr module.mr M (wt ++ wt' ++ wtf) mf' (InnerFunT (MonoFunT τs1 τs2)).
   Proof.
     iIntros (Hϕ Hcf ?? Htf) "#Hinst".
 

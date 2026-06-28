@@ -655,7 +655,7 @@ Section kinding.
     intros Hκ Hse Hsκ.
     generalize dependent κ.
     generalize dependent sκ.
-    induction τ using type_ind with (P0 := const True).
+    induction τ using type_ind with (P0 := const True) (Pi := const True).
     - (* VarT *)
       intros ?? Hκ Hsκ.
       admit.

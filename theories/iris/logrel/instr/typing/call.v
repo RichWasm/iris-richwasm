@@ -18,7 +18,7 @@ Section call.
   Lemma unravel_closure_interp :
     ∀ F ixs τs1_s τs2_s ϕ se se_cl cl,
       sem_env_interp (Σ:=Σ) F se ->
-      function_type_insts F ixs ϕ (MonoFunT τs1_s τs2_s) ->
+      function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1_s τs2_s)) ->
       closure_interp rti sr ϕ se_cl cl -∗
       ∃ se' τs1 τs2,
         mono_closure_interp rti sr
@@ -27,7 +27,7 @@ Section call.
     intros.
     generalize dependent se.
     generalize dependent se_cl.
-    remember (MonoFunT τs1_s τs2_s) as ϕ'.
+    remember (InnerFunT (MonoFunT τs1_s τs2_s)) as ϕ'.
     induction H0.
     - subst.
       intros.
@@ -37,32 +37,24 @@ Section call.
     - destruct ϕ.
       + intros.
         iIntros "#Hcl".
-        inversion H.
-      + intros.
-        iIntros "#Hcl".
-        inversion H; subst.
-        (* this apply chooses the wrong se' *)
-        iApply IHfunction_type_insts; auto.
-        (* now this is substitution lemmas *)
-        all: admit.
-      + admit.
-      + admit.
-      + intros.
-        iIntros "#Hcl".
         inversion H; subst.
         (* now I need a sκ and T st
            eval_kind se k = sκ   ==   Heval
            skind_interp sκ T     ==   Hskind
          *)
-
-        admit.
+        iApply IHfunction_type_insts; auto.
+        (* now this is substitution lemmas *)
+        all: admit.
+      + admit.
+      + admit.
+      + admit.
 
   Admitted.
 
   Lemma closure_cant_be_func_host :
     ∀ F ixs τs1_s τs2_s ϕ se se_cl ft ix,
       sem_env_interp (Σ:=Σ) F se ->
-      function_type_insts F ixs ϕ (MonoFunT τs1_s τs2_s) ->
+      function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1_s τs2_s)) ->
       closure_interp rti sr ϕ se_cl (FC_func_host ft ix) -∗ False.
   Proof.
     intros.
@@ -81,7 +73,7 @@ Section call.
     let lmask := wlmask fe wl in
     let ψ := InstrT τs1 τs2 in
     M.(mc_functions) !! i = Some ϕ ->
-    function_type_insts F ixs ϕ (MonoFunT τs1 τs2) ->
+    function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICall ψ i ixs)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.

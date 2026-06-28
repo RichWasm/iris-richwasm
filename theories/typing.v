@@ -177,24 +177,26 @@ Inductive type_ok : function_ctx -> type -> Prop :=
   type_ok (F <| fc_type_vars ::= cons κ0 |>) τ ->
   type_ok F (ExistsTypeT κ κ0 τ)
 
-with function_type_ok : function_ctx -> function_type -> Prop :=
+with inner_function_type_ok : function_ctx -> inner_function_type -> Prop :=
 | OKMonoFunT F τs1 τs2 :
   Forall (type_ok F) τs1 ->
   Forall (type_ok F) τs2 ->
-  function_type_ok F (MonoFunT τs1 τs2)
-| OKForallMemT F ϕ :
-  function_type_ok (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
-  function_type_ok F (ForallMemT ϕ)
+  inner_function_type_ok F (MonoFunT τs1 τs2)
+| OKForallTypeT F κ ϕ :
+  kind_ok F.(fc_kind_ctx) κ ->
+  inner_function_type_ok (F <| fc_type_vars ::= cons κ |>) ϕ ->
+  inner_function_type_ok F (ForallTypeT κ ϕ)
+with function_type_ok : function_ctx -> function_type -> Prop :=
+| OKInnerFunT F ϕ : inner_function_type_ok F ϕ -> function_type_ok F (InnerFunT ϕ)
 | OKForallRepT F ϕ :
   function_type_ok (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ ->
   function_type_ok F (ForallRepT ϕ)
 | OKForallSizeT F ϕ :
   function_type_ok (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ ->
   function_type_ok F (ForallSizeT ϕ)
-| OKForallTypeT F κ ϕ :
-  kind_ok F.(fc_kind_ctx) κ ->
-  function_type_ok (F <| fc_type_vars ::= cons κ |>) ϕ ->
-  function_type_ok F (ForallTypeT κ ϕ).
+| OKForallMemT F ϕ :
+  function_type_ok (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
+  function_type_ok F (ForallMemT ϕ).
 
 Definition mono_mem (μ : memory) : Prop := exists bm, μ = BaseM bm.
 
@@ -684,7 +686,7 @@ Fixpoint type_eq_mod_kinds (τ1 τ2 : type) {struct τ1} : Prop :=
   | ExistsTypeT _ κ01 τ1, ExistsTypeT _ κ02 τ2 => κ01 = κ02 /\ type_eq_mod_kinds τ1 τ2
   | _, _ => False
   end
-with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
+with inner_function_type_eq_mod_kinds (ϕ1 ϕ2 : inner_function_type) {struct ϕ1} : Prop :=
   let fix types_eq (τs1 τs2 : list type) {struct τs1} : Prop :=
     match τs1, τs2 with
     | [], [] => True
@@ -694,14 +696,40 @@ with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
   match ϕ1, ϕ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
       types_eq τs11 τs21 /\ types_eq τs12 τs22
+  | ForallTypeT κ1 ϕ1, ForallTypeT κ2 ϕ2 =>
+      κ1 = κ2 /\ inner_function_type_eq_mod_kinds ϕ1 ϕ2
+  | _, _ => False
+  end
+with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
+  let fix types_eq (τs1 τs2 : list type) {struct τs1} : Prop :=
+    match τs1, τs2 with
+    | [], [] => True
+    | σ1 :: τs1, σ2 :: τs2 => type_eq_mod_kinds σ1 σ2 /\ types_eq τs1 τs2
+    | _, _ => False
+    end in
+  match ϕ1, ϕ2 with
+  | InnerFunT ϕ1, InnerFunT ϕ2 =>
+      inner_function_type_eq_mod_kinds ϕ1 ϕ2
   | ForallMemT ϕ1, ForallMemT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
   | ForallRepT ϕ1, ForallRepT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
   | ForallSizeT ϕ1, ForallSizeT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
-  | ForallTypeT κ1 ϕ1, ForallTypeT κ2 ϕ2 => κ1 = κ2 /\ function_type_eq_mod_kinds ϕ1 ϕ2
   | _, _ => False
   end.
 
+Inductive inner_function_type_inst : function_ctx -> index -> inner_function_type -> inner_function_type -> Prop :=
+| FTInstType F ϕ τ κ κ' ϕ' :
+  has_kind F τ κ' ->
+  subkind_of κ' κ ->
+  (* NOTE: the raw subst is ill-kinded under a strict-subkind instantiation *)
+  inner_function_type_ok F ϕ' ->
+  inner_function_type_eq_mod_kinds ϕ'
+    (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
+  inner_function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
+
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
+| FTInstInner F ϕ idx ϕ' :
+  inner_function_type_inst F idx ϕ ϕ' ->
+  function_type_inst F idx (InnerFunT ϕ) (InnerFunT ϕ')
 | FTInstMem F ϕ μ :
   mem_ok F.(fc_kind_ctx) μ ->
   let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
@@ -713,15 +741,7 @@ Inductive function_type_inst : function_ctx -> index -> function_type -> functio
 | FTInstSize F ϕ σ :
   size_ok F.(fc_kind_ctx) σ ->
   let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
-  function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'
-| FTInstType F ϕ τ κ κ' ϕ' :
-  has_kind F τ κ' ->
-  subkind_of κ' κ ->
-  (* NOTE: the raw subst is ill-kinded under a strict-subkind instantiation *)
-  function_type_ok F ϕ' ->
-  function_type_eq_mod_kinds ϕ'
-    (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
-  function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
+  function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'.
 
 Inductive function_type_insts : function_ctx -> list index -> function_type -> function_type -> Prop :=
 | FTNil F ϕ :
@@ -931,12 +951,12 @@ Inductive has_instruction_type :
 | TCall M F L i ixs ϕ τs1 τs2 :
   let ψ := InstrT τs1 τs2 in
   M.(mc_functions) !! i = Some ϕ ->
-  function_type_insts F ixs ϕ (MonoFunT τs1 τs2) ->
+  function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICall ψ i ixs) ψ L
 | TCallIndirect M F L τs1 τs2 :
   let κ := VALTYPE (AtomR I32R) NoRefs in
-  let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
+  let ψ := InstrT (τs1 ++ [CodeRefT κ (InnerFunT (MonoFunT τs1 τs2))]) τs2 in
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICallIndirect ψ) ψ L
 | TInject M F L i τ τs κ :
@@ -1177,12 +1197,12 @@ Section HasHaveInstructionTypeMind.
       (HCall : forall M F L i ixs ϕ τs1 τs2,
           let ψ := InstrT τs1 τs2 in
           M.(mc_functions) !! i = Some ϕ ->
-          function_type_insts F ixs ϕ (MonoFunT τs1 τs2) ->
+          function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICall ψ i ixs) ψ L)
       (HCallIndirect : forall M F L τs1 τs2,
           let κ := VALTYPE (AtomR I32R) NoRefs in
-          let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
+          let ψ := InstrT (τs1 ++ [CodeRefT κ (InnerFunT (MonoFunT τs1 τs2))]) τs2 in
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICallIndirect ψ) ψ L)
       (HInject : forall M F L i τ τs κ,

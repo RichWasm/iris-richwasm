@@ -1012,13 +1012,17 @@ Section instr.
       | ExistsTypeT _ κ τ => exists_type_interp κ (type_interp τ)
       | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
       end%I
-  with closure_interp (ϕ : function_type) : semantic_env -n> ClR :=
+  with inner_closure_interp (ϕ : inner_function_type) : semantic_env -n> ClR :=
     match ϕ with
     | MonoFunT τs1 τs2 => mono_closure_interp τs1 τs2 (map type_interp τs1) (map type_interp τs2)
+    | ForallTypeT κ ϕ => forall_type_interp κ (inner_closure_interp ϕ)
+    end%I
+  with closure_interp (ϕ : function_type) : semantic_env -n> ClR :=
+    match ϕ with
+    | InnerFunT ϕ => inner_closure_interp ϕ
     | ForallMemT ϕ => forall_mem_interp (closure_interp ϕ)
     | ForallRepT ϕ => forall_rep_interp (closure_interp ϕ)
     | ForallSizeT ϕ => forall_size_interp (closure_interp ϕ)
-    | ForallTypeT κ ϕ => forall_type_interp κ (closure_interp ϕ)
     end%I.
 
   Definition pre_type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
@@ -1048,19 +1052,31 @@ Section instr.
     destruct τ; reflexivity.
   Qed.
 
-  Definition closure_interp' (ϕ : function_type) : semantic_env -n> ClR :=
+  Definition inner_closure_interp' (ϕ : inner_function_type) : semantic_env -n> ClR :=
     match ϕ with
     | MonoFunT τs1 τs2 => mono_closure_interp τs1 τs2 (map type_interp τs1) (map type_interp τs2)
+    | ForallTypeT κ ϕ' => forall_type_interp κ (inner_closure_interp ϕ')
+    end%I.
+
+  Definition closure_interp' (ϕ : function_type) : semantic_env -n> ClR :=
+    match ϕ with
+    | InnerFunT ϕ' => inner_closure_interp' ϕ'
     | ForallMemT ϕ' => forall_mem_interp (closure_interp ϕ')
     | ForallRepT ϕ' => forall_rep_interp (closure_interp ϕ')
     | ForallSizeT ϕ' => forall_size_interp (closure_interp ϕ')
-    | ForallTypeT κ ϕ' => forall_type_interp κ (closure_interp ϕ')
     end%I.
+
+  Lemma inner_closure_interp_eq ϕ se cl :
+    inner_closure_interp ϕ se cl ⊣⊢ inner_closure_interp' ϕ se cl.
+  Proof.
+    destruct ϕ; done.
+  Qed.
 
   Lemma closure_interp_eq ϕ se cl :
     closure_interp ϕ se cl ⊣⊢ closure_interp' ϕ se cl.
   Proof.
-    by destruct ϕ.
+    destruct ϕ; try done.
+    apply inner_closure_interp_eq.
   Qed.
 
   Program Definition value_interp : semantic_env -n> leibnizO type -n> SVR := λne se τ, type_interp τ se.
@@ -1149,7 +1165,14 @@ Section instr.
       ⌜inst.(inst_memory) !! memimm mr.(mr_mmmem) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_gcmem) = Some sr.(sr_mem_gc)⌝.
 
-  Global Instance Persistent_closure_interp_emp ϕ se cl :
+  Global Instance Persistent_inner_closure_interp ϕ se cl :
+    Persistent (inner_closure_interp ϕ se cl).
+  Proof.
+    induction ϕ; cbn [inner_closure_interp];
+      typeclasses eauto.
+  Qed.
+
+  Global Instance Persistent_closure_interp ϕ se cl :
     Persistent (closure_interp ϕ se cl).
   Proof.
     induction ϕ; cbn [closure_interp];
@@ -1338,4 +1361,5 @@ End module.
 
 Global Opaque type_interp.
 Global Opaque value_interp.
+Global Opaque inner_closure_interp.
 Global Opaque closure_interp.

@@ -108,13 +108,18 @@ Definition translate_instr_type (κs : list kind) (ψ : instruction_type) : opti
   tys2 ← translate_types κs τs2;
   Some (W.Tf tys1 tys2).
 
-Fixpoint translate_func_type (κs : list kind) (ϕ : function_type) : option W.function_type :=
+Fixpoint translate_inner_func_type (κs : list kind) (ϕ : inner_function_type) : option W.function_type :=
   match ϕ with
   | MonoFunT τs1 τs2 => translate_instr_type κs (InstrT τs1 τs2)
+  | ForallTypeT κ ϕ' => translate_inner_func_type (κ :: κs) ϕ'
+  end.
+
+Fixpoint translate_func_type (κs : list kind) (ϕ : function_type) : option W.function_type :=
+  match ϕ with
+  | InnerFunT ϕ' => translate_inner_func_type κs ϕ'
   | ForallMemT ϕ'
   | ForallRepT ϕ'
   | ForallSizeT ϕ' => translate_func_type κs ϕ'
-  | ForallTypeT κ ϕ' => translate_func_type (κ :: κs) ϕ'
   end.
 
 Definition translate_sign (s : sign) : W.sx :=
