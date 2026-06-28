@@ -72,7 +72,8 @@ Section load_common.
     remember (VALTYPE ρ ξ) as val.
     revert Heqval Heqref.
     revert ρ ξ.
-    induction Hkind using has_kind_ind'; intros; try congruence.
+    induction Hkind using has_kind_ind' with (P0 := const (const True));
+      intros; try congruence; try (cbn; done).
     - subst κ0.
       split; try congruence.
       inversion Heqref; eauto.
