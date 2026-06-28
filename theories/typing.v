@@ -383,7 +383,7 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   let κ := VALTYPE (AtomR PtrR) GCRefs in
   has_kind F (RefT κ (BaseM MemGC) β τ) κ
 | KCodeRef F ϕ :
-  function_type_ok F ϕ ->
+  has_kind_ft F ϕ ->
   let κ := VALTYPE (AtomR I32R) NoRefs in
   has_kind F (CodeRefT κ ϕ) κ
 | KSer F τ ρ ξ :
@@ -421,11 +421,31 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KVar F t κ :
   F.(fc_type_vars) !! t = Some κ ->
   kind_ok F.(fc_kind_ctx) κ ->
-  has_kind F (VarT t) κ.
+  has_kind F (VarT t) κ
+with has_kind_ft : function_ctx -> function_type -> Prop :=
+| KMonoFun F τs1 τs2 κs1 κs2 :
+  Forall2 (has_kind F) τs1 κs1 ->
+  Forall2 (has_kind F) τs2 κs2 ->
+  has_kind_ft F (MonoFunT τs1 τs2)
+| KForallMem F ϕ :
+  has_kind_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
+  has_kind_ft F (ForallMemT ϕ)
+| KForallRep F ϕ :
+  has_kind_ft (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ ->
+  has_kind_ft F (ForallRepT ϕ)
+| KForallSize F ϕ :
+  has_kind_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ ->
+  has_kind_ft F (ForallSizeT ϕ)
+| KForallType F κ ϕ :
+  kind_ok F.(fc_kind_ctx) κ ->
+  has_kind_ft (F <| fc_type_vars ::= cons κ |>) ϕ ->
+  has_kind_ft F (ForallTypeT κ ϕ).
+
 
 Section HasKindInd.
 
   Variable P : function_ctx -> type -> kind -> Prop.
+  Variable P0 : function_ctx -> function_type -> Prop.
 
   Hypotheses
       (HI31 : forall F, let κ := VALTYPE (AtomR PtrR) NoRefs in
@@ -460,7 +480,7 @@ Section HasKindInd.
       (HRefGC : forall F β τ σ ξ, P F τ (MEMTYPE σ ξ) ->
                              let κ := VALTYPE (AtomR PtrR) GCRefs in
                              P F (RefT κ (BaseM MemGC) β τ) κ)
-      (HCodeRef : forall F ϕ, function_type_ok F ϕ ->
+      (HCodeRef : forall F ϕ, P0 F ϕ ->
                          let κ := VALTYPE (AtomR I32R) NoRefs in
                          P F (CodeRefT κ ϕ) κ)
       (HSer : forall F τ ρ ξ, P F τ (VALTYPE ρ ξ) ->
@@ -489,7 +509,18 @@ Section HasKindInd.
                                  P F (ExistsTypeT κ κ0 τ) κ)
       (HVar : forall F t κ, F.(fc_type_vars) !! t = Some κ ->
                        kind_ok F.(fc_kind_ctx) κ ->
-                       P F (VarT t) κ).
+                       P F (VarT t) κ)
+      (HMonoFun : ∀ F τs1 τs2 κs1 κs2,
+          Forall2 (P F) τs1 κs1 -> Forall2 (P F) τs2 κs2 -> P0 F (MonoFunT τs1 τs2))
+      (HForallMem : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ft ->
+                             P0 F (ForallMemT ft))
+      (HForallRep : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ft ->
+                             P0 F (ForallRepT ft))
+      (HForallSize : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_size_vars S |>) ft ->
+                              P0 F (ForallSizeT ft))
+      (HForallType : ∀ F κ ft, kind_ok F.(fc_kind_ctx) κ ->
+          P0 (F <| fc_type_vars ::= cons κ |>) ft ->
+          P0 F (ForallTypeT κ ft)).
 
   Fixpoint has_kind_ind' (F : function_ctx) (τ : type) (κ : kind) (H : has_kind F τ κ) : P F τ κ :=
     match H with
@@ -509,7 +540,7 @@ Section HasKindInd.
     | KRefVar F m β τ σ ξ H1 H2 => HRefVar F m β τ σ ξ H1 (has_kind_ind' _ _ _ H2)
     | KRefMM F β τ σ ξ H1 => HRefMM F β τ σ ξ (has_kind_ind' _ _ _ H1)
     | KRefGC F β τ σ ξ H1 => HRefGC F β τ σ ξ (has_kind_ind' _ _ _ H1)
-    | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
+    | KCodeRef F ϕ H1 => HCodeRef F ϕ (has_kind_ind_ft' _ _ H1)
     | KSer F τ ρ ξ H1 => HSer F τ ρ ξ (has_kind_ind' _ _ _ H1)
     | KPlug F ρ H1 => HPlug F ρ H1
     | KSpan F σ H1 => HSpan F σ H1
@@ -519,7 +550,19 @@ Section HasKindInd.
     | KExistsSize F τ κ H1 H2 => HExistsSize F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsType F τ κ0 κ H1 H2 H3 => HExistsType F τ κ0 κ H1 H2 (has_kind_ind' _ _ _ H3)
     | KVar F t κ H1 H2 => HVar F t κ H1 H2
+    end with
+  has_kind_ind_ft' (F : function_ctx) (ft: function_type) (H : has_kind_ft F ft) : P0 F ft :=
+    match H with
+    | KMonoFun F τs1 τs2 κs1 κs2 H1 H2 =>
+        HMonoFun F τs1 τs2 κs1 κs2
+          (Forall2_impl _ _ _ _ H1 (fun τ κ => has_kind_ind' _ _ _))
+          (Forall2_impl _ _ _ _ H2 (fun τ κ => has_kind_ind' _ _ _))
+    | KForallMem F ft H1 => HForallMem F ft (has_kind_ind_ft' _ _ H1)
+    | KForallRep F ft H1 => HForallRep F ft (has_kind_ind_ft' _ _ H1)
+    | KForallSize F ft H1 => HForallSize F ft (has_kind_ind_ft' _ _ H1)
+    | KForallType F κ ft H1 H2 => HForallType F κ ft H1 (has_kind_ind_ft' _ _ H2)
     end.
+
 
 End HasKindInd.
 
@@ -532,23 +575,21 @@ Qed.
 Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
 Proof.
   intros H.
-  induction H using has_kind_ind'; repeat constructor; try inversion IHhas_kind; try done.
+  induction H using has_kind_ind'
+    with (P0 := λ F ft, function_type_ok F ft).
+  all: repeat constructor; try inversion IHhas_kind; try done.
   13: by inversion H.
-  13, 14: by inversion H0.
+  13-17: subst; try done.
+  13,14: by inversion H0.
   13: by econstructor.
-  all: apply Forall_forall; intros ? Hin; apply list_elem_of_lookup in Hin as [??].
-  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
-  - by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H.
-  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
-  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
-  - by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H.
-  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
-  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
-  - by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H.
-  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
-  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
-  - by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H.
-  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+  1-14: apply Forall_forall; intros ? Hin; apply list_elem_of_lookup in Hin as [??].
+  1-14: try (by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4)).
+  1-6: try (by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H).
+  1: by eapply Forall2_lookup_l in H as (?&?&H); first (inversion H; inversion H4).
+  1: by eapply Forall2_lookup_l in H0 as (?&?&H0); first (inversion H0; inversion H4).
+
+  (* truly new cases *)
+  all: try (subst; done).
 Qed.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
