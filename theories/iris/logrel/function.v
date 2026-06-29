@@ -275,7 +275,12 @@ Section function.
   Admitted.
 
   Lemma fft_in_type κ ϕ :
-    fft_in (flatten_function_type (ForallTypeT κ ϕ)) = fft_in (flatten_function_type ϕ).
+    fft_in (flatten_inner_function_type (ForallTypeT κ ϕ)) = fft_in (flatten_inner_function_type ϕ).
+  Proof.
+  Admitted.
+
+  Lemma fft_in_inner ϕ :
+    fft_in (flatten_function_type (InnerFunT ϕ)) = fft_in (flatten_inner_function_type ϕ).
   Proof.
   Admitted.
 
@@ -295,7 +300,12 @@ Section function.
   Admitted.
 
   Lemma fft_out_type κ ϕ :
-    fft_out (flatten_function_type (ForallTypeT κ ϕ)) = fft_out (flatten_function_type ϕ).
+    fft_out (flatten_inner_function_type (ForallTypeT κ ϕ)) = fft_out (flatten_inner_function_type ϕ).
+  Proof.
+  Admitted.
+
+  Lemma fft_out_inner ϕ :
+    fft_out (flatten_function_type (InnerFunT ϕ)) = fft_out (flatten_inner_function_type ϕ).
   Proof.
   Admitted.
 
@@ -306,6 +316,7 @@ Section function.
       ?fft_in_rep
       ?fft_in_size
       ?fft_in_type
+      ?fft_in_inner
       ?fft_out_mem
       ?fft_out_rep
       ?fft_out_size
@@ -416,10 +427,10 @@ Section function.
   Qed.
 
   Lemma fft_tys_forall κ ϕ :
-    fft_type_vars (flatten_function_type (ForallTypeT κ ϕ)) = κ :: fft_type_vars (flatten_function_type ϕ).
+    fft_type_vars (flatten_inner_function_type (ForallTypeT κ ϕ)) = κ :: fft_type_vars (flatten_inner_function_type ϕ).
   Proof.
     cbn.
-    by destruct (flatten_function_type ϕ) as [m r s t i o] eqn:Hfft.
+    by destruct (flatten_inner_function_type ϕ) as [m r s t i o] eqn:Hfft.
   Qed.
 
   (*
@@ -463,43 +474,6 @@ Section function.
   Inductive qfun_ty :=
   | QFun (qs : list quantifier) (ins : list type) (outs : list type).
 
-  Definition quantify1 (q : quantifier) : Core.function_type → Core.function_type :=
-    match q with
-    | QMem => ForallMemT
-    | QRep => ForallRepT
-    | QSize => ForallSizeT
-    | QType κ => ForallTypeT κ
-    end.
-
-  Definition quantify (qs : list quantifier) (ϕ : Core.function_type) : Core.function_type :=
-    foldr quantify1 ϕ qs.
-
-  Definition of_qfun (ϕ : qfun_ty) : Core.function_type :=
-    let '(QFun qs ins outs) := ϕ in
-    quantify qs (MonoFunT ins outs).
-
-  Fixpoint strip_qs (ϕ : Core.function_type) : list quantifier :=
-    match ϕ with
-    | MonoFunT _ _ => []
-    | ForallMemT ϕ => QMem :: strip_qs ϕ
-    | ForallRepT ϕ => QRep :: strip_qs ϕ
-    | ForallSizeT ϕ => QSize :: strip_qs ϕ
-    | ForallTypeT κ ϕ => QType κ :: strip_qs ϕ
-    end.
-
-  Fixpoint get_base (ϕ : Core.function_type) : list type * list type :=
-    match ϕ with
-    | MonoFunT ins outs => (ins, outs)
-    | ForallMemT ϕ
-    | ForallRepT ϕ
-    | ForallSizeT ϕ
-    | ForallTypeT _ ϕ => get_base ϕ
-    end.
-
-  Definition to_qfun (ϕ : Core.function_type) : qfun_ty :=
-    let '(ins, outs) := get_base ϕ in
-    QFun (strip_qs ϕ) ins outs.
-
   Inductive interp_disc_qs (se : semantic_env (Σ := Σ)) (q : quantifier) : semantic_env → Prop :=
   | QIMem μ :
     interp_disc_qs se q (senv_insert_mem μ se)
@@ -507,23 +481,6 @@ Section function.
     interp_disc_qs se q (senv_insert_rep ιs se)
   | QISize n :
     interp_disc_qs se q (senv_insert_size n se).
-
-  Definition interp_qs (se : semantic_env (Σ := Σ)) (qs : list quantifier) (se' : semantic_env (Σ := Σ)) : iProp Σ :=
-
-
-  Admitted.
-
-  Definition qfun_closure_interp (ϕ : qfun_ty) (se : semantic_env) cl : iProp Σ :=
-    let '(QFun qs ins outs) := ϕ in
-    let Ins := map (type_interp rti sr) ins in
-    let Outs := map (type_interp rti sr) outs in
-    □ ∀ se',
-      interp_qs se qs se' -∗
-      mono_closure_interp rti sr ins outs Ins Outs (senv_insert_all se' se) cl.
-
-  Lemma qfun_sound ϕ se cl :
-    qfun_closure_interp ϕ se cl -∗
-    closure_interp rti sr ϕ se cl.
 
   Lemma flatten_closure_interp F ϕ cl se :
     ⌜function_type_ok F ϕ⌝ -∗
@@ -535,21 +492,11 @@ Section function.
     unfold flat_closure_interp.
     generalize (senv_empty (Σ := Σ)) as se_f.
     induction ϕ; iIntros (se_f se cl F Hft Hse) "Hflat".
-    rewrite closure_interp_eq.
-    - iIntros (se cl F Hft Hse) "Hflat".
-      inversion Hft; subst.
-      unfold flat_closure_interp.
-      cbn [closure_interp'].
-      iSpecialize ("Hflat" $! senv_empty with "[//]").
-      rewrite senv_insert_id_l.
-      cbn -[mono_closure_interp].
-      iSpecialize ("Hflat" $! [] with "[//] [//]").
-      rewrite closure_interp_eq.
-      cbn -[mono_closure_interp].
-      done.
     - admit.
     - admit.
     - admit.
+    - admit.
+      (*
     - iIntros (se cl F Hft Hse) "#Hflat0".
       iAssert (flat_closure_interp (flatten_function_type (ForallTypeT k ϕ)) se cl)
         with "[Hflat0]" as "Hflat"; first done.
@@ -568,14 +515,16 @@ Section function.
       Eval cbn in (flatten_function_type (ForallTypeT κ0 (ForallTypeT κ1 (MonoFunT [] [])))).
 
       cbn.
+*)
 
   Admitted.
 
 
+  (*
   Theorem fund_function_type κ ϕ M wt wt' wtf mf mf' :
-    has_function_type M mf (ForallTypeT κ ϕ) →
+    has_inner_function_type M mf (ForallTypeT κ ϕ) →
     compile_function wt mf = inr (wt', mf') →
-    ⊢ has_func_type_sem rti sr module.mr M (wt ++ wt' ++ wtf) mf' (ForallTypeT κ ϕ).
+    ⊢ has_func_type_sem rti sr module.mr M (wt ++ wt' ++ wtf) mf' (InnerFunT (ForallTypeT κ ϕ)).
   Proof.
     iIntros (Hϕ Hcf ?? Htf) "#Hinst".
 
@@ -656,6 +605,7 @@ Section function.
     clear_nils.
     unfold have_instr_type_sem in Hbody.
   Admitted.
+*)
 
   Theorem fundamental_function ϕ : ∀ M wt wt' wtf mf mf',
     has_function_type M mf ϕ ->
@@ -665,12 +615,6 @@ Section function.
     (* TODO: By induction on ϕ, build up an se such that sem_env_interp F se.
              Then use the fundamental theorem for instruction typing to show that the body of the
              function is well-behaved. *)
-    induction ϕ.
-    - by eapply fund_function_mono.
-    - by eapply fund_function_mem.
-    - admit.
-    - admit.
-    - by eapply fund_function_type.
   Admitted.
 
 End function.
