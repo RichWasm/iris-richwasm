@@ -370,6 +370,9 @@ Section new.
       repeat iDestruct "Haccu" as "[@ Haccu]"; iDestruct "Haccu" as "@".
       clear_nils.
 
+      (* Necessary for a later iMod *)
+      iApply cwp_fupd.
+
       (* Step 7: get addr to stored value *)
       iApply (cwp_wand with "[Hfr Hrun]").
       {
@@ -504,9 +507,9 @@ Section new.
       iSplitR "Haddr'".
       * iEval (cbn).
         iExists ([[PtrA (PtrHeap MemMM ℓ)]]).
-        iSplit; first (cbn; clear_nils; eauto with datatypes).
+        iSplitR; first (cbn; clear_nils; eauto with datatypes).
         iEval (cbn).
-        iSplit; last done.
+        iSplitL; last done.
         rewrite type_interp_eq.
         iExists (SVALTYPE [PtrR] AnyRefs).
         iSplitR.
@@ -526,6 +529,7 @@ Section new.
           iFrame "Hlayout' Hheap'".
           rewrite (update_path_words_all _ _ Hwslen').
           rewrite <- flat_map_concat_map.
+          iModIntro.
           iNext.
           rewrite type_interp_eq; iEval (cbn).
           iExists (SMEMTYPE (areps_size ιs) ξ).
@@ -543,8 +547,33 @@ Section new.
           iFrame.
           eauto.
         + (* Imm *)
-          admit.
-      *
+          iMod (na_inv_alloc logrel_nais _ (ns_ref ℓ)
+            with "[Hlayout' Hheap']") as "#Hinv".
+          { iNext.
+            rewrite (update_path_words_all _ _ Hwslen').
+            rewrite <- flat_map_concat_map.
+            iAccu. }
+          iModIntro.
+          iExists ℓ, _, (flat_map serialize_atom os).
+          iSplitR; first done.
+          iSplitL ""; first iExact "Hinv".
+          iNext.
+          rewrite type_interp_eq; iEval (cbn).
+          iExists (SMEMTYPE (areps_size ιs) ξ).
+          iSplitR; first (iPureIntro; exact Htypeskind_ser).
+          iSplitR; first (iPureIntro; split; [rewrite flat_map_concat_map; lia | ])
+.
+          {
+            rewrite flat_map_concat_map.
+            apply forall_ptr_atom_to_word_ref_flag_interp.
+            done.
+          }
+          iExists os.
+          iSplitR; first (iPureIntro; rewrite flat_map_concat_map; done).
+          rewrite type_interp_eq.
+          iFrame.
+          eauto.
+      * iModIntro.
         rewrite atoms_interp_cons.
         iSplitL; last (cbn; done).
         cbn.
