@@ -558,16 +558,26 @@ module Internal = struct
           function_type := function_typ;
           Big_int_Z.big_int := Big_int_Z'.big_int])]
 
+    and inner_function_typ =
+      [%import:
+        (Richwasm_extract.Rw.Core.inner_function_type
+        [@with
+          kind := Kind.t;
+          coq_type := typ;
+          inner_function_type := inner_function_typ;
+          function_type := function_typ])]
     and function_typ =
       [%import:
         (Richwasm_extract.Rw.Core.function_type
         [@with
           kind := Kind.t;
           coq_type := typ;
+          inner_function_type := inner_function_typ;
           function_type := function_typ])]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp_typ ff x = Sexp.pp_hum ff (sexp_of_typ x)
+    let pp_sexp_inner_function_typ ff x = Sexp.pp_hum ff (sexp_of_inner_function_typ x)
     let pp_sexp_function_typ ff x = Sexp.pp_hum ff (sexp_of_function_typ x)
 
     let rec pp_rocq_typ ff : typ -> unit = function
@@ -617,19 +627,22 @@ module Internal = struct
           fprintf ff "@[<2>(ExistsTypeT@ %a@ %a@ %a)@]" Kind.pp_rocq k1
             Kind.pp_rocq k2 pp_rocq_typ t
 
-    and pp_rocq_function_typ ff : function_typ -> unit = function
+    and pp_rocq_inner_function_typ ff : inner_function_typ -> unit = function
       | MonoFunT (t1s, t2s) ->
           fprintf ff "@[<2>(MonoFunT@ %a@ %a)@]" (pp_rocq_list pp_rocq_typ) t1s
             (pp_rocq_list pp_rocq_typ) t2s
+      | ForallTypeT (kind, ft) ->
+          fprintf ff "@[<2>(ForallTypeT@ %a@ %a)@]" Kind.pp_rocq kind pp_rocq_inner_function_typ ft
+
+    and pp_rocq_function_typ ff : function_typ -> unit = function
+      | InnerFunT ft ->
+          fprintf ff "@[<2>(InnerFunT@ %a)@]" pp_rocq_inner_function_typ ft
       | ForallMemT ft ->
           fprintf ff "@[<2>(ForallMemT@ %a)@]" pp_rocq_function_typ ft
       | ForallRepT ft ->
           fprintf ff "@[<2>(ForallRepT@ %a)@]" pp_rocq_function_typ ft
       | ForallSizeT ft ->
           fprintf ff "@[<2>(ForallSizeT@ %a)@]" pp_rocq_function_typ ft
-      | ForallTypeT (kind, ft) ->
-          fprintf ff "@[<2>(ForallTypeT@ %a@ %a)@]" Kind.pp_rocq kind
-            pp_rocq_function_typ ft
 
     let rec pp_typ ff : typ -> unit =
       let pp_typs = pp_print_list_pre_space pp_typ in
@@ -665,22 +678,25 @@ module Internal = struct
           fprintf ff "@[<2>(exists.type@ %a@ %a@ %a)@]" Kind.pp k1 Kind.pp k2
             pp_typ t
 
-    and pp_function_typ ff = function
+    and pp_inner_function_typ ff = function
       | MonoFunT (t1s, t2s) ->
           fprintf ff "@[(%a->%a)@]"
             (pp_print_list_post_space pp_typ)
             t1s
             (pp_print_list_pre_space pp_typ)
             t2s
+      | ForallTypeT (kind, ft) ->
+          fprintf ff "@[<2>(forall.type@ %a@ %a)@]" Kind.pp_rocq kind
+            pp_rocq_inner_function_typ ft
+
+    and pp_function_typ ff = function
+      | InnerFunT ft -> pp_inner_function_typ ff ft
       | ForallMemT ft ->
           fprintf ff "@[<2>(forall.mem@ %a)@]" pp_rocq_function_typ ft
       | ForallRepT ft ->
           fprintf ff "@[<2>(forall.rep@ %a)@]" pp_rocq_function_typ ft
       | ForallSizeT ft ->
           fprintf ff "@[<2>(forall.size@ %a)@]" pp_rocq_function_typ ft
-      | ForallTypeT (kind, ft) ->
-          fprintf ff "@[<2>(forall.type@ %a@ %a)@]" Kind.pp_rocq kind
-            pp_rocq_function_typ ft
   end
 end
 
@@ -694,6 +710,18 @@ module Type = struct
   let pp = Internal.Types.pp_typ
   let subst = Richwasm_extract.Rw.Core.subst_type
   let ren = Richwasm_extract.Rw.Core.ren_type
+end
+
+module InnerFunctionType = struct
+  include Internal.Types
+
+  type t = Internal.Types.inner_function_typ [@@deriving eq, ord, sexp]
+
+  let pp_sexp = Internal.Types.pp_sexp_inner_function_typ
+  let pp_rocq = Internal.Types.pp_rocq_inner_function_typ
+  let pp = Internal.Types.pp_inner_function_typ
+  let subst = Richwasm_extract.Rw.Core.subst_inner_function_type
+  let ren = Richwasm_extract.Rw.Core.ren_inner_function_type
 end
 
 module FunctionType = struct

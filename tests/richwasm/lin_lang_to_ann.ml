@@ -35,7 +35,7 @@ let%expect_test "basic functionality" =
     {|
     ((m_imports ())
      (m_functions
-      (((mf_type (MonoFunT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+      (((mf_type (InnerFunT (MonoFunT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))
         (mf_locals ()) (mf_body ((INumConst (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 1))))))
      (m_table ()) (m_exports (((me_name _start) (me_desc 0))))) |}];
 
@@ -65,10 +65,11 @@ let%expect_test "basic functionality" =
     ((m_imports ())
      (m_functions
       (((mf_type
-         (MonoFunT ()
-          ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R) (AtomR I32R) (AtomR I32R))) NoRefs)
-            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)) (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
-             (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)) (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+         (InnerFunT
+          (MonoFunT ()
+           ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R) (AtomR I32R) (AtomR I32R))) NoRefs)
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)) (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+              (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)) (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))))
         (mf_locals ())
         (mf_body
          ((INumConst (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 1)
@@ -153,7 +154,7 @@ let%expect_test "basic functionality" =
     {|
     ((m_imports ())
      (m_functions
-      (((mf_type (MonoFunT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+      (((mf_type (InnerFunT (MonoFunT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))
         (mf_locals ())
         (mf_body
          ((INumConst (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 1)
