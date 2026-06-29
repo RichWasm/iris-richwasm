@@ -2034,12 +2034,10 @@ Section inst.
       rewrite !Hevalκ.
 
       iSplitR.
-      all: iIntros "Hoa".
-      all: iDestruct "Hoa" as "(%sκ & #hsk & #Hoa)".
-      all: iExists sκ; iFrame "#".
+      all: iIntros "#Hoa".
       all: iModIntro.
-      all: iIntros (sκ_T T sksk sktype).
-      all: iSpecialize ("Hoa" $! sκ_T T sksk sktype).
+      all: iIntros (sκ sκ_T T hsk sksk sktype).
+      all: iSpecialize ("Hoa" $! sκ sκ_T T hsk sksk sktype).
       (* and yup we're okay, good stuff *)
       (* the only interesting thing is showing sκ_T, T is well formed addition *)
       (* but it is by skind has stype so we're chill *)
