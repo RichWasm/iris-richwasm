@@ -759,7 +759,8 @@ Inductive function_type_inst : function_ctx -> index -> function_type -> functio
   has_kind F τ κ' ->
   subkind_of κ' κ ->
   (* NOTE: the raw subst is ill-kinded under a strict-subkind instantiation *)
-  function_type_ok F ϕ' ->
+  (* function_type_ok F ϕ' -> *)
+  has_kind_ft F ϕ' ->
   function_type_eq_mod_kinds ϕ'
     (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
   function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
@@ -783,10 +784,11 @@ Inductive packed_existential : function_ctx -> type -> type -> Prop :=
   let τ0 := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ' in
   packed_existential F τ0 (ExistsSizeT κ' τ')
 (* NOTE: same as FTInstType -- [τ0] is the well-kinded type with the raw subst's shape. *)
-| PackType F τ_wit τ_in κ_wit κ_max κ_ex τ0 :
+| PackType F τ_wit τ_in κ_wit κ_max κ_ex κ0 τ0 :
   has_kind F τ_wit κ_wit ->
   subkind_of κ_wit κ_max ->
-  type_ok F τ0 ->
+  (* type_ok F τ0 -> *)
+  has_kind F τ0 κ0  ->
   type_eq_mod_kinds τ0
     (subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) τ_in) ->
   packed_existential F τ0 (ExistsTypeT κ_ex κ_max τ_in).
@@ -1487,6 +1489,7 @@ Inductive has_function_type : module_ctx -> module_function -> function_type -> 
   mapM (eval_rep_prim EmptyEnv) ρs_P = Some ηss_P ->
   Forall (fun τ => has_ref_flag F τ NoRefs) L' ->
   have_instruction_type M F L mf.(mf_body) ψ L' ->
+  (* has_kind_ft F mf.(mf_type) -> *)
   has_function_type M mf mf.(mf_type).
 
 Inductive has_module_type : module -> module_type -> Prop :=
