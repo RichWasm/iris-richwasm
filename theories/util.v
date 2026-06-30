@@ -657,6 +657,14 @@ Qed.
       lia.
   Qed.
 
+  Lemma notin_seq_S start n i :
+    i ∉ seq start n /\ i <> start + n
+    <-> i ∉ seq start (S n).
+  Proof.
+    rewrite seq_S.
+    set_solver.
+  Qed.
+
   Lemma length_split {A:Type} (ls:list A) (a b:nat) :
     length ls = a + b -> ∃ ls1 ls2, ls = ls1 ++ ls2 /\ length ls1 = a /\ length ls2 = b.
   Proof.

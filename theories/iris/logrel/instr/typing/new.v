@@ -9,7 +9,6 @@ Require Import RichWasm.iris.logrel.store_common.
 Require Import RichWasm.iris.logrel.path.
 Require Import RichWasm.iris.logrel.rt_token.
 Require Import RichWasm.iris.numerics.
-(* TODO: fix imports *)
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -23,16 +22,6 @@ Section new.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
-
-
-  Lemma notin_seq_S start n i :
-    i ∉ seq start n /\ i <> start + n
-    <-> i ∉ seq start (S n).
-  Proof.
-    rewrite seq_S.
-    set_solver.
-  Qed.
-
 
   Lemma compat_new M F L wt wt' wtf wl wl' wlf κ κser μ β τ es' :
     let fe := fe_of_context F in
@@ -136,6 +125,30 @@ Section new.
     clear_nils.
     clear Hsave_stack_spec.
 
+    (* Get setflag func interp from instance_interp. *)
+    iAssert (instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag)
+               (runtime.spec_setflag rti sr) fr_save_stack.(f_inst)) as "#Hsetflag". {
+      rewrite -(proj2 Hfrel).
+      iDestruct "Hinst" as "(_ & (_ & _ & ? & _) & _)".
+      iFrame "#".
+    }
+
+    have Hlt_fr_save_stack : localimm addr_lidx < length (f_locs fr_save_stack). {
+      have Hlt_fr : localimm addr_lidx < length (f_locs fr). {
+        have Hbound := interp_wl_length _ _ _ Hwl.
+        unfold addr_lidx; cbn in Hbound |- *.
+        rewrite !length_app in Hbound; rewrite length_app; simpl in Hbound. lia.
+      }
+      have Hnotin : localimm addr_lidx ∉ seq (fe_wlocal_offset fe + length wl) (length (map translate_prim (map arep_to_prim ιs))). {
+        intro Hin; apply elem_of_seq in Hin.
+        unfold addr_lidx in Hin; cbn in Hin; rewrite length_app in Hin; lia.
+      }
+      have Hlookup_eq := (proj1 Hfrel) _ Hnotin.
+      have [v Hv] := lookup_lt_is_Some_2 (f_locs fr) _ Hlt_fr.
+      apply (lookup_lt_Some (f_locs fr_save_stack) _ v).
+      congruence.
+    }
+
     destruct b.
     1: refine ?[MemMM]. 2: refine ?[MemGC].
 
@@ -225,30 +238,6 @@ Section new.
       have Hrepr_ptr : repr_pointer θ' (PtrHeap MemMM ℓ) (tag_address MemMM a).
       { apply RepPtrHeap; done. }
       have Hnort : ¬ rtmask ℓ. { unfold rtmask. tauto. }
-
-      (* Get setflag func interp from instance_interp. *)
-      iAssert (instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag)
-                 (runtime.spec_setflag rti sr) fr_save_stack.(f_inst)) as "#Hsetflag". {
-        rewrite -(proj2 Hfrel).
-        iDestruct "Hinst" as "(_ & (_ & _ & ? & _) & _)".
-        iFrame "#".
-      }
-
-      have Hlt_fr_save_stack : localimm addr_lidx < length (f_locs fr_save_stack). {
-        have Hlt_fr : localimm addr_lidx < length (f_locs fr). {
-          have Hbound := interp_wl_length _ _ _ Hwl.
-          unfold addr_lidx; cbn in Hbound |- *.
-          rewrite !length_app in Hbound; rewrite length_app; simpl in Hbound. lia.
-        }
-        have Hnotin : localimm addr_lidx ∉ seq (fe_wlocal_offset fe + length wl) (length (map translate_prim (map arep_to_prim ιs))). {
-          intro Hin; apply elem_of_seq in Hin.
-          unfold addr_lidx in Hin; cbn in Hin; rewrite length_app in Hin; lia.
-        }
-        have Hlookup_eq := (proj1 Hfrel) _ Hnotin.
-        have [v Hv] := lookup_lt_is_Some_2 (f_locs fr) _ Hlt_fr.
-        apply (lookup_lt_Some (f_locs fr_save_stack) _ v).
-        congruence.
-      }
 
       iEval (rewrite app_assoc).
       (* Step 4: store ta32 to local *)
@@ -420,7 +409,6 @@ Section new.
           done.
       }
       iEval (rewrite -!app_assoc) in "Hframe".
-      iFrame "Hframe".
       iFrame.
 
       open_rt "Hrt'".
@@ -468,7 +456,7 @@ Section new.
       iFrame.
       iExists [PtrA (PtrHeap MemMM ℓ)].
 
-      (* Derive pure kinding facts from Hok before the split *)
+      (* Derive kinding facts *)
       assert (Hκ : κ = VALTYPE (AtomR PtrR) AnyRefs). {
         inversion Href_has_kind; subst; try done.
       }
@@ -588,9 +576,447 @@ Section new.
 
 
     [MemGC]: {
-      admit.
+      apply (wp_registerroot rti sr mr) in Hbase as (_ & -> & -> & Hreg_spec).
+      clear_nils.
+
+      (* Step 2: Allocate the new value *)
+      destruct (cwp_alloc_gc mr sr rti (areps_size ιs) _ _ _ _ _ _ Halloc) as (_ & -> & -> & Halloc_spec).
+      iAssert (instance_rt_func_interp mr.(mr_func_gcalloc) sr.(sr_func_gcalloc) (runtime.spec_gcalloc rti sr) fr_save_stack.(f_inst)) as "#Hgcalloc".
+      {
+        rewrite -(proj2 Hfrel).
+        iDestruct "Hinst" as "(_ & (_ & Hgcalloc & _) & _)".
+        iExact "Hgcalloc".
+      }
+      iApply (cwp_seq with "[Hfr Hrun Hown Hrt]").
+      {
+        iApply (Halloc_spec _ _ _ _ ⊤ _ _ with "Hfr Hrun [] Hown Hrt Hgcalloc").
+        1: iPureIntro; solve_ndisj.
+        iIntros "Hown' _ %θ' %ℓ %ta %ta32 %ws %Htarepr %Hptrrepr Hrt' Hlayout Hheap".
+        instantiate (1 := (λ fr' vs',
+          ∃ θ' ℓ ta ta32 ws,
+            ⌜vs' = [VAL_int32 ta32]⌝ ∗
+            ⌜fr' = fr_save_stack⌝ ∗
+            ⌜N_i32_repr ta ta32⌝ ∗
+            ⌜repr_pointer θ' (PtrHeap MemGC ℓ) ta⌝ ∗
+            rt_token rti sr lpall θ' ∗
+            ℓ ↦layout repeat FlagInt (areps_size ιs) ∗
+            ℓ ↦heap ws ∗
+            na_own logrel_nais ⊤)%I).
+        iExists θ', ℓ, ta, ta32, ws.
+        iSplit; first done.
+        iSplit; first done.
+        iSplit; first (iPureIntro; exact Htarepr).
+        iSplit; first (iPureIntro; exact Hptrrepr).
+        iFrame.
+      }
+      iIntros (??) "(%θ' & %ℓ & %ta & %ta32 & %ws & -> & -> & %Htarepr' & %Hptrrepr & Hrt' & Hlayout & Hheap & Hown') Hfr Hrun".
+      clear_nils.
+
+      (* Pure facts from repr_pointer *)
+      have [a [Hθlookup [Hmod [Hnz Hta_eq]]]] :
+          ∃ a, θ' !! ℓ = Some (MemGC, a) ∧ (a mod 4 = 0)%N ∧ (a ≠ 0)%N ∧ ta = tag_address MemGC a.
+      { inversion Hptrrepr; naive_solver. }
+      subst ta.
+
+      (* Extract length ws = areps_size ιs from layout_ok before restricting mask *)
+      iAssert (rt_token rti sr lpall θ' ∗ ℓ ↦layout repeat FlagInt (areps_size ιs) ∗ ℓ ↦heap ws ∗
+               ⌜length ws = areps_size ιs⌝)%I
+        with "[Hrt' Hlayout Hheap]" as "(Hrt' & Hlayout & Hheap & %Hws_length)". {
+        iDestruct "Hrt'" as "(%rm & %lm & %hm &
+          Haddr_auth & Hroot & Hlayout_auth & Hheap_auth & Hrti &
+          %Hinj & %Hrootok & Hrootmem & %Hlayoutok & %Hheapok & Hheapmem)".
+        iCombine "Hlayout_auth" "Hlayout" gives "%Hlm_lookup".
+        iCombine "Hheap_auth" "Hheap" gives "%Hhm_lookup".
+        iSplitL "Haddr_auth Hroot Hlayout_auth Hheap_auth Hrti Hrootmem Hheapmem".
+        - iExists rm, lm, hm. iFrame.
+          do 3 (iSplit; [iPureIntro; assumption |]); iPureIntro; assumption.
+        - iSplitL "Hlayout"; first iFrame.
+          iSplitL "Hheap"; first iFrame.
+          iPureIntro.
+          unfold layout_ok in Hlayoutok.
+          unfold map_Forall2 in Hlayoutok.
+          specialize (Hlayoutok ℓ).
+          rewrite Hlm_lookup Hhm_lookup in Hlayoutok.
+          inversion Hlayoutok; subst.
+          apply Forall2_length in H4; try done.
+          rewrite length_repeat in H4.
+          done.
+      }
+
+      (* Weaken rt_token mask to exclude ℓ *)
+      set (rtmask := (λ (l : location), l ≠ ℓ)).
+      iAssert (rt_token rti sr rtmask θ') with "[Hrt']" as "Hrt'".
+      { by iApply rt_token_lpall. }
+
+      have Hrepr_ptr : repr_pointer θ' (PtrHeap MemGC ℓ) (tag_address MemGC a).
+      { apply RepPtrHeap; done. }
+      have Hnort : ¬ rtmask ℓ. { unfold rtmask. tauto. }
+
+      iEval (rewrite app_assoc).
+      (* Step 4: store ta32 to local *)
+      iApply (cwp_seq with "[Hfr Hrun]").
+      {
+        iApply (cwp_local_set with "[] Hfr Hrun"); first done.
+        iNext.
+        instantiate (1 := (λ fr' vs',
+          ⌜vs' = []⌝ ∗
+          ⌜fr' = {| W.f_locs := <[localimm addr_lidx := VAL_int32 ta32]> (f_locs fr_save_stack);
+                     W.f_inst := f_inst fr_save_stack |}⌝ ∗
+          (_ : iProp Σ))%I).
+        iSplit; first done.
+        iSplit; first done.
+        iNamedAccu.
+      }
+      iIntros (fr_set_addr ?) "(-> & %Hframe_set & Haccu) Hfr Hrun".
+      iClear "Haccu".
+      clear_nils.
+
+      assert (frame_rel (λ i, i ≠ localimm addr_lidx) fr_save_stack fr_set_addr) as Hfrel_save_set.
+      {
+        subst fr_set_addr.
+        unfold frame_rel.
+        split; last done.
+        unfold mask_locs_eq.
+        intros.
+        simpl.
+        symmetry.
+        apply list_lookup_insert_ne.
+        done.
+      }
+      pose proof (frame_rel_mask_trans_combine _ _ _ _ _ Hfrel Hfrel_save_set) as Hfrel_set_addr.
+      eapply frame_rel_mask_mono in Hfrel_set_addr; last first.
+      {
+        instantiate (1 := λ i , i ∉ seq (fe_wlocal_offset fe + length wl) (S (length (map translate_prim (map arep_to_prim ιs))))).
+        intros i Hnotin.
+        simpl in Hnotin.
+        simpl.
+        rewrite length_app.
+        rewrite Nat.add_assoc.
+        rewrite notin_seq_S.
+        done.
+      }
+      eapply frame_rel_Forall2_update' in Hall; last first.
+      2: {
+        instantiate (1 := fr_set_addr).
+        instantiate (1 := [localimm addr_lidx]).
+        eapply frame_rel_mask_mono; last done.
+        set_solver.
+      }
+      2: done.
+      {
+        eapply Forall_impl.
+        - apply seq_forall_leq.
+        - intros i Hi Hin.
+          apply list_elem_of_singleton in Hin as ->.
+          subst addr_lidx.
+          simpl in Hi.
+          rewrite length_app in Hi.
+          lia.
+      }
+
+      specialize Hptr_flags_spec with (fr := fr_set_addr) (ta := tag_address MemGC a) (ta32 := ta32)
+        (lmask := rtmask) (θ := θ') (μ := MemGC) (ℓ := ℓ).
+      have Hav : f_locs fr_set_addr !! localimm addr_lidx = Some (VAL_int32 ta32). {
+        rewrite Hframe_set. cbn. apply list_lookup_insert_eq. done.
+      }
+      specialize (Hptr_flags_spec Htarepr' Hnort Hrepr_ptr Hav).
+
+      (* Get unregisterroot and registerroot func interps for fr_set_addr *)
+      iAssert (instance_rt_func_interp mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot)
+                 (runtime.spec_unregisterroot rti sr) fr_set_addr.(f_inst)) as "#Hunreg". {
+        rewrite -(proj2 Hfrel_set_addr).
+        iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & _ & Hunreg) & _)".
+        iExact "Hunreg".
+      }
+      iAssert (instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot)
+                 (runtime.spec_registerroot rti sr) fr_set_addr.(f_inst)) as "#Hreg". {
+        rewrite -(proj2 Hfrel_set_addr).
+        iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & Hreg & _) & _)".
+        iExact "Hreg".
+      }
+
+      (* Step 5: set pointer flag *)
+      iApply (cwp_seq with "[Hlayout Hrt' Hown' Hfr Hrun]").
+      {
+        iApply (Hptr_flags_spec $! _ ⊤ with "[$] [$] [] [$] [$] [$] [] []").
+        { iPureIntro. solve_ndisj. }
+        { rewrite Hframe_set; cbn. iExact "Hsetflag". }
+        iIntros "Hlayout' Hrt' _ Hown' #_".
+        instantiate (1 := (λ fr' vs', ⌜fr' = fr_set_addr /\ vs' = []⌝ ∗ (_ : iProp Σ))%I).
+        iSplit; first (iPureIntro; done).
+        iNamedAccu.
+      }
+      iIntros (??) "((-> & ->) & Haccu) Hfr Hrun".
+      repeat iDestruct "Haccu" as "[@ Haccu]"; iDestruct "Haccu" as "@".
+      clear_nils.
+
+      (* Step 6: store new value in memory *)
+      have Hlen : length lidxs = length ιs. { unfold lidxs; rewrite !length_map length_seq; done. }
+      destruct (wp_store_strong_gc rti sr mr addr_lidx 0 ιs lidxs _ _ _ _ _ _ Hlen Hmstore_vals)
+        as (_ & -> & -> & Hmstore_spec).
+      iApply (cwp_seq with "[-]").
+      {
+        iApply (Hmstore_spec with "[$Hfr] [$Hrun] [$Hheap] [] [] [$Hrt'] Hunreg [$Hown'] [//] [] [] [] [] [] [] [] [//] [//] [] [] [$Hvs] [-]").
+        - iPureIntro. exact Hθlookup.
+        - iPureIntro. exact Hnort.
+        - iPureIntro. exact Hav.
+        - iPureIntro. done.
+        - iPureIntro. exact Htarepr'.
+        - iPureIntro. exact Hmod.
+        - iPureIntro. exact Hnz.
+        - iPureIntro.
+          rewrite sum_list_with_list_sum.
+          unfold areps_size in Hws_length; cbn in Hws_length.
+          lia.
+        - iPureIntro. destruct Hareps as (os' & Hoseq & Hfarep).
+          by inversion Hoseq.
+        - unfold base_mem_idx.
+          iDestruct "Hinst" as "(_ & _ & _ & _ & %Hmemmm & _)".
+          iPureIntro.
+          rewrite Hframe_set; cbn.
+          rewrite -(proj2 Hfrel).
+          exact Hmemmm.
+        - unfold base_mem_idx.
+          iDestruct "Hinst" as "(_ & _ & _ & _ & _ & %Hmemgc)".
+          iPureIntro.
+          rewrite Hframe_set; cbn.
+          rewrite -(proj2 Hfrel).
+          exact Hmemgc.
+        - iIntros "Hheap' Hown' #Hunreg' Hrt'".
+          instantiate (1 := (λ fr' vs', ⌜fr' = fr_set_addr /\ vs' = []⌝ ∗ (_ : iProp Σ))%I).
+          iSplit; first (iPureIntro; done).
+          iNamedAccu.
+      }
+      iIntros (??) "((-> & ->) & Haccu) Hfr Hrun".
+      repeat iDestruct "Haccu" as "[@ Haccu]"; iDestruct "Haccu" as "@".
+      clear_nils.
+
+      (* Reconstruct rt_token with lpall *)
+      open_rt "Hrt'".
+      iCombine "Hlayout'" "Hlayout" gives "%Hlm_lookup".
+      iCombine "Hheap'" "Hheap" gives "%Hhm_lookup".
+      assert (Hnewlayout : layout_ok lpall lm hm).
+      {
+        unfold layout_ok, map_Forall2 in *.
+        intros k. specialize (Hlayoutok k).
+        destruct (decide (k = ℓ)) as [->|Hkne].
+        - rewrite Hlm_lookup Hhm_lookup. constructor. intros _.
+          have Hfa2 := has_areps_imp_word_has_flag _ _ Hareps.
+          have Hfl_len : length (flat_map arep_flags ιs) = areps_size ιs.
+          { rewrite flat_map_concat_map length_arep_flags_size.
+            unfold areps_size. exact sum_list_with_list_sum. }
+          have Hwslen' : length (concat (map serialize_atom os)) = length ws.
+          { rewrite <- flat_map_concat_map.
+            have Hthis := Forall2_length _ _ _ Hfa2.
+            rewrite <- flat_map_concat_map in Hthis.
+            lia. }
+          rewrite (update_path_words_all _ _ Hwslen').
+          pose proof (updating_flags 0 (flat_map arep_flags ιs) (repeat FlagInt (areps_size ιs))
+              ltac:(rewrite length_repeat; lia))
+            as (fs1 & fs_old & fs2 & Hfs_eq & Hset_eq & Hlen_old & Hlen1).
+          destruct fs1 as [| ? ?]; [| simpl in Hlen1; lia].
+          rewrite app_nil_l in Hfs_eq, Hset_eq.
+          have Hfs2_nil : fs2 = [].
+          { have Hfs2_len : length fs2 = 0.
+            { have := f_equal length Hfs_eq.
+              rewrite length_repeat length_app Hlen_old Hfl_len. lia. }
+            by destruct fs2. }
+          subst fs2.
+          rewrite app_nil_r in Hset_eq.
+          rewrite Hset_eq flat_map_concat_map.
+          rewrite flat_map_concat_map in Hfa2.
+          exact Hfa2.
+        - inversion Hlayoutok.
+          + specialize (H4 Hkne); constructor; done.
+          + constructor.
+      }
+      clear Hlayoutok.
+      iAssert (rt_token rti sr lpall θ')
+        with "[Haddr Hroot Hlayout Hheap Hrti Hrootmem Hheapmem]" as "Hrt'".
+      { unfold rt_token. iExists rm, lm, hm. iFrame. done. }
+
+      (* Necessary for later iMod *)
+      iApply cwp_fupd.
+
+      (* Step 7: get addr to stored value *)
+      iApply (cwp_seq with "[Hfr Hrun]").
+      {
+        iApply (cwp_local_get with "[] [$] [$]").
+        { exact Hav. }
+        iNext.
+        instantiate (1 := (λ fr' vs', ⌜fr' = fr_set_addr /\ vs' = [VAL_int32 ta32]⌝)%I).
+        done.
+      }
+      iIntros (fr' vs') "(-> & ->) Hfr Hrun".
+
+      assert (frame_rel lmask fr fr_set_addr) as Hfrel_lmask_set_addr.
+      {
+        eapply frame_rel_mask_mono; [| exact Hfrel_set_addr].
+        intros i [Hi_lo Hi_hi].
+        intro Hin. apply elem_of_seq in Hin. lia.
+      }
+
+      (* Step 8: register root *)
+      iApply (Hreg_spec θ' (to_consts [VAL_int32 ta32]) ℓ (tag_address MemGC a) ta32
+               Hrepr_ptr Htarepr' (proj1 (Is_true_true _) (has_values_to_consts _))
+        with "[Hframe Hlayout' Hheap' Hpre_type_interp] [$] [$] [] [$] [$] [$]").
+      2: { iPureIntro. solve_ndisj. }
+      iIntros (ar ar32 Hreprroot) "Haroot Hrt'' Hown'' %Harrep #_".
+
+      iFrame (Hfrel_lmask_set_addr).
+      do 2 iEval (rewrite app_assoc) in "Hframe".
+      do 2 iEval (rewrite -(app_assoc wl)) in "Hframe".
+
+      iPoseProof (frame_interp_update_frame _ _ _ _ _ _ _ _ _ _ _ fr_set_addr with "[$Hframe]") as "Hframe".
+      4: exact Hfrel_set_addr.
+      1: by rewrite length_app (Nat.add_comm _ (length [W.T_i32])) fe_wlocal_offset_length.
+      2: {
+        apply Forall2_app.
+        - by rewrite /result_type_interp /translate_arep -map_comp in Hres_type_vs.
+        - instantiate (1 := [VAL_int32 ta32]).
+          apply List.Forall2_cons; last done.
+          simpl.
+          eauto.
+      }
+      {
+        rewrite seq_S.
+        rewrite Forall2_fmap_l in Hall.
+        cbn in Hall.
+        unfold compose in Hall.
+        simpl in Hall.
+
+        apply Forall2_app.
+        - exact Hall.
+        - rewrite Forall2_cons; split; last done.
+          unfold addr_lidx in Hav.
+          rewrite length_app Nat.add_assoc in Hav.
+          done.
+      }
+      iEval (rewrite -!app_assoc) in "Hframe".
+      iFrame.
+      iExists [PtrA (PtrHeap MemGC ℓ)].
+
+      (* Derive kinding facts *)
+      assert (Hκ : κ = VALTYPE (AtomR PtrR) GCRefs). {
+        inversion Href_has_kind; subst; try done.
+      }
+      subst κ.
+      assert (Hκser : κser = MEMTYPE (RepS ρ) ξ). {
+        inversion Hrep_ref; subst; clear Hrep_ref.
+        inversion H; subst.
+        inversion H5; subst.
+        have Heq := has_kind_agree F τ _ _ H6 Hhas_kind.
+        inversion Heq; subst; done.
+      }
+      subst κser.
+      have Hevρse : eval_rep se ρ = Some ιs := eval_rep_emptyenv _ _ Hιs se.
+      have Hevκser : eval_kind se (MEMTYPE (RepS ρ) ξ) = Some (SMEMTYPE (areps_size ιs) ξ). {
+        unfold eval_kind; cbn; rewrite Hevρse; cbn; done.
+      }
+      have Htypeskind_ser : type_skind (Σ:=Σ) se (SerT (MEMTYPE (RepS ρ) ξ) τ) =
+          Some (SMEMTYPE (areps_size ιs) ξ). {
+        cbn; exact Hevκser.
+      }
+      have Hfa2 : Forall2 word_has_flag (concat (map arep_flags ιs)) (flat_map serialize_atom os).
+      { apply Forall2_impl with (P := fun f w => Is_true (word_has_flag f w)).
+        1: exact (has_areps_imp_word_has_flag _ _ Hareps).
+        intros f w H; destruct (word_has_flag f w); done.
+      }
+      have Hwslen' : length (concat (map serialize_atom os)) = length ws. {
+        rewrite <- flat_map_concat_map.
+        have Hthis := Forall2_length _ _ _ Hfa2.
+        rewrite <- flat_map_concat_map in Hthis.
+        have Hfl_len : length (flat_map arep_flags ιs) = areps_size ιs. {
+          rewrite flat_map_concat_map length_arep_flags_size.
+          unfold areps_size; exact sum_list_with_list_sum.
+        }
+        lia.
+      }
+      iSplitR "Haroot".
+      * iEval (cbn).
+        iExists ([[PtrA (PtrHeap MemGC ℓ)]]).
+        iSplitR; first (cbn; clear_nils; eauto with datatypes).
+        iEval (cbn).
+        iSplitL; last done.
+        rewrite type_interp_eq.
+        iExists (SVALTYPE [PtrR] GCRefs).
+        iSplitR.
+        { iPureIntro; cbn; unfold eval_kind; cbn; done. }
+        iSplitR.
+        { iPureIntro; split.
+          - unfold has_areps; eexists; split; first done.
+            constructor; [unfold has_arep; done | constructor].
+          - unfold ref_flag_atoms_interp, forall_satoms; cbn.
+            apply Forall_cons; by split.
+        }
+        cbn.
+        destruct β.
+        + (* Mut *)
+          iMod (na_inv_alloc logrel_nais _ (ns_ref ℓ)
+            (∃ ws, ℓ ↦layout set_flags_at 0 (flat_map arep_flags ιs) (repeat FlagInt (areps_size ιs)) ∗
+                   ℓ ↦heap ws ∗
+                   ▷ type_interp rti sr (SerT (MEMTYPE (RepS ρ) ξ) τ) se (SWords ws))%I
+            with "[Hlayout' Hheap' Hpre_type_interp]") as "#Hinv".
+          { iNext.
+            rewrite (update_path_words_all _ _ Hwslen').
+            rewrite <- flat_map_concat_map.
+            iExists (flat_map serialize_atom os).
+            iSplitL "Hlayout'"; first iFrame.
+            iSplitL "Hheap'"; first iFrame.
+            iNext.
+            rewrite type_interp_eq; iEval (cbn).
+            iExists (SMEMTYPE (areps_size ιs) ξ).
+            iSplitR; first (iPureIntro; exact Htypeskind_ser).
+            iSplitR; first (iPureIntro; split; [rewrite flat_map_concat_map; lia | ]).
+            { rewrite flat_map_concat_map. apply forall_ptr_atom_to_word_ref_flag_interp. done. }
+            iExists os.
+            iSplitR; first (iPureIntro; rewrite flat_map_concat_map; done).
+            rewrite type_interp_eq.
+            iFrame.
+            eauto. }
+          iModIntro.
+          iExists ℓ, _.
+          iSplitR; first done.
+          iFrame "#".
+        + (* Imm *)
+          iMod (na_inv_alloc logrel_nais _ (ns_ref ℓ)
+            (ℓ ↦layout set_flags_at 0 (flat_map arep_flags ιs) (repeat FlagInt (areps_size ιs)) ∗
+             ℓ ↦heap (flat_map serialize_atom os) ∗
+             ▷ type_interp rti sr (SerT (MEMTYPE (RepS ρ) ξ) τ) se (SWords (flat_map serialize_atom os)))%I
+            with "[Hlayout' Hheap' Hpre_type_interp]") as "#Hinv".
+          { iNext.
+            rewrite (update_path_words_all _ _ Hwslen').
+            rewrite <- flat_map_concat_map.
+            iSplitL "Hlayout'"; first iFrame.
+            iSplitL "Hheap'"; first iFrame.
+            iNext.
+            rewrite type_interp_eq; iEval (cbn).
+            iExists (SMEMTYPE (areps_size ιs) ξ).
+            iSplitR; first (iPureIntro; exact Htypeskind_ser).
+            iSplitR; first (iPureIntro; split; [rewrite flat_map_concat_map; lia | ]).
+            { rewrite flat_map_concat_map. apply forall_ptr_atom_to_word_ref_flag_interp. done. }
+            iExists os.
+            iSplitR; first (iPureIntro; rewrite flat_map_concat_map; done).
+            rewrite type_interp_eq.
+            iFrame.
+            eauto. }
+          iModIntro.
+          iExists ℓ, _, (flat_map serialize_atom os).
+          iSplitR; first done.
+          iFrame "#".
+      * iModIntro.
+        rewrite atoms_interp_cons.
+        iSplitL; last (cbn; done).
+        cbn.
+        iExists (tag_address MemGC ar), ar32.
+        iSplitR; first (iPureIntro; exact Harrep).
+        iSplitR; first done.
+        iExists (RootHeap MemGC ar).
+        iSplitR; first (iPureIntro; exact Hreprroot).
+        cbn.
+        iExact "Haroot".
     }
 
-  Admitted.
+  Qed.
 
 End new.
