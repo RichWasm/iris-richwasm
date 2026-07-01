@@ -98,10 +98,10 @@ Section function.
     apply bind_inr in Hcf.
     destruct Hcf as (fe & Hfe & Hcf).
     apply bind_inr in Hcf.
+    destruct Hcf as (ιs & Hevrep & Hcf).
+    apply bind_inr in Hcf.
     destruct Hcf as (res & Hcg & Hcf).
     destruct res as [[[[] wt_es] wl_es] es].
-    apply bind_inr in Hcf.
-    destruct Hcf as (ιs & Hevrep & Hcf).
     inversion Hcf; subst; clear Hcf.
     cbn.
 
@@ -370,6 +370,20 @@ Section function.
     by destruct se as [[[? ?] ?] ?].
   Qed.
 
+  Lemma senv_insert_id_l' se' se :
+    senv_mems se' = [] →
+    senv_reps se' = [] →
+    senv_sizes se' = [] →
+    senv_types se' = [] →
+    senv_insert_all se' se = se.
+  Proof.
+    intros Hm Hr Hs Ht.
+    destruct se' as [[[? ?] ?] ?].
+    cbn in *.
+    subst.
+    apply senv_insert_id_l.
+  Qed.
+
   Definition flat_fn_mem_interp (ϕ : flat_function_type) (e : mem_env) : Prop :=
     ϕ.(fft_mem_vars) = length e.
 
@@ -392,27 +406,27 @@ Section function.
     eval_kind se κ = Some sκ →
     skind_has_stype sκ_T T →
     subskind_of sκ_T sκ →
-    sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ_T T se).
+    sem_env_interp (F <| fc_type_vars ::= app [κ] |>) (senv_insert_type sκ_T T se).
   Proof.
   Admitted.
 
-  Definition flat_closure_interp_wk (ϕ: flat_function_type) (se_l se_r : semantic_env) (cl : function_closure) : iProp Σ :=
-    let ts1 := ϕ.(fft_in) in
-    let ts2 := ϕ.(fft_out) in
-    let Ts1 := map (type_interp rti sr) ts1 in
-    let Ts2 := map (type_interp rti sr) ts2 in
-     □ ∀ se',
-      let se_all := senv_insert_all se_l (senv_insert_all se' se_r) in
+  Definition flat_closure_interp_wk (ϕ: flat_function_type) (se_r : semantic_env) (cl : function_closure) (FT : semantic_env -n> ClR) : iProp Σ :=
+    □ ∀ se',
+      let se_all := senv_insert_all se' se_r in
       ⌜flat_fn_interp ϕ se'⌝ -∗
       ∀ sks,
         ⌜mapM (eval_kind se_all) ϕ.(fft_type_vars) = Some sks⌝ -∗
         ⌜Forall2 (λ sk '(sk_T, T), subskind_of sk_T sk ∧
                                    skind_has_stype sk_T T)
                  sks (senv_types se')⌝ -∗
-        mono_closure_interp rti sr ts1 ts2 Ts1 Ts2 se_all cl.
+        FT se_all cl.
 
   Definition flat_closure_interp (ϕ: flat_function_type) (se : semantic_env) (cl : function_closure) : iProp Σ :=
-    flat_closure_interp_wk ϕ senv_empty se cl.
+    let ts1 := ϕ.(fft_in) in
+    let ts2 := ϕ.(fft_out) in
+    let Ts1 := map (type_interp rti sr) ts1 in
+    let Ts2 := map (type_interp rti sr) ts2 in
+    flat_closure_interp_wk ϕ se cl (mono_closure_interp rti sr ts1 ts2 Ts1 Ts2).
 
   Lemma type_inserts_swap se' sκ_T T se :
     (senv_insert_all (senv_insert_all se' (senv_insert_type sκ_T T senv_empty)) se) =
@@ -433,37 +447,6 @@ Section function.
     by destruct (flatten_inner_function_type ϕ) as [m r s t i o] eqn:Hfft.
   Qed.
 
-  (*
-  Lemma flat_closure_interp_shift_type ϕ κ sκ sκ_T T se cl :
-    eval_kind se κ = Some sκ →
-    skind_has_stype sκ_T T →
-    subskind_of sκ_T sκ →
-    flat_closure_interp (flatten_function_type (ForallTypeT κ ϕ)) se cl -∗
-    flat_closure_interp (flatten_function_type ϕ) (senv_insert_type sκ_T T se) cl.
-  Proof.
-    intros * Hev Hsk Hsub.
-    iIntros "#Hsub".
-    iIntros "!> %se' %Hse' %sks %Hevs %Hsubs".
-    do_ffts.
-    iSpecialize ("Hsub" $! (senv_insert_type sκ_T T se') with "[] []").
-    - iPureIntro.
-      cbn.
-      admit. (* doesn't touch the type env *)
-    - iPureIntro.
-      rewrite fft_tys_forall.
-      rewrite path.option_mapM_cons.
-      (* These are true because eval_kind is insensitive to order and type insertions. *)
-      replace (eval_kind (senv_insert_all (senv_insert_type sκ_T T se') se) κ)
-        with (Some sκ); last admit.
-      replace (eval_kind (senv_insert_all (senv_insert_type sκ_T T se') se) κ)
-        with (Some sκ); last admit. (* weakening for eval_kind in se argument *)
-      rewrite Hevs.
-      cbn -[mono_closure_interp].
-      done.
-    - (* Looks untrue here. *)
-      admit.
-  Qed.
-*)
   Inductive quant :=
   | QMem
   | QRep
@@ -475,13 +458,66 @@ Section function.
   Inductive qfun_ty :=
   | QFun (qs : list quant) (iqs : list iquant) (ins : list type) (outs : list type).
 
-  Inductive interp_disc_qs (se : semantic_env (Σ := Σ)) (q : quant) : semantic_env → Prop :=
-  | QIMem μ :
-    interp_disc_qs se q (senv_insert_mem μ se)
-  | QIRep ιs :
-    interp_disc_qs se q (senv_insert_rep ιs se)
-  | QISize n :
-    interp_disc_qs se q (senv_insert_size n se).
+  Fixpoint get_tys (ft : Core.inner_function_type) : list type * list type :=
+    match ft with
+    | ForallTypeT _ ft => get_tys ft
+    | MonoFunT τs1 τs2 => (τs1, τs2)
+    end.
+
+  Fixpoint get_inner (ft : Core.function_type) : inner_function_type :=
+    match ft with
+    | InnerFunT ft => ft
+    | ForallMemT ft
+    | ForallRepT ft
+    | ForallSizeT ft => get_inner ft
+    end.
+
+  Fixpoint istrip (ft : Core.inner_function_type) : list iquant :=
+    match ft with
+    | ForallTypeT κ ft => QType κ :: istrip ft
+    | MonoFunT _ _ => []
+    end.
+
+  Fixpoint strip (ft : Core.function_type) : list quant :=
+    match ft with
+    | InnerFunT ft => []
+    | ForallMemT ft => QMem :: strip ft
+    | ForallRepT ft => QRep :: strip ft
+    | ForallSizeT ft => QSize :: strip ft
+    end.
+
+  Definition qfun_of_fun (ft : Core.function_type) : qfun_ty :=
+    let ift := get_inner ft in
+    let '(τs1, τs2) := get_tys ift in
+    let qs := strip ft in
+    let iqs := istrip ift in
+    QFun qs iqs τs1 τs2.
+
+  Definition quantify1 (q : quant) : Core.function_type → Core.function_type :=
+    match q with
+    | QMem => ForallMemT
+    | QRep => ForallRepT
+    | QSize => ForallSizeT
+    end.
+
+  Definition quantify (qs : list quant) (ft : Core.function_type) : Core.function_type :=
+    fold_right quantify1 ft qs.
+
+  Definition iquantify1 (q : iquant) : Core.inner_function_type → Core.inner_function_type :=
+    let '(QType κ) := q in
+    ForallTypeT κ.
+
+  Definition iquantify (qs : list iquant) (ft : inner_function_type) : inner_function_type :=
+    fold_right iquantify1 ft qs.
+
+  Definition fun_of_qfun (qfun : qfun_ty) : Core.function_type :=
+    let '(QFun qs iqs τs1 τs2) := qfun in
+    quantify qs (InnerFunT (iquantify iqs (MonoFunT τs1 τs2))).
+
+  Lemma qfun_iso1 (ft : Core.function_type) :
+     fun_of_qfun (qfun_of_fun ft) = ft.
+  Proof.
+  Admitted.
 
   Definition add_quant (q : quant) (F : function_ctx) : function_ctx :=
     match q with
@@ -495,134 +531,177 @@ Section function.
 
   Definition add_iquant (q : iquant) (F : function_ctx) : function_ctx :=
     match q with
-    | QType κ => F <| fc_type_vars ::= app [κ] |>
+    | QType κ => F <| fc_type_vars ::= λ x, app x [κ] |>
     end.
 
   Definition flatten_iquants (qs : list iquant) (F : function_ctx) : function_ctx :=
     fold_right add_iquant F qs.
 
   Definition flatten_qs (qs : list quant) (iqs : list iquant) (F : function_ctx) : function_ctx :=
-    (flatten_quants qs (flatten_iquants iqs F)).
+    flatten_quants qs (flatten_iquants iqs F).
 
-  Lemma flatten_closure_interp F ϕ cl se :
-    ⌜function_type_ok F ϕ⌝ -∗
-    ⌜sem_env_interp F se⌝ -∗
-    flat_closure_interp (flatten_function_type ϕ) se cl -∗
-    closure_interp rti sr ϕ se cl.
+  Definition flatten_qfun (ft : qfun_ty) (F : function_ctx):=
+    let '(QFun qs iqs _ _) := ft in
+    flatten_qs qs iqs F.
+
+  Definition quantify1_interp (q : quant) : (semantic_env (Σ := Σ) -n> ClR) -n> (semantic_env -n> ClR) :=
+    match q with
+    | QMem => forall_mem_interp
+    | QRep => forall_rep_interp
+    | QSize => forall_size_interp
+    end.
+
+  Definition quantify_interp (qs : list quant) (FT : semantic_env (Σ := Σ) -n> ClR) : semantic_env -n> ClR :=
+    fold_right quantify1_interp FT qs.
+
+  Definition iquantify1_interp (q : iquant) :=
+    match q with
+    | QType κ => forall_type_interp rti sr κ
+    end.
+
+  Definition iquantify_interp (qs : list iquant) (FT : semantic_env (Σ := Σ) -n> ClR) : semantic_env -n> ClR :=
+    fold_right iquantify1_interp FT qs.
+
+  Definition qclosure_interp (ft : qfun_ty) :=
+    let '(QFun qs iqs τs1 τs2) := ft in
+    let Ts1 := map (type_interp rti sr) τs1 in
+    let Ts2 := map (type_interp rti sr) τs2 in
+    quantify_interp qs (iquantify_interp iqs (mono_closure_interp rti sr τs1 τs2 Ts1 Ts2)).
+
+  Lemma iquantify_interp_ok iqs ts1 ts2 se cl :
+    let Ts1 := map (type_interp rti sr) ts1 in
+    let Ts2 := map (type_interp rti sr) ts2 in
+    iquantify_interp iqs (mono_closure_interp rti sr ts1 ts2 Ts1 Ts2) se cl
+    ⊣⊢ inner_closure_interp rti sr (iquantify iqs (MonoFunT ts1 ts2)) se cl.
   Proof.
-    revert se cl F.
-    unfold flat_closure_interp.
-    generalize (senv_empty (Σ := Σ)) as se_f.
-    set (P := λ _ : type, True).
-    set (Q := λ ϕ, ∀ se_f se cl F,
-           ⌜inner_function_type_ok F ϕ⌝ -∗
-           ⌜sem_env_interp F se⌝ -∗
-           flat_closure_interp (flatten_inner_function_type ϕ) se_f cl -∗
-           inner_closure_interp rti sr ϕ se cl).
-    set (R := λ ϕ, ∀ se_f se cl F,
-           ⌜function_type_ok F ϕ⌝ -∗
-           ⌜sem_env_interp F se⌝ -∗
-           flat_closure_interp (flatten_function_type ϕ) se_f cl -∗
-           closure_interp rti sr ϕ se cl).
-    eapply syntax.function_type_ind with (Pi := Q) (P := P); unfold P, Q; try done.
-    - intros * _ _ *.
-      iIntros "%Hok %Hse #Hflat".
-      setoid_rewrite inner_closure_interp_eq.
-      unfold flat_closure_interp, flat_closure_interp_wk, inner_closure_interp'.
-      cbn [flatten_inner_function_type fft_in fft_out fft_type_vars].
-      iSpecialize ("Hflat" $! senv_empty with "[//]").
-      iEval (repeat rewrite senv_insert_id_l) in "Hflat".
-      iEval (do_ffts) in "Hflat".
-      cbn.
+    intros Ts1 Ts2.
+    setoid_rewrite inner_closure_interp_eq.
+    revert se.
+    induction iqs as [| [κ] iqs ]; first done.
+    intros.
+    cbn.
+    setoid_rewrite IHiqs.
+    setoid_rewrite inner_closure_interp_eq.
+    reflexivity.
+  Qed.
+
+  Lemma qclosure_interp_ok_aux qs iqs ts1 ts2 se cl :
+    let Ts1 := map (type_interp rti sr) ts1 in
+    let Ts2 := map (type_interp rti sr) ts2 in
+    quantify_interp qs (iquantify_interp iqs (mono_closure_interp rti sr ts1 ts2 Ts1 Ts2)) se cl
+    ⊣⊢ closure_interp rti sr (quantify qs (InnerFunT (iquantify iqs (MonoFunT ts1 ts2)))) se cl.
+  Proof.
+    intros Ts1 Ts2.
+    setoid_rewrite closure_interp_eq.
+    revert se.
+    induction qs as [| [ | | ] qs ].
+    - cbn.
+      intros se.
+      rewrite iquantify_interp_ok inner_closure_interp_eq.
+      done.
+    - intros se; cbn;
+      setoid_rewrite IHqs;
+      by setoid_rewrite closure_interp_eq.
+    - intros se; cbn;
+      setoid_rewrite IHqs;
+      by setoid_rewrite closure_interp_eq.
+    - intros se; cbn;
+      setoid_rewrite IHqs;
+      by setoid_rewrite closure_interp_eq.
+  Qed.
+
+  Lemma qclosure_interp_ok qf se cl :
+    qclosure_interp qf se cl ⊣⊢ closure_interp rti sr (fun_of_qfun qf) se cl.
+  Proof.
+    destruct qf as [qs iqs ts1 ts2].
+    cbn.
+    by rewrite qclosure_interp_ok_aux.
+  Qed.
+
+  Definition flat_q (q : quant) (ff : flat_function_type) : flat_function_type :=
+    match q with
+    | QMem => ff <| fft_mem_vars ::= S |>
+    | QRep => ff <| fft_rep_vars ::= S |>
+    | QSize => ff <| fft_size_vars ::= S|>
+    end.
+
+  Fixpoint flat_qs (qs : list quant) (ff : flat_function_type) : flat_function_type :=
+    fold_right flat_q ff qs.
+
+  Definition flat_iq (q : iquant) (ff : flat_function_type) : flat_function_type :=
+    let 'QType k := q in
+    ff <| fft_type_vars ::= app [k] |>.
+
+  Fixpoint flat_iqs (qs : list iquant) (ff : flat_function_type) : flat_function_type :=
+    fold_right flat_iq ff qs.
+
+  Definition flat_mono ts1 ts2 :=
+    {| fft_mem_vars := 0;
+       fft_rep_vars := 0;
+       fft_size_vars := 0;
+       fft_type_vars := [];
+       fft_in := ts1;
+       fft_out := ts2 |}.
+
+  Definition flat_qfun '(QFun qs iqs ts1 ts2 : qfun_ty) : flat_function_type :=
+    flat_qs qs (flat_iqs iqs (flat_mono ts1 ts2)).
+
+  Lemma flatten_iquantify iqs ts1 ts2 :
+    flatten_inner_function_type (iquantify iqs (MonoFunT ts1 ts2)) = flat_iqs iqs (flat_mono ts1 ts2).
+  Proof.
   Admitted.
 
+  Lemma flatten_quantify qs ϕ :
+    flatten_function_type (quantify qs (InnerFunT ϕ)) = flat_qs qs (flatten_inner_function_type ϕ).
+  Admitted.
+
+  Lemma flat_qfun_is_flatten ϕ :
+    flatten_function_type (fun_of_qfun ϕ) = flat_qfun ϕ.
+  Proof.
+    destruct ϕ.
+    cbn.
+    by rewrite -flatten_iquantify -flatten_quantify.
+  Qed.
+
+  Lemma flat_iqs_clos iqs ts1 ts2 cl se FT :
+    let Ts1 := map (type_interp rti sr) ts1 in
+    let Ts2 := map (type_interp rti sr) ts2 in
+    flat_closure_interp_wk (flat_iqs iqs (flat_mono ts1 ts2)) se cl FT -∗
+    iquantify_interp iqs FT se cl.
+  Proof.
+    intros Ts1 Ts2.
+    unfold flat_closure_interp, flat_closure_interp_wk, iquantify_interp.
+    revert se FT.
+    induction iqs using rev_ind; intros *.
+    - cbn [flat_iqs foldr flat_mono fft_in fft_out].
+      iIntros "#Hok".
+      iSpecialize ("Hok" $! senv_empty).
+      replace (senv_insert_all senv_empty se)
+        with (se) by admit.
+      by iApply "Hok".
+    - destruct x as [k].
+      iIntros "#Hok".
+      rewrite foldr_snoc.
+      iApply IHiqs.
+      iIntros "!> %se' %Hflat %sks %Hev %Hall".
+      iIntros "!> %sk %sk_T %T %Hev' %Hsub' %Hty".
+      iSpecialize ("Hok" $! (senv_insert_type sk_T T se')).
+      replace (senv_insert_all (senv_insert_type sk_T T se') se)
+      with (senv_insert_type sk_T T (senv_insert_all se' se)) by admit.
+      iApply "Hok".
+      + admit.
+      + admit.
+  Admitted.
 
   (*
-  Theorem fund_function_type κ ϕ M wt wt' wtf mf mf' :
-    has_inner_function_type M mf (ForallTypeT κ ϕ) →
-    compile_function wt mf = inr (wt', mf') →
-    ⊢ has_func_type_sem rti sr module.mr M (wt ++ wt' ++ wtf) mf' (InnerFunT (ForallTypeT κ ϕ)).
+  Print sem_env_interp.
+  Definition sem_env_qs_interp (qs : list quant) se : Prop := *)
+
+  Lemma flat_qclos ϕ cl :
+    flat_closure_interp (flat_qfun ϕ) senv_empty cl -∗
+    qclosure_interp ϕ senv_empty cl.
   Proof.
-    iIntros (Hϕ Hcf ?? Htf) "#Hinst".
-
-    (* Open up the typing judgment *)
-    inversion Hϕ as [M0 mf0 ηss_L ηss_P ρs L' ϕ0 K F L ψ HevL Hreps HevP Hflags Hbody HeqM0 Heqmf Heqty].
-    subst M0 mf0 ϕ0 ψ K.
-    remember L as L0 eqn:HL.
-    remember F as F0 eqn:HF.
-    subst F L.
-    rename F0 into F, L0 into L.
-    rewrite -> Heqty in *.
-    do_ffts.
-
-    (* Open up the compiler *)
-    apply bind_inr in Hcf.
-    destruct Hcf as (ft & Hft & Hcf).
-    destruct (insert_type wt ft) as [wt'' tid] eqn:Htid.
-    apply bind_inr in Hcf.
-    destruct Hcf as (fe & Hfe & Hcf).
-    apply bind_inr in Hcf.
-    destruct Hcf as (res & Hcg & Hcf).
-    destruct res as [[[[] wt_es] wl_es] es].
-    apply bind_inr in Hcf.
-    destruct Hcf as (ιs & Hevrep & Hcf).
-    remember (flat_map (map translate_arep) ιs ++ wl_es) as ls.
-    inversion Hcf; subst wt' mf'.
-    cbn [modfunc_locals modfunc_body] in *.
-    cbn in HF.
-
-    rewrite Heqty in Hft.
-    apply try_opt_inr in Hft.
-    cbn in Hft.
-
-
-    (* Inspect closure_interp *)
-    rewrite closure_interp_eq.
-    cbn.
-    (* TODO This might be missing from has_function_type. I don't think it asserts function_type_ok. *)
-    assert (kind_ok kc_empty κ) as Hok.
-    {
-      admit. }
-    assert (∃ sk, eval_kind (senv_empty (Σ := Σ)) κ = Some sk) as (sk & Hsk).
-    {
-      eapply eval_kind_ok_Some.
-      - apply sem_env_interp_empty.
-      - done.
-    }
-    iExists sk; iSplit; first done.
-    iIntros "!> %sk_T %T %Hsub %HT".
-    pose (se := senv_insert_type sk_T T senv_empty).
-
-    (* Show the function env matches what F says *)
-    assert (fe_of_context F = fe).
-    {
-      revert Hfe; intros Hfe.
-      unfold fe_of_context; cbn.
-      apply try_opt_inr in Hfe.
-      apply bind_Some in Hfe.
-      destruct Hfe as (ρs_fe & Hρs & Hfe).
-      apply bind_Some in Hfe.
-      destruct Hfe as (ηss_P' & HηP' & Hfe).
-      apply bind_Some in Hfe.
-      destruct Hfe as (ηss_L' & HηL' & Hfe).
-      inversion Hfe.
-      rewrite HF Heqty; cbn.
-      assert (ρs_fe = ρs). { admit. }
-      subst ρs_fe.
-      f_equal.
-      rewrite HevL in HηL'.
-      rewrite HevP in HηP'.
-      congruence.
-    }
-    subst fe.
-
-    eapply (fundamental_typing rti sr) in Hbody; last eauto.
-    instantiate (2 := wtf) in Hbody.
-    instantiate (1 := []) in Hbody.
-    clear_nils.
-    unfold have_instr_type_sem in Hbody.
   Admitted.
-*)
 
   Theorem fundamental_function ϕ : ∀ M wt wt' wtf mf mf',
     has_function_type M mf ϕ ->
@@ -632,6 +711,59 @@ Section function.
     (* TODO: By induction on ϕ, build up an se such that sem_env_interp F se.
              Then use the fundamental theorem for instruction typing to show that the body of the
              function is well-behaved. *)
+    unfold compile_function.
+    intros * Hty Hcf.
+
+    eapply bind_inr in Hcf.
+    destruct Hcf as (ft & Hft & Hcf).
+    destruct (insert_type wt ft) as [wt_tid tid] eqn:Hadd_ty.
+    eapply bind_inr in Hcf.
+    destruct Hcf as (fe & Hfe & Hcf).
+    eapply bind_inr in Hcf.
+    destruct Hcf as (ιs & Hevrep & Hcf).
+    eapply bind_inr in Hcf.
+    destruct Hcf as ([[[[] ft'] wl''] body] & Hcg & Hret).
+    inversion Hret; subst; clear Hret.
+
+    inversion Hty; subst.
+
+    assert (fe = fe_of_context F).
+    {
+      (* annoying, might want to change some definitions here. *)
+      admit.
+    }
+    subst fe.
+    eapply fundamental_typing with (rti := rti) (sr := sr) (wtf := wtf) in H3; eauto.
+    unfold has_func_type_sem.
+    iIntros (inst tf Hinst) "Hinst".
+    cbn.
+    subst ϕ1 ϕ0.
+    remember (mf_type mf) as ϕ in *.
+    iAssert (flat_closure_interp (flatten_function_type ϕ) senv_empty (FC_func_native inst tf (flat_map (map translate_arep) ιs ++ wl'') body)) as "U".
+    {
+      unfold flat_closure_interp, flat_closure_interp_wk.
+      iIntros "!> %se' %Hflat %sks %Hevk %Hall".
+      unfold mono_closure_interp.
+      destruct tf as [ts1 ts2].
+      cbn -[atoms_interp type_interp translate_types].
+      iSplit.
+      { admit. }
+      iSplit.
+      { admit. }
+      iIntros "!> !> %vs1 %os1 %θ Hats Hoss Htok Hinv Hf Hr".
+      unfold have_instr_type_sem in H3.
+      change body with ([] ++ body).
+      iApply cwp_wand.
+      { iApply H3; admit. }
+      admit.
+    }
+    assert (ηss_L = map (map arep_to_prim) ιs) by admit.
+    set (wta := (wt ++ (option_list wt_tid ++ ft') ++ wtf)) in *.
+    clear_nils.
+    rewrite <- (qfun_iso1 ϕ).
+    iApply qclosure_interp_ok.
+    rewrite flat_qfun_is_flatten.
+    by iApply flat_qclos.
   Admitted.
 
 End function.

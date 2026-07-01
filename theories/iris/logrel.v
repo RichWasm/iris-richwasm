@@ -1243,7 +1243,7 @@ Section instr.
 
   Definition type_ctx_interp (κs : list kind) (se : semantic_env) : Prop :=
     Forall2
-      (fun κ '(sκ, T) => eval_kind se κ = Some sκ /\ skind_has_stype sκ T)
+      (fun κ sκT => eval_kind se κ = Some sκT.1 /\ skind_has_stype sκT.1 sκT.2)
       κs
       (senv_types se).
 
