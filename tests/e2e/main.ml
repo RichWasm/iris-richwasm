@@ -7,13 +7,12 @@ open Richwasm_support
 open Support.Testing
 module EndToEnd = Run_rw.EndToEnd
 
-module type SurfaceLang = Run_rw.EndToEnd.SurfaceLang
+module type SurfaceLang = EndToEnd.SurfaceLang
 
 module LL : SurfaceLang = struct
   module CompilerError = Richwasm_lin_lang.Main.CompileErr
 
-  let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) =
-    ignore info;
+  let compile_to_richwasm ?info:_ ~(asprintf : EndToEnd.asprintf) =
     Richwasm_lin_lang.Main.compile_str
       ~asprintf:{ asprintf = asprintf.asprintf }
 end
@@ -21,8 +20,7 @@ end
 module MM : SurfaceLang = struct
   module CompilerError = Richwasm_mini_ml.Main.CompileErr
 
-  let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) =
-    ignore info;
+  let compile_to_richwasm ?info:_ ~(asprintf : EndToEnd.asprintf) =
     Richwasm_mini_ml.Main.compile_str ~asprintf:{ asprintf = asprintf.asprintf }
 end
 
@@ -38,8 +36,7 @@ module RW : SurfaceLang = struct
 
   module M = LogResultM (CompilerError) (String)
 
-  let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) s =
-    ignore info;
+  let compile_to_richwasm ?info:_ ~(asprintf : EndToEnd.asprintf) s =
     let open M in
     let log_pp (type a) name (pp : formatter -> a -> unit) (x : a) : unit t =
       let len = String.length name in
@@ -63,6 +60,68 @@ module RW : SurfaceLang = struct
     let+ () = log_pp "parse" Richwasm_common.Syntax.Module.pp syntax in
     syntax
 end
+
+module Linked (Front : sig
+  val fronts : (module SurfaceLang) list
+end) : SurfaceLang = struct
+  module CompilerError = struct
+    type t = {
+      label : string;
+      sexp : Sexp.t;
+      render : formatter -> unit;
+    }
+
+    let sexp_of_t { label; sexp; _ } = Sexp.List [ Atom label; sexp ]
+    let pp ff { label; render; _ } = fprintf ff "%s:@ %t" label render
+  end
+
+  module M = LogResultM (CompilerError) (String)
+
+  (* NOTE: keys match the "m1"/"m2"/... prefixes Make2/Make3 thread through [info] *)
+  let table = List.mapi Front.fronts ~f:(fun i m -> (sprintf "m%d" (i + 1), m))
+
+  let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) src =
+    let open M in
+    match
+      Option.bind info ~f:(fun key ->
+          List.Assoc.find table key ~equal:String.equal
+          |> Option.map ~f:(fun m -> (key, m)))
+    with
+    | Some (label, m) ->
+        let module F = (val m : SurfaceLang) in
+        F.compile_to_richwasm ~asprintf src
+        |> map_error_into (fun e ->
+            {
+              CompilerError.label;
+              sexp = F.CompilerError.sexp_of_t e;
+              render = (fun ff -> F.CompilerError.pp ff e);
+            })
+    | None ->
+        fail
+          {
+            CompilerError.label = "bad-info";
+            sexp = [%sexp_of: string option] info;
+            render =
+              (fun ff ->
+                fprintf ff "no front-end for info %a"
+                  (pp_print_option pp_print_string)
+                  info);
+          }
+end
+
+module RW_MM = Linked (struct
+  let fronts : (module SurfaceLang) list = [ (module RW); (module MM) ]
+end)
+
+module LL_RW_MM = Linked (struct
+  let fronts : (module SurfaceLang) list =
+    [ (module LL); (module RW); (module MM) ]
+end)
+
+module MM_RW_LL = Linked (struct
+  let fronts : (module SurfaceLang) list =
+    [ (module MM); (module RW); (module LL) ]
+end)
 
 let color_asprintf_term_width
     (type a)
@@ -128,10 +187,8 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
              logs)
   in
 
-  let simple_mapper
-      (module S : Run_rw.EndToEnd.SurfaceLang)
-      (name, src, expected) =
-    let module Single = Run_rw.EndToEnd.Make1 (S) (SingleRW) in
+  let simple_mapper (module S : SurfaceLang) (name, src, expected) =
+    let module Single = EndToEnd.Make1 (S) (SingleRW) in
     test_case name `Quick (fun () ->
         let result, logs = Single.run ~asprintf src |> Single.M.run in
         check_result expected Single.E2Err.pp logs result)
@@ -173,49 +230,7 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
       ( "interop-glue",
         [
           test_case "numeric interop (ll -> ml)" `Quick (fun () ->
-              let module Err = struct
-                type t =
-                  | Module1 of LL.CompilerError.t
-                  | Module2 of RW.CompilerError.t
-                  | Module3 of MM.CompilerError.t
-                  | BadInfo of String.t Option.t
-                [@@deriving sexp_of, variants]
-
-                let pp ff = function
-                  | Module1 err ->
-                      fprintf ff "Module1: %a" LL.CompilerError.pp err
-                  | Module2 err ->
-                      fprintf ff "Module2: %a" RW.CompilerError.pp err
-                  | Module3 err ->
-                      fprintf ff "Module3: %a" MM.CompilerError.pp err
-                  | BadInfo err ->
-                      fprintf ff "BadInfo: %a"
-                        (pp_print_option pp_print_string)
-                        err
-              end in
-              let module SL : SurfaceLang = struct
-                module CompilerError = Err
-
-                let compile_to_richwasm
-                    ?info
-                    ~(asprintf : EndToEnd.asprintf)
-                    src =
-                  let module M = LogResultM (CompilerError) (String) in
-                  let open M in
-                  match info with
-                  | Some "m1" ->
-                      LL.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module1
-                  | Some "m2" ->
-                      RW.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module2
-                  | Some "m3" ->
-                      MM.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module3
-                  | _ -> fail (CompilerError.badinfo info)
-              end
-              in
-              let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
+              let module Triple = EndToEnd.Make3 (LL_RW_MM) (TripleRW) in
               let module1 =
                 (* lin-lang *)
                 {|
@@ -269,54 +284,12 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                   module2 module3
                 |> Triple.M.run
               in
-              (* add1 1 = 2; the result is an i31, whose raw wasm value is the
-                 tagged form 2 * 2 = 4 *)
+              (* add1 5 = 6. Make3 runs without RW_START_TYPE, so the i31
+                 result prints raw (doubled): 6 -> 12. *)
               check_result "12" Triple.E2Err.pp logs result);
           (* --------------------------------------------------- *)
           test_case "numeric interop (ml -> ll)" `Quick (fun () ->
-              let module Err = struct
-                type t =
-                  | Module1 of MM.CompilerError.t
-                  | Module2 of RW.CompilerError.t
-                  | Module3 of LL.CompilerError.t
-                  | BadInfo of String.t Option.t
-                [@@deriving sexp_of, variants]
-
-                let pp ff = function
-                  | Module1 err ->
-                      fprintf ff "Module1: %a" MM.CompilerError.pp err
-                  | Module2 err ->
-                      fprintf ff "Module2: %a" RW.CompilerError.pp err
-                  | Module3 err ->
-                      fprintf ff "Module3: %a" LL.CompilerError.pp err
-                  | BadInfo err ->
-                      fprintf ff "BadInfo: %a"
-                        (pp_print_option pp_print_string)
-                        err
-              end in
-              let module SL : SurfaceLang = struct
-                module CompilerError = Err
-
-                let compile_to_richwasm
-                    ?info
-                    ~(asprintf : EndToEnd.asprintf)
-                    src =
-                  let module M = LogResultM (CompilerError) (String) in
-                  let open M in
-                  match info with
-                  | Some "m1" ->
-                      MM.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module1
-                  | Some "m2" ->
-                      RW.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module2
-                  | Some "m3" ->
-                      LL.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module3
-                  | _ -> fail (CompilerError.badinfo info)
-              end
-              in
-              let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
+              let module Triple = EndToEnd.Make3 (MM_RW_LL) (TripleRW) in
               let module1 =
                 (* mini-ml *)
                 {|
@@ -375,43 +348,7 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
               check_result "7" Triple.E2Err.pp logs result);
           (* --------------------------------------------------- *)
           test_case "lin ref interop (rw -> ml)" `Quick (fun () ->
-              let module Err = struct
-                type t =
-                  | Module1 of RW.CompilerError.t
-                  | Module2 of MM.CompilerError.t
-                  | BadInfo of String.t Option.t
-                [@@deriving sexp_of, variants]
-
-                let pp ff = function
-                  | Module1 err ->
-                      fprintf ff "Module1: %a" RW.CompilerError.pp err
-                  | Module2 err ->
-                      fprintf ff "Module2: %a" MM.CompilerError.pp err
-                  | BadInfo err ->
-                      fprintf ff "BadInfo: %a"
-                        (pp_print_option pp_print_string)
-                        err
-              end in
-              let module SL : SurfaceLang = struct
-                module CompilerError = Err
-
-                let compile_to_richwasm
-                    ?info
-                    ~(asprintf : EndToEnd.asprintf)
-                    src =
-                  let module M = LogResultM (CompilerError) (String) in
-                  let open M in
-                  match info with
-                  | Some "m1" ->
-                      RW.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module1
-                  | Some "m2" ->
-                      MM.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module2
-                  | _ -> fail (CompilerError.badinfo info)
-              end
-              in
-              let module Double = Run_rw.EndToEnd.Make2 (SL) (DoubleRW) in
+              let module Double = EndToEnd.Make2 (RW_MM) (DoubleRW) in
               let module1 =
                 (* rwasm: allocates the linear cell mini-ml will borrow.
                    mini-ml calls with its closure convention (two args: a unit
@@ -452,43 +389,7 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
               check_result "(tup# (ref 8) 3)" Double.E2Err.pp logs result);
           (* --------------------------------------------------- *)
           test_case "lin ref through boxed tuple (rw -> ml)" `Quick (fun () ->
-              let module Err = struct
-                type t =
-                  | Module1 of RW.CompilerError.t
-                  | Module2 of MM.CompilerError.t
-                  | BadInfo of String.t Option.t
-                [@@deriving sexp_of, variants]
-
-                let pp ff = function
-                  | Module1 err ->
-                      fprintf ff "Module1: %a" RW.CompilerError.pp err
-                  | Module2 err ->
-                      fprintf ff "Module2: %a" MM.CompilerError.pp err
-                  | BadInfo err ->
-                      fprintf ff "BadInfo: %a"
-                        (pp_print_option pp_print_string)
-                        err
-              end in
-              let module SL : SurfaceLang = struct
-                module CompilerError = Err
-
-                let compile_to_richwasm
-                    ?info
-                    ~(asprintf : EndToEnd.asprintf)
-                    src =
-                  let module M = LogResultM (CompilerError) (String) in
-                  let open M in
-                  match info with
-                  | Some "m1" ->
-                      RW.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module1
-                  | Some "m2" ->
-                      MM.compile_to_richwasm ~asprintf src
-                      |> map_error_into CompilerError.module2
-                  | _ -> fail (CompilerError.badinfo info)
-              end
-              in
-              let module Double = Run_rw.EndToEnd.Make2 (SL) (DoubleRW) in
+              let module Double = EndToEnd.Make2 (RW_MM) (DoubleRW) in
               let module1 =
                 (* rwasm: same linear-cell allocator as the test above. *)
                 {|
@@ -552,5 +453,86 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
               check_result "5" Double.E2Err.pp logs result;
               let result, logs = run via_assign in
               check_result "7" Double.E2Err.pp logs result);
+          (* --------------------------------------------------- *)
+          test_case "lin ref of unboxed pair (ll -> ml)" `Quick (fun () ->
+              let module Triple = EndToEnd.Make3 (LL_RW_MM) (TripleRW) in
+              let module1 =
+                (* lin-lang: allocate a linear cell holding an unboxed pair
+                   (lin-lang products are unboxed, refs are linear/MM), then
+                   weak-update it via swap. *)
+                {|
+                  (export fun mk (i : int) : (ref (prod int int)) .
+                    (let (r : (ref (prod int int))) = (new (i, 0)) in
+                     (split (r2 : (ref (prod int int))) (old : (prod int int)) = (swap r (i, (i + 1))) in
+                      r2)))
+                |}
+              in
+              let module2 =
+                (* rwasm glue: bridge lin-lang's (env, i32) call + i32-pair cell
+                   to mini-ml's (gc unit env, i31) call + i31-pair cell. The
+                   lin-lang cell is freed (load-move then drop) and a fresh
+                   mini-ml cell allocated with each component re-tagged. *)
+                {|
+                  ((imports
+                    ((FunctionType ()
+                      ((Prod ((Ref (Base MM) Mut (Ser (Prod ()))) (Num (Int I32)))))
+                      ((Ref (Base MM) Mut (Ser (Prod ((Num (Int I32)) (Num (Int I32))))))))))
+                   (functions
+                    (((typ
+                       (FunctionType ()
+                        ((Ref (Base GC) Imm (Struct ())) I31)
+                        ((Ref (Base MM) Mut (Ser (Prod (I31 I31)))))))
+                      (locals ((Prod ((Atom I32) (Atom I32))) (Atom Ptr)))
+                      (body
+                       ((LocalGet 0 Move)
+                        Drop
+                        (Group 0)
+                        (New MM Mut)
+                        (LocalGet 1 Move)
+                        Untag
+                        (Group 2)
+                        (Call 0 ())
+                        ;; free the lin-lang cell, taking its i32 pair
+                        (Load (Path ()) Move)
+                        (LocalSet 2)
+                        Drop
+                        (LocalGet 2 Move)
+                        ;; re-tag both components i32 -> i31
+                        Ungroup
+                        Tag
+                        (LocalSet 3)
+                        Tag
+                        (LocalGet 3 Move)
+                        (Group 2)
+                        (New MM Mut))))))
+                   (table ())
+                   (exports (((name mk_wrapped) (desc (Func 1))))))
+                |}
+              in
+              let module3 =
+                (* mini-ml: borrow the cell, read its unboxed pair, assign a
+                   fresh pair, read it back, return a value from both reads. The
+                   recovered ref leaks, which the affine model tolerates. *)
+                {|
+                  (import (mk : (() int -> (lin-ref (*# int int)))))
+
+                  (split# ((r : (lin-ref (*# int int))) (p : (*# int int)))
+                          (! (app mk () 4))
+                    (split# ((a : int) (b : int)) p
+                      (split# ((r2 : (lin-ref (*# int int))) (q : (*# int int)))
+                              (! (assign r (tup# (op + a b) (op * a b))))
+                        (split# ((c : int) (d : int)) q
+                          (op + (op + a b) (op + c d))))))
+                |}
+              in
+              let result, logs =
+                Triple.run3 ~asprintf ~links:("mk", "mk_wrapped") module1
+                  module2 module3
+                |> Triple.M.run
+              in
+              (* mk 4 = (4, 5); a+b = 9; assign (9, 20); read back c,d = 9,20;
+                 9 + (9 + 20) = 38. Make3 runs without RW_START_TYPE, so the i31
+                 result prints raw (doubled): 38 -> 76. *)
+              check_result "76" Triple.E2Err.pp logs result);
         ] );
     ]
