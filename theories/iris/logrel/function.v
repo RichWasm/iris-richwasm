@@ -464,23 +464,45 @@ Section function.
       admit.
   Qed.
 *)
-  Print Core.function_type.
-  Inductive quantifier :=
+  Inductive quant :=
   | QMem
   | QRep
-  | QSize
+  | QSize.
+
+  Inductive iquant :=
   | QType (κ : kind).
 
   Inductive qfun_ty :=
-  | QFun (qs : list quantifier) (ins : list type) (outs : list type).
+  | QFun (qs : list quant) (iqs : list iquant) (ins : list type) (outs : list type).
 
-  Inductive interp_disc_qs (se : semantic_env (Σ := Σ)) (q : quantifier) : semantic_env → Prop :=
+  Inductive interp_disc_qs (se : semantic_env (Σ := Σ)) (q : quant) : semantic_env → Prop :=
   | QIMem μ :
     interp_disc_qs se q (senv_insert_mem μ se)
   | QIRep ιs :
     interp_disc_qs se q (senv_insert_rep ιs se)
   | QISize n :
     interp_disc_qs se q (senv_insert_size n se).
+
+  Definition add_quant (q : quant) (F : function_ctx) : function_ctx :=
+    match q with
+    | QMem => F <| fc_kind_ctx ::= set kc_mem_vars S |>
+    | QRep => F <| fc_kind_ctx ::= set kc_rep_vars S |>
+    | QSize => F <| fc_kind_ctx ::= set kc_size_vars S |>
+    end.
+
+  Definition flatten_quants (qs : list quant) (F : function_ctx) : function_ctx :=
+    fold_right add_quant F qs.
+
+  Definition add_iquant (q : iquant) (F : function_ctx) : function_ctx :=
+    match q with
+    | QType κ => F <| fc_type_vars ::= app [κ] |>
+    end.
+
+  Definition flatten_iquants (qs : list iquant) (F : function_ctx) : function_ctx :=
+    fold_right add_iquant F qs.
+
+  Definition flatten_qs (qs : list quant) (iqs : list iquant) (F : function_ctx) : function_ctx :=
+    (flatten_quants qs (flatten_iquants iqs F)).
 
   Lemma flatten_closure_interp F ϕ cl se :
     ⌜function_type_ok F ϕ⌝ -∗
@@ -491,32 +513,27 @@ Section function.
     revert se cl F.
     unfold flat_closure_interp.
     generalize (senv_empty (Σ := Σ)) as se_f.
-    induction ϕ; iIntros (se_f se cl F Hft Hse) "Hflat".
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-      (*
-    - iIntros (se cl F Hft Hse) "#Hflat0".
-      iAssert (flat_closure_interp (flatten_function_type (ForallTypeT k ϕ)) se cl)
-        with "[Hflat0]" as "Hflat"; first done.
-      iClear "Hflat0".
-      inversion Hft; subst.
-      rewrite closure_interp_eq.
-      iEval (cbn).
-      iIntros "!> %sk %sk_T %T %Hev %Hsub %Hsk".
-      iApply (IHϕ with "[//] []").
-      {
-        iPureIntro.
-        eapply sem_env_interp_insert_type_weak; eauto.
-      }
-      assert kind as κ0 by admit.
-      assert kind as κ1 by admit.
-      Eval cbn in (flatten_function_type (ForallTypeT κ0 (ForallTypeT κ1 (MonoFunT [] [])))).
-
+    set (P := λ _ : type, True).
+    set (Q := λ ϕ, ∀ se_f se cl F,
+           ⌜inner_function_type_ok F ϕ⌝ -∗
+           ⌜sem_env_interp F se⌝ -∗
+           flat_closure_interp (flatten_inner_function_type ϕ) se_f cl -∗
+           inner_closure_interp rti sr ϕ se cl).
+    set (R := λ ϕ, ∀ se_f se cl F,
+           ⌜function_type_ok F ϕ⌝ -∗
+           ⌜sem_env_interp F se⌝ -∗
+           flat_closure_interp (flatten_function_type ϕ) se_f cl -∗
+           closure_interp rti sr ϕ se cl).
+    eapply syntax.function_type_ind with (Pi := Q) (P := P); unfold P, Q; try done.
+    - intros * _ _ *.
+      iIntros "%Hok %Hse #Hflat".
+      setoid_rewrite inner_closure_interp_eq.
+      unfold flat_closure_interp, flat_closure_interp_wk, inner_closure_interp'.
+      cbn [flatten_inner_function_type fft_in fft_out fft_type_vars].
+      iSpecialize ("Hflat" $! senv_empty with "[//]").
+      iEval (repeat rewrite senv_insert_id_l) in "Hflat".
+      iEval (do_ffts) in "Hflat".
       cbn.
-*)
-
   Admitted.
 
 
