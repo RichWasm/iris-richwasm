@@ -3031,14 +3031,17 @@ Admitted.
   Qed.
 
   Lemma closure_interp_scons_insert_mem F se μ ϕ cl :
+    let ϕ' := refresh_kinds_ft F
+                (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ) in
+    has_kind_ft F ϕ' ->
+    has_kind_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
     mem_ok F.(fc_kind_ctx) μ ->
     sem_env_interp F se ->
     (∀ μ', closure_interp rti sr ϕ (senv_insert_mem μ' se) cl) -∗
-    let ϕ' := refresh_kinds_ft F
-                (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ) in
     closure_interp rti sr ϕ' se cl.
   Proof using mr. (* NOTE: don't know why rocq wants using mr *)
-    iIntros (Hok Hse) "Hcl".
+    intros ϕ' Hkind_ϕ' Hkind_ϕ Hok Hse.
+    iIntros "Hcl".
     pose proof (sem_well_formed_from_interp _ _ Hse) as Hsegood.
     assert (Hse': ∀ μ', sem_env_types_well_formed (senv_insert_mem μ' se)). {
       intros. cbn. unfold sem_env_types_well_formed in *.
@@ -3061,8 +3064,7 @@ Admitted.
     iApply closure_interp_subst_senv_eq; unfold_sem_rels; last done; try done.
 
     Unshelve.
-    7: exact b.
-    6: exact (F <| fc_kind_ctx ::= set kc_mem_vars S |>).
+    4: exact b.
 
     (* RE:Hsub_T *)
     (* this is the location that's testing whether Hsub_T is weak enough *)
@@ -3092,9 +3094,7 @@ Admitted.
         change (b::se.1.1.1, se.1.1.2, se.1.2, se.2) with (senv_insert_mem b se).
         rewrite <- eval_kind_mem_irrel_eq.
         done.
-
-    (* note: two has_kind_ft's  *)
-  Admitted.
+  Qed.
 
   Lemma sem_env_insert_rep F se ιs :
     sem_env_interp (Σ:=Σ) F se ->
@@ -3120,13 +3120,16 @@ Admitted.
   Abort.
 
   Lemma closure_interp_scons_insert_rep F se ρ ϕ cl :
+    let ϕ' := refresh_kinds_ft F (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ) in
+    has_kind_ft F ϕ' ->
+    has_kind_ft (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ ->
     rep_ok (fc_kind_ctx F) ρ ->
     sem_env_interp F se ->
     (∀ ιs, closure_interp rti sr ϕ (senv_insert_rep ιs se) cl) -∗
-    let ϕ' := refresh_kinds_ft F (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ) in
     closure_interp rti sr ϕ' se cl.
   Proof using mr.
-    iIntros (Hok Hse) "Hcl".
+    intros ϕ' Hkind_ϕ' Hkind_ϕ Hok Hse.
+    iIntros "Hcl".
     pose proof (sem_well_formed_from_interp _ _ Hse) as Hsegood.
     assert (Hse': ∀ ιs', sem_env_types_well_formed (senv_insert_rep ιs' se)). {
       Transparent senv_insert_rep.
@@ -3136,8 +3139,6 @@ Admitted.
     destruct (eval_rep_ok_Some _ _ _ Hse Hok) as [ιs Hιs].
     iSpecialize ("Hcl" $! ιs).
     iApply closure_interp_subst_senv_eq; unfold_sem_rels; last done; try done.
-    Unshelve.
-    6: exact (F <| fc_kind_ctx ::= set kc_rep_vars S |>).
     3: {
       intros; cbn.
       apply hsub_t_base_se_VarT; done.
@@ -3161,17 +3162,19 @@ Admitted.
         intros.
         change (se.1.1.1, ιs::se.1.1.2, se.1.2, se.2) with (senv_insert_rep ιs se).
         (* this is NOT TRUE THE WORLD IS PAIN *)
-    (* same as before *)
   Admitted.
 
   Lemma closure_interp_scons_insert_size F se σ ϕ cl :
+    let ϕ' := refresh_kinds_ft F (subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ) in
+    has_kind_ft F ϕ' ->
+    has_kind_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ ->
     size_ok (fc_kind_ctx F) σ ->
     sem_env_interp F se ->
     (∀ n, closure_interp rti sr ϕ (senv_insert_size n se) cl) -∗
-    let ϕ' := refresh_kinds_ft F (subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ) in
     closure_interp rti sr ϕ' se cl.
   Proof using mr.
-    iIntros (Hok Hse) "Hcl".
+    intros ϕ' Hkind_ϕ' Hkind_ϕ Hok Hse.
+    iIntros "Hcl".
     destruct (eval_size_ok_Some _ _ _ Hse Hok) as [n Hn].
     pose proof (sem_well_formed_from_interp _ _ Hse) as Hsegood.
     assert (Hse': ∀ n', sem_env_types_well_formed (senv_insert_size n' se)). {
@@ -3180,9 +3183,6 @@ Admitted.
     }
     iSpecialize ("Hcl" $! n).
     iApply closure_interp_subst_senv_eq; unfold_sem_rels; last done; try done.
-    Unshelve.
-    6: exact (F <| fc_kind_ctx ::= set kc_size_vars S |>).
-
     3: {
       intros; cbn.
       apply hsub_t_base_se_VarT; done.
@@ -3194,10 +3194,13 @@ Admitted.
       intros.
       destruct i; by cbn.
     }
-    (* same *)
+    (* same issue *)
   Admitted.
 
   Lemma inner_closure_interp_scons_insert_type F se τ κ κ0 sκ ϕ cl :
+    let ϕ' := refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) in
+    has_kind_ift F ϕ' ->
+    has_kind_ift (F <| fc_type_vars ::= cons κ0 |>) ϕ ->
     sem_env_interp F se ->
     has_kind F τ κ ->
     subkind_of κ κ0 ->
@@ -3207,10 +3210,9 @@ Admitted.
        ⌜subskind_of sκ_T sκ⌝ -∗
        ⌜skind_has_stype sκ_T T⌝ -∗
        inner_closure_interp rti sr ϕ (senv_insert_type sκ_T T se) cl) -∗
-    let ϕ' := refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) in
     inner_closure_interp rti sr ϕ' se cl.
   Proof using mr.
-    iIntros (Hse Hκ Hsubkind Hsκ) "Hcl".
+    iIntros (ϕ' Hkind_ϕ' Hkind_ϕ Hse Hκ Hsubkind Hsκ) "Hcl".
     apply has_kind_inv in Hκ as Hok_has_κ.
     inversion Hok_has_κ as [??? Hok_τ Hok_κ].
     subst.
@@ -3223,7 +3225,7 @@ Admitted.
     iSpecialize ("Hcl" $! sκ sκ_T T Hsκ Hsubskind HT).
     iApply inner_closure_interp_subst_senv_eq; last done.
     Unshelve.
-    13: exact (F <| fc_type_vars ::= cons κ |>).
+    13: exact (F <| fc_type_vars ::= cons κ0 |>).
     - apply Forall_cons. by split; last eapply sem_well_formed_from_interp.
     - by eapply sem_well_formed_from_interp.
     - destruct Hse as (h1 & h2).
@@ -3421,9 +3423,9 @@ Admitted.
        analogue of the admitted [kinding_sound_ref_flag]), which the refined ϕ' needs. *)
     1: destruct H1.
     1: assert (Hϕ': ϕ' = refresh_kinds_ift F
-                     (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)) by
+            (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)) by
         (pose proof (has_kind_ft_function_type_eq_mod_kinds) as (_ & H10);
-         eapply H10; try done).
+         eapply H10; try done; inversion Hkind_ft; subst; done).
     1: rewrite Hϕ'.
     2-4: unfold ϕ'.
     (* dig into all at once down to closure interp *)
@@ -3452,25 +3454,31 @@ Admitted.
       rewrite <- inner_closure_interp_eq.
       assert (∃ x, eval_kind se κ0 = Some x). {
         inversion Hkind_first; subst.
+        inversion H6; subst.
         inversion H7; subst.
-        inversion H8; subst.
-        pose proof (eval_kind_ok_Some _ _ _ H H10).
-        inversion H5.
-        eexists; exact H6.
+        pose proof (eval_kind_ok_Some _ _ _ H H9).
+        inversion H4.
+        eexists; exact H5.
       }
-      destruct H5 as (x & hevalx).
+      destruct H4 as (x & hevalx).
+      inversion Hkind_first; subst.
+      inversion Hkind_ft; subst; inversion H6; subst.
+      inversion H8; subst.
       iApply inner_closure_interp_scons_insert_type; try done.
     - pose proof (refresh_kinds_id) as (_ & Hid).
-      apply Hid in Hkind_ft.
-      fold ϕ'; rewrite Hkind_ft; unfold ϕ'.
+      apply Hid in Hkind_ft as Htorewrite.
+      fold ϕ'; rewrite Htorewrite; unfold ϕ'.
+      inversion Hkind_first; subst. inversion H4; subst.
       by iApply closure_interp_scons_insert_mem.
     - pose proof (refresh_kinds_id) as (_ & Hid).
-      apply Hid in Hkind_ft.
-      fold ϕ'; rewrite Hkind_ft; unfold ϕ'.
+      apply Hid in Hkind_ft as Htorewrite.
+      fold ϕ'; rewrite Htorewrite; unfold ϕ'.
+      inversion Hkind_first; subst. inversion H4; subst.
       by iApply closure_interp_scons_insert_rep.
     - pose proof (refresh_kinds_id) as (_ & Hid).
-      apply Hid in Hkind_ft.
-      fold ϕ'; rewrite Hkind_ft; unfold ϕ'.
+      apply Hid in Hkind_ft as Htorewrite.
+      fold ϕ'; rewrite Htorewrite; unfold ϕ'.
+      inversion Hkind_first; subst. inversion H4; subst.
       iApply closure_interp_scons_insert_size; [done|done|].
       done.
   Qed.

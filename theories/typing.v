@@ -770,7 +770,7 @@ Inductive inner_function_type_inst : function_ctx -> index -> inner_function_typ
 | FTInstType F ϕ τ κ κ' ϕ' :
   has_kind F τ κ' ->
   subkind_of κ' κ ->
-  has_kind_ift F ϕ' ->
+  (* has_kind_ift F ϕ' -> *)
   inner_function_type_eq_mod_kinds ϕ'
     (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
   inner_function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
