@@ -21,13 +21,18 @@ Record flat_function_type :=
     fft_in : list type;
     fft_out : list type }.
 
-Fixpoint flatten_function_type (ϕ : function_type) : flat_function_type :=
+Fixpoint flatten_inner_function_type (ϕ : inner_function_type) : flat_function_type :=
   match ϕ with
   | MonoFunT τs1 τs2 => Build_flat_function_type 0 0 0 [] τs1 τs2
+  | ForallTypeT κ ϕ' => flatten_inner_function_type ϕ' <| fft_type_vars ::= app [κ] |>
+  end.
+
+Fixpoint flatten_function_type (ϕ : function_type) : flat_function_type :=
+  match ϕ with
+  | InnerFunT ϕ' => flatten_inner_function_type ϕ'
   | ForallMemT ϕ' => flatten_function_type ϕ' <| fft_mem_vars ::= S |>
   | ForallRepT ϕ' => flatten_function_type ϕ' <| fft_rep_vars ::= S |>
   | ForallSizeT ϕ' => flatten_function_type ϕ' <| fft_size_vars ::= S |>
-  | ForallTypeT κ ϕ' => flatten_function_type ϕ' <| fft_type_vars ::= app [κ] |>
   end.
 
 Definition arep_to_prim (ι : atomic_rep) : primitive :=
@@ -147,6 +152,7 @@ Section TypeInd.
 
   Variables
     (P : type -> Prop)
+    (Pi: inner_function_type -> Prop)
     (P0: function_type -> Prop)
     (HVarT : forall idx, P (VarT idx))
     (HI31T : forall κ, P (I31T κ))
@@ -168,11 +174,12 @@ Section TypeInd.
     (HExistsTypeT : forall κ1 κ2 t, P t -> P (ExistsTypeT κ1 κ2 t))
 
     (HOKMonoFunT : forall τs1 τs2,
-        Forall P τs1 -> Forall P τs2 -> P0 (MonoFunT τs1 τs2))
+        Forall P τs1 -> Forall P τs2 -> Pi (MonoFunT τs1 τs2))
+    (HOKForallTypeT : forall κ ft, Pi ft -> Pi (ForallTypeT κ ft))
+    (HOKInnerFunT : forall ft, Pi ft -> P0 (InnerFunT ft))
     (HOKForallMemT : forall ft, P0 ft -> P0 (ForallMemT ft))
     (HOKForallRepT : forall ft, P0 ft -> P0 (ForallRepT ft))
     (HOKForallSizeT : forall ft, P0 ft -> P0 (ForallSizeT ft))
-    (HOKForallTypeT : forall κ ft, P0 ft -> P0 (ForallTypeT κ ft))
   .
 
   Fixpoint type_ind (t:type) : P t :=
@@ -201,24 +208,27 @@ Section TypeInd.
     | ExistsSizeT κ t => HExistsSizeT κ t (type_ind t)
     | ExistsTypeT κ1 κ2 t => HExistsTypeT κ1 κ2 t (type_ind t)
     end
-  with function_type_ind (ft: function_type) : P0 ft :=
-      let fix types_ind ts : Forall P ts :=
+  with if_ind (ft: inner_function_type) : Pi ft :=
+    let fix types_ind ts : Forall P ts :=
       match ts with
       | [] => ListDef.Forall_nil _
       | b :: bs => ListDef.Forall_cons _ (type_ind b) (types_ind bs)
-      end
-    in
-         match ft with
-         | MonoFunT τs1 τs2 => HOKMonoFunT τs1 τs2 (types_ind τs1) (types_ind τs2)
-         | ForallMemT ft => HOKForallMemT ft (function_type_ind ft)
-         | ForallRepT ft => HOKForallRepT ft (function_type_ind ft)
-         | ForallSizeT ft => HOKForallSizeT ft (function_type_ind ft)
-         | ForallTypeT κ ft => HOKForallTypeT κ ft (function_type_ind ft)
-         end.
+      end in
+    match ft with
+    | MonoFunT τs1 τs2 => HOKMonoFunT τs1 τs2 (types_ind τs1) (types_ind τs2)
+    | ForallTypeT κ ft => HOKForallTypeT κ ft (if_ind ft)
+    end
+  with function_type_ind (ft: function_type) : P0 ft :=
+    match ft with
+    | InnerFunT ft => HOKInnerFunT ft (if_ind ft)
+    | ForallMemT ft => HOKForallMemT ft (function_type_ind ft)
+    | ForallRepT ft => HOKForallRepT ft (function_type_ind ft)
+    | ForallSizeT ft => HOKForallSizeT ft (function_type_ind ft)
+    end.
 
-  Lemma type_and_function_ind : (forall t, P t) /\ (forall ft, P0 ft).
+  Lemma type_and_function_ind : (forall t, P t) /\ (forall ft, P0 ft) /\ (forall ft, Pi ft).
   Proof.
-    split; intros; [apply type_ind|apply function_type_ind]; assumption.
+    eauto using type_ind, function_type_ind, if_ind.
   Qed.
 
 End TypeInd.

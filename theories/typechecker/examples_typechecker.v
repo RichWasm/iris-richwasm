@@ -10,7 +10,7 @@ Set Bullet Behavior "Strict Subproofs".
 Definition ll_1_plus_2 := {|
   m_imports := [];
   m_functions := [{|
-    mf_type := (MonoFunT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]);
+    mf_type := InnerFunT (MonoFunT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]);
     mf_locals := [];
     mf_body := [
       (INumConst (InstrT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]) 1);
@@ -35,7 +35,7 @@ Proof. by cbn. Qed.
 Definition ll_1_plus_2_bad := {|
   m_imports := [];
   m_functions := [{|
-    mf_type := (MonoFunT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]);
+    mf_type := InnerFunT (MonoFunT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]);
     mf_locals := [];
     mf_body := [
       (INumConst (InstrT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]) 1);
@@ -67,7 +67,7 @@ Definition m := {|
   m_functions :=
     [ {|
       mf_type :=
-        (MonoFunT [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))] []);
+        InnerFunT (MonoFunT [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))] []);
       mf_locals := [ (AtomR F32R)];
       mf_body :=
         [ (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]) Copy
@@ -96,7 +96,7 @@ Definition my_unpack :=
   m_imports := [];
   m_functions :=
     [ {|
-      mf_type := (MonoFunT [] []);
+      mf_type := InnerFunT (MonoFunT [] []);
       mf_locals := [];
       mf_body :=
         [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))])
@@ -127,7 +127,7 @@ Definition my_unpack3 := {|
   m_imports := [];
   m_functions :=
     [ {|
-      mf_type := (MonoFunT [] []);
+      mf_type := InnerFunT (MonoFunT [] []);
       mf_locals := [ (AtomR I32R)];
       mf_body :=
         [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))])

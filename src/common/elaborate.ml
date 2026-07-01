@@ -49,6 +49,7 @@ module Err = struct
 
   type t =
     | TODO of string
+    | TypeQuantifiersTooEarly of A.FunctionType.t
     | InternalErr of string
     | InvalidLocalFx of (int * (int * A.Type.t) list)
     | TVarNotInEnv of (int * A.Kind.t list)
@@ -447,15 +448,34 @@ and elab_function_type
   let* input' = mapM ~f:(elab_type env') input in
   let* output' = mapM ~f:(elab_type env') output in
 
-  let rec go : A.Quantifier.t list -> B.FunctionType.t = function
-    | [] -> MonoFunT (input', output')
-    | Memory :: xs -> ForallMemT (go xs)
-    | Representation :: xs -> ForallRepT (go xs)
-    | Size :: xs -> ForallSizeT (go xs)
-    | Type kind :: xs -> ForallTypeT (elab_kind kind, go xs)
+  let rec go_inner : A.Quantifier.t list -> B.InnerFunctionType.t t =
+    let open B.InnerFunctionType in
+    function
+    | [] -> ret (MonoFunT (input', output'))
+    | Type kind :: xs ->
+       let* xs' = go_inner xs in
+       ret (ForallTypeT (elab_kind kind, xs'))
+    | _ -> fail (TypeQuantifiersTooEarly (FunctionType (quals, input, output)))
   in
 
-  ret @@ go quals
+  let rec go : A.Quantifier.t list -> B.FunctionType.t t =
+    let open B.FunctionType in
+    function
+    | Memory :: xs ->
+       let* xs' = go xs in
+       ret (ForallMemT xs')
+    | Representation :: xs ->
+       let* xs' = go xs in
+       ret (ForallRepT xs')
+    | Size :: xs ->
+       let* xs' = go xs in
+       ret (ForallSizeT xs')
+    | xs ->
+       let* ft' = go_inner xs in
+       ret (InnerFunT ft')
+  in
+
+  go quals
 
 let representation_of_typ (kinds : A.Kind.t list) t =
   kind_of_typ kinds t >>= function

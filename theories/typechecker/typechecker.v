@@ -273,15 +273,20 @@ Fixpoint type_beq (τ1:type) (τ2:type) : bool :=
       andb (andb (kind_beq κ11 κ21) (kind_beq κ12 κ22)) (type_beq t1 t2)
   | _, _ => false
   end
-with function_type_beq (fτ1:function_type) (fτ2:function_type) : bool :=
+with inner_function_type_beq (fτ1:inner_function_type) (fτ2:inner_function_type) : bool :=
   match fτ1, fτ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
       andb (list_beq type type_beq τs11 τs21) (list_beq type type_beq τs12 τs22)
+  | ForallTypeT κ1 ft1, ForallTypeT κ2 ft2 =>
+      andb (kind_beq κ1 κ2) (inner_function_type_beq ft1 ft2)
+  | _, _ => false
+  end
+with function_type_beq (fτ1:function_type) (fτ2:function_type) : bool :=
+  match fτ1, fτ2 with
+  | InnerFunT ft1', InnerFunT ft2' => inner_function_type_beq ft1' ft2'
   | ForallMemT ft1, ForallMemT ft2
   | ForallRepT ft1, ForallRepT ft2
   | ForallSizeT ft1, ForallSizeT ft2 => function_type_beq ft1 ft2
-  | ForallTypeT κ1 ft1, ForallTypeT κ2 ft2 =>
-      andb (kind_beq κ1 κ2) (function_type_beq ft1 ft2)
   | _, _ => false
   end.
 
@@ -299,6 +304,10 @@ Proof. Admitted.
 
 Lemma function_type_eq_convert :
   ∀ ft1 ft2, function_type_beq ft1 ft2 = true <-> ft1 = ft2.
+Proof. Admitted.
+
+Lemma inner_function_type_eq_convert :
+  ∀ ft1 ft2, inner_function_type_beq ft1 ft2 = true <-> ft1 = ft2.
 Proof. Admitted.
 
 
@@ -471,6 +480,7 @@ Lemma list_eq_convert_instruction :
   ∀ es1 es2, list_beq instruction instruction_beq es1 es2 = true <-> es1 = es2. Proof. Admitted.
 Ltac boolean_equality_auto :=
   match goal with
+  | H: Nat.eqb _ _ = true |- _ => apply Nat.eqb_eq  in H; subst; auto
   | H: (kind_beq _ _ = true) |- _ => apply kind_eq_convert in H; subst; auto
   | H: (instruction_type_beq _ _ = true) |- _ => apply instruction_type_eq_convert in H; subst; auto
   | H: (local_ctx_beq _ _ = true) |- _ => apply local_ctx_eq_convert in H; subst; auto
@@ -478,6 +488,7 @@ Ltac boolean_equality_auto :=
   | H: (ref_flag_beq _ _ = true) |- _ => apply ref_flag_eq_convert in H; subst; auto
   | H: (size_beq _ _ = true) |- _ => apply size_eq_convert in H; subst; auto
   | H: (function_type_beq _ _ = true) |- _ => apply function_type_eq_convert in H; subst; auto
+  | H: (inner_function_type_beq _ _ = true) |- _ => apply inner_function_type_eq_convert in H; subst; auto
   | H: (type_beq _ _ = true) |- _ => apply type_eq_convert in H; subst; auto
   | H: (instruction_type_beq _ _ = true) |- _ => apply instruction_type_eq_convert in H; subst; auto
   | H: (module_type_beq _ _ = true) |- _ => apply module_type_eq_convert in H; subst; auto
@@ -766,7 +777,7 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
      | err => err
      end
   end
-    with function_type_ok_checker (F: function_ctx) (ft:function_type) : type_checker_res :=
+    with inner_function_type_ok_checker (F: function_ctx) (ft:inner_function_type) : type_checker_res :=
       match ft with
       | MonoFunT τs1 τs2 =>
            if (foldr (λ t:type, andb (check_ok (type_ok_checker F) t)) true τs1)
@@ -783,14 +794,18 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
              let res1 := map (type_ok_checker F) τs1 in
              inr ([NormalError "function type ok error in τs1"] ++ combine_error_messages res1)
              (* INR ("function type ok error in τs1 (" ++ (combine_error_messages res1) ++ ")"%string) *)
+      | ForallTypeT κ ϕ =>
+          match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
+          | inl () => inner_function_type_ok_checker (F <| fc_type_vars ::= cons κ |>) ϕ
+          | err => err
+          end
+      end
+    with function_type_ok_checker (F: function_ctx) (ft:function_type) : type_checker_res :=
+      match ft with
+      | InnerFunT ϕ => inner_function_type_ok_checker F ϕ
       | ForallMemT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
       | ForallRepT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
       | ForallSizeT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
-      | ForallTypeT κ ϕ =>
-          match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
-          | inl () => function_type_ok_checker (F <| fc_type_vars ::= cons κ |>) ϕ
-          | err => err
-          end
       end.
 
 Ltac destruct_match_kind_ok F κ o Hres HMatchKind :=
@@ -827,23 +842,17 @@ Ltac find_Forall_foldr checker prop :=
 
 Lemma type_ok_checker_correct_basic :
   (forall t F, (type_ok_checker F t = ok_term) -> type_ok F t) /\
-  (forall ft F, function_type_ok_checker F ft = ok_term -> function_type_ok F ft).
+  (forall ft F, function_type_ok_checker F ft = ok_term -> function_type_ok F ft) /\
+  (forall ft F, inner_function_type_ok_checker F ft = ok_term -> inner_function_type_ok F ft).
 Proof.
 
   Ltac auto_local F := repeat my_auto; try find_Forall_foldr (type_ok_checker F) (type_ok F); auto.
 
-  apply type_and_function_ind.
-  1-17, 19-22: intros; simpl in H; try simpl in H0;
-    try(constructor; auto_local F). (* this solves a LOT of cases *)
+  apply type_and_function_ind;
+    try by (intros; cbn in *; try constructor; auto_local F).
   - (* The var case requires econstructor, which I didn't want to do in general *)
+    intros; cbn in *;
     auto_local F; econstructor; eassumption.
-  - (* The monofun case has to be done manually bc my find_Forall_foldr isn't that smart *)
-    intros; simpl in H. simpl in H1.
-    repeat my_auto.
-    constructor.
-    + solve_Forall_foldr H HMatch (type_ok_checker F) (type_ok F); auto.
-    + solve_Forall_foldr H0 HMatch0 (type_ok_checker F) (type_ok F); auto.
-
 Qed.
 
 Lemma type_ok_checker_correct :
@@ -858,6 +867,11 @@ Proof.
   apply type_ok_checker_correct_basic.
 Qed.
 
+Lemma inner_function_type_ok_checker_correct :
+  ∀ ft F, inner_function_type_ok_checker F ft = ok_term -> inner_function_type_ok F ft.
+Proof.
+  apply type_ok_checker_correct_basic.
+Qed.
 
 
 Definition mono_mem_checker (μ:memory) : type_checker_res :=
@@ -905,6 +919,8 @@ Ltac my_auto2 :=
   | H: (type_ok_checker _ _ = ok_term) |- _ => apply type_ok_checker_correct in H; auto
   | H: (function_type_ok_checker _ _ = inl ()) |- _ => apply function_type_ok_checker_correct in H; auto
   | H: (function_type_ok_checker _ _ = ok_term) |- _ => apply function_type_ok_checker_correct in H; auto
+  | H: (inner_function_type_ok_checker _ _ = inl ()) |- _ => apply inner_function_type_ok_checker_correct in H; auto
+  | H: (inner_function_type_ok_checker _ _ = ok_term) |- _ => apply inner_function_type_ok_checker_correct in H; auto
 end.
 
 
@@ -1352,7 +1368,8 @@ Opaque mem_ok_checker.
 (* The stupid True is there bc idk how to make the induction work otherwise *)
 Lemma has_kind_synther_correct_basic :
   (∀ t F k, has_kind_synther F t = inl k -> has_kind F t k) /\
-  (∀ (ft:function_type) (F:function_ctx), True  ).
+  (∀ (ft:function_type) (F:function_ctx), True  ) /\
+  (∀ (ft:inner_function_type) (F:function_ctx), True  ).
 Proof.
   apply type_and_function_ind; unfold has_kind_checker in *; intros; simpl in *; auto;
     repeat my_auto3; try (by constructor).
@@ -1622,7 +1639,6 @@ Lemma size_eq_checker_correct :
 Proof.
   intros. unfold size_eq_checker in *.
   repeat my_auto3.
-  apply Nat.eqb_eq in HMatch1; subst.
   unfold size_eq.
   exists n0; done.
 Qed.
@@ -1807,6 +1823,8 @@ Ltac my_auto3_5 :=
   | H: (type_ok_checker _ _ = ok_term) |- _ => apply type_ok_checker_correct in H; auto
   | H: (function_type_ok_checker _ _ = inl ()) |- _ => apply function_type_ok_checker_correct in H; auto
   | H: (function_type_ok_checker _ _ = ok_term) |- _ => apply function_type_ok_checker_correct in H; auto
+  | H: (inner_function_type_ok_checker _ _ = inl ()) |- _ => apply function_type_ok_checker_correct in H; auto
+  | H: (inner_function_type_ok_checker _ _ = ok_term) |- _ => apply function_type_ok_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = ok_term) |- _ => apply has_kind_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = inl ()) |- _ => apply has_kind_checker_correct in H; auto
   | H: (INR _ = ok_term) |- _ => inversion H
@@ -2049,38 +2067,39 @@ Lemma type_eq_checker_correct_basic :
   (∀ τ1,
      (∀ τ2, type_eq_checker τ1 τ2 = ok_term -> type_eq τ1 τ2)
   ) /\
-  (∀ ft:function_type, True).
+  (∀ ft:function_type, True) /\
+  (∀ ft:inner_function_type, True).
 Proof.
   apply type_and_function_ind; auto; intros; destruct τ2.
   (* the goal of this big guy: filter all obvious ones. Does not include "obvious" Ser *)
   all:
-    match goal with
-    | |- (type_eq _ (VarT _) (VarT _)) => simpl in H; repeat my_auto3_5; apply TEqRefl
-    | |- (type_eq _ (I31T _) (I31T _)) => simpl in H; repeat my_auto3_5; apply TEqRefl; auto
-    | |- (type_eq _ (NumT _ _) (NumT _ _)) => simpl in H; repeat my_auto3_5; apply TEqRefl; repeat my_auto3_5
-    | |- (type_eq _ (SumT _ _) (SumT _ _)) => idtac
-    | |- (type_eq _ (VariantT _ _) (VariantT _ _)) => idtac
-    | |- (type_eq _ (ProdT _ _) (ProdT _ _)) => idtac
-    | |- (type_eq _ (StructT _ _) (StructT _ _)) => idtac
-    | |- (type_eq _ (RefT _ _ _) (RefT _ _ _)) =>
+    try match goal with
+    | |- (type_eq (VarT _) (VarT _)) => simpl in H; repeat my_auto3_5; apply TEqRefl
+    | |- (type_eq (I31T _) (I31T _)) => simpl in H; repeat my_auto3_5; apply TEqRefl; auto
+    | |- (type_eq (NumT _ _) (NumT _ _)) => simpl in H; repeat my_auto3_5; apply TEqRefl; repeat my_auto3_5
+    | |- (type_eq (SumT _ _) (SumT _ _)) => idtac
+    | |- (type_eq (VariantT _ _) (VariantT _ _)) => idtac
+    | |- (type_eq (ProdT _ _) (ProdT _ _)) => idtac
+    | |- (type_eq (StructT _ _) (StructT _ _)) => idtac
+    | |- (type_eq (RefT _ _ _) (RefT _ _ _)) =>
         simpl in H0; repeat my_auto3_5; apply H in H0; apply TEqRef; auto
-    | |- (type_eq _ (CodeRefT _ _) (CodeRefT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
-    | |- (type_eq _ (SerT _ _) (SerT _ _)) =>
+    | |- (type_eq (CodeRefT _ _) (CodeRefT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
+    | |- (type_eq (SerT _ _) (SerT _ _)) =>
         simpl in H0; repeat my_auto3_5; apply TEqSer; auto
-    | |- (type_eq _ (StructT _ _) (SerT _ _)) => idtac
-    | |- (type_eq _ (SerT _ _) (StructT _ _)) => idtac
-    | |- (type_eq _ (SerT _ _) _) => simpl in H0; my_auto3_5
-    | |- (type_eq _ (PlugT _ _) (PlugT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
-    | |- (type_eq _ (SpanT _ _) (SpanT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
-    | |- (type_eq _ (RecT _ _) (RecT _ _)) =>
+    | |- (type_eq (StructT _ _) (SerT _ _)) => idtac
+    | |- (type_eq (SerT _ _) (StructT _ _)) => idtac
+    | |- (type_eq (SerT _ _) _) => simpl in H0; my_auto3_5
+    | |- (type_eq (PlugT _ _) (PlugT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
+    | |- (type_eq (SpanT _ _) (SpanT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
+    | |- (type_eq (RecT _ _) (RecT _ _)) =>
         simpl in H0; repeat my_auto3_5; apply H in H0; apply TEqRec; auto
-    | |- (type_eq _ (ExistsMemT _ _) (ExistsMemT _ _)) =>
+    | |- (type_eq (ExistsMemT _ _) (ExistsMemT _ _)) =>
         simpl in H0; repeat my_auto3_5; apply H in H0; apply TEqExMem; auto
-    | |- (type_eq _ (ExistsRepT _ _) (ExistsRepT _ _)) =>
+    | |- (type_eq (ExistsRepT _ _) (ExistsRepT _ _)) =>
         simpl in H0; repeat my_auto3_5; apply H in H0; apply TEqExRep; auto
-    | |- (type_eq _ (ExistsSizeT _ _) (ExistsSizeT _ _)) =>
+    | |- (type_eq (ExistsSizeT _ _) (ExistsSizeT _ _)) =>
         simpl in H0; repeat my_auto3_5; apply H in H0; apply TEqExSize; auto
-    | |- (type_eq _ (ExistsTypeT _ _ _) (ExistsTypeT _ _ _)) =>
+    | |- (type_eq (ExistsTypeT _ _ _) (ExistsTypeT _ _ _)) =>
         simpl in H0; repeat my_auto3_5; apply H in H0; apply TEqExType; auto
     | _ => simpl in *; my_auto3_5
     end.
@@ -2088,10 +2107,13 @@ Proof.
   all: idtac. (* this is here because doom emacs despises the match goal above *)
 
   (* struct ser case *)
-  6: {
+  5: {
     repeat structural_auto.
-    assert (tosubst: τs = l) by admit. subst; clear HMatch.
+    admit.
+    (*
+    assert (tosubst: τs = τ2) by admit. subst; clear HMatch.
     constructor.
+   *)
   }
   (* ser struct case *)
   6: { admit. }
@@ -2450,15 +2472,6 @@ Qed.
 
 
 
-Definition grab_inner_ft (ft:function_type) : option function_type :=
-  match ft with
-  | ForallMemT ϕ
-  | ForallRepT ϕ
-  | ForallSizeT ϕ
-  | ForallTypeT _ ϕ => Some ϕ
-  | MonoFunT _ _ => None
-  end.
-
 Ltac my_auto4 :=
   try structural_auto; try boolean_equality_auto; try
   match goal with
@@ -2475,6 +2488,8 @@ Ltac my_auto4 :=
   | H: (type_ok_checker _ _ = ok_term) |- _ => apply type_ok_checker_correct in H; auto
   | H: (function_type_ok_checker _ _ = inl ()) |- _ => apply function_type_ok_checker_correct in H; auto
   | H: (function_type_ok_checker _ _ = ok_term) |- _ => apply function_type_ok_checker_correct in H; auto
+  | H: (inner_function_type_ok_checker _ _ = inl ()) |- _ => apply inner_function_type_ok_checker_correct in H; auto
+  | H: (inner_function_type_ok_checker _ _ = ok_term) |- _ => apply inner_function_type_ok_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = inl ()) |- _ => apply has_kind_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = ok_term) |- _ => apply has_kind_checker_correct in H; auto
 end.
@@ -2551,18 +2566,23 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
   | ExistsTypeT κ κ0 τ =>
       ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
   end
-with refresh_kinds_ft (F : function_ctx) (ϕ : function_type) : function_type :=
+with refresh_kinds_ift (F : function_ctx) (ϕ : inner_function_type) : inner_function_type :=
   match ϕ with
   | MonoFunT τs1 τs2 => MonoFunT (map (refresh_kinds F) τs1) (map (refresh_kinds F) τs2)
+  | ForallTypeT κ ϕ => ForallTypeT κ (refresh_kinds_ift (F <| fc_type_vars ::= cons κ |>) ϕ)
+  end
+with refresh_kinds_ft (F : function_ctx) (ϕ : function_type) : function_type :=
+  match ϕ with
+  | InnerFunT ϕ => InnerFunT (refresh_kinds_ift F ϕ)
   | ForallMemT ϕ => ForallMemT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ)
   | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ)
   | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ)
-  | ForallTypeT κ ϕ => ForallTypeT κ (refresh_kinds_ft (F <| fc_type_vars ::= cons κ |>) ϕ)
   end.
 
 Lemma refresh_kinds_eq_mod_kinds :
   (forall τ F, type_eq_mod_kinds (refresh_kinds F τ) τ) /\
-  (forall ϕ F, function_type_eq_mod_kinds (refresh_kinds_ft F ϕ) ϕ).
+  (forall ϕ F, function_type_eq_mod_kinds (refresh_kinds_ft F ϕ) ϕ) /\
+  (forall ϕ F, inner_function_type_eq_mod_kinds (refresh_kinds_ift F ϕ) ϕ).
 Proof.
   apply type_and_function_ind.
   - intros idx F; simpl; reflexivity.
@@ -2589,83 +2609,140 @@ Proof.
   - intros τs1 τs2 IH1 IH2 F; simpl; split;
       [ induction IH1 as [|t ts' Hh Ht IHl]; simpl; [exact I | split; [apply Hh | exact IHl]]
       | induction IH2 as [|t ts' Hh Ht IHl]; simpl; [exact I | split; [apply Hh | exact IHl]] ].
-  - intros ft IH F; simpl; apply IH.
-  - intros ft IH F; simpl; apply IH.
-  - intros ft IH F; simpl; apply IH.
   - intros κ ft IH F; simpl; split; [reflexivity | apply IH].
+  - done.
+  - intros ft IH F; simpl; apply IH.
+  - intros ft IH F; simpl; apply IH.
+  - intros ft IH F; simpl; apply IH.
 Qed.
+
+Definition inner_function_type_inst_checker
+  (F:function_ctx) (i:index) (ft1:inner_function_type) (ft2:inner_function_type) : type_checker_res :=
+  match i with
+  | TypeI τ =>
+    match ft1 with
+    | ForallTypeT κ ϕ =>
+        match has_kind_synther F τ with
+        | inl κ' =>
+            match subkind_of_checker κ' κ with
+            | inl () =>
+                if inner_function_type_beq ft2
+                     (refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
+                then inner_function_type_ok_checker F ft2
+                else INR "something not matching in function type inst checker"
+            | err => err
+            end
+        | inr err => inr [err]
+        end
+    | _ => INR "bad function type inst"
+    end
+  | _ => INR "bad function type inst"
+  end.
 
 Definition function_type_inst_checker
   (F:function_ctx) (i:index) (ft1:function_type) (ft2:function_type) : type_checker_res :=
-  match i with
-  | MemI μ =>
-      match mem_ok_checker F.(fc_kind_ctx) μ with
-      | inl () =>
-          match ft1 with
-          | ForallMemT ϕ =>
-              if function_type_beq ft2 (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ)
-              then ok_term
-              else INR "something not matching in function type inst checker"
-          | _ => INR "bad function type inst"
-          end
-      | err => err
+  match ft1 with
+  | InnerFunT ft1' =>
+      match ft2 with
+      | InnerFunT ft2' => inner_function_type_inst_checker F i ft1' ft2'
+      | _ => INR "bad function type inst"
       end
-  | RepI ρ =>
-      match rep_ok_checker F.(fc_kind_ctx) ρ with
-      | inl () =>
-          match ft1 with
-          | ForallRepT ϕ =>
-              if function_type_beq ft2 (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ)
-              then ok_term
-              else INR "something not matching in function type inst checker"
-          | _ => INR "bad function type inst"
-          end
-      | err => err
-      end
-  | SizeI σ =>
-      match size_ok_checker F.(fc_kind_ctx) σ with
-      | inl () =>
-          match ft1 with
-          | ForallSizeT ϕ =>
-              if function_type_beq ft2 (subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ)
-              then ok_term
-              else INR "something not matching in function type inst checker"
-          | _ => INR "bad function type inst"
-          end
-      | err => err
-      end
- | TypeI τ =>
-     match ft1 with
-     | ForallTypeT κ ϕ =>
-         match has_kind_synther F τ with
-         | inl κ' =>
-             match subkind_of_checker κ' κ with
-             | inl () =>
-                 if function_type_beq ft2
-                      (refresh_kinds_ft F (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
-                 then function_type_ok_checker F ft2
-                 else INR "something not matching in function type inst checker"
-             | err => err
-             end
-         | inr err => inr [err]
-         end
-     | _ => INR "bad function type inst"
-     end
+  | _ =>
+    match i with
+    | MemI μ =>
+        match mem_ok_checker F.(fc_kind_ctx) μ with
+        | inl () =>
+            match ft1 with
+            | ForallMemT ϕ =>
+                if function_type_beq ft2 (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ)
+                then ok_term
+                else INR "something not matching in function type inst checker"
+            | _ => INR "bad function type inst"
+            end
+        | err => err
+        end
+    | RepI ρ =>
+        match rep_ok_checker F.(fc_kind_ctx) ρ with
+        | inl () =>
+            match ft1 with
+            | ForallRepT ϕ =>
+                if function_type_beq ft2 (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ)
+                then ok_term
+                else INR "something not matching in function type inst checker"
+            | _ => INR "bad function type inst"
+            end
+        | err => err
+        end
+    | SizeI σ =>
+        match size_ok_checker F.(fc_kind_ctx) σ with
+        | inl () =>
+            match ft1 with
+            | ForallSizeT ϕ =>
+                if function_type_beq ft2 (subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ)
+                then ok_term
+                else INR "something not matching in function type inst checker"
+            | _ => INR "bad function type inst"
+            end
+        | err => err
+        end
+    | _ => INR "bad function type inst"
+    end
  end.
+
+Lemma inner_function_type_inst_checker_correct :
+  ∀ F i ft1 ft2,
+    inner_function_type_inst_checker F i ft1 ft2 = ok_term ->
+    inner_function_type_inst F i ft1 ft2.
+Proof.
+  unfold inner_function_type_inst_checker; intros.
+  repeat my_auto4.
+  apply subkind_of_checker_correct in HMatch2.
+  apply has_kind_synther_correct in HMatch1.
+  destruct refresh_kinds_eq_mod_kinds as [_ [Hrefresh_ft Hrefresh_ift]].
+  econstructor.
+  all:eauto.
+Qed.
 
 Lemma function_type_inst_checker_correct :
   ∀ F i ft1 ft2, function_type_inst_checker F i ft1 ft2 = ok_term -> function_type_inst F i ft1 ft2.
 Proof.
   unfold function_type_inst_checker; intros.
+  destruct ft1.
+  {
+    destruct ft2; try by (inversion H).
+    constructor.
+    by eapply inner_function_type_inst_checker_correct.
+  }
   repeat my_auto4.
   - by apply FTInstMem.
-  - by apply FTInstRep.
-  - by apply FTInstSize.
-  - apply subkind_of_checker_correct in HMatch2.
-    apply has_kind_synther_correct in HMatch1.
-    destruct refresh_kinds_eq_mod_kinds as [_ Hrefresh_ft].
-    eapply FTInstType; eauto.
+  - done.
+  - done.
+  - repeat my_auto4; try done.
+    by apply FTInstRep.
+  - repeat my_auto4; try done.
+    by apply FTInstSize.
 Qed.
+
+Definition grab_substed_ift F (ix:index) (ft1:inner_function_type) : option inner_function_type :=
+  match ix with
+  | TypeI τ =>
+       match ft1 with
+      | ForallTypeT κ ϕ =>
+          (* NOTE: accept a strict-subkind witness, then refresh so the intermediate fed to the next instantiation is well-kinded. *)
+          match has_kind_synther F τ with
+          | inl κ' =>
+              match subkind_of_checker κ' κ with
+              | inl () =>
+                  Some (refresh_kinds_ift F
+                          (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
+              | _ => None
+              end
+          | _ => None
+          end
+      | _ => None
+      end
+  | _ => None
+  end.
 
 Definition grab_substed_ft F (ix:index) (ft1:function_type) : option function_type :=
   match ix with
@@ -2686,18 +2763,7 @@ Definition grab_substed_ft F (ix:index) (ft1:function_type) : option function_ty
       end
  | TypeI τ =>
        match ft1 with
-      | ForallTypeT κ ϕ =>
-          (* NOTE: accept a strict-subkind witness, then refresh so the intermediate fed to the next instantiation is well-kinded. *)
-          match has_kind_synther F τ with
-          | inl κ' =>
-              match subkind_of_checker κ' κ with
-              | inl () =>
-                  Some (refresh_kinds_ft F
-                          (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
-              | _ => None
-              end
-          | _ => None
-          end
+      | InnerFunT ϕ => InnerFunT <$> grab_substed_ift F (TypeI τ) ϕ
       | _ => None
       end
   end.
@@ -2798,17 +2864,22 @@ with traverse_types_find_memory τs1 τs2 : option memory :=
         end
         ) None τs1 τs2
   end
-with traverse_function_type_find_memory ϕ1 ϕ2 : option memory :=
+with traverse_inner_function_type_find_memory ϕ1 ϕ2 : option memory :=
   match ϕ1, ϕ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
       match traverse_types_find_memory τs11 τs21 with
       | None => traverse_types_find_memory τs12 τs22
       | Some a => Some a
       end
+  | ForallTypeT _ f1, ForallTypeT _ f2 => traverse_inner_function_type_find_memory f1 f2
+  | _, _ => None
+  end
+with traverse_function_type_find_memory ϕ1 ϕ2 : option memory :=
+  match ϕ1, ϕ2 with
+  | InnerFunT ϕ1', InnerFunT ϕ2' => traverse_inner_function_type_find_memory ϕ1' ϕ2'
   | ForallMemT f1, ForallMemT f2
   | ForallRepT f1, ForallRepT f2
-  | ForallSizeT f1, ForallSizeT f2
-  | ForallTypeT _ f1, ForallTypeT _ f2 => traverse_function_type_find_memory f1 f2
+  | ForallSizeT f1, ForallSizeT f2 => traverse_function_type_find_memory f1 f2
   | _, _ => None
   end.
 
@@ -2846,17 +2917,23 @@ with traverse_types_find_type (d : nat) τs1 τs2 : option type :=
         end
         ) None τs1 τs2
   end
-with traverse_function_type_find_type (d : nat) ϕ1 ϕ2 : option type :=
+with traverse_inner_function_type_find_type (d : nat) ϕ1 ϕ2 : option type :=
   match ϕ1, ϕ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
       match traverse_types_find_type d τs11 τs21 with
       | None => traverse_types_find_type d τs12 τs22
       | Some a => Some a
       end
+  | ForallTypeT _ f1, ForallTypeT _ f2 => traverse_inner_function_type_find_type (S d) f1 f2
+  | _, _ => None
+  end
+with traverse_function_type_find_type (d : nat) ϕ1 ϕ2 : option type :=
+  match ϕ1, ϕ2 with
+  | InnerFunT ϕ1', InnerFunT ϕ2' =>
+      traverse_inner_function_type_find_type d ϕ1' ϕ2'
   | ForallMemT f1, ForallMemT f2
   | ForallRepT f1, ForallRepT f2
   | ForallSizeT f1, ForallSizeT f2 => traverse_function_type_find_type d f1 f2
-  | ForallTypeT _ f1, ForallTypeT _ f2 => traverse_function_type_find_type (S d) f1 f2
   | _, _ => None
   end.
 
@@ -2918,22 +2995,28 @@ with traverse_types_find_size τs1 τs2 : option size :=
         end
         ) None τs1 τs2
   end
-with traverse_function_type_find_size ϕ1 ϕ2 : option size :=
+with traverse_inner_function_type_find_size ϕ1 ϕ2 : option size :=
   match ϕ1, ϕ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
       match traverse_types_find_size τs11 τs21 with
       | None => traverse_types_find_size τs12 τs22
       | Some a => Some a
       end
+  | ForallTypeT k1 f1, ForallTypeT k2 f2 =>
+      match kind_find_size_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_inner_function_type_find_size f1 f2
+      end
+  | _, _ => None
+  end
+with traverse_function_type_find_size ϕ1 ϕ2 : option size :=
+  match ϕ1, ϕ2 with
+  | InnerFunT ϕ1', InnerFunT ϕ2' =>
+      traverse_inner_function_type_find_size ϕ1' ϕ2'
   | ForallMemT f1, ForallMemT f2
   | ForallRepT f1, ForallRepT f2
   | ForallSizeT f1, ForallSizeT f2 =>
       traverse_function_type_find_size f1 f2
-  | ForallTypeT k1 f1, ForallTypeT k2 f2 =>
-      match kind_find_size_0 k1 k2 with
-      | Some a => Some a
-      | None => traverse_function_type_find_size f1 f2
-      end
   | _, _ => None
   end.
 
@@ -2996,22 +3079,28 @@ with traverse_types_find_rep τs1 τs2 : option representation :=
         end
         ) None τs1 τs2
   end
-with traverse_function_type_find_rep ϕ1 ϕ2 : option representation :=
+with traverse_inner_function_type_find_rep ϕ1 ϕ2 : option representation :=
   match ϕ1, ϕ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
       match traverse_types_find_rep τs11 τs21 with
       | None => traverse_types_find_rep τs12 τs22
       | Some a => Some a
       end
+  | ForallTypeT k1 f1, ForallTypeT k2 f2 =>
+      match kind_find_rep_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_inner_function_type_find_rep f1 f2
+      end
+  | _, _ => None
+  end
+with traverse_function_type_find_rep ϕ1 ϕ2 : option representation :=
+  match ϕ1, ϕ2 with
+  | InnerFunT ϕ1', InnerFunT ϕ2' =>
+      traverse_inner_function_type_find_rep ϕ1' ϕ2'
   | ForallMemT f1, ForallMemT f2
   | ForallRepT f1, ForallRepT f2
   | ForallSizeT f1, ForallSizeT f2 =>
       traverse_function_type_find_rep f1 f2
-  | ForallTypeT k1 f1, ForallTypeT k2 f2 =>
-      match kind_find_rep_0 k1 k2 with
-      | Some a => Some a
-      | None => traverse_function_type_find_rep f1 f2
-      end
   | _, _ => None
   end.
 
@@ -3865,7 +3954,7 @@ Fixpoint has_instruction_type_checker
         | InstrT τs1 τs2 =>
             match M.(mc_functions) !! i with
             | Some ϕ =>
-                match function_type_insts_checker F ixs ϕ (MonoFunT τs1 τs2) with
+                match function_type_insts_checker F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) with
                 | inl () => has_instruction_type_ok_checker F ψ L
                 | err => err
                 end
@@ -3880,7 +3969,7 @@ Fixpoint has_instruction_type_checker
         | InstrT τs1_full τs2 =>
             match split_list_all_last τs1_full with
             | Some (τs1, τ) =>
-                if type_beq τ (CodeRefT (VALTYPE (AtomR I32R) NoRefs) (MonoFunT τs1 τs2))
+                if type_beq τ (CodeRefT (VALTYPE (AtomR I32R) NoRefs) (InnerFunT (MonoFunT τs1 τs2)))
                 then has_instruction_type_ok_checker F ψ L
                 else INR "incorrect instruction type for call indirect"
             | None => INR "incorrect instruction type for call indirect"
@@ -4382,7 +4471,7 @@ Fixpoint have_instruction_type_checker
     end.
 
 
-(*** Demonstration of the annoyance of rocq fixpoint checker ***)
+(** Demonstration of the annoyance of rocq fixpoint checker **)
 
 (* Outer on just instruction, inner fixpoint. Works. *)
 Fixpoint test1 e :=
@@ -4570,6 +4659,7 @@ Ltac boolean_equality_auto_2 :=
   | H: (ref_flag_beq ?x _ = true) |- _ => apply ref_flag_eq_convert in H; subst x; auto
   | H: (size_beq ?x _ = true) |- _ => apply size_eq_convert in H; subst x; auto
   | H: (function_type_beq ?x _ = true) |- _ => apply function_type_eq_convert in H; subst x; auto
+  | H: (inner_function_type_beq ?x _ = true) |- _ => apply inner_function_type_eq_convert in H; subst x; auto
   | H: (type_beq ?x _ = true) |- _ => apply type_eq_convert in H; subst x; auto
   | H: (instruction_type_beq ?x _ = true) |- _ => apply instruction_type_eq_convert in H; subst x; auto
   | H: (module_type_beq ?x _ = true) |- _ => apply module_type_eq_convert in H; subst x; auto

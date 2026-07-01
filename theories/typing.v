@@ -177,24 +177,26 @@ Inductive type_ok : function_ctx -> type -> Prop :=
   type_ok (F <| fc_type_vars ::= cons κ0 |>) τ ->
   type_ok F (ExistsTypeT κ κ0 τ)
 
-with function_type_ok : function_ctx -> function_type -> Prop :=
+with inner_function_type_ok : function_ctx -> inner_function_type -> Prop :=
 | OKMonoFunT F τs1 τs2 :
   Forall (type_ok F) τs1 ->
   Forall (type_ok F) τs2 ->
-  function_type_ok F (MonoFunT τs1 τs2)
-| OKForallMemT F ϕ :
-  function_type_ok (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
-  function_type_ok F (ForallMemT ϕ)
+  inner_function_type_ok F (MonoFunT τs1 τs2)
+| OKForallTypeT F κ ϕ :
+  kind_ok F.(fc_kind_ctx) κ ->
+  inner_function_type_ok (F <| fc_type_vars ::= cons κ |>) ϕ ->
+  inner_function_type_ok F (ForallTypeT κ ϕ)
+with function_type_ok : function_ctx -> function_type -> Prop :=
+| OKInnerFunT F ϕ : inner_function_type_ok F ϕ -> function_type_ok F (InnerFunT ϕ)
 | OKForallRepT F ϕ :
   function_type_ok (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ ->
   function_type_ok F (ForallRepT ϕ)
 | OKForallSizeT F ϕ :
   function_type_ok (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ ->
   function_type_ok F (ForallSizeT ϕ)
-| OKForallTypeT F κ ϕ :
-  kind_ok F.(fc_kind_ctx) κ ->
-  function_type_ok (F <| fc_type_vars ::= cons κ |>) ϕ ->
-  function_type_ok F (ForallTypeT κ ϕ).
+| OKForallMemT F ϕ :
+  function_type_ok (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
+  function_type_ok F (ForallMemT ϕ).
 
 Definition mono_mem (μ : memory) : Prop := exists bm, μ = BaseM bm.
 
@@ -422,11 +424,18 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   F.(fc_type_vars) !! t = Some κ ->
   kind_ok F.(fc_kind_ctx) κ ->
   has_kind F (VarT t) κ
-with has_kind_ft : function_ctx -> function_type -> Prop :=
+with has_kind_ift : function_ctx -> inner_function_type -> Prop :=
 | KMonoFun F τs1 τs2 κs1 κs2 :
   Forall2 (has_kind F) τs1 κs1 ->
   Forall2 (has_kind F) τs2 κs2 ->
-  has_kind_ft F (MonoFunT τs1 τs2)
+  has_kind_ift F (MonoFunT τs1 τs2)
+| KForallType F κ ϕ :
+  kind_ok F.(fc_kind_ctx) κ ->
+  has_kind_ift (F <| fc_type_vars ::= cons κ |>) ϕ ->
+  has_kind_ift F (ForallTypeT κ ϕ)
+with has_kind_ft : function_ctx -> function_type -> Prop :=
+| KInnerFun F ϕ :
+  has_kind_ift F ϕ -> has_kind_ft F (InnerFunT ϕ)
 | KForallMem F ϕ :
   has_kind_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
   has_kind_ft F (ForallMemT ϕ)
@@ -435,16 +444,13 @@ with has_kind_ft : function_ctx -> function_type -> Prop :=
   has_kind_ft F (ForallRepT ϕ)
 | KForallSize F ϕ :
   has_kind_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ ->
-  has_kind_ft F (ForallSizeT ϕ)
-| KForallType F κ ϕ :
-  kind_ok F.(fc_kind_ctx) κ ->
-  has_kind_ft (F <| fc_type_vars ::= cons κ |>) ϕ ->
-  has_kind_ft F (ForallTypeT κ ϕ).
+  has_kind_ft F (ForallSizeT ϕ).
 
 
 Section HasKindInd.
 
   Variable P : function_ctx -> type -> kind -> Prop.
+  Variable Pi : function_ctx -> inner_function_type -> Prop.
   Variable P0 : function_ctx -> function_type -> Prop.
 
   Hypotheses
@@ -511,7 +517,8 @@ Section HasKindInd.
                        kind_ok F.(fc_kind_ctx) κ ->
                        P F (VarT t) κ)
       (HMonoFun : ∀ F τs1 τs2 κs1 κs2,
-          Forall2 (P F) τs1 κs1 -> Forall2 (P F) τs2 κs2 -> P0 F (MonoFunT τs1 τs2))
+          Forall2 (P F) τs1 κs1 -> Forall2 (P F) τs2 κs2 -> Pi F (MonoFunT τs1 τs2))
+      (HInnerFun : ∀ F ft, Pi F ft -> P0 F (InnerFunT ft))
       (HForallMem : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ft ->
                              P0 F (ForallMemT ft))
       (HForallRep : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ft ->
@@ -519,8 +526,8 @@ Section HasKindInd.
       (HForallSize : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_size_vars S |>) ft ->
                               P0 F (ForallSizeT ft))
       (HForallType : ∀ F κ ft, kind_ok F.(fc_kind_ctx) κ ->
-          P0 (F <| fc_type_vars ::= cons κ |>) ft ->
-          P0 F (ForallTypeT κ ft)).
+          Pi (F <| fc_type_vars ::= cons κ |>) ft ->
+          Pi F (ForallTypeT κ ft)).
 
   Fixpoint has_kind_ind' (F : function_ctx) (τ : type) (κ : kind) (H : has_kind F τ κ) : P F τ κ :=
     match H with
@@ -551,16 +558,20 @@ Section HasKindInd.
     | KExistsType F τ κ0 κ H1 H2 H3 => HExistsType F τ κ0 κ H1 H2 (has_kind_ind' _ _ _ H3)
     | KVar F t κ H1 H2 => HVar F t κ H1 H2
     end with
-  has_kind_ind_ft' (F : function_ctx) (ft: function_type) (H : has_kind_ft F ft) : P0 F ft :=
+  has_kind_ind_ift' (F : function_ctx) (ift: inner_function_type) (H: has_kind_ift F ift) : Pi F ift :=
     match H with
     | KMonoFun F τs1 τs2 κs1 κs2 H1 H2 =>
         HMonoFun F τs1 τs2 κs1 κs2
           (Forall2_impl _ _ _ _ H1 (fun τ κ => has_kind_ind' _ _ _))
           (Forall2_impl _ _ _ _ H2 (fun τ κ => has_kind_ind' _ _ _))
+    | KForallType F κ ft H1 H2 => HForallType F κ ft H1 (has_kind_ind_ift' _ _ H2)
+    end with
+  has_kind_ind_ft' (F : function_ctx) (ft: function_type) (H : has_kind_ft F ft) : P0 F ft :=
+    match H with
+    | KInnerFun F ft H1 => HInnerFun F ft (has_kind_ind_ift' _ _ H1)
     | KForallMem F ft H1 => HForallMem F ft (has_kind_ind_ft' _ _ H1)
     | KForallRep F ft H1 => HForallRep F ft (has_kind_ind_ft' _ _ H1)
     | KForallSize F ft H1 => HForallSize F ft (has_kind_ind_ft' _ _ H1)
-    | KForallType F κ ft H1 H2 => HForallType F κ ft H1 (has_kind_ind_ft' _ _ H2)
     end.
 
 
@@ -576,7 +587,7 @@ Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
 Proof.
   intros H.
   induction H using has_kind_ind'
-    with (P0 := λ F ft, function_type_ok F ft).
+    with (P0 := λ F ft, function_type_ok F ft) (Pi := λ F ift, inner_function_type_ok F ift).
   all: repeat constructor; try inversion IHhas_kind; try done.
   13: by inversion H.
   13-17: subst; try done.
@@ -725,7 +736,7 @@ Fixpoint type_eq_mod_kinds (τ1 τ2 : type) {struct τ1} : Prop :=
   | ExistsTypeT _ κ01 τ1, ExistsTypeT _ κ02 τ2 => κ01 = κ02 /\ type_eq_mod_kinds τ1 τ2
   | _, _ => False
   end
-with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
+with inner_function_type_eq_mod_kinds (ϕ1 ϕ2 : inner_function_type) {struct ϕ1} : Prop :=
   let fix types_eq (τs1 τs2 : list type) {struct τs1} : Prop :=
     match τs1, τs2 with
     | [], [] => True
@@ -735,14 +746,39 @@ with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
   match ϕ1, ϕ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
       types_eq τs11 τs21 /\ types_eq τs12 τs22
+  | ForallTypeT κ1 ϕ1, ForallTypeT κ2 ϕ2 =>
+      κ1 = κ2 /\ inner_function_type_eq_mod_kinds ϕ1 ϕ2
+  | _, _ => False
+  end
+with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
+  let fix types_eq (τs1 τs2 : list type) {struct τs1} : Prop :=
+    match τs1, τs2 with
+    | [], [] => True
+    | σ1 :: τs1, σ2 :: τs2 => type_eq_mod_kinds σ1 σ2 /\ types_eq τs1 τs2
+    | _, _ => False
+    end in
+  match ϕ1, ϕ2 with
+  | InnerFunT ϕ1, InnerFunT ϕ2 =>
+      inner_function_type_eq_mod_kinds ϕ1 ϕ2
   | ForallMemT ϕ1, ForallMemT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
   | ForallRepT ϕ1, ForallRepT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
   | ForallSizeT ϕ1, ForallSizeT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
-  | ForallTypeT κ1 ϕ1, ForallTypeT κ2 ϕ2 => κ1 = κ2 /\ function_type_eq_mod_kinds ϕ1 ϕ2
   | _, _ => False
   end.
 
+Inductive inner_function_type_inst : function_ctx -> index -> inner_function_type -> inner_function_type -> Prop :=
+| FTInstType F ϕ τ κ κ' ϕ' :
+  has_kind F τ κ' ->
+  subkind_of κ' κ ->
+  has_kind_ift F ϕ' ->
+  inner_function_type_eq_mod_kinds ϕ'
+    (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
+  inner_function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
+
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
+| FTInstInner F ϕ idx ϕ' :
+  inner_function_type_inst F idx ϕ ϕ' ->
+  function_type_inst F idx (InnerFunT ϕ) (InnerFunT ϕ')
 | FTInstMem F ϕ μ :
   mem_ok F.(fc_kind_ctx) μ ->
   let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
@@ -754,16 +790,7 @@ Inductive function_type_inst : function_ctx -> index -> function_type -> functio
 | FTInstSize F ϕ σ :
   size_ok F.(fc_kind_ctx) σ ->
   let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
-  function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'
-| FTInstType F ϕ τ κ κ' ϕ' :
-  has_kind F τ κ' ->
-  subkind_of κ' κ ->
-  (* NOTE: the raw subst is ill-kinded under a strict-subkind instantiation *)
-  (* function_type_ok F ϕ' -> *)
-  has_kind_ft F ϕ' ->
-  function_type_eq_mod_kinds ϕ'
-    (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
-  function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
+  function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'.
 
 Inductive function_type_insts : function_ctx -> list index -> function_type -> function_type -> Prop :=
 | FTNil F ϕ :
@@ -974,12 +1001,12 @@ Inductive has_instruction_type :
 | TCall M F L i ixs ϕ τs1 τs2 :
   let ψ := InstrT τs1 τs2 in
   M.(mc_functions) !! i = Some ϕ ->
-  function_type_insts F ixs ϕ (MonoFunT τs1 τs2) ->
+  function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICall ψ i ixs) ψ L
 | TCallIndirect M F L τs1 τs2 :
   let κ := VALTYPE (AtomR I32R) NoRefs in
-  let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
+  let ψ := InstrT (τs1 ++ [CodeRefT κ (InnerFunT (MonoFunT τs1 τs2))]) τs2 in
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICallIndirect ψ) ψ L
 | TInject M F L i τ τs κ :
@@ -1220,12 +1247,12 @@ Section HasHaveInstructionTypeMind.
       (HCall : forall M F L i ixs ϕ τs1 τs2,
           let ψ := InstrT τs1 τs2 in
           M.(mc_functions) !! i = Some ϕ ->
-          function_type_insts F ixs ϕ (MonoFunT τs1 τs2) ->
+          function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICall ψ i ixs) ψ L)
       (HCallIndirect : forall M F L τs1 τs2,
           let κ := VALTYPE (AtomR I32R) NoRefs in
-          let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
+          let ψ := InstrT (τs1 ++ [CodeRefT κ (InnerFunT (MonoFunT τs1 τs2))]) τs2 in
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICallIndirect ψ) ψ L)
       (HInject : forall M F L i τ τs κ,
