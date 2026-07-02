@@ -366,7 +366,16 @@ Section case_ptr.
      a <> 0 ->
      tag_address μ a `mod` 2 = 1)%N.
   Proof.
-  Admitted.
+    intros Hmod Hnz.
+    apply N.Div0.mod_divides in Hmod as [k ->].
+    destruct μ; cbn.
+    - replace (4 * k - 3)%N with (1 + (2 * k - 2) * 2)%N by lia.
+      rewrite N.Div0.mod_add.
+      reflexivity.
+    - replace (4 * k - 1)%N with (1 + (2 * k - 1) * 2)%N by lia.
+      rewrite N.Div0.mod_add.
+      reflexivity.
+  Qed.
 
   (* Inductive ptr_shaped : pointer -> N -> Prop := *)
   (* | IntShaped : *)
