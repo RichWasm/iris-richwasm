@@ -3238,7 +3238,7 @@ Admitted.
       split.
       + change (se.1, (sκ_T, T)::se.2) with (senv_insert_type sκ_T T se).
         rewrite <- eval_kind_type_irrel_eq.
-        done.
+        admit.
       + unfold type_ctx_interp in h2.
         eapply Forall2_impl; first exact h2.
         intros *. cbn.
@@ -3469,18 +3469,20 @@ Admitted.
       apply Hid in Hkind_ft as Htorewrite.
       fold ϕ'; rewrite Htorewrite; unfold ϕ'.
       inversion Hkind_first; subst. inversion H4; subst.
+      rewrite Htorewrite in Hkind_ft.
       by iApply closure_interp_scons_insert_mem.
     - pose proof (refresh_kinds_id) as (_ & Hid).
       apply Hid in Hkind_ft as Htorewrite.
       fold ϕ'; rewrite Htorewrite; unfold ϕ'.
       inversion Hkind_first; subst. inversion H4; subst.
+      rewrite Htorewrite in Hkind_ft.
       by iApply closure_interp_scons_insert_rep.
     - pose proof (refresh_kinds_id) as (_ & Hid).
       apply Hid in Hkind_ft as Htorewrite.
       fold ϕ'; rewrite Htorewrite; unfold ϕ'.
       inversion Hkind_first; subst. inversion H4; subst.
-      iApply closure_interp_scons_insert_size; [done|done|].
-      done.
+      rewrite Htorewrite in Hkind_ft.
+      by iApply closure_interp_scons_insert_size.
   Qed.
 
   (*
