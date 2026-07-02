@@ -59,6 +59,43 @@ let poly_len_src =
 
 let poly_len = from_string_exn poly_len_src
 
+(* map : forall a b, ((a -> b) /\ list a) -> list b *)
+let poly_map_fn =
+  {|
+      (export (map : ((a b) (* (() a -> b) (rec (l) (+ (*) (* a l)))) -> (rec (l) (+ (*) (* b l)))))
+        (fun (a b) (p : (* (() a -> b) (rec (l) (+ (*) (* a l))))) : (rec (l) (+ (*) (* b l)))
+          (split# ((f : (() a -> b)) (xs : (rec (l) (+ (*) (* a l))))) p
+            (cases (unfold xs)
+              ((_ : (*))
+                (fold (rec (l) (+ (*) (* b l)))
+                  (inj 0 (tup) : (+ (*) (* b (rec (l) (+ (*) (* b l))))))))
+              ((c : (* a (rec (l) (+ (*) (* a l)))))
+                (fold (rec (l) (+ (*) (* b l)))
+                  (inj 1
+                    (tup (app f () (proj 0 c))
+                         (app map (a b) (tup f (proj 1 c))))
+                    : (+ (*) (* b (rec (l) (+ (*) (* b l))))))))))))
+    |}
+
+let poly_map_src =
+  poly_map_fn
+  ^ {|
+      (app map (int int)
+        (tup (fun () (x : int) : int (op + x 1))
+             (fold (rec (l) (+ (*) (* int l)))
+               (inj 1
+                 (tup 1
+                   (fold (rec (l) (+ (*) (* int l)))
+                     (inj 1
+                       (tup 2
+                         (fold (rec (l) (+ (*) (* int l)))
+                           (inj 0 (tup) : (+ (*) (* int (rec (l) (+ (*) (* int l))))))))
+                       : (+ (*) (* int (rec (l) (+ (*) (* int l))))))))
+                 : (+ (*) (* int (rec (l) (+ (*) (* int l)))))))))
+    |}
+
+let poly_map = from_string_exn poly_map_src
+
 (* [apply] returns a polymorphic call's result instantiated at its own type param (a bound-var result). *)
 let poly_id_apply_src =
   {|
@@ -203,6 +240,7 @@ let all =
       ("apply_id", apply_id);
       ("opt_case", opt_case);
       ("poly_len", poly_len);
+      ("poly_map", poly_map);
       ("poly_id_apply", poly_id_apply);
       ("mini_zip", mini_zip);
       ("closure_simpl", closure_simpl);

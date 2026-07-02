@@ -179,4 +179,15 @@ let simple_tests =
       i31 3 );
     ("poly_len", poly_len_src, i31 1);
     ("poly_id_apply", poly_id_apply_src, i31 5);
+    ("poly_map", poly_map_src, "(inj 1 (tup 2 (inj 1 (tup 3 (inj 0)))))");
+    ( "poly_map int to pair",
+      sprintf
+        {|
+          %s
+          (app map (int (* int int))
+            (tup (fun () (x : int) : (* int int) (tup x (op * x x))) %s))
+        |}
+        poly_map_fn
+        (cons 1 (cons 2 nil)),
+      "(inj 1 (tup (tup 1 1) (inj 1 (tup (tup 2 4) (inj 0)))))" );
   ]

@@ -279,8 +279,7 @@ let%expect_test "pretty prints examples" =
       (split (f : (int ⊸ int)) (lst : (rec α (() ⊕ (int ⊗ α)))) = p in
       (fold (rec α (() ⊕ (int ⊗ α)))
         (cases (unfold (rec α (() ⊕ (int ⊗ α))) lst)
-          (case (nil : ())
-            (inj 0 nil : (() ⊕ (int ⊗ (rec α (() ⊕ (int ⊗ α)))))))
+          (case (nil : ()) (inj 0 nil : (() ⊕ (int ⊗ (rec α (() ⊕ (int ⊗ α)))))))
           (case (cons : (int ⊗ (rec α (() ⊕ (int ⊗ α)))))
             (split (hd : int) (tl : (rec α (() ⊕ (int ⊗ α)))) = cons in
             (inj 1 ((app f hd), (app map_int (f, tl))) :
@@ -295,19 +294,15 @@ let%expect_test "pretty prints examples" =
     -----------boxed_list[invalid]-----------
     (fun map_int (p : ((int ⊸ int) ⊗ (rec α (() ⊕ (int ⊗ (ref α)))))) :
       (rec α (() ⊕ (int ⊗ (ref α)))) .
-      (split (f : (int ⊸ int)) (lst : (rec α (() ⊕ (int ⊗ (ref α))))) =
-        p in
+      (split (f : (int ⊸ int)) (lst : (rec α (() ⊕ (int ⊗ (ref α))))) = p in
       (fold (rec α (() ⊕ (int ⊗ (ref α))))
         (cases (unfold (rec α (() ⊕ (int ⊗ (ref α)))) lst)
           (case (nil : ())
-            (inj 0 nil :
-              (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))
+            (inj 0 nil : (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))
           (case (cons : (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))
-            (split (hd : int) (tl : (ref (rec α (() ⊕ (int ⊗ (ref α)))))) =
-              cons in
+            (split (hd : int) (tl : (ref (rec α (() ⊕ (int ⊗ (ref α)))))) = cons in
             (inj 1 ((app f hd), (new (app map_int (f, (free tl))))) :
-              (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α))))))))))
-          ))))
+              (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α))))))))))))))
 
     (let (lst : (rec α (() ⊕ (int ⊗ (ref α))))) =
       (fold (rec α (() ⊕ (int ⊗ (ref α))))
@@ -315,8 +310,7 @@ let%expect_test "pretty prints examples" =
           (5,
             (new
               (fold (rec α (() ⊕ (int ⊗ (ref α))))
-                (inj 0 () :
-                  (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))))
+                (inj 0 () : (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))))
           : (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))
       in
     (app map_int ((λ (x : int) : int .
@@ -357,8 +351,8 @@ let%expect_test "pretty prints examples" =
     (fun to-int (peano : (rec a (() ⊕ (ref a)))) : int .
       (cases (unfold (rec a (() ⊕ (ref a))) peano)
         (case (zero : ()) 0)
-        (case (succ : (ref (rec a (() ⊕ (ref a)))))
-          (1 + (app to-int (free succ))))))
+        (case (succ : (ref (rec a (() ⊕ (ref a))))) (1 + (app to-int (free succ))))
+        ))
 
     (let (six : (rec a (() ⊕ (ref a)))) = (app from-int 6) in
     (let (seven : (rec a (() ⊕ (ref a)))) = (app from-int 7) in
@@ -389,10 +383,9 @@ let%expect_test "pretty prints examples" =
       (split (f : (int ⊸ int)) (g : (int ⊸ int)) (x : int) = p in
       (app f (app g x))))
 
-    (app compose
-      ((λ (x : int) : int .
-         (x + 1)), (λ (x : int) : int .
-                     (x × 2)), 5))
+    (app compose ((λ (x : int) : int .
+                    (x + 1)), (λ (x : int) : int .
+                                (x × 2)), 5))
     -----------mk_adder_apply_to-----------
     (fun mk_adder (n : int) : (int ⊸ int) .
       (λ (x : int) : int .
@@ -405,7 +398,7 @@ let%expect_test "pretty prints examples" =
     -----------closure_with_ref-----------
     (let (r : (ref int)) = (new 42) in
     (let (read_and_free : (() ⊸ int)) = (λ (_ : ()) : int .
-                                            (free r)) in
+                                          (free r)) in
     (app read_and_free ())))
     -----------factorial_hof-----------
     (fun factorial (n : int) : int .

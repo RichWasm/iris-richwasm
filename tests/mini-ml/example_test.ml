@@ -1476,6 +1476,508 @@ let%expect_test "examples" =
       (table 0 1)
       (export "len" (func 0))
       (export "_start" (func 1)))
+    -----------poly_map-----------
+    (module
+      (func
+          (forall.type (val ptr gcrefs)
+            (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+              (ref (base gc) imm
+                (struct
+                  (ser
+                    (exists type (val ptr gcrefs)
+                      (ref (base gc) imm
+                        (struct (ser (var 0))
+                          (ser (coderef ((var 0) (var 2) -> (var 1))))))))
+                  (ser
+                    (rec (val ptr gcrefs)
+                      (ref (base gc) imm
+                        (variant (ser (ref (base gc) imm (struct)))
+                          (ser
+                            (ref (base gc) imm
+                              (struct (ser (var 2)) (ser (var 0)))))))))))
+              ->
+              (rec (val ptr gcrefs)
+                (ref (base gc) imm
+                  (variant (ser (ref (base gc) imm (struct)))
+                    (ser (ref (base gc) imm (struct (ser (var 1)) (ser (var 0))))))))))
+          (local ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr
+          ptr)
+        local.get 1 move
+        copy
+        local.set 1
+        load (Path [0]) follow
+        local.set 2
+        load (Path [1]) follow
+        local.set 3
+        drop
+        local.get 3 move
+        copy
+        local.set 3
+        unfold
+        case_load
+          (result
+          (rec (val ptr gcrefs)
+            (ref (base gc) imm
+              (variant (ser (ref (base gc) imm (struct)))
+                (ser (ref (base gc) imm (struct (ser (var 1)) (ser (var 0)))))))))
+          copy inferfx
+          (0
+            local.set 4
+            group 0
+            new gc imm
+            cast (ref (base gc) imm (struct))
+            inject_new gc 0 (ref (base gc) imm (struct))
+              (ref (base gc) imm
+                (struct (ser (var 0))
+                  (ser
+                    (rec (val ptr gcrefs)
+                      (ref (base gc) imm
+                        (variant (ser (ref (base gc) imm (struct)))
+                          (ser
+                            (ref (base gc) imm
+                              (struct (ser (var 1)) (ser (var 0)))))))))))
+            fold
+              (rec (val ptr gcrefs)
+                (ref (base gc) imm
+                  (variant (ser (ref (base gc) imm (struct)))
+                    (ser (ref (base gc) imm (struct (ser (var 1)) (ser (var 0))))))))
+            local.get 4 move
+            drop)
+          (1
+            local.set 5
+            local.get 2 move
+            copy
+            local.set 2
+            unpack (result (var 1)) inferfx
+              local.set 6
+              local.get 6 move
+              copy
+              local.set 6
+              load (Path [0]) follow
+              local.set 7
+              drop
+              local.get 7 move
+              local.set 8
+              local.get 6 move
+              copy
+              local.set 6
+              load (Path [1]) follow
+              local.set 9
+              drop
+              local.get 9 move
+              local.set 10
+              local.get 8 move
+              copy
+              local.set 8
+              local.get 5 move
+              copy
+              local.set 5
+              load (Path [0]) follow
+              local.set 11
+              drop
+              local.get 11 move
+              local.get 10 move
+              copy
+              local.set 10
+              call_indirect
+              local.get 10 move
+              drop
+              local.get 8 move
+              drop
+              local.get 6 move
+              drop
+            end
+            group 0
+            new gc imm
+            cast (ref (base gc) imm (struct))
+            coderef 0
+            group 2
+            new gc imm
+            cast
+              (ref (base gc) imm
+                (struct (ser (ref (base gc) imm (struct)))
+                  (ser
+                    (coderef
+                      (forall.type (val ptr gcrefs)
+                        (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+                          (ref (base gc) imm
+                            (struct
+                              (ser
+                                (exists type (val ptr gcrefs)
+                                  (ref (base gc) imm
+                                    (struct (ser (var 0))
+                                      (ser (coderef ((var 0) (var 2) -> (var 1))))))))
+                              (ser
+                                (rec (val ptr gcrefs)
+                                  (ref (base gc) imm
+                                    (variant (ser (ref (base gc) imm (struct)))
+                                      (ser
+                                        (ref (base gc) imm
+                                          (struct (ser (var 2)) (ser (var 0)))))))))))
+                          ->
+                          (rec (val ptr gcrefs)
+                            (ref (base gc) imm
+                              (variant (ser (ref (base gc) imm (struct)))
+                                (ser
+                                  (ref (base gc) imm
+                                    (struct (ser (var 1)) (ser (var 0))))))))))))))
+            pack (type (ref (base gc) imm (struct)))
+              (ref (base gc) imm
+                (struct (ser (var 0))
+                  (ser
+                    (coderef
+                      (forall.type (val ptr gcrefs)
+                        (forall.type (val ptr gcrefs) (var 2)
+                          (ref (base gc) imm
+                            (struct
+                              (ser
+                                (exists type (val ptr gcrefs)
+                                  (ref (base gc) imm
+                                    (struct (ser (var 0))
+                                      (ser (coderef ((var 0) (var 2) -> (var 1))))))))
+                              (ser
+                                (rec (val ptr gcrefs)
+                                  (ref (base gc) imm
+                                    (variant (ser (ref (base gc) imm (struct)))
+                                      (ser
+                                        (ref (base gc) imm
+                                          (struct (ser (var 2)) (ser (var 0)))))))))))
+                          ->
+                          (rec (val ptr gcrefs)
+                            (ref (base gc) imm
+                              (variant (ser (ref (base gc) imm (struct)))
+                                (ser
+                                  (ref (base gc) imm
+                                    (struct (ser (var 1)) (ser (var 0))))))))))))))
+            unpack
+              (result
+              (rec (val ptr gcrefs)
+                (ref (base gc) imm
+                  (variant (ser (ref (base gc) imm (struct)))
+                    (ser (ref (base gc) imm (struct (ser (var 2)) (ser (var 0)))))))))
+              inferfx
+              local.set 12
+              local.get 12 move
+              copy
+              local.set 12
+              load (Path [0]) follow
+              local.set 13
+              drop
+              local.get 13 move
+              local.set 14
+              local.get 12 move
+              copy
+              local.set 12
+              load (Path [1]) follow
+              local.set 15
+              drop
+              local.get 15 move
+              local.set 16
+              local.get 14 move
+              copy
+              local.set 14
+              local.get 2 move
+              copy
+              local.set 2
+              local.get 5 move
+              copy
+              local.set 5
+              load (Path [1]) follow
+              local.set 17
+              drop
+              local.get 17 move
+              group 2
+              new gc imm
+              cast
+                (ref (base gc) imm
+                  (struct
+                    (ser
+                      (exists type (val ptr gcrefs)
+                        (ref (base gc) imm
+                          (struct (ser (var 0))
+                            (ser (coderef ((var 0) (var 3) -> (var 2))))))))
+                    (ser
+                      (rec (val ptr gcrefs)
+                        (ref (base gc) imm
+                          (variant (ser (ref (base gc) imm (struct)))
+                            (ser
+                              (ref (base gc) imm
+                                (struct (ser (var 3)) (ser (var 0)))))))))))
+              local.get 16 move
+              copy
+              local.set 16
+              inst (type (var 2))
+              inst (type (var 1))
+              call_indirect
+              local.get 16 move
+              drop
+              local.get 14 move
+              drop
+              local.get 12 move
+              drop
+            end
+            group 2
+            new gc imm
+            cast
+              (ref (base gc) imm
+                (struct (ser (var 0))
+                  (ser
+                    (rec (val ptr gcrefs)
+                      (ref (base gc) imm
+                        (variant (ser (ref (base gc) imm (struct)))
+                          (ser
+                            (ref (base gc) imm
+                              (struct (ser (var 1)) (ser (var 0)))))))))))
+            inject_new gc 1 (ref (base gc) imm (struct))
+              (ref (base gc) imm
+                (struct (ser (var 0))
+                  (ser
+                    (rec (val ptr gcrefs)
+                      (ref (base gc) imm
+                        (variant (ser (ref (base gc) imm (struct)))
+                          (ser
+                            (ref (base gc) imm
+                              (struct (ser (var 1)) (ser (var 0)))))))))))
+            fold
+              (rec (val ptr gcrefs)
+                (ref (base gc) imm
+                  (variant (ser (ref (base gc) imm (struct)))
+                    (ser (ref (base gc) imm (struct (ser (var 1)) (ser (var 0))))))))
+            local.get 5 move
+            drop)
+        end
+        local.set 18
+        drop
+        local.get 18 move
+        local.get 2 move
+        drop
+        local.get 3 move
+        drop
+        local.get 0 move
+        drop
+        local.get 1 move
+        drop)
+      (func ((ref (base gc) imm (struct)) i31 -> i31)
+        local.get 1 move
+        copy
+        local.set 1
+        untag
+        i32.const 1
+        tag
+        untag
+        i32.add
+        tag
+        local.get 0 move
+        drop
+        local.get 1 move
+        drop)
+      (func
+          ((ref (base gc) imm (struct)) ->
+            (rec (val ptr gcrefs)
+              (ref (base gc) imm
+                (variant (ser (ref (base gc) imm (struct)))
+                  (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))
+          (local ptr ptr ptr ptr ptr)
+        group 0
+        new gc imm
+        cast (ref (base gc) imm (struct))
+        coderef 0
+        group 2
+        new gc imm
+        cast
+          (ref (base gc) imm
+            (struct (ser (ref (base gc) imm (struct)))
+              (ser
+                (coderef
+                  (forall.type (val ptr gcrefs)
+                    (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
+                      (ref (base gc) imm
+                        (struct
+                          (ser
+                            (exists type (val ptr gcrefs)
+                              (ref (base gc) imm
+                                (struct (ser (var 0))
+                                  (ser (coderef ((var 0) (var 2) -> (var 1))))))))
+                          (ser
+                            (rec (val ptr gcrefs)
+                              (ref (base gc) imm
+                                (variant (ser (ref (base gc) imm (struct)))
+                                  (ser
+                                    (ref (base gc) imm
+                                      (struct (ser (var 2)) (ser (var 0)))))))))))
+                      ->
+                      (rec (val ptr gcrefs)
+                        (ref (base gc) imm
+                          (variant (ser (ref (base gc) imm (struct)))
+                            (ser
+                              (ref (base gc) imm
+                                (struct (ser (var 1)) (ser (var 0))))))))))))))
+        pack (type (ref (base gc) imm (struct)))
+          (ref (base gc) imm
+            (struct (ser (var 0))
+              (ser
+                (coderef
+                  (forall.type (val ptr gcrefs)
+                    (forall.type (val ptr gcrefs) (var 2)
+                      (ref (base gc) imm
+                        (struct
+                          (ser
+                            (exists type (val ptr gcrefs)
+                              (ref (base gc) imm
+                                (struct (ser (var 0))
+                                  (ser (coderef ((var 0) (var 2) -> (var 1))))))))
+                          (ser
+                            (rec (val ptr gcrefs)
+                              (ref (base gc) imm
+                                (variant (ser (ref (base gc) imm (struct)))
+                                  (ser
+                                    (ref (base gc) imm
+                                      (struct (ser (var 2)) (ser (var 0)))))))))))
+                      ->
+                      (rec (val ptr gcrefs)
+                        (ref (base gc) imm
+                          (variant (ser (ref (base gc) imm (struct)))
+                            (ser
+                              (ref (base gc) imm
+                                (struct (ser (var 1)) (ser (var 0))))))))))))))
+        unpack
+          (result
+          (rec (val ptr gcrefs)
+            (ref (base gc) imm
+              (variant (ser (ref (base gc) imm (struct)))
+                (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))
+          inferfx
+          local.set 1
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [0]) follow
+          local.set 2
+          drop
+          local.get 2 move
+          local.set 3
+          local.get 1 move
+          copy
+          local.set 1
+          load (Path [1]) follow
+          local.set 4
+          drop
+          local.get 4 move
+          local.set 5
+          local.get 3 move
+          copy
+          local.set 3
+          group 0
+          new gc imm
+          cast (ref (base gc) imm (struct))
+          coderef 1
+          group 2
+          new gc imm
+          cast
+            (ref (base gc) imm
+              (struct (ser (ref (base gc) imm (struct)))
+                (ser (coderef ((ref (base gc) imm (struct)) i31 -> i31)))))
+          pack (type (ref (base gc) imm (struct)))
+            (ref (base gc) imm
+              (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> i31)))))
+          i32.const 1
+          tag
+          i32.const 2
+          tag
+          group 0
+          new gc imm
+          cast (ref (base gc) imm (struct))
+          inject_new gc 0 (ref (base gc) imm (struct))
+            (ref (base gc) imm
+              (struct (ser i31)
+                (ser
+                  (rec (val ptr gcrefs)
+                    (ref (base gc) imm
+                      (variant (ser (ref (base gc) imm (struct)))
+                        (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))))
+          fold
+            (rec (val ptr gcrefs)
+              (ref (base gc) imm
+                (variant (ser (ref (base gc) imm (struct)))
+                  (ser (ref (base gc) imm (struct (ser i31) (ser (var 0))))))))
+          group 2
+          new gc imm
+          cast
+            (ref (base gc) imm
+              (struct (ser i31)
+                (ser
+                  (rec (val ptr gcrefs)
+                    (ref (base gc) imm
+                      (variant (ser (ref (base gc) imm (struct)))
+                        (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))))
+          inject_new gc 1 (ref (base gc) imm (struct))
+            (ref (base gc) imm
+              (struct (ser i31)
+                (ser
+                  (rec (val ptr gcrefs)
+                    (ref (base gc) imm
+                      (variant (ser (ref (base gc) imm (struct)))
+                        (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))))
+          fold
+            (rec (val ptr gcrefs)
+              (ref (base gc) imm
+                (variant (ser (ref (base gc) imm (struct)))
+                  (ser (ref (base gc) imm (struct (ser i31) (ser (var 0))))))))
+          group 2
+          new gc imm
+          cast
+            (ref (base gc) imm
+              (struct (ser i31)
+                (ser
+                  (rec (val ptr gcrefs)
+                    (ref (base gc) imm
+                      (variant (ser (ref (base gc) imm (struct)))
+                        (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))))
+          inject_new gc 1 (ref (base gc) imm (struct))
+            (ref (base gc) imm
+              (struct (ser i31)
+                (ser
+                  (rec (val ptr gcrefs)
+                    (ref (base gc) imm
+                      (variant (ser (ref (base gc) imm (struct)))
+                        (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))))
+          fold
+            (rec (val ptr gcrefs)
+              (ref (base gc) imm
+                (variant (ser (ref (base gc) imm (struct)))
+                  (ser (ref (base gc) imm (struct (ser i31) (ser (var 0))))))))
+          group 2
+          new gc imm
+          cast
+            (ref (base gc) imm
+              (struct
+                (ser
+                  (exists type (val ptr gcrefs)
+                    (ref (base gc) imm
+                      (struct (ser (var 0)) (ser (coderef ((var 0) i31 -> i31)))))))
+                (ser
+                  (rec (val ptr gcrefs)
+                    (ref (base gc) imm
+                      (variant (ser (ref (base gc) imm (struct)))
+                        (ser (ref (base gc) imm (struct (ser i31) (ser (var 0)))))))))))
+          local.get 5 move
+          copy
+          local.set 5
+          inst (type i31)
+          inst (type i31)
+          call_indirect
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+          local.get 1 move
+          drop
+        end
+        local.get 0 move
+        drop)
+      (table 0 1 2)
+      (export "map" (func 0))
+      (export "_start" (func 2)))
     -----------poly_id_apply-----------
     (module
       (func
@@ -1616,11 +2118,11 @@ let%expect_test "examples" =
           (forall.type (val ptr gcrefs)
             (forall.type (val ptr gcrefs) (ref (base gc) imm (struct))
               (ref (base gc) imm
-                (struct (ser (ref (base gc) mut (ser (var 0))))
-                  (ser (ref (base gc) mut (ser (var 1))))))
+                (struct (ser (ref (base gc) mut (ser (var 1))))
+                  (ser (ref (base gc) mut (ser (var 0))))))
               ->
               (ref (base gc) mut
-                (ser (ref (base gc) imm (struct (ser (var 0)) (ser (var 1))))))))
+                (ser (ref (base gc) imm (struct (ser (var 1)) (ser (var 0))))))))
           (local ptr ptr ptr ptr)
         local.get 1 move
         copy
@@ -1646,7 +2148,7 @@ let%expect_test "examples" =
         local.get 5 move
         group 2
         new gc imm
-        cast (ref (base gc) imm (struct (ser (var 0)) (ser (var 1))))
+        cast (ref (base gc) imm (struct (ser (var 1)) (ser (var 0))))
         new gc mut
         local.get 0 move
         drop
