@@ -786,6 +786,42 @@ Section function.
     iFrame "H IH".
   Qed.
 
+  Lemma has_reps_type_reps_agree F τs ρs ρs' κs :
+    Forall2 (has_rep F) τs ρs →
+    fc_type_vars F = κs →
+    mapM (type_rep κs) τs = Some ρs' →
+    ρs = ρs'.
+  Proof.
+  Admitted.
+
+  Lemma translate_types_agree τs κs se ts :
+    type_ctx_interp κs se →
+    prelude.translate_types κs τs = Some ts →
+    translate_types (Σ := Σ) se τs = Some ts.
+  Proof.
+  Admitted.
+
+  Lemma eval_rep_arep_to_prim locs ιss ηss :
+    mapM (eval_rep EmptyEnv) locs = Some ιss →
+    mapM (eval_rep_prim EmptyEnv) locs = Some ηss →
+    ηss = map (map arep_to_prim) ιss.
+  Proof.
+    revert ιss ηss.
+    induction locs as [| loc locs]; intros *; cbn; intros Hreps Hprims.
+    - inversion Hreps. inversion Hprims.
+      done.
+    - apply bind_Some in Hreps.
+      destruct Hreps as (ιs & Hrep & Hreps).
+      apply bind_Some in Hreps.
+      destruct Hreps as (ιss' & Hreps & Heq); inversion Heq; clear Heq.
+      apply bind_Some in Hprims.
+      destruct Hprims as (ηs & Hprim & Hprims).
+      apply bind_Some in Hprims.
+      destruct Hprims as (ηss' & Hprims & Heq); inversion Heq; clear Heq.
+      cbn.
+  Admitted.
+
+
   Theorem interp_has_ifun_type ϕ : ∀ fe M K κs wt wt' wtf locs body tf mf' (se : semantic_env (Σ := Σ)),
     body_has_ifun_type M K locs body κs ϕ →
     kind_ctx_interp K se ->
@@ -835,7 +871,11 @@ Section function.
         f_equal.
         unfold eval_rep_prim_empty  in *; cbn in *.
         f_equal.
-        - admit.
+        - assert (ρs_P = ρs_P0).
+          { by eapply has_reps_type_reps_agree. }
+          subst ρs_P0.
+          rewrite H2 in H9.
+          congruence.
         - rewrite H3 in H12.
           congruence.
       }
@@ -849,9 +889,15 @@ Section function.
       cbn in Hf.
       cbn -[atom_interp translate_types].
       assert (translate_types (Σ:=Σ) se τs1 = prelude.translate_types κs τs1) as Htrans1.
-      { admit. }
+      {
+        rewrite Ht1.
+        eapply translate_types_agree; eauto.
+      }
       assert (translate_types (Σ:=Σ) se τs2 = prelude.translate_types κs τs2) as Htrans2.
-      { admit. }
+      {
+        rewrite Ht2.
+        eapply translate_types_agree; eauto.
+      }
       iSplitR; last iSplitR.
       { by rewrite Htrans1. }
       { by rewrite Htrans2. }
@@ -876,7 +922,9 @@ Section function.
         done.
       }
       assert (ηss_L = map (map arep_to_prim) ιs).
-      { admit. }
+      {
+        admit.
+      }
       iApply (cwp_wand with "[-]").
       {
         iApply ("Hsem" with "[] [] [] [] [Hats Hvs] Htok Hown Hf Hrun"); iClear "Hsem"; clear Hsem.
@@ -960,7 +1008,9 @@ Section function.
       iApply IHϕ; eauto.
       unfold type_ctx_interp in *.
       constructor.
-      + admit. (* busted *)
+      + intuition eauto.
+        erewrite eval_kind_kinds_only; first eassumption.
+        done.
       + eapply Forall2_impl; eauto.
         intros.
         destruct y.
