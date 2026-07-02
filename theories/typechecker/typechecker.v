@@ -1222,7 +1222,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
   | CodeRefT κ ϕ =>
       match κ with
       | VALTYPE (AtomR I32R) NoRefs =>
-          match function_type_ok_checker F ϕ with
+          match has_kind_ft_checker F ϕ with
           | inl () => inl κ
           | inr err => inr (HasKindError "" err)
           end
@@ -1325,6 +1325,30 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
           end
       | inr err => inr (HasKindError "" err)
       end
+  end
+with has_kind_ift_checker (F:function_ctx) (ϕ:inner_function_type) : type_checker_res :=
+  match ϕ with
+  | MonoFunT τs1 τs2 =>
+      let results1 := map (has_kind_synther F) τs1 in
+      let results2 := map (has_kind_synther F) τs2 in
+      if all_left results1
+      then
+        if all_left results2
+        then ok_term
+        else inr [HasKindError "in monofun some result types didn't synth" (get_all_rights results2)]
+      else inr [HasKindError "in monofun some argument types didn't synth" (get_all_rights results1)]
+  | ForallTypeT κ ϕ =>
+      match kind_ok_checker (F.(fc_kind_ctx)) κ with
+      | inl () => has_kind_ift_checker (F <| fc_type_vars ::= cons κ |>) ϕ
+      | err => err
+      end
+  end
+with has_kind_ft_checker (F:function_ctx) (ϕ:function_type) : type_checker_res :=
+  match ϕ with
+  | InnerFunT ϕ => has_kind_ift_checker F ϕ
+  | ForallMemT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
+  | ForallRepT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
+  | ForallSizeT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
   end.
 
 (* Check kind in a naive way. I guess. *)
@@ -1365,19 +1389,40 @@ Opaque mem_ok_checker.
  automation a lot easier *)
 
 
-(* The stupid True is there bc idk how to make the induction work otherwise *)
+Lemma all_left_Forall2_has_kind F τs :
+  Forall (λ t, ∀ F κ, has_kind_synther F t = inl κ -> has_kind F t κ) τs ->
+  all_left (map (has_kind_synther F) τs) = true ->
+  Forall2 (has_kind F) τs (get_all_lefts (map (has_kind_synther F) τs)).
+Proof.
+  induction 1 as [|t τs Ht Hτs IH]; simpl; intros Hall; first constructor.
+  destruct (has_kind_synther F t) eqn:Hsynth; simpl in Hall; last done.
+  constructor; auto.
+Qed.
+
 Lemma has_kind_synther_correct_basic :
   (∀ t F k, has_kind_synther F t = inl k -> has_kind F t k) /\
-  (∀ (ft:function_type) (F:function_ctx), True  ) /\
-  (∀ (ft:inner_function_type) (F:function_ctx), True  ).
+  (∀ (ft:function_type) (F:function_ctx),
+     has_kind_ft_checker F ft = ok_term -> has_kind_ft F ft) /\
+  (∀ (ft:inner_function_type) (F:function_ctx),
+     has_kind_ift_checker F ft = ok_term -> has_kind_ift F ft).
 Proof.
   apply type_and_function_ind; unfold has_kind_checker in *; intros; simpl in *; auto;
     repeat my_auto3; try (by constructor).
   1: refine ?[SumT]. 2: refine ?[VariantT]. 3: refine ?[ProdT]. 4: refine ?[StructT].
   5: refine ?[RefTVar]. 6: refine ?[RefTMM]. 7: refine ?[RefTGC].
-  8: refine ?[SerT].
-  9: refine ?[RecT]. 10: refine ?[ExistsMemT]. 11: refine ?[ExistsRepT].
-  12: refine ?[ExistsSizeT]. 13: refine ?[ExistsTypeT].
+  8: refine ?[CodeRef]. 9: refine ?[SerT].
+  10: refine ?[RecT]. 11: refine ?[ExistsMemT]. 12: refine ?[ExistsRepT].
+  13: refine ?[ExistsSizeT]. 14: refine ?[ExistsTypeT].
+  15: refine ?[MonoFun]. 16: refine ?[ForallType]. 17: refine ?[InnerFun].
+  18: refine ?[ForallMem]. 19: refine ?[ForallRep]. 20: refine ?[ForallSize].
+
+  [CodeRef]: constructor; by apply H.
+  [MonoFun]: eapply KMonoFun; by apply all_left_Forall2_has_kind.
+  [ForallType]: constructor; [done | by apply H].
+  [InnerFun]: constructor; by apply H.
+  [ForallMem]: constructor; by apply H.
+  [ForallRep]: constructor; by apply H.
+  [ForallSize]: constructor; by apply H.
 
   [SumT]: {
     constructor.
@@ -1427,6 +1472,18 @@ Lemma has_kind_synther_correct :
 Proof.
   pose proof has_kind_synther_correct_basic.
   by destruct H.
+Qed.
+
+Lemma has_kind_ft_checker_correct :
+  ∀ ft F, has_kind_ft_checker F ft = ok_term -> has_kind_ft F ft.
+Proof.
+  by destruct has_kind_synther_correct_basic as (_ & ? & _).
+Qed.
+
+Lemma has_kind_ift_checker_correct :
+  ∀ ft F, has_kind_ift_checker F ft = ok_term -> has_kind_ift F ft.
+Proof.
+  by destruct has_kind_synther_correct_basic as (_ & _ & ?).
 Qed.
 
 Lemma has_kind_checker_correct :
@@ -2490,6 +2547,10 @@ Ltac my_auto4 :=
   | H: (function_type_ok_checker _ _ = ok_term) |- _ => apply function_type_ok_checker_correct in H; auto
   | H: (inner_function_type_ok_checker _ _ = inl ()) |- _ => apply inner_function_type_ok_checker_correct in H; auto
   | H: (inner_function_type_ok_checker _ _ = ok_term) |- _ => apply inner_function_type_ok_checker_correct in H; auto
+  | H: (has_kind_ft_checker _ _ = inl ()) |- _ => apply has_kind_ft_checker_correct in H; auto
+  | H: (has_kind_ft_checker _ _ = ok_term) |- _ => apply has_kind_ft_checker_correct in H; auto
+  | H: (has_kind_ift_checker _ _ = inl ()) |- _ => apply has_kind_ift_checker_correct in H; auto
+  | H: (has_kind_ift_checker _ _ = ok_term) |- _ => apply has_kind_ift_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = inl ()) |- _ => apply has_kind_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = ok_term) |- _ => apply has_kind_checker_correct in H; auto
 end.
@@ -2628,7 +2689,7 @@ Definition inner_function_type_inst_checker
             | inl () =>
                 if inner_function_type_beq ft2
                      (refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
-                then inner_function_type_ok_checker F ft2
+                then has_kind_ift_checker F ft2
                 else INR "something not matching in function type inst checker"
             | err => err
             end
@@ -3142,7 +3203,11 @@ Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_che
                 match has_kind_synther F τ_wit with
                 | inl κ_wit =>
                     match subkind_of_checker κ_wit κ_max with
-                    | inl () => type_ok_checker F τ0
+                    | inl () =>
+                        match has_kind_synther F τ0 with
+                        | inl _ => ok_term
+                        | inr err => inr [err]
+                        end
                     | err => err
                     end
                 | inr err => inr [err]
@@ -3159,10 +3224,10 @@ Proof.
   intros.
   destruct τ2; simpl in *; try (by inversion H); try (repeat my_auto4; by constructor).
   repeat my_auto4.
-  apply has_kind_synther_correct in HMatch0.
+  apply has_kind_synther_correct in HMatch0, HMatch2.
   match goal with H : subkind_of_checker _ _ = _ |- _ => apply subkind_of_checker_correct in H end.
   destruct refresh_kinds_eq_mod_kinds as [Hrefresh _].
-  econstructor; eauto.
+  eapply PackType; [exact HMatch0 | exact HMatch1 | exact HMatch2 | apply Hrefresh].
 Qed.
 
 

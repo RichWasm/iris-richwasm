@@ -146,6 +146,9 @@ let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
       | _ -> fail (Err.UnfoldNonRec vt))
   | Unpack (_, (n, t), _, e) -> type_of_e ((n, t) :: gamma) e
 
+(* NOTE: innermost-first de Bruijn: the last forall is (Var 0) *)
+let push_foralls foralls delta = List.rev foralls @ delta
+
 let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
   let open Type in
   let open Res in
@@ -181,7 +184,7 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
       let+ t' = compile_type (v :: delta) t in
       Exists (Type kind, t')
   | Code { foralls; args; ret = ret_t } ->
-      let r = compile_type (foralls @ delta) in
+      let r = compile_type (push_foralls foralls delta) in
       let* args' = mapM ~f:r args in
       let+ ret' = r ret_t in
       CodeRef
@@ -521,14 +524,15 @@ let rec compile_expr delta gamma locals coderef_map e :
 let compile_fun coderef_map : Closed.Function.t -> Module.Function.t Res.t =
  fun (Function { name = _; foralls; args; ret_type; body }) ->
   let open Res in
-  let* arg_rw_types = mapM args ~f:(fun (_, t) -> compile_type foralls t) in
-  let* ret_rw_type = compile_type foralls ret_type in
+  let delta = push_foralls foralls [] in
+  let* arg_rw_types = mapM args ~f:(fun (_, t) -> compile_type delta t) in
+  let* ret_rw_type = compile_type delta ret_type in
   let init_gamma = List.mapi args ~f:(fun i (n, t) -> (n, t, i)) in
   let init_locals =
     List.map2_exn args arg_rw_types ~f:(fun (n, _) rw -> (n, rw))
   in
   let* body', locals, _ =
-    compile_expr foralls init_gamma init_locals coderef_map body
+    compile_expr delta init_gamma init_locals coderef_map body
   in
   let num_args = List.length args in
   ret

@@ -39,7 +39,7 @@ Section instr.
   Definition mem_env : Type := list base_memory.
   Definition rep_env : Type := list (list atomic_rep).
   Definition size_env : Type := list nat.
-  Definition type_env : Type := listO (prodO (leibnizO skind) SVR).
+  Definition type_env : Type := listO (prodO (leibnizO skind) (prodO (leibnizO skind) SVR)).
   Definition semantic_env : Type := prodO (leibnizO (mem_env * rep_env * size_env)) type_env.
 
   Notation SVRO := (semantic_env -n> SVR).
@@ -78,13 +78,14 @@ Section instr.
       lookup_size se i := senv_sizes se !! i;
     }.
 
-  Program Definition lookup_type : semantic_env -n> leibnizO nat -n> optionO (prodO (leibnizO skind) SVR) :=
+  Program Definition lookup_type : semantic_env -n> leibnizO nat -n>
+            optionO (prodO (leibnizO skind) (prodO (leibnizO skind) SVR)) :=
     λne se i, senv_types se !! i.
   Solve All Obligations with solve_proper.
 
-  Program Definition senv_insert_type (sκ : skind) (T : SVR) : semantic_env -n> semantic_env :=
+  Program Definition senv_insert_type (sκ: skind) (sκ_T : skind) (T : SVR) : semantic_env -n> semantic_env :=
     λne se,
-      (se.1, (sκ, T) :: senv_types se).
+      (se.1, (sκ, (sκ_T, T)) :: senv_types se).
   Final Obligation.
     intros * se se' Hse.
     f_equiv.
@@ -92,8 +93,8 @@ Section instr.
     - solve_proper.
   Qed.
 
-  Global Instance senv_insert_type_proper (sκ : skind) :
-  Proper (equiv ==> equiv) (@senv_insert_type sκ).
+  Global Instance senv_insert_type_proper (sκ : skind) (sκ_T : skind) :
+  Proper (equiv ==> equiv) (@senv_insert_type sκ sκ_T).
   Proof. solve_proper. Qed.
 
   Program Definition senv_insert_mem (μ : base_memory) : semantic_env -n> semantic_env :=
@@ -359,7 +360,7 @@ Section instr.
   Program Definition type_skind : semantic_env -n> leibnizO type -n> leibnizO (option skind) :=
     λne se τ,
     match τ with
-    | VarT x => fst <$> lookup_type se x
+    | VarT x => fst <$> lookup_type se x (* NOTE: this is looking up the less specific skind *)
     | NumT κ _
     | SumT κ _
     | VariantT κ _
@@ -442,7 +443,7 @@ Section instr.
   (* Value type interpretations. *)
   Program Definition type_var_interp : leibnizO nat -n> SVRO :=
     λne t se,
-      default (λne _, False%I) (snd <$> lookup_type se t).
+      default (λne _, False%I) (snd <$> (snd <$> lookup_type se t)).
   Solve All Obligations with solve_proper.
 
   Program Definition i31_interp : semantic_type :=
@@ -700,7 +701,7 @@ Section instr.
     λne _ _, True%I.
 
   Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
-    (λne T se T0 sv, ▷ T (senv_insert_type sκ T0 se) sv)%I.
+    (λne T se T0 sv, ▷ T (senv_insert_type sκ sκ T0 se) sv)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
@@ -712,7 +713,7 @@ Section instr.
     repeat intros ?.
     cbn.
     eapply later_contractive.
-    eapply (ne_dist_later (λ svr, T (senv_insert_type sκ svr se) x0)); [|done].
+    eapply (ne_dist_later (λ svr, T (senv_insert_type sκ sκ svr se) x0)); [|done].
     solve_proper.
   Qed.
 
@@ -848,15 +849,17 @@ Section instr.
 
   Program Definition exists_type_interp (κ : kind) : semantic_type -n> semantic_type :=
     λne T se sv,
-      (∃ T' sκ,
+      (∃ T' sκ sκ_T,
          ⌜eval_kind se κ = Some sκ⌝ ∗
-         ⌜skind_has_stype sκ T'⌝ ∗
-         T (senv_insert_type sκ T' se) sv)%I.
+         ⌜subskind_of sκ_T sκ⌝ ∗
+         ⌜skind_has_stype sκ_T T'⌝ ∗
+         T (senv_insert_type sκ sκ_T T' se) sv)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros * se se' Hse sv; cbn -[senv_insert_type].
     f_equiv; intros T'.
     f_equiv; intros sκ.
+    f_equiv; intros sκ_T.
     f_equiv; last solve_proper.
     f_equiv.
     f_equiv.
@@ -980,7 +983,7 @@ Section instr.
           ⌜eval_kind_se se κ = Some sκ⌝ -∗
           ⌜subskind_of sκ_T sκ⌝ -∗
           ⌜skind_has_stype sκ_T T⌝ -∗
-          FT (senv_insert_type sκ_T T se) cl)%I.
+          FT (senv_insert_type sκ sκ_T T se) cl)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation. Admitted.
   Final Obligation. solve_proper. Qed.
@@ -1243,7 +1246,7 @@ Section instr.
 
   Definition type_ctx_interp (κs : list kind) (se : semantic_env) : Prop :=
     Forall2
-      (fun κ '(sκ, T) => eval_kind se κ = Some sκ /\ skind_has_stype sκ T)
+      (fun κ '(sκ, (sκT, T)) => eval_kind se κ = Some sκ /\ subskind_of sκT sκ /\ skind_has_stype sκT T)
       κs
       (senv_types se).
 

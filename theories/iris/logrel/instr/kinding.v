@@ -457,11 +457,16 @@ Section kinding.
       destruct Hse as [boop bap].
       unfold type_ctx_interp in bap.
       unfold lookup_type in Htype_skind.
-      apply fmap_Some in Htype_skind as ([sκ_T T] & bofp & borzoi).
-      pose proof (Forall2_lookup_lr _ _ _ _ _ _ bap H bofp) as [hh hhhh].
+      apply fmap_Some in Htype_skind as ([sκ_true T] & bofp & borzoi).
+      cbn in bap.
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ bap H bofp) as help.
+      cbn in help.
+      destruct T as [sκ_T T].
+      cbn in borzoi.
       subst sκ'.
+      destruct help as [hh _].
       rewrite Heval_kind in hh.
-      by inversion hh.
+      by inversion hh. (* yaaaaaay *)
   Qed.
 
   Lemma type_skind_has_kind_Some F se τ κ sκ :
@@ -475,7 +480,7 @@ Section kinding.
     induction Hκ; intros ??; try by cbn in *.
     inversion Hse as [_ Htype_ctx].
     unfold type_ctx_interp in Htype_ctx.
-    pose proof (Forall2_lookup_l _ _ _ _ _ Htype_ctx H) as [[sκ_T T] (Ht & Hsκ_T & _)].
+    pose proof (Forall2_lookup_l _ _ _ _ _ Htype_ctx H) as [[sκ_true [sκ_T T]] (Ht & Hsκ_T & _)].
     cbn.
     cbn in Ht.
     rewrite Ht.
@@ -524,22 +529,29 @@ Section kinding.
       by eapply ref_flag_words_refine.
   Qed.
 
-  Lemma value_interp_var se t sκ T :
-    lookup_type se t = Some (sκ, T) ->
+  (* NOTE SAVE is this bad *)
+  Lemma value_interp_var se t sκ sκ_T T :
+    subskind_of sκ_T sκ ->
+    lookup_type se t = Some (sκ, (sκ_T, T)) ->
     value_interp rti sr se (VarT t) ≡ (λne sv, ⌜skind_has_svalue sκ sv⌝ ∗ T sv)%I.
   Proof.
     unfold lookup_type.
+    Opaque skind_has_svalue.
     cbn.
-    intros H sv.
+    intros Hsubs H sv.
     rewrite value_interp_eq; cbn.
     rewrite H.
     cbn.
-    iSplit; last eauto.
-    iIntros "(%sκ' & %Hsκ' & %Hskind & HT)".
-    inversion Hsκ'.
-    subst sκ'.
-    by iFrame.
+    iSplit.
+    - iIntros "(%sκ' & %Hsκ' & %Hskind & HT)".
+      iFrame.
+      iPureIntro.
+      inversion Hsκ'.
+      subst sκ'.
+      done.
+    - eauto.
   Qed.
+  Transparent skind_has_svalue.
 
   Lemma prim_value_type_l ι v :
     has_prim ι v ->

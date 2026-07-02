@@ -68,20 +68,9 @@ Section load_common.
     ρ = AtomR PtrR /\ exists ξ', κ = VALTYPE (AtomR PtrR) ξ'.
   Proof.
     intros Hkind.
-    remember (RefT κ μ β τ) as ref.
-    remember (VALTYPE ρ ξ) as val.
-    revert Heqval Heqref.
-    revert ρ ξ.
-    induction Hkind using has_kind_ind'; intros; try congruence.
-    - subst κ0.
-      split; try congruence.
-      inversion Heqref; eauto.
-    - subst κ0.
-      split; try congruence.
-      inversion Heqref; eauto.
-    - subst κ0.
-      split; try congruence.
-      inversion Heqref; eauto.
+    inversion Hkind; subst.
+    all: split; try done.
+    all: eexists; try done.
   Qed.
 
   Lemma Z_even_mod_even :

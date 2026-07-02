@@ -2,15 +2,23 @@ import * as assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { loadRuntime, instantiate, lookupExport, runStart } from "./host_common.ts";
 
-const [export1] = process.argv.slice(2);
-assert.strict(export1, "host_double expects the module-1 export name as argv[2]");
+const [providerExport, entryArg] = process.argv.slice(2);
+assert.strict(providerExport, "host_double expects the provider export name as argv[2]");
+const entry = entryArg ? Number(entryArg) : 2;
+assert.strict(entry === 1 || entry === 2, "host_double entry (argv[3]) must be 1 or 2");
 
 const rwExports = await loadRuntime();
-const [m1Buf, m2Buf] = await Promise.all([
-  readFile("/dev/fd/3"), // m1: should export name specified by `export1`
-  readFile("/dev/fd/4"), // m2: should import from m1; will use it's _start
+const bufs = await Promise.all([
+  readFile("/dev/fd/3"), // m1
+  readFile("/dev/fd/4"), // m2
 ]);
 
-const m1 = await instantiate(rwExports, m1Buf, null);
-const m2 = await instantiate(rwExports, m2Buf, lookupExport(m1, export1, "module 1"));
-runStart(m2, rwExports, "module 2");
+// provider (the non-entry module) is instantiated first; the entry imports it
+const providerIdx = entry === 2 ? 1 : 2;
+const provider = await instantiate(rwExports, bufs[providerIdx - 1], null);
+const entryInst = await instantiate(
+  rwExports,
+  bufs[entry - 1],
+  lookupExport(provider, providerExport, `module ${providerIdx}`),
+);
+runStart(entryInst, rwExports, `module ${entry}`);
