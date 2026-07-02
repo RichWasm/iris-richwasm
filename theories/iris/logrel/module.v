@@ -67,7 +67,7 @@ Section Fundamental.
     let ϕs := m_imports m ++ map mf_type (m_functions m) in
     let M := {| mc_functions := ϕs; mc_table := table |} in
     compile_functions (rt_types ++ wt) (m_functions m) = inr (wt', defs) →
-    Forall (λ mf : module_function, has_function_type M mf (mf_type mf)) (m_functions m) →
+    Forall (λ mf : module_function, has_function_type M mf) (m_functions m) →
     Forall2 (module_func_typing c) defs (map translate_function_type ϕs).
   Proof.
   Admitted.

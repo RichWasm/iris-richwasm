@@ -1450,23 +1450,46 @@ Proof.
   - by inversion IHhave_instruction_type.
 Qed.
 
-Inductive has_function_type : module_ctx -> module_function -> function_type -> Prop :=
-| TFunction M mf ηss_L ηss_P ρs_P L' :
-  let ϕ := flatten_function_type mf.(mf_type) in
-  let K := kc_of_fft ϕ in
-  let F := {| fc_return := ϕ.(fft_out);
-              fc_locals := ηss_P ++ ηss_L;
-              fc_labels := [(ϕ.(fft_out), L')];
+Inductive body_has_ifun_type (M : module_ctx) (K : kind_ctx) (mf_locs : list representation) (body : list instruction)
+  : list kind -> inner_function_type -> Prop :=
+| TMono κs τs1 τs2 ηss_P ηss_L L' ρs_P :
+  let F0 := {| fc_return := [];
+              fc_locals := [];
+              fc_labels := [];
               fc_kind_ctx := K;
-              fc_type_vars := ϕ.(fft_type_vars) |} in
-  let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
-  let ψ := InstrT [] ϕ.(fft_out) in
-  mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) = Some ηss_L ->
-  Forall2 (has_rep F) ϕ.(fft_in) ρs_P ->
+              fc_type_vars := κs |} in
+  Forall2 (has_rep F0) τs1 ρs_P ->
   mapM (eval_rep_prim EmptyEnv) ρs_P = Some ηss_P ->
+  mapM (eval_rep_prim EmptyEnv) mf_locs = Some ηss_L ->
+  let F := {| fc_return := τs2;
+              fc_locals := ηss_P ++ ηss_L;
+              fc_labels := [(τs2, L')];
+              fc_kind_ctx := K;
+              fc_type_vars := κs |} in
+  let L := τs1 ++ map type_plug_prim ηss_L in
   Forall (fun τ => has_ref_flag F τ NoRefs) L' ->
-  have_instruction_type M F L mf.(mf_body) ψ L' ->
-  has_function_type M mf mf.(mf_type).
+  have_instruction_type M F L body (InstrT [] τs2) L' ->
+  body_has_ifun_type M K mf_locs body κs (MonoFunT τs1 τs2)
+| TForallType ϕ κ κs :
+  body_has_ifun_type M K mf_locs body (κ :: κs) ϕ →
+  body_has_ifun_type M K mf_locs body κs (ForallTypeT κ ϕ).
+
+Inductive body_has_fun_type (M : module_ctx) (mf_locs : list representation) (body : list instruction) : kind_ctx -> function_type -> Prop :=
+| TInner K ϕ :
+  body_has_ifun_type M K mf_locs body [] ϕ ->
+  body_has_fun_type M mf_locs body K (InnerFunT ϕ)
+| TForallMem K ϕ :
+  body_has_fun_type M mf_locs body (K <| kc_mem_vars ::= S |>) ϕ →
+  body_has_fun_type M mf_locs body K (ForallMemT ϕ)
+| TForallRep K ϕ :
+  body_has_fun_type M mf_locs body (K <| kc_rep_vars ::= S |>) ϕ →
+  body_has_fun_type M mf_locs body K (ForallRepT ϕ)
+| TForallSize K ϕ :
+  body_has_fun_type M mf_locs body (K <| kc_size_vars ::= S |>) ϕ →
+  body_has_fun_type M mf_locs body K (ForallSizeT ϕ).
+
+Definition has_function_type (M : module_ctx) (mf : module_function) : Prop :=
+  body_has_fun_type M mf.(mf_locals) mf.(mf_body) kc_empty mf.(mf_type).
 
 Inductive has_module_type : module -> module_type -> Prop :=
 | TModule m table exports :
@@ -1474,5 +1497,5 @@ Inductive has_module_type : module -> module_type -> Prop :=
   nths_error ϕs m.(m_table) = Some table ->
   nths_error ϕs (map me_desc m.(m_exports)) = Some exports ->
   let M := Build_module_ctx ϕs table in
-  Forall (fun mf => has_function_type M mf mf.(mf_type)) m.(m_functions) ->
+  Forall (fun mf => has_function_type M mf) m.(m_functions) ->
   has_module_type m (Build_module_type m.(m_imports) exports).
