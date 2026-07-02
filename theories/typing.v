@@ -701,11 +701,90 @@ Inductive type_eq : type -> type -> Prop :=
   type_eq τ τ' ->
   type_eq (ExistsTypeT κ κτ τ) (ExistsTypeT κ κτ τ')
 | TEqSerProd κ_ser κ_prod κ_struct κs_ser τs τs' :
+  length κs_ser = length τs' -> (* because of zip_with *)
   Forall2 type_eq τs τs' ->
   type_eq (SerT κ_ser (ProdT κ_prod τs)) (StructT κ_struct (zip_with SerT κs_ser τs'))
 | TEqProdSer κ_ser κ_prod κ_struct κs_ser τs τs' :
+  length κs_ser = length τs ->
   Forall2 type_eq τs τs' ->
   type_eq (StructT κ_struct (zip_with SerT κs_ser τs)) (SerT κ_ser (ProdT κ_prod τs')).
+
+Section TypeEqInd.
+
+  Variable P : type -> type -> Prop.
+
+  Hypotheses
+    (HRefl : forall τ, P τ τ)
+    (HSum : forall κ τs τs',
+        Forall2 type_eq τs τs' -> Forall2 P τs τs' ->
+        P (SumT κ τs) (SumT κ τs'))
+    (HVariant : forall κ τs τs',
+        Forall2 type_eq τs τs' -> Forall2 P τs τs' ->
+        P (VariantT κ τs) (VariantT κ τs'))
+    (HProd : forall κ τs τs',
+        Forall2 type_eq τs τs' -> Forall2 P τs τs' ->
+        P (ProdT κ τs) (ProdT κ τs'))
+    (HStruct : forall κ τs τs',
+        Forall2 type_eq τs τs' -> Forall2 P τs τs' ->
+        P (StructT κ τs) (StructT κ τs'))
+    (HRef : forall κ μ β τ τ',
+        type_eq τ τ' -> P τ τ' ->
+        P (RefT κ μ β τ) (RefT κ μ β τ'))
+    (HSer : forall κ τ τ',
+        type_eq τ τ' -> P τ τ' ->
+        P (SerT κ τ) (SerT κ τ'))
+    (HRec : forall κ τ τ',
+        type_eq τ τ' -> P τ τ' ->
+        P (RecT κ τ) (RecT κ τ'))
+    (HExMem : forall κ τ τ',
+        type_eq τ τ' -> P τ τ' ->
+        P (ExistsMemT κ τ) (ExistsMemT κ τ'))
+    (HExRep : forall κ τ τ',
+        type_eq τ τ' -> P τ τ' ->
+        P (ExistsRepT κ τ) (ExistsRepT κ τ'))
+    (HExSize : forall κ τ τ',
+        type_eq τ τ' -> P τ τ' ->
+        P (ExistsSizeT κ τ) (ExistsSizeT κ τ'))
+    (HExType : forall κ κτ τ τ',
+        type_eq τ τ' -> P τ τ' ->
+        P (ExistsTypeT κ κτ τ) (ExistsTypeT κ κτ τ'))
+    (HSerProd : forall κ_ser κ_prod κ_struct κs_ser τs τs',
+        length κs_ser = length τs' ->
+        Forall2 type_eq τs τs' -> Forall2 P τs τs' ->
+        P (SerT κ_ser (ProdT κ_prod τs)) (StructT κ_struct (zip_with SerT κs_ser τs')))
+    (HProdSer : forall κ_ser κ_prod κ_struct κs_ser τs τs',
+        length κs_ser = length τs ->
+        Forall2 type_eq τs τs' -> Forall2 P τs τs' ->
+        P (StructT κ_struct (zip_with SerT κs_ser τs)) (SerT κ_ser (ProdT κ_prod τs'))).
+
+  Fixpoint type_eq_ind' τ τ' (H : type_eq τ τ') {struct H} : P τ τ' :=
+    let fix goL τs τs' (Hf : Forall2 type_eq τs τs') {struct Hf} : Forall2 P τs τs' :=
+      match Hf with
+      | @List.Forall2_nil _ _ _ => @List.Forall2_nil _ _ P
+      | @List.Forall2_cons _ _ _ x y l l' Hxy Hrest =>
+          @List.Forall2_cons _ _ P x y l l' (type_eq_ind' x y Hxy) (goL l l' Hrest)
+      end
+    in
+    match H with
+    | TEqRefl τ => HRefl τ
+    | TEqSum κ τs τs' Hf => HSum κ τs τs' Hf (goL τs τs' Hf)
+    | TEqVariant κ τs τs' Hf => HVariant κ τs τs' Hf (goL τs τs' Hf)
+    | TEqProd κ τs τs' Hf => HProd κ τs τs' Hf (goL τs τs' Hf)
+    | TEqStruct κ τs τs' Hf => HStruct κ τs τs' Hf (goL τs τs' Hf)
+    | TEqRef κ μ β τ τ' Hτ => HRef κ μ β τ τ' Hτ (type_eq_ind' τ τ' Hτ)
+    | TEqSer κ τ τ' Hτ => HSer κ τ τ' Hτ (type_eq_ind' τ τ' Hτ)
+    | TEqRec κ τ τ' Hτ => HRec κ τ τ' Hτ (type_eq_ind' τ τ' Hτ)
+    | TEqExMem κ τ τ' Hτ => HExMem κ τ τ' Hτ (type_eq_ind' τ τ' Hτ)
+    | TEqExRep κ τ τ' Hτ => HExRep κ τ τ' Hτ (type_eq_ind' τ τ' Hτ)
+    | TEqExSize κ τ τ' Hτ => HExSize κ τ τ' Hτ (type_eq_ind' τ τ' Hτ)
+    | TEqExType κ κτ τ τ' Hτ => HExType κ κτ τ τ' Hτ (type_eq_ind' τ τ' Hτ)
+    | TEqSerProd κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Hf =>
+        HSerProd κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Hf (goL τs τs' Hf)
+    | TEqProdSer κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Hf =>
+        HProdSer κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Hf (goL τs τs' Hf)
+    end.
+
+End TypeEqInd.
 
 (* NOTE: structural equality up to cached kind annotations, which [subst] can't refresh --
    a strict-subkind instantiation leaves them stale (ref-flags are literals, not vars). *)

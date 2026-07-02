@@ -1067,6 +1067,7 @@ Section properties.
   Lemma sem_type_erased M F L WT WL lmask ψ τs1 τs2 :
     ψ = InstrT τs1 τs2 ->
     ⊢ (∀ se vs,
+          ⌜sem_env_interp F se⌝ -∗
           values_interp rti sr se τs1 vs -∗
           values_interp rti sr se τs2 vs) -∗
       have_instr_type_sem rti sr mr M F L WT WL lmask [] ψ L.
@@ -1081,7 +1082,7 @@ Section properties.
       iPureIntro; split.
       + unfold mask_locs_eq; eauto.
       + eauto.
-    - by iApply "Hcast".
+    - by iApply ("Hcast" with "[//]").
   Qed.
 
   Lemma sem_type_erased_nop M F L WT WL lmask ψ τs1 τs2 :
