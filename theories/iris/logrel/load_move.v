@@ -35,6 +35,116 @@ Section load_move.
       constructor; eauto.
   Qed.
 
+  Lemma deserialise_i32_pair (z : Z) n32 n32' :
+    (0 <= z < 256 * 2 ^ 56)%Z ->
+    N_i32_repr (Z.to_N (Wasm_int.Int32.Z_mod_modulus z)) n32 ->
+    N_i32_repr (Z.to_N (Z.shiftr z 32)) n32' ->
+    serialise_i32 n32 ++ serialise_i32 n32' = serialise_i64 (Wasm_int.int_of_Z i64m z).
+  Proof.
+    intros Hrange H1 H2.
+    assert (Hn32 : n32 = Wasm_int.int_of_Z i32m z).
+    { eapply N_i32_repr_inj2; first exact H1.
+      eapply N_Z_i32_comp.
+      - unfold N_Z_repr.
+        rewrite Z2N.id; [reflexivity |].
+        rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+        replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+        apply Z.mod_pos; lia.
+      - unfold Z_i32_repr, Wasm_int.int_of_Z; reflexivity. }
+    assert (Hn32' : n32' = Wasm_int.int_of_Z i32m (Z.shiftr z 32)).
+    { eapply N_i32_repr_inj2; first exact H2.
+      eapply N_Z_i32_comp.
+      - unfold N_Z_repr.
+        rewrite Z2N.id; [reflexivity |].
+        apply Z.shiftr_nonneg; lia.
+      - unfold Z_i32_repr, Wasm_int.int_of_Z.
+        cbn.
+        rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+        symmetry; apply Z.mod_small; split.
+        + apply Z.shiftr_nonneg; lia.
+        + rewrite Z.shiftr_div_pow2; last lia.
+          replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+          apply Z.div_lt_upper_bound; lia. }
+    subst n32 n32'.
+    rewrite serialise_split_i64.
+    do 2 f_equal.
+    symmetry.
+    rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+    rewrite Z.shiftl_mul_pow2; last lia.
+    rewrite Z.shiftr_div_pow2; last lia.
+    replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+    have Hdiv := Z.div_mod z (2 ^ 32) ltac:(lia).
+    rewrite Z.add_comm.
+    rewrite Z.mul_comm.
+    lias.
+  Qed.
+
+  Lemma deserialise_i32_pair_i64 (n : i64) n32 n32' :
+    N_i32_repr (Z.to_N (Wasm_int.Int32.Z_mod_modulus (Wasm_int.Int64.unsigned n))) n32 ->
+    N_i32_repr (Z.to_N (Z.shiftr (Wasm_int.Int64.unsigned n) 32)) n32' ->
+    serialise_i32 n32 ++ serialise_i32 n32' = bits (VAL_int64 n).
+  Proof.
+    intros H1 H2.
+    have Hrange := Wasm_int.Int64.unsigned_range n.
+    replace Wasm_int.Int64.modulus with (256 * 2 ^ 56 : Z) in Hrange by done.
+    change (bits (VAL_int64 n)) with (serialise_i64 n).
+    rewrite (deserialise_i32_pair (Wasm_int.Int64.unsigned n) n32 n32');
+      [| exact Hrange | exact H1 | exact H2].
+    f_equal.
+    unfold Wasm_int.int_of_Z.
+    apply Wasm_int.Int64.repr_unsigned.
+  Qed.
+
+  Lemma deserialise_i32_pair_f64 (n : f64) n32 n32' :
+    let z := Integers.Int64.intval (Wasm_float.FloatSize64.to_bits n) in
+    N_i32_repr (Z.to_N (Wasm_int.Int32.Z_mod_modulus z)) n32 ->
+    N_i32_repr (Z.to_N (Z.shiftr z 32)) n32' ->
+    serialise_i32 n32 ++ serialise_i32 n32' = bits (VAL_float64 n).
+  Proof.
+    intros z H1 H2.
+    have Hrange := Integers.Int64.intrange (Wasm_float.FloatSize64.to_bits n).
+    have Hrange' : (0 <= z < 256 * 2 ^ 56)%Z.
+    { unfold z. replace (256 * 2 ^ 56 : Z) with Integers.Int64.modulus by done. lia. }
+    change (bits (VAL_float64 n)) with (serialise_f64 n).
+    rewrite (deserialise_i32_pair z n32 n32'); [| exact Hrange' | exact H1 | exact H2].
+    unfold serialise_f64, serialise_i64, Wasm_int.int_of_Z.
+    cbn.
+    rewrite Wasm_int.Int64.Z_mod_modulus_eq.
+    f_equal.
+    apply Z.mod_small.
+    replace Wasm_int.Int64.modulus with (256 * 2 ^ 56 : Z) by done.
+    exact Hrange'.
+  Qed.
+
+  Lemma deserialise_i32_f32 (n : f32) n32 :
+    N_i32_repr (Z.to_N (Integers.Int.intval (Wasm_float.FloatSize32.to_bits n))) n32 ->
+    serialise_i32 n32 = bits (VAL_float32 n).
+  Proof.
+    intros H1.
+    have Hrange := Integers.Int.intrange (Wasm_float.FloatSize32.to_bits n).
+    replace Integers.Int.modulus with (256 * 2 ^ 24 : Z) in Hrange by done.
+    assert (Hn32 : n32 = Wasm_int.int_of_Z i32m (Integers.Int.intval (Wasm_float.FloatSize32.to_bits n))).
+    { eapply N_i32_repr_inj2; first exact H1.
+      eapply N_Z_i32_comp.
+      - unfold N_Z_repr.
+        rewrite Z2N.id; [reflexivity | lia].
+      - unfold Z_i32_repr, Wasm_int.int_of_Z.
+        cbn.
+        rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+        symmetry; apply Z.mod_small.
+        replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+        lia. }
+    subst n32.
+    change (bits (VAL_float32 n)) with (serialise_f32 n).
+    unfold serialise_i32, serialise_f32, Wasm_int.int_of_Z.
+    cbn.
+    rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+    f_equal.
+    unfold Integers.Int.unsigned.
+    apply Z.mod_small.
+    replace Wasm_int.Int32.modulus with (256 * 2 ^ 24 : Z) by done.
+    lia.
+  Qed.
 
   Lemma reconstitute_val_strong θ μ o ws off ι ns ns32 :
     "Hws" ∷ words_interp θ μ (get_path_words off (arep_size ι) ws) ns -∗
@@ -114,9 +224,11 @@ Section load_move.
       cbn.
       iPureIntro.
       exists (wasm_deserialise bs T_i64).
-      intuition.
-      + admit.
-      + admit.
+      subst n' n''.
+      assert (Hkey : bs = bits (VAL_int64 n)).
+      { unfold bs; cbn [flat_map]; rewrite app_nil_r.
+        by apply deserialise_i32_pair_i64. }
+      rewrite Hkey deserialise_bits; intuition.
     - rewrite -Hser.
       rewrite -Hser in Hlenws; cbn in Hlenws.
       destruct ns as [| n' [| n'' ns']]; cbn in Hlenws; try lia; clear Hlenws.
@@ -129,7 +241,10 @@ Section load_move.
       exists (wasm_deserialise bs T_f32).
       rewrite bits_deserialise; eauto.
       intuition.
-      admit. (* need deser-ser lemma *)
+      assert (Hkey : bs = bits (VAL_float32 n)).
+      { unfold bs; cbn [flat_map]; rewrite app_nil_r.
+        by apply deserialise_i32_f32. }
+      rewrite Hkey deserialise_bits; done.
     - rewrite -Hser.
       rewrite -Hser in Hlenws; cbn in Hlenws.
       destruct ns as [| n' [| n'' [| n''' ns']]]; cbn in Hlenws; try lia; clear Hlenws.
@@ -141,10 +256,12 @@ Section load_move.
       cbn.
       iPureIntro.
       exists (wasm_deserialise bs T_f64).
-      intuition.
-      + admit.
-      + admit.
-  Admitted.
+      subst n' n''.
+      assert (Hkey : bs = bits (VAL_float64 n)).
+      { unfold bs; cbn [flat_map]; rewrite app_nil_r.
+        by apply deserialise_i32_pair_f64. }
+      rewrite Hkey deserialise_bits; intuition.
+  Qed.
 
   Lemma types_agree_atom_interp ι o v :
     ι ≠ PtrR →
@@ -844,7 +961,9 @@ Section load_move.
           subst n'.
           inversion hrepra'; subst.
           assert (a' = a0). {
-            admit. (* number stuff *)
+            assert (4 <= a')%N by (by eapply mod_bound_nonzero).
+            assert (4 <= a0)%N by (by eapply mod_bound_nonzero).
+            lia.
           }
           subst a'.
           done.
@@ -922,7 +1041,7 @@ Section load_move.
           inversion repr'; subst.
           subst.
           assert (a1 = a0). {
-            admit. (* number stuff *)
+            lia.
           }
           subst a0.
           done.
@@ -1005,7 +1124,7 @@ Section load_move.
 
       iApply ("HΦ" with "[//] [//] [//] [$] [$] [$] [$] [$]").
 
-  Admitted.
+  Qed.
 
   Lemma wp_mem_load_move_gc_inner ιs :
     ∀ (se : @semantic_env Σ) F lidx off wt wl ret wt' wl' es,

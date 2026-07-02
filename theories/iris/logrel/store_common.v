@@ -847,16 +847,17 @@ Section store_common.
 
         inversion Hreprroot. {
           exfalso.
-          (* a0 is even by H, but h3 says its odd (and not 0 so no saturating -) *)
-          admit.
+          apply N.Div0.mod_divides in H as [c ->].
+          lia.
         }
         iEval (cbn) in "Haddr_ℓ0".
         destruct μ0; try done.
         subst rp.
         assert (a1 = a0). {
           cbn in H1.
-          (* it hates me *)
-          admit.
+          assert (4 <= a1)%N by (by eapply mod_bound_nonzero).
+          assert (4 <= a0)%N by (by eapply mod_bound_nonzero).
+          lia.
         }
         subst a1.
 
@@ -966,8 +967,8 @@ Section store_common.
         iDestruct "Hrp" as "(%rp & %Hreprroot & Hroot_ℓ0)".
         inversion Hreprroot. {
           exfalso.
-          (* a0 is even by H, but h3 says its odd (and not 0 so no saturating -) *)
-          admit.
+          apply N.Div0.mod_divides in H as [c ->].
+          lia.
         }
         iEval (cbn) in "Hroot_ℓ0".
         destruct μ; try done.
@@ -1174,8 +1175,8 @@ Section store_common.
         cbn.
         rewrite len_ser32.
         rewrite length_t_translate_arep.
-        (* yeah, although the nubmers are being weird *)
-        admit.
+        assert (length (arep_flags ι) = arep_size ι) by (destruct ι; done).
+        lia.
       }
       iIntros "!> Haddr".
 
@@ -1195,7 +1196,7 @@ Section store_common.
         iModIntro.
         iDestruct "Hclose" as "[pls hlp]".
         iApply ("HΦ" with "[$] [$] [$] [$]").
-  Admitted.
+  Qed.
 
   Lemma wp_store_weak_gc_inner a_idx ιs:
     ∀ off vs_idx wt wl ret wt' wl' es,
@@ -1933,7 +1934,9 @@ Section store_common.
         iPoseProof (big_sepL2_length with "[$Hwords]") as "%Hlenns".
         pose proof (Forall2_length _ _ _ Hns) as Hnslen.
         assert (Hlendrop: 1 ≤ length (drop off ws)). {
-          admit. (* use Hbound and drop facts *)
+          rewrite length_drop.
+          cbn in Hbound.
+          lia.
         }
         rewrite length_take_le in Hlenns; try done.
         rewrite <- Hlenns in Hnslen.
@@ -1990,16 +1993,17 @@ Section store_common.
 
         inversion Hreprroot. {
           exfalso.
-          (* a0 is even by H, but h3 says its odd (and not 0 so no saturating -) *)
-          admit.
+          apply N.Div0.mod_divides in H as [c ->].
+          lia.
         }
         iEval (cbn) in "Haddr_ℓ0".
         destruct μ0; try done.
         subst rp.
         assert (a1 = a0). {
           cbn in H1.
-          (* it hates me *)
-          admit.
+          assert (4 <= a1)%N by (by eapply mod_bound_nonzero).
+          assert (4 <= a0)%N by (by eapply mod_bound_nonzero).
+          lia.
         }
         subst a1.
 
@@ -2045,7 +2049,9 @@ Section store_common.
         iPoseProof (big_sepL2_length with "[$Hwords]") as "%Hlenns".
         pose proof (Forall2_length _ _ _ Hns) as Hnslen.
         assert (Hlendrop: 1 ≤ length (drop off ws)). {
-          admit. (* use Hbound and drop facts *)
+          rewrite length_drop.
+          cbn in Hbound.
+          lia.
         }
         rewrite length_take_le in Hlenns; try done.
         rewrite <- Hlenns in Hnslen.
@@ -2112,8 +2118,8 @@ Section store_common.
         iDestruct "Hrp" as "(%rp & %Hreprroot & Hroot_ℓ0)".
         inversion Hreprroot. {
           exfalso.
-          (* a0 is even by H, but h3 says its odd (and not 0 so no saturating -) *)
-          admit.
+          apply N.Div0.mod_divides in H as [c ->].
+          lia.
         }
         iEval (cbn) in "Hroot_ℓ0".
         destruct μ; try done.
@@ -2204,7 +2210,9 @@ Section store_common.
         iPoseProof (big_sepL2_length with "[$Hwords]") as "%Hlenns".
         pose proof (Forall2_length _ _ _ Hns) as Hnslen.
         assert (Hlendrop: 1 ≤ length (drop off ws)). {
-          admit. (* use Hbound and drop facts *)
+          rewrite length_drop.
+          cbn in Hbound.
+          lia.
         }
         rewrite length_take_le in Hlenns; try done.
         rewrite <- Hlenns in Hnslen.
@@ -2315,7 +2323,8 @@ Section store_common.
       iPoseProof (big_sepL2_length with "[$Hwords]") as "%Hlenns".
       pose proof (Forall2_length _ _ _ Hns) as Hnslen.
       assert (Hlendrop: (arep_size ι) ≤ length (drop off ws)). {
-        admit. (* use Hbound and drop facts *)
+        rewrite length_drop.
+        lia.
       }
       rewrite length_take_le in Hlenns; try done.
       rewrite <- Hlenns in Hnslen.
@@ -2325,8 +2334,8 @@ Section store_common.
         cbn.
         rewrite len_ser32.
         rewrite length_t_translate_arep.
-        (* yeah, although the nubmers are being weird *)
-        admit.
+        assert (length (arep_flags ι) = arep_size ι) by (destruct ι; done).
+        lia.
       }
       iIntros "!> Haddr".
 
@@ -2344,7 +2353,7 @@ Section store_common.
         iModIntro.
         iDestruct "Hclose" as "[pls hlp]".
         iApply ("HΦ" with "[$] [$] [$] [$]").
-  Admitted.
+  Qed.
 
   Lemma wp_store_strong_gc_inner a_idx ιs:
     ∀ off vs_idx wt wl ret wt' wl' es,
