@@ -9,9 +9,13 @@ module type Runner1 = sig
 end
 
 module type Runner2 = sig
-  (** [link] = module-1 export name imported by module 2 *)
+  (** [link] = the provider module's export name imported by the entry module.
+      [entry] = which of the two modules (1 or 2) exports [_start] and is run;
+      the other is the provider, instantiated first so the entry can import it.
+      Defaults to 2 (the last module), matching a provider -> entry pipeline. *)
   val run_wasm :
     ?start_type:String.t ->
+    ?entry:int ->
     link:String.t ->
     String.t * String.t ->
     (String.t, String.t) Result.t
@@ -54,12 +58,12 @@ module DoubleRichWasm (Config : sig
   val rw_runtime_path : string
   val host_runtime_path : string
 end) : Runner2 = struct
-  let run_wasm ?start_type ~link (module1, module2) =
+  let run_wasm ?start_type ?(entry = 2) ~link (module1, module2) =
     let open Config in
     Process_utils.Process_capture.run_concat
       ~env:(`Extend (runtime_env ?start_type rw_runtime_path))
       ~inputs:[ module1; module2 ] ~prog:"node"
-      ~args:(node_args ~host_runtime_path [ link ])
+      ~args:(node_args ~host_runtime_path [ link; Int.to_string entry ])
       ()
 end
 
@@ -221,13 +225,17 @@ module EndToEnd = struct
 
     let run2
         ?(asprintf : asprintf = { asprintf })
+        ?(entry : int = 2)
         ~(link : String.t)
         (src1 : String.t)
         (src2 : String.t) : String.t M.t =
       let open M in
-      let* wasm1, _ = compile_to_wasm ~asprintf ~prefix:"m1" src1 in
-      let* wasm2, start_type = compile_to_wasm ~asprintf ~prefix:"m2" src2 in
-      run_runtime ~run:(Runner.run_wasm ?start_type ~link) (wasm1, wasm2)
+      let* wasm1, start_type1 = compile_to_wasm ~asprintf ~prefix:"m1" src1 in
+      let* wasm2, start_type2 = compile_to_wasm ~asprintf ~prefix:"m2" src2 in
+      (* [RW_START_TYPE] is the entry's [_start] result type, not the last
+         module's -- the walker renders the entry's result *)
+      let start_type = if entry = 1 then start_type1 else start_type2 in
+      run_runtime ~run:(Runner.run_wasm ?start_type ~entry ~link) (wasm1, wasm2)
   end
 
   module Make3 (Surface : SurfaceLang) (Runner : Runner3) = struct
