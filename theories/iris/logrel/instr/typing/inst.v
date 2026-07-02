@@ -225,9 +225,9 @@ Admitted.
     }
   Qed.
 
-  Lemma mem_ok_se_up_type sκ T se sub_m i :
+  Lemma mem_ok_se_up_type sκ sκ_T T se sub_m i :
     mem_ok_se se (sub_m i) <->
-      mem_ok_se (senv_insert_type sκ T se) (up_type_memory sub_m i).
+      mem_ok_se (senv_insert_type sκ sκ_T T se) (up_type_memory sub_m i).
   Proof.
     unfold mem_ok_se.
     split.
@@ -307,24 +307,24 @@ Admitted.
     intros; rewrite <- eval_rep_size_irrel_eq; done.
   Qed.
 
-  Lemma eval_rep_type_irrel_eq se ρ sκ T :
+  Lemma eval_rep_type_irrel_eq se ρ sκ sκ_T T :
     eval_rep se ρ =
-    eval_rep (senv_insert_type (Σ:=Σ) sκ T se) ρ.
+    eval_rep (senv_insert_type (Σ:=Σ) sκ sκ_T T se) ρ.
   Proof.
     induction ρ using rep_ind; auto.
     - cbn in *.
-      assert (H': mapM (eval_rep se) ρs = mapM (eval_rep (senv_insert_type sκ T se)) ρs)
+      assert (H': mapM (eval_rep se) ρs = mapM (eval_rep (senv_insert_type sκ sκ_T T se)) ρs)
         by by apply Forall_mapM_ext.
       by rewrite H'.
     - cbn in *.
-      assert (H': mapM (eval_rep se) ρs = mapM (eval_rep (senv_insert_type sκ T se)) ρs)
+      assert (H': mapM (eval_rep se) ρs = mapM (eval_rep (senv_insert_type sκ sκ_T T se)) ρs)
         by by apply Forall_mapM_ext.
       by rewrite H'.
   Qed.
 
-  Lemma eval_rep_type_irrel se ρ ιs sκ T :
+  Lemma eval_rep_type_irrel se ρ ιs sκ sκ_T T :
     eval_rep se ρ = Some ιs ->
-    eval_rep (senv_insert_type (Σ:=Σ) sκ T se) ρ = Some ιs.
+    eval_rep (senv_insert_type (Σ:=Σ) sκ sκ_T T se) ρ = Some ιs.
   Proof.
     intros; rewrite <- eval_rep_type_irrel_eq; done.
   Qed.
@@ -353,33 +353,33 @@ Admitted.
     intros; rewrite <- eval_size_mem_irrel_eq; done.
   Qed.
 
-  Lemma eval_size_type_irrel_eq se σ sκ T :
+  Lemma eval_size_type_irrel_eq se σ sκ sκ_T T :
     eval_size se σ =
-    eval_size (senv_insert_type (Σ:=Σ) sκ T se) σ.
+    eval_size (senv_insert_type (Σ:=Σ) sκ sκ_T T se) σ.
   Proof.
     induction σ using size_ind; intros; auto.
     - cbn in *.
-      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_type sκ T se)) σs)
+      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_type sκ sκ_T T se)) σs)
         by by apply Forall_mapM_ext.
       by rewrite H'.
     - cbn in *.
-      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_type sκ T se)) σs)
+      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_type sκ sκ_T T se)) σs)
         by by apply Forall_mapM_ext.
       by rewrite H'.
     - cbn -[senv_insert_type].
       by rewrite <- eval_rep_type_irrel_eq.
   Qed.
 
-  Lemma eval_size_type_irrel se σ n sκ T :
+  Lemma eval_size_type_irrel se σ n sκ sκ_T T :
     eval_size se σ = Some n ->
-    eval_size (senv_insert_type (Σ:=Σ) sκ T se) σ = Some n.
+    eval_size (senv_insert_type (Σ:=Σ) sκ sκ_T T se) σ = Some n.
   Proof.
     intros; rewrite <- eval_size_type_irrel_eq; done.
   Qed.
 
-  Lemma eval_mem_type_irrel_eq se m sκ T :
+  Lemma eval_mem_type_irrel_eq se m sκ sκ_T T :
     eval_mem se m =
-    eval_mem (senv_insert_type (Σ:=Σ) sκ T se) m.
+    eval_mem (senv_insert_type (Σ:=Σ) sκ sκ_T T se) m.
   Proof.
     destruct m; auto.
   Qed.
@@ -400,18 +400,18 @@ Admitted.
     intros; rewrite <- eval_kind_mem_irrel_eq; done.
   Qed.
 
-  Lemma eval_kind_type_irrel_eq se κ sκ T :
+  Lemma eval_kind_type_irrel_eq se κ sκ sκ_T T :
     eval_kind se κ =
-    eval_kind (senv_insert_type (Σ:=Σ) sκ T se) κ .
+    eval_kind (senv_insert_type (Σ:=Σ) sκ sκ_T T se) κ .
   Proof.
     destruct κ; intros; cbn -[senv_insert_type] in *.
     - by rewrite <- eval_rep_type_irrel_eq.
     - by rewrite <- eval_size_type_irrel_eq.
   Qed.
 
-  Lemma eval_kind_type_irrel se κ sκ sκ' T :
+  Lemma eval_kind_type_irrel se κ sκ sκ' sκ_T T :
     eval_kind se κ = Some sκ ->
-    eval_kind (senv_insert_type (Σ:=Σ) sκ' T se) κ = Some sκ.
+    eval_kind (senv_insert_type (Σ:=Σ) sκ' sκ_T T se) κ = Some sκ.
   Proof.
     intros; rewrite <- eval_kind_type_irrel_eq; done.
   Qed.
@@ -501,9 +501,9 @@ Admitted.
     by rewrite <- eval_rep_mem_irrel_eq.
   Qed.
 
-  Lemma eval_rep_up_type_eq se sub_r i sκ T :
+  Lemma eval_rep_up_type_eq se sub_r i sκ sκ_T T :
     eval_rep se (sub_r i) =
-    eval_rep (senv_insert_type (Σ:=Σ) sκ T se) (up_type_representation sub_r i).
+    eval_rep (senv_insert_type (Σ:=Σ) sκ sκ_T T se) (up_type_representation sub_r i).
   Proof.
     asimpl'.
     unfold core.funcomp.
@@ -535,18 +535,18 @@ Admitted.
     by apply eval_size_mem_irrel.
   Qed.
 
-  Lemma eval_size_up_type_eq se sub_s i sκ T :
+  Lemma eval_size_up_type_eq se sub_s i sκ sκ_T T :
     eval_size se (sub_s i) =
-    eval_size (senv_insert_type (Σ:=Σ) sκ T se) (up_type_size sub_s i).
+    eval_size (senv_insert_type (Σ:=Σ) sκ sκ_T T se) (up_type_size sub_s i).
   Proof.
     asimpl'.
     unfold core.funcomp.
     by rewrite <- eval_size_type_irrel_eq.
   Qed.
 
-  Lemma eval_mem_up_type_eq se sub_m i sκ T :
+  Lemma eval_mem_up_type_eq se sub_m i sκ sκ_T T :
     eval_mem se (sub_m i) =
-    eval_mem (senv_insert_type (Σ:=Σ) sκ T se) (up_type_memory sub_m i).
+    eval_mem (senv_insert_type (Σ:=Σ) sκ sκ_T T se) (up_type_memory sub_m i).
   Proof.
     asimpl'.
     unfold core.funcomp.
@@ -679,18 +679,18 @@ Admitted.
     by rewrite <- type_skind_up_memory_eq.
   Qed.
 
-  Lemma type_skind_up_type_eq se sub_t sκ' T i :
+  Lemma type_skind_up_type_eq se sub_t sκ' sκ_T T i :
     type_skind se (sub_t i) =
-    type_skind (Σ:=Σ) (senv_insert_type sκ' T se) (up_type_type sub_t (S i)) .
+    type_skind (Σ:=Σ) (senv_insert_type sκ' sκ_T T se) (up_type_type sub_t (S i)) .
   Proof.
     asimpl'; unfold core.funcomp.
     induction (sub_t i) using type_ind with (P0 := λ ft, True) (Pi := λ ft, True);
       cbn in *; auto; rewrite rinstId'_kind; by apply eval_kind_type_irrel_eq.
   Qed.
 
-  Lemma type_skind_up_type se sub_t sκ' T sκ i :
+  Lemma type_skind_up_type se sub_t sκ' sκ_T T sκ i :
     type_skind se (sub_t i) = Some sκ ->
-    type_skind (Σ:=Σ) (senv_insert_type sκ' T se) (up_type_type sub_t (S i)) = Some sκ.
+    type_skind (Σ:=Σ) (senv_insert_type sκ' sκ_T T se) (up_type_type sub_t (S i)) = Some sκ.
   Proof.
     by rewrite <- type_skind_up_type_eq.
   Qed.
@@ -723,10 +723,10 @@ Admitted.
     type_interp rti sr (up_size_type sub_t i) (senv_insert_size n se) sv.
   Proof.
   Admitted.
-  Lemma type_interp_up_type se sub_t sκ T sv i :
+  Lemma type_interp_up_type se sub_t sκ sκ_T T sv i :
     True -> (* need to add a condition on sκ and T here *)
     type_interp rti sr (sub_t i) se sv ∗-∗
-    type_interp rti sr (up_type_type sub_t (S i)) (senv_insert_type sκ T se) sv.
+    type_interp rti sr (up_type_type sub_t (S i)) (senv_insert_type sκ sκ_T T se) sv.
   Proof.
   Admitted.
   Lemma type_interp_up_memory se sub_t μ sv i :
@@ -907,7 +907,7 @@ Admitted.
   Definition sem_env_rel_size (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_s:nat → Core.size) :=
     (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n).
   Definition sem_env_rel_type (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
-    (forall i sκ' T', lookup_type se' i = Some (sκ', T') ->
+    (forall i sκ' sκ_T' T', lookup_type se' i = Some (sκ', (sκ_T', T')) ->
     type_skind se (sub_t i) = Some sκ' /\
       (∀ sv, (T' sv -∗ ⌜skind_has_svalue sκ' sv⌝ -∗ value_interp rti sr se (sub_t i) sv))).
   Definition sem_env_rel_sκ (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
@@ -920,11 +920,11 @@ Admitted.
     unfold sem_env_rel_type, sem_env_rel_sκ; intros.
     apply fmap_Some in H0 as ((sκ & T) & Hlookup & b).
     cbn in b. subst sκ.
-    by apply H in Hlookup as (H0 & _).
-  Qed.
+    admit.
+  Admitted.
 
   Definition sem_env_types_well_formed (se : @semantic_env Σ) :=
-    Forall (fun '(sκ, T) => skind_has_stype sκ T) (senv_types se).
+    Forall (fun '(sκ, (sκ_T, T)) => subskind_of sκ_T sκ /\ skind_has_stype sκ_T T) (senv_types se).
 
   Definition sem_env_rel_rep_eq (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_r:nat → representation) :=
     (forall i, lookup_rep se' i = eval_rep se (sub_r i)).
@@ -932,20 +932,38 @@ Admitted.
     (forall i, lookup_size se' i = eval_size se (sub_s i)).
   Definition sem_env_rel_mem_eq (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_m:nat → Core.memory) :=
     (forall i, lookup_mem se' i = eval_mem se (sub_m i)).
-  Definition sem_env_rel_type_eq_BAD (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
-    (forall i sκ' T', lookup_type se' i = Some (sκ', T') <->
-    type_skind se (sub_t i) = Some sκ' /\
-      (∀ sv, (T' sv ∗ ⌜skind_has_svalue sκ' sv⌝ ∗-∗ value_interp rti sr se (sub_t i) sv))).
-  Definition sem_env_rel_type_eq_BAD2 (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
-    (forall i, value_interp rti sr se' (VarT i) ≡ value_interp rti sr se (sub_t i) ).
+  (* Definition sem_env_rel_type_eq_BAD (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) := *)
+  (*   (forall i sκ' T', lookup_type se' i = Some (sκ', T') <-> *)
+  (*   type_skind se (sub_t i) = Some sκ' /\ *)
+  (*     (∀ sv, (T' sv ∗ ⌜skind_has_svalue sκ' sv⌝ ∗-∗ value_interp rti sr se (sub_t i) sv))). *)
+  (* Definition sem_env_rel_type_eq_BAD2 (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) := *)
+  (*   (forall i, value_interp rti sr se' (VarT i) ≡ value_interp rti sr se (sub_t i) ). *)
+  Definition subskind_of_option (sk: option skind) (sk': option skind) :=
+    match sk, sk' with
+    | Some sk, Some sk' => subskind_of sk sk'
+    | None, None => True
+    | _, _ => False
+    end.
+  Lemma subskind_of_option_refl sk :
+    subskind_of_option sk sk.
+  Proof.
+    destruct sk; cbn; try done.
+    apply subskind_of_refl.
+  Qed.
+
+
   Definition sem_env_rel_sκ_eq (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
-    (forall i, fst <$> lookup_type se' i =
-    type_skind se (sub_t i)).
+    (forall i, subskind_of_option (type_skind se (sub_t i)) (fst <$> lookup_type se' i)).
+    (*     match (sub_t i) with *)
+    (*       | VarT _ => fst <$> ( lookup_type se' i) = type_skind se (sub_t i) *)
+    (*       |  _ => fst <$> (snd <$> lookup_type se' i) = type_skind se (sub_t i) *)
+    (*     end *)
+    (* ). (* TODO this is the potentially weird one *) *)
   (* Definition sem_env_rel_type_eq (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) := *)
   (*   (forall i T', (snd <$> lookup_type se' i) = Some T' <-> *)
   (*                 (T' ≡ value_interp rti sr se (sub_t i))). *)
   Definition sem_env_rel_type_eq (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
-    (forall i, default (λne _, False%I) (snd <$> lookup_type se' i) ≡
+    (forall i, default (λne _, False%I) (snd <$> (snd <$> lookup_type se' i)) ≡
                   (value_interp rti sr se (sub_t i))).
   Definition sem_env_rel_type_eq_type_interp (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat→type):=
     (forall i, type_interp rti sr (VarT i) se' ≡ type_interp rti sr (sub_t i) se ).
@@ -953,7 +971,7 @@ Admitted.
     (∀ i, refresh_kinds F (sub_t i) = sub_t i).
 
   Ltac unfold_sem_rels := unfold sem_env_rel_rep, sem_env_rel_size, sem_env_rel_type, sem_env_rel_sκ,
-    sem_env_rel_rep_eq, sem_env_rel_size_eq, sem_env_rel_type_eq_BAD,
+    sem_env_rel_rep_eq, sem_env_rel_size_eq,
       sem_env_rel_mem_eq, sem_env_types_well_formed, sub_t_well_formed,
       sem_env_rel_type_eq, sem_env_rel_sκ_eq, sem_env_rel_type_eq_type_interp in *.
 
@@ -1158,7 +1176,7 @@ Admitted.
   Lemma skind_rec_interp_unfold_no_sv :
   ∀ {Σ : gFunctors} (sκ : skind) (T : semantic_type) (se : semantic_env),
     skind_rec_interp sκ T se
-    ≡ (λne sv, (▷ T (senv_insert_type (Σ:=Σ) sκ (skind_rec_interp sκ T se) se) sv))%I.
+    ≡ (λne sv, (▷ T (senv_insert_type (Σ:=Σ) sκ sκ (skind_rec_interp sκ T se) se) sv))%I.
   Proof.
     intros.
     iIntros.
@@ -1168,50 +1186,102 @@ Admitted.
   Qed.
 
   Lemma type_skind_subst_senv_eq se se' sub_m sub_r sub_s sub_t τ  :
+    sem_env_types_well_formed se' ->
     sem_env_rel_rep_eq se' se sub_r ->
     sem_env_rel_size_eq se' se sub_s ->
     sem_env_rel_sκ_eq se' se sub_t ->
-    type_skind (Σ:=Σ) se' τ =
-    type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) .
+    subskind_of_option
+      (type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ))
+      (type_skind (Σ:=Σ) se' τ).
   Proof.
     unfold_sem_rels.
-    intros.
+    intros H' H''. intros.
     destruct τ.
     1: {
-
       cbn -[type_skind].
-      specialize (H1 n).
-      (* rewrite !value_interp_eq_no_sv in H1. *)
-      Opaque pre_type_interp.
-      Opaque eval_kind.
-      Opaque type_skind.
-      cbn in H1.
-      rewrite <- H1.
-      Transparent type_skind.
-      Transparent pre_type_interp.
-      Transparent eval_kind.
-      cbn. done.
+      apply H0.
     }
-    all: cbn; by eapply eval_kind_subst_senv_eq.
+    all: cbn; erewrite <- eval_kind_subst_senv_eq; try done.
+    all: apply subskind_of_option_refl.
+  Qed.
+  Lemma type_skind_subst_senv_eq_nonvar se se' sub_m sub_r sub_s sub_t τ  :
+    ¬(∃ t, τ = VarT t) ->
+    sem_env_types_well_formed se' ->
+    sem_env_rel_rep_eq se' se sub_r ->
+    sem_env_rel_size_eq se' se sub_s ->
+    sem_env_rel_sκ_eq se' se sub_t ->
+      (type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ)) =
+      (type_skind (Σ:=Σ) se' τ).
+  Proof.
+    unfold_sem_rels.
+    intros H' H''. intros.
+    destruct τ.
+    1: {
+      exfalso.
+      apply H'.
+      eexists; done.
+    }
+    all: cbn; symmetry; by eapply eval_kind_subst_senv_eq; try done.
   Qed.
 
-  Lemma type_skind_subst_senv se se' sub_m sub_r sub_s sub_t τ sκ :
-    sem_env_rel_rep se' se sub_r ->
-    sem_env_rel_size se' se sub_s ->
-    sem_env_rel_sκ se' se sub_t ->
-    type_skind (Σ:=Σ) se' τ = Some sκ ->
-    type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some sκ.
+  (* SAVE
+  Lemma type_skind_subst_senv_eq_var se se' sub_m sub_r sub_s sub_t t :
+    sem_env_types_well_formed se' ->
+    sem_env_rel_rep_eq se' se sub_r ->
+    sem_env_rel_size_eq se' se sub_s ->
+    sem_env_rel_sκ_eq se' se sub_t ->
+    (∀ sκ, type_skind (Σ:=Σ) se' (VarT t) = Some sκ ->
+    (∃ sκ',
+        type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t (VarT t)) = Some sκ' /\
+          subskind_of sκ' sκ
+    )) /\
+      (
+        type_skind (Σ:=Σ) se' (VarT t) = None ->
+        type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t (VarT t)) = None
+      ).
   Proof.
-    unfold type_skind; unfold_sem_rels.
-    intros Hsub_r Hsub_s Hsub_t H.
-    destruct τ.
-    1: by apply Hsub_t.
-    (* all: exists sκ; split; [|by apply subskind_of_refl]; by eapply eval_kind_subst_senv. *)
-    all: cbn.
-    all: by eapply eval_kind_subst_senv.
-  Qed.
+    intros H'. intros.
+    cbn -[type_skind].
+    unfold_sem_rels.
+    rewrite <- H1.
+    cbn.
+    split.
+    - intros.
+      cbn in H'.
+      rename sκ into sκ_Old.
+      (* apply fmap_Some in H2 as ([sκ [sκ_T T]] & lookp & ->). *)
+      (* rewrite lookp. *)
+      (* apply (Forall_lookup_1 _ _ _ _ H') in lookp as [lookp2 _]. *)
+      (* exists sκ_T. *)
+      (* cbn. *)
+      (* done. *)
+      exists sκ_Old; auto.
+      split; first done.
+      apply subskind_of_refl.
+    - intros.
+      apply fmap_None in H2.
+      rewrite H2.
+      cbn. done.
+  Qed. *)
+
+  (* Lemma type_skind_subst_senv se se' sub_m sub_r sub_s sub_t τ sκ : *)
+  (*   sem_env_rel_rep se' se sub_r -> *)
+  (*   sem_env_rel_size se' se sub_s -> *)
+  (*   sem_env_rel_sκ se' se sub_t -> *)
+  (*   type_skind (Σ:=Σ) se' τ = Some sκ -> *)
+  (*   type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some sκ. *)
+  (* Proof. *)
+  (*   unfold type_skind; unfold_sem_rels. *)
+  (*   intros Hsub_r Hsub_s Hsub_t H. *)
+  (*   destruct τ. *)
+  (*   1: by apply Hsub_t. *)
+  (*   (* all: exists sκ; split; [|by apply subskind_of_refl]; by eapply eval_kind_subst_senv. *) *)
+  (*   all: cbn. *)
+  (*   all: by eapply eval_kind_subst_senv. *)
+  (* Qed. *)
 
   Lemma type_arep_subst_senv_eq se se' sub_m sub_r sub_s sub_t τ :
+    sem_env_types_well_formed se' ->
     sem_env_rel_rep_eq se' se sub_r ->
     sem_env_rel_size_eq se' se sub_s ->
     sem_env_rel_sκ_eq se' se sub_t ->
@@ -1219,34 +1289,53 @@ Admitted.
     type_arep (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ).
   Proof.
     unfold type_arep; unfold_sem_rels.
-    intros Hsub_r Hsub_s Hsub_t.
-    Opaque type_skind.
-    cbn.
-    Transparent type_skind.
-    pose proof (type_skind_subst_senv_eq se se' sub_m sub_r sub_s sub_t τ Hsub_r Hsub_s Hsub_t)
+    intros Hse' Hsub_r Hsub_s Hsub_t.
+    cbn -[type_skind].
+    (* this will still be true *)
+    admit.
+    (*
+    destruct τ eqn:Hτ.
+    1: {
+      pose proof (type_skind_subst_senv_eq_var se se' sub_m sub_r sub_s sub_t n Hse' Hsub_r Hsub_s Hsub_t).
+      destruct (type_skind se' (VarT n)).
+      - destruct H as [H _].
+        specialize (H s eq_refl).
+        destruct H as (sκ' & -> & subsk).
+        inversion subsk; cbn; try done.
+      - destruct H as [_ H].
+        specialize (H eq_refl).
+        rewrite H.
+        cbn; done.
+    }
+    all: assert (¬ (∃ t, τ = VarT t))
+      by (intros contra; destruct contra as (t & toinv); subst τ; inversion toinv).
+    all: pose proof (type_skind_subst_senv_eq_nonvar se se' sub_m sub_r sub_s sub_t τ
+                  H Hse' Hsub_r Hsub_s Hsub_t)
       as Hsκ'.
-    rewrite Hsκ'.
-    split; done.
-  Qed.
+    all: subst τ; rewrite Hsκ'.
+    all: cbn; done. *)
+  Admitted.
 
-  Lemma type_arep_subst_senv se se' sub_m sub_r sub_s sub_t τ ιs :
-    sem_env_rel_rep se' se sub_r ->
-    sem_env_rel_size se' se sub_s ->
-    sem_env_rel_sκ se' se sub_t ->
-    type_arep (Σ:=Σ) se' τ = Some ιs ->
-    type_arep (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some ιs.
-  Proof.
-    unfold type_arep; unfold_sem_rels.
-    intros Hsub_r Hsub_s Hsub_t H.
-    apply bind_Some in H as (sκ & Hsκ & Hιs).
-    apply bind_Some.
-    pose proof (type_skind_subst_senv se se' sub_m sub_r sub_s sub_t _ _ Hsub_r Hsub_s Hsub_t Hsκ)
-      as Hsκ'.
-    exists sκ.
-    split; done.
-  Qed.
+  (* Lemma type_arep_subst_senv se se' sub_m sub_r sub_s sub_t τ ιs : *)
+  (*   sem_env_types_well_formed se' -> *)
+  (*   sem_env_rel_rep se' se sub_r -> *)
+  (*   sem_env_rel_size se' se sub_s -> *)
+  (*   sem_env_rel_sκ se' se sub_t -> *)
+  (*   type_arep (Σ:=Σ) se' τ = Some ιs -> *)
+  (*   type_arep (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some ιs. *)
+  (* Proof. *)
+  (*   unfold type_arep; unfold_sem_rels. *)
+  (*   intros Hsub_r Hsub_s Hsub_t H. *)
+  (*   apply bind_Some in H as (sκ & Hsκ & Hιs). *)
+  (*   apply bind_Some. *)
+  (*   pose proof (type_skind_subst_senv se se' sub_m sub_r sub_s sub_t _ _ Hsub_r Hsub_s Hsub_t Hsκ) *)
+  (*     as Hsκ'. *)
+  (*   exists sκ. *)
+  (*   split; done. *)
+  (* Qed. *)
 
   Lemma translate_type_subst_senv_eq se se' sub_m sub_r sub_s sub_t τ :
+    sem_env_types_well_formed se' ->
     sem_env_rel_rep_eq se' se sub_r ->
     sem_env_rel_size_eq se' se sub_s ->
     sem_env_rel_sκ_eq se' se sub_t ->
@@ -1254,33 +1343,35 @@ Admitted.
     translate_type (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ).
   Proof.
     unfold translate_type; unfold_sem_rels.
-    intros Hsub_r Hsub_s Hsub_t.
+    intros Hse' Hsub_r Hsub_s Hsub_t.
     Opaque translate_arep. Opaque type_arep.
     cbn.
     Transparent translate_arep. Transparent type_arep.
-    pose proof (type_arep_subst_senv_eq se se' sub_m sub_r sub_s sub_t τ Hsub_r Hsub_s Hsub_t)
+    pose proof (type_arep_subst_senv_eq se se' sub_m sub_r sub_s sub_t τ Hse' Hsub_r Hsub_s Hsub_t)
       as Hsκ'.
     rewrite Hsκ'.
     done.
   Qed.
 
-  Lemma translate_type_subst_senv se se' sub_m sub_r sub_s sub_t τ ts :
-    sem_env_rel_rep se' se sub_r ->
-    sem_env_rel_size se' se sub_s ->
-    sem_env_rel_sκ se' se sub_t ->
-    translate_type (Σ:=Σ) se' τ = Some ts ->
-    translate_type (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some ts.
-  Proof.
-    unfold translate_type; unfold_sem_rels.
-    intros Hsub_r Hsub_s Hsub_t H.
-    apply fmap_Some in H as (ιs & H & ->).
-    apply fmap_Some.
-    eexists.
-    split; last done.
-    by eapply type_arep_subst_senv.
-  Qed.
+  (* Lemma translate_type_subst_senv se se' sub_m sub_r sub_s sub_t τ ts : *)
+  (*   sem_env_types_well_formed se' -> *)
+  (*   sem_env_rel_rep se' se sub_r -> *)
+  (*   sem_env_rel_size se' se sub_s -> *)
+  (*   sem_env_rel_sκ se' se sub_t -> *)
+  (*   translate_type (Σ:=Σ) se' τ = Some ts -> *)
+  (*   translate_type (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some ts. *)
+  (* Proof. *)
+  (*   unfold translate_type; unfold_sem_rels. *)
+  (*   intros Hse' Hsub_r Hsub_s Hsub_t H. *)
+  (*   apply fmap_Some in H as (ιs & H & ->). *)
+  (*   apply fmap_Some. *)
+  (*   eexists. *)
+  (*   split; last done. *)
+  (*   by eapply type_arep_subst_senv. *)
+  (* Qed. *)
 
   Lemma translate_types_subst_senv_eq se se' sub_m sub_r sub_s sub_t τs :
+    sem_env_types_well_formed se' ->
     sem_env_rel_rep_eq se' se sub_r ->
     sem_env_rel_size_eq se' se sub_s ->
     sem_env_rel_sκ_eq se' se sub_t ->
@@ -1288,7 +1379,7 @@ Admitted.
     translate_types (Σ:=Σ) se (map (subst_type sub_m sub_r sub_s sub_t) τs) .
   Proof.
     unfold translate_types; unfold_sem_rels.
-    intros Hsub_r Hsub_s Hsub_t.
+    intros Hse' Hsub_r Hsub_s Hsub_t.
     Opaque translate_type.
     cbn.
     Transparent translate_type.
@@ -1301,30 +1392,30 @@ Admitted.
     rewrite Y; done.
   Admitted.
 
-  Lemma translate_types_subst_senv se se' sub_m sub_r sub_s sub_t τs ts :
-    sem_env_rel_rep se' se sub_r ->
-    sem_env_rel_size se' se sub_s ->
-    sem_env_rel_sκ se' se sub_t ->
-    translate_types (Σ:=Σ) se' τs = Some ts ->
-    translate_types (Σ:=Σ) se (map (subst_type sub_m sub_r sub_s sub_t) τs) = Some ts.
-  Proof.
-    unfold translate_types; unfold_sem_rels.
-    intros Hsub_r Hsub_s Hsub_t H.
-    apply fmap_Some in H as (tss & H & ->).
-    apply fmap_Some.
-    eexists.
-    split; last done.
-    apply mapM_Some in H.
-    apply mapM_Some.
-    rewrite <- (list_fmap_id tss).
-    rewrite map_fmap.
-    apply Forall2_fmap.
-    eapply Forall2_impl; first done.
-    clear H.
-    intros τ ts H.
-    cbn in H.
-    by eapply translate_type_subst_senv.
-  Qed.
+  (* Lemma translate_types_subst_senv se se' sub_m sub_r sub_s sub_t τs ts : *)
+  (*   sem_env_rel_rep se' se sub_r -> *)
+  (*   sem_env_rel_size se' se sub_s -> *)
+  (*   sem_env_rel_sκ se' se sub_t -> *)
+  (*   translate_types (Σ:=Σ) se' τs = Some ts -> *)
+  (*   translate_types (Σ:=Σ) se (map (subst_type sub_m sub_r sub_s sub_t) τs) = Some ts. *)
+  (* Proof. *)
+  (*   unfold translate_types; unfold_sem_rels. *)
+  (*   intros Hsub_r Hsub_s Hsub_t H. *)
+  (*   apply fmap_Some in H as (tss & H & ->). *)
+  (*   apply fmap_Some. *)
+  (*   eexists. *)
+  (*   split; last done. *)
+  (*   apply mapM_Some in H. *)
+  (*   apply mapM_Some. *)
+  (*   rewrite <- (list_fmap_id tss). *)
+  (*   rewrite map_fmap. *)
+  (*   apply Forall2_fmap. *)
+  (*   eapply Forall2_impl; first done. *)
+  (*   clear H. *)
+  (*   intros τ ts H. *)
+  (*   cbn in H. *)
+  (*   by eapply translate_type_subst_senv. *)
+  (* Qed. *)
 
   Lemma map_lookup_helper_forwards {A B:Type} (f:A → B) (l: list A) (i:nat) (a:A) :
     l !! i = Some a -> map f l !! i = Some (f a).
@@ -1407,13 +1498,14 @@ Admitted.
 
     type_interp rti sr τ se' sv -∗
      ∃ sκ, ⌜type_skind se τ' = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝.
-  Proof. Admitted.
+  Proof. Abort.
 
   Lemma struct_test sv:
     let nt32 := (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)) in
     let nt31 := (I31T (VALTYPE (AtomR PtrR) NoRefs)) in
     let se : semantic_env := ([],[],[],
-                [(SVALTYPE [PtrR] NoRefs, (value_interp rti sr senv_empty nt31))]) in
+          [(SVALTYPE [PtrR] AnyRefs,
+            ((SVALTYPE [PtrR] NoRefs),(value_interp rti sr senv_empty nt31)))]) in
     type_interp rti sr
       (ProdT (VALTYPE (ProdR [AtomR PtrR;AtomR I32R]) AnyRefs)
          [VarT 0; nt32]) se sv ∗-∗
@@ -1456,12 +1548,20 @@ Admitted.
       inversion toinv; subst; clear toinv.
       iDestruct "Ht32" as "(%sκ & %toinv & %os32intp & _)".
       inversion toinv; subst; clear toinv.
+      (* to get that osvar has norefs we have to look at htvar *)
+      (* this extra step is new *)
       (* this is the key: *)
-      assert (ref_flag_atoms_interp NoRefs (SAtoms (concat [osvar;os32]) )). {
+      iAssert (⌜ref_flag_atoms_interp NoRefs (SAtoms (concat [osvar;os32]) )⌝%I)
+        with "[Htvar]"as "%yes". {
+        rewrite value_interp_eq.
+        iEval (cbn) in "Htvar".
+        iDestruct "Htvar" as "(%sκ & %toinv & %osvarintptrue & _)".
+        inversion toinv; subst; clear toinv.
         cbn. clear_nils.
-        destruct osvarintp as (Harepvar & HvarNoRef).
+        destruct osvarintptrue as (Harepvar & HvarNoRef).
         destruct os32intp as (Harep32 & H32NoRef).
         cbn in *.
+        iPureIntro.
         apply Forall_app; try done.
       }
 
@@ -1480,13 +1580,14 @@ Admitted.
       done.
   Admitted.
 
-  Lemma sem_env_interp_insert_type F (se : semantic_env (Σ:=Σ)) κ sκ T :
+  Lemma sem_env_interp_insert_type F (se : semantic_env (Σ:=Σ)) κ sκ sκ_T T :
     sem_env_interp F se →
     eval_kind se κ = Some sκ →
-    skind_has_stype sκ T →
-    sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se).
+    subskind_of sκ_T sκ ->
+    skind_has_stype sκ_T T →
+    sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ sκ_T T se).
   Proof.
-    intros [Hkind Htypes] Hκ HT.
+    intros [Hkind Htypes] Hκ Hsubsk HT.
     split.
     - destruct Hkind as (Hmem & Hrep & Hsize).
       repeat split; cbn; done.
@@ -1495,12 +1596,31 @@ Admitted.
       split.
       + split.
         * by eapply eval_kind_type_irrel.
-        * exact HT.
+        * done.
       + eapply Forall2_impl; [exact Htypes|].
-        intros κ' [sκ' T'] [Heval' HT'].
+        intros κ' [sκ' [sκ_T' T']] [Heval' HT'].
         split; [by eapply eval_kind_type_irrel | exact HT'].
   Qed.
 
+  Lemma subskind_of_option_invl sk osk' :
+    subskind_of_option (Some sk) osk' ->
+    ∃ sk', osk' = Some sk' /\ subskind_of sk sk'.
+  Proof.
+    intros; destruct osk'; cbn; try done.
+    cbn in H.
+    eexists; done.
+  Qed.
+
+  Lemma subskind_of_option_invr osk sk' :
+    subskind_of_option osk (Some sk') ->
+    ∃ sk, osk = Some sk /\ subskind_of sk sk'.
+  Proof.
+    intros; destruct osk; cbn; try done.
+    cbn in H.
+    eexists; done.
+  Qed.
+
+  (* the big scary one *)
   Lemma skind_interp_chillin :
     ∀ τ F F' κ κ' (se:semantic_env (Σ:=Σ)) se' sub_m sub_r sub_s sub_t sv,
     let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
@@ -1529,12 +1649,52 @@ Admitted.
       subst τ'.
       rewrite Hsub_t_good in Hkind_τ'.
       rewrite Hsub_t_good.
+      iDestruct "Ht" as "(%sκ_big & %one & %two & Ht)".
+      cbn -[lookup_type] in one.
+      specialize (Hsub_sκ idx).
+      rewrite one in Hsub_sκ.
+      apply subskind_of_option_invr in Hsub_sκ as (sκ_small & jo & subsk).
+      iExists sκ_small.
+      rewrite jo.
+      iEval (cbn) in "Ht".
+      specialize (Hsub_T idx sv).
+      cbn in Hsub_T.
+      apply fmap_Some in one as ([sκ [sκ_T T]] & lookp & ->).
+      cbn in lookp.
+      rewrite lookp in Hsub_T; rewrite lookp.
+      cbn -[skind_has_svalue]; cbn in Hsub_T.
+      rewrite Hsub_T.
+      rewrite value_interp_eq.
+      unfold add_skind_interp.
+      iDestruct "Ht" as "(%sκfake & %ah & %no & _)".
+      rewrite jo in ah; inversion ah; subst.
+      iPureIntro; done.
+
+
+      (*
       rewrite <- Hsub_sκ.
       iEval (cbn) in "Ht".
       cbn.
-      iDestruct "Ht" as "(%sκ & %one & %two & _)".
-      iExists sκ.
-      iPureIntro; done.
+      iDestruct "Ht" as "(%sκ & %one & %two & Ht)".
+      iExists sκ; iPureIntro; try done.
+      (* it's going to be sκ_T which makes much more sense *)
+      (* rename sκ into sκ_old. *)
+      (* apply fmap_Some in one as ([sκ [sκ_T T]] & lookp & ->). *)
+      (* specialize (Hsub_T idx). *)
+      (* rewrite lookp; cbn in Hsub_T; rewrite lookp in Hsub_T; cbn in Hsub_T; iEval (cbn) in "Ht". *)
+      (* specialize (Hsub_T sv). *)
+      (* rewrite Hsub_T. *)
+      (* rewrite value_interp_eq. *)
+      (* iDestruct "Ht" as "(%sκ_finally & %ah & %eh & _)". *)
+      (* rewrite <- Hsub_sκ in ah. *)
+      (* cbn in ah. *)
+      (* rewrite lookp in ah. *)
+      (* cbn in ah. *)
+      (* inversion ah; subst. *)
+      (* iPureIntro. *)
+      (* exists sκ_finally; cbn. *)
+      (* done. (* phew..... *) *) *)
+
     }
     5: {
 
@@ -1669,12 +1829,12 @@ Admitted.
 
       (* hm Im scared the F being extended with subst_kind... *)
       iDestruct "Ht" as "(%sκ & %Hevalκ & %SVskterp &
-      (%T' & %sκ0 & %Hevalsκ' & %skindhasstype & Ht))".
+      (%T' & %sκ0 & %sκ_T & %Hevalsκ' & %subskind & %skindhasstype & Ht))".
       iPoseProof (IHτ with "[$Ht]") as "pls".
       9: exact H6.
       9: exact H9.
       Unshelve.
-      10: exact (senv_insert_type sκ0 T' se).
+      10: exact (senv_insert_type sκ0 sκ_T T' se).
       1-6: intros.
       1-3: cbn.
       - change (se'.1.1.2 !! i) with (lookup_rep se' i); rewrite Hsub_r.
@@ -1683,13 +1843,17 @@ Admitted.
         apply eval_size_up_type_eq.
       - change (se'.1.1.1 !! i) with (lookup_mem se' i); rewrite Hsub_m.
         apply eval_mem_up_type_eq.
-      - cbn -[type_skind].
-        destruct i; cbn -[type_skind]; try done.
-        change (fst <$> se'.1 !! i) with (fst <$> lookup_type se' i); rewrite Hsub_sκ.
-        apply type_skind_up_type_eq.
+      - destruct i; try by (cbn; apply subskind_of_refl).
+        rewrite <- type_skind_up_type_eq.
+        move Hsub_sκ at bottom.
+        specialize (Hsub_sκ i).
+        assert (fst <$> lookup_type se' i = fst <$> lookup_type (se'.1, (sκ0, (sκ_T, T'))::se'.2) (S i)) by by cbn.
+        rewrite H in Hsub_sκ.
+        done.
       - cbn.
         destruct i; cbn; try done.
         + rewrite value_interp_eq_no_sv.
+          Opaque skind_has_svalue.
           cbn.
           unfold skind_has_stype in skindhasstype.
           iIntros (sv').
@@ -1700,7 +1864,7 @@ Admitted.
             iPoseProof (yes with "[$Ht]") as "%skindsv'".
             iFrame.
             iPureIntro.
-            done.
+            eapply skind_as_type_refine; try done.
           * cbn.
             iDestruct "Ht" as "(%sκ' & _ & _ & yes)".
             iFrame.
@@ -1719,14 +1883,12 @@ Admitted.
          *)
         admit.
       - eapply sem_env_interp_insert_type; try done.
-      - eapply sem_env_interp_insert_type; try done.
+      - eapply sem_env_interp_insert_type; try done; try (by apply subskind_of_refl).
         erewrite <- eval_kind_subst_senv_eq; try done.
       - iDestruct "pls" as "(%sκ1 & %typeskind & %skindhassvalue)".
-        iExists sκ1.
+        erewrite <- eval_kind_subst_senv_eq; try done.
+        iExists sκ.
         iSplitR; try done.
-        iPureIntro.
-        (* seems legit *)
-        admit.
     }
     9: { (* rec, qed?? *)
       iIntros "Ht".
@@ -1779,11 +1941,16 @@ Admitted.
       rewrite Hsub_t_good in Hkind_τ'.
       rewrite Hsub_t_good.
       iEval (cbn -[type_skind]) in "Ht".
-      rewrite <- Hsub_sκ.
-      cbn.
       iDestruct "Ht" as "(%sκ & %one & %two & _)".
-      iExists sκ.
-      iPureIntro; done.
+      specialize (Hsub_sκ idx).
+      rewrite one in Hsub_sκ.
+      apply subskind_of_option_invl in Hsub_sκ as (sκ_big & jo & subsk).
+      cbn -[skind_has_svalue].
+      cbn in jo.
+
+      iExists sκ_big.
+      iPureIntro; split; first done.
+      eapply skind_as_type_refine; try done.
     }
     5: { admit. }
     7: { (* coderef, qed *)
@@ -1836,23 +2003,23 @@ Admitted.
     13: { (* exists type *)
       iIntros "Ht".
       rewrite type_interp_eq.
-      iEval (cbn) in "Ht".
+      iEval (cbn -[senv_insert_type]) in "Ht".
       inversion Hkind_τ; subst.
       (* we'll need to use the inductive hyp here *)
       (* but uhm... on what..... *)
+      cbn -[refresh_kinds] in τ'.
       cbn in τ'.
       subst τ'.
-      cbn.
       inversion Hkind_τ'; subst.
 
       (* hm Im scared the F being extended with subst_kind... *)
       iDestruct "Ht" as "(%sκ & %Hevalκ & %SVskterp &
-      (%T' & %sκ0 & %Hevalsκ' & %skindhasstype & Ht))".
+      (%T' & %sκ0 & %sκ_T & %Hevalsκ' & %subsk & %skindhasstype & Ht))".
       iPoseProof (IHτ with "[$Ht]") as "pls".
       9: exact H6.
       9: exact H9.
       Unshelve.
-      10: exact (senv_insert_type sκ0 T' se').
+      10: exact (senv_insert_type sκ0 sκ_T T' se').
       1-6: intros.
       1-3: cbn.
       - change (se'.1.1.2 !! i) with (lookup_rep se' i); rewrite Hsub_r.
@@ -1861,10 +2028,13 @@ Admitted.
         apply eval_size_up_type_eq.
       - change (se'.1.1.1 !! i) with (lookup_mem se' i); rewrite Hsub_m.
         apply eval_mem_up_type_eq.
-      - cbn -[type_skind].
-        destruct i; cbn -[type_skind]; try done.
-        change (fst <$> se'.1 !! i) with (fst <$> lookup_type se' i); rewrite Hsub_sκ.
-        apply type_skind_up_type_eq.
+      - destruct i; try by (cbn; apply subskind_of_refl).
+        rewrite <- type_skind_up_type_eq.
+        move Hsub_sκ at bottom.
+        specialize (Hsub_sκ i).
+        assert (fst <$> lookup_type se' i = fst <$> lookup_type (se'.1, (sκ0, (sκ_T, T'))::se'.2) (S i)) by by cbn.
+        rewrite H in Hsub_sκ.
+        done.
       - cbn.
         destruct i; cbn; try done.
         + rewrite value_interp_eq_no_sv.
@@ -1878,7 +2048,7 @@ Admitted.
             iPoseProof (yes with "[$Ht]") as "%skindsv'".
             iFrame.
             iPureIntro.
-            done.
+            eapply skind_as_type_refine; try done.
           * cbn.
             iDestruct "Ht" as "(%sκ' & _ & _ & yes)".
             iFrame.
@@ -2444,12 +2614,19 @@ Admitted.
           intros.
           destruct i.
           + cbn.
-            done.
-          + cbn.
-            change (se'.2 !! i) with (lookup_type se' i).
-            rewrite (Hsub_sκ i).
-            unfold core.funcomp.
-            apply type_skind_up_type_eq.
+            unfold unscoped.var_zero.
+            Transparent type_skind.
+            unfold type_skind.
+            cbn.
+            Opaque type_skind.
+            apply subskind_of_refl.
+          + change (se'.2 !! i) with (lookup_type se' i).
+            move Hsub_sκ at bottom.
+            change ((se.1, (?x, (?y,?z))::se.2)) with (senv_insert_type x y z se).
+            erewrite <- type_skind_up_type_eq.
+            cbn.
+            cbn in Hsub_sκ.
+            apply Hsub_sκ.
 
           Transparent type_skind.
           Opaque skind_rec_interp.
@@ -2884,7 +3061,7 @@ Admitted.
       by apply Forall_nil.
     - intros.
       rename l into Fl.
-      destruct a as [sκ T].
+      destruct a as [sκ [sκ_T T]].
       rename o into se_rest.
       destruct Fl as [|f Fl]; [apply Forall2_nil_cons_inv in H; done|].
       apply Forall2_cons in H as [[_ Imp] Rest].
@@ -2905,18 +3082,21 @@ Admitted.
     - iIntros "HT".
       destruct (snd <$> se.2 !! i) eqn:HT'; rewrite HT'; [rename o into T'|done].
       cbn.
-      apply fmap_Some in HT' as ((sκ & T) & Hlookup & b).
-      cbn in b. subst T.
+      apply fmap_Some in HT' as ((sκ & [sκ_T T]) & Hlookup & b).
+      cbn in b. subst T'.
 
       cbn in H.
       apply (Forall_lookup_1 _ _ _ _ H) in Hlookup as HT.
-      destruct HT as [_ HT].
+      cbn in HT.
+      destruct HT as [a HT].
+      destruct HT as [b HT].
       iPoseProof (HT with "HT") as "%ye".
 
       rewrite value_interp_eq.
       cbn.
       iExists sκ; rewrite Hlookup; cbn; iFrame.
-      iSplitR; iPureIntro; done.
+      iSplitR; iPureIntro; try done.
+      eapply skind_as_type_refine; try done.
     - iIntros "HT".
       rewrite value_interp_eq.
       cbn.
@@ -3064,11 +3244,16 @@ Admitted.
     iApply closure_interp_subst_senv_eq; unfold_sem_rels; last done; try done.
 
     Unshelve.
-    4: exact b.
+    5: exact b.
 
     (* RE:Hsub_T *)
     (* this is the location that's testing whether Hsub_T is weak enough *)
     (* strong enough test is above *)
+    3: {
+      intros i.
+      cbn.
+      apply subskind_of_option_refl.
+    }
     3: {
       Transparent senv_insert_mem.
       cbn.
@@ -3140,6 +3325,11 @@ Admitted.
     iSpecialize ("Hcl" $! ιs).
     iApply closure_interp_subst_senv_eq; unfold_sem_rels; last done; try done.
     3: {
+      intros i.
+      cbn.
+      apply subskind_of_option_refl.
+    }
+    3: {
       intros; cbn.
       apply hsub_t_base_se_VarT; done.
     }
@@ -3184,6 +3374,11 @@ Admitted.
     iSpecialize ("Hcl" $! n).
     iApply closure_interp_subst_senv_eq; unfold_sem_rels; last done; try done.
     3: {
+      intros i.
+      cbn.
+      apply subskind_of_option_refl.
+    }
+    3: {
       intros; cbn.
       apply hsub_t_base_se_VarT; done.
     }
@@ -3209,7 +3404,7 @@ Admitted.
        ⌜eval_kind se κ0 = Some sκ⌝ -∗
        ⌜subskind_of sκ_T sκ⌝ -∗
        ⌜skind_has_stype sκ_T T⌝ -∗
-       inner_closure_interp rti sr ϕ (senv_insert_type sκ_T T se) cl) -∗
+       inner_closure_interp rti sr ϕ (senv_insert_type sκ sκ_T T se) cl) -∗
     inner_closure_interp rti sr ϕ' se cl.
   Proof using mr.
     iIntros (ϕ' Hkind_ϕ' Hkind_ϕ Hse Hκ Hsubkind Hsκ) "Hcl".
@@ -3236,15 +3431,15 @@ Admitted.
       cbn.
       apply Forall2_cons.
       split.
-      + change (se.1, (sκ_T, T)::se.2) with (senv_insert_type sκ_T T se).
+      + change (se.1, (sκ, (sκ_T, T))::se.2) with (senv_insert_type sκ sκ_T T se).
         rewrite <- eval_kind_type_irrel_eq.
-        admit.
+        try done.
       + unfold type_ctx_interp in h2.
         eapply Forall2_impl; first exact h2.
         intros *. cbn.
         destruct y.
         intros.
-        change (se.1, (sκ_T, T)::se.2) with (senv_insert_type sκ_T T se).
+        change (se.1, (sκ, (sκ_T, T))::se.2) with (senv_insert_type sκ sκ_T T se).
         rewrite <- eval_kind_type_irrel_eq.
         done.
     - done.
@@ -3252,10 +3447,15 @@ Admitted.
     - done.
     - done.
     - intros i.
-      destruct i; last done.
-      cbn -[type_skind]. 
-      symmetry.
-      by eapply type_skind_has_kind_Some.
+      destruct i.
+      2: {
+        cbn. apply subskind_of_option_refl.
+      }
+      cbn -[type_skind].
+      pose proof (type_skind_has_kind_Some _ _ _ _ _ Hκ Hse Hsκ_T).
+      rewrite H.
+      cbn.
+      done.
     - intros i.
       destruct i; first done.
       cbn.

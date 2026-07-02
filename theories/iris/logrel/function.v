@@ -406,10 +406,11 @@ Section function.
     eval_kind se κ = Some sκ →
     skind_has_stype sκ_T T →
     subskind_of sκ_T sκ →
-    sem_env_interp (F <| fc_type_vars ::= app [κ] |>) (senv_insert_type sκ_T T se).
+    sem_env_interp (F <| fc_type_vars ::= app [κ] |>) (senv_insert_type sκ sκ_T T se).
   Proof.
   Admitted.
 
+  (*
   Definition flat_closure_interp_wk (ϕ: flat_function_type) (se_r : semantic_env) (cl : function_closure) (FT : semantic_env -n> ClR) : iProp Σ :=
     □ ∀ se',
       let se_all := senv_insert_all se' se_r in
@@ -427,10 +428,10 @@ Section function.
     let Ts1 := map (type_interp rti sr) ts1 in
     let Ts2 := map (type_interp rti sr) ts2 in
     flat_closure_interp_wk ϕ se cl (mono_closure_interp rti sr ts1 ts2 Ts1 Ts2).
-
-  Lemma type_inserts_swap se' sκ_T T se :
-    (senv_insert_all (senv_insert_all se' (senv_insert_type sκ_T T senv_empty)) se) =
-    (senv_insert_all se' (senv_insert_type sκ_T T se)).
+  *)
+  Lemma type_inserts_swap se' sκ sκ_T T se :
+    (senv_insert_all (senv_insert_all se' (senv_insert_type sκ sκ_T T senv_empty)) se) =
+    (senv_insert_all se' (senv_insert_type sκ sκ_T T se)).
   Proof.
     destruct se as [[[m r] s] o].
     destruct se' as [[[m' r'] s'] o'].
@@ -663,6 +664,7 @@ Section function.
     by rewrite -flatten_iquantify -flatten_quantify.
   Qed.
 
+  (*
   Lemma flat_iqs_clos iqs ts1 ts2 cl se FT :
     let Ts1 := map (type_interp rti sr) ts1 in
     let Ts2 := map (type_interp rti sr) ts2 in
@@ -702,6 +704,7 @@ Section function.
     qclosure_interp ϕ senv_empty cl.
   Proof.
   Admitted.
+   *)
 
   Theorem fundamental_function ϕ : ∀ M wt wt' wtf mf mf',
     has_function_type M mf ϕ ->
@@ -739,6 +742,7 @@ Section function.
     cbn.
     subst ϕ1 ϕ0.
     remember (mf_type mf) as ϕ in *.
+    (*
     iAssert (flat_closure_interp (flatten_function_type ϕ) senv_empty (FC_func_native inst tf (flat_map (map translate_arep) ιs ++ wl'') body)) as "U".
     {
       unfold flat_closure_interp, flat_closure_interp_wk.
@@ -764,6 +768,7 @@ Section function.
     iApply qclosure_interp_ok.
     rewrite flat_qfun_is_flatten.
     by iApply flat_qclos.
+  *)
   Admitted.
 
 End function.

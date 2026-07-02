@@ -157,8 +157,8 @@ Section util.
     by apply eval_rep_emptyenv.
   Qed.
 
-  Lemma eval_rep_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) ρ :
-    eval_rep (senv_insert_type sκ T se) ρ = eval_rep se ρ.
+  Lemma eval_rep_senv_insert_type sκ sκ_T T (se: semantic_env (Σ:=Σ)) ρ :
+    eval_rep (senv_insert_type sκ sκ_T T se) ρ = eval_rep se ρ.
   Proof.
     induction ρ using rep_ind; cbn.
     - reflexivity.
@@ -171,8 +171,8 @@ Section util.
     - reflexivity.
   Qed.
 
-  Lemma eval_size_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) σ :
-    eval_size (senv_insert_type sκ T se) σ = eval_size se σ.
+  Lemma eval_size_senv_insert_type sκ sκ_T T (se: semantic_env (Σ:=Σ)) σ :
+    eval_size (senv_insert_type sκ sκ_T T se) σ = eval_size se σ.
   Proof.
     induction σ using size_ind; cbn.
     - reflexivity.
@@ -184,8 +184,8 @@ Section util.
     - reflexivity.
   Qed.
 
-  Lemma eval_kind_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) κ :
-    eval_kind (senv_insert_type sκ T se) κ = eval_kind se κ.
+  Lemma eval_kind_senv_insert_type sκ sκ_T T (se: semantic_env (Σ:=Σ)) κ :
+    eval_kind (senv_insert_type sκ sκ_T T se) κ = eval_kind se κ.
   Proof.
     unfold eval_kind, senv_insert_type. simpl.
     destruct κ; simpl.
