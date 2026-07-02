@@ -759,12 +759,12 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
       end
   | ExistsRepT κ τ =>
       match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
-      | inl () => type_ok_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ
+      | inl () => type_ok_checker (add_rep_var F) τ
       | err => err
       end
   | ExistsSizeT κ τ =>
       match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
-      | inl () => type_ok_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ
+      | inl () => type_ok_checker (add_size_var F) τ
       | err => err
       end
   | ExistsTypeT κ1 κ2 τ =>
@@ -804,8 +804,8 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
       match ft with
       | InnerFunT ϕ => inner_function_type_ok_checker F ϕ
       | ForallMemT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
-      | ForallRepT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
-      | ForallSizeT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
+      | ForallRepT ϕ => function_type_ok_checker (add_rep_var F) ϕ
+      | ForallSizeT ϕ => function_type_ok_checker (add_size_var F) ϕ
       end.
 
 Ltac destruct_match_kind_ok F κ o Hres HMatchKind :=
@@ -1288,7 +1288,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
   | ExistsRepT κ τ =>
       match kind_ok_checker (F.(fc_kind_ctx)) κ with
       | inl () =>
-          match has_kind_synther (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ with
+          match has_kind_synther (add_rep_var F) τ with
           | inl κ' =>
               if kind_beq κ κ'
               then inl κ
@@ -1300,7 +1300,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
    | ExistsSizeT κ τ =>
       match kind_ok_checker (F.(fc_kind_ctx)) κ with
       | inl () =>
-          match has_kind_synther (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ with
+          match has_kind_synther (add_size_var F) τ with
           | inl κ' =>
               if kind_beq κ κ'
               then inl κ
@@ -1347,8 +1347,8 @@ with has_kind_ft_checker (F:function_ctx) (ϕ:function_type) : type_checker_res 
   match ϕ with
   | InnerFunT ϕ => has_kind_ift_checker F ϕ
   | ForallMemT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
-  | ForallRepT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
-  | ForallSizeT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
+  | ForallRepT ϕ => has_kind_ft_checker (add_rep_var F) ϕ
+  | ForallSizeT ϕ => has_kind_ft_checker (add_size_var F) ϕ
   end.
 
 (* Check kind in a naive way. I guess. *)
@@ -2621,9 +2621,9 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
   | ExistsMemT κ τ =>
       ExistsMemT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ)
   | ExistsRepT κ τ =>
-      ExistsRepT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ)
+      ExistsRepT κ (refresh_kinds (add_rep_var F) τ)
   | ExistsSizeT κ τ =>
-      ExistsSizeT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ)
+      ExistsSizeT κ (refresh_kinds (add_size_var F) τ)
   | ExistsTypeT κ κ0 τ =>
       ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
   end
@@ -2636,8 +2636,8 @@ with refresh_kinds_ft (F : function_ctx) (ϕ : function_type) : function_type :=
   match ϕ with
   | InnerFunT ϕ => InnerFunT (refresh_kinds_ift F ϕ)
   | ForallMemT ϕ => ForallMemT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ)
-  | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ)
-  | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ)
+  | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (add_rep_var F) ϕ)
+  | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (add_size_var F) ϕ)
   end.
 
 Lemma refresh_kinds_eq_mod_kinds :
@@ -3255,8 +3255,8 @@ Definition unpacked_existential_checker
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsRepT κ τ_check =>
-                  let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
-                              <| fc_kind_ctx ::= set kc_rep_vars S |> in
+                  let F0 := add_rep_var (subst_function_ctx VarM (up_representation VarR) VarS VarT F)
+                              in
                   let up := ren_type id S id id in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
@@ -3265,8 +3265,8 @@ Definition unpacked_existential_checker
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsSizeT κ τ_check =>
-                  let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
-                              <| fc_kind_ctx ::= set kc_size_vars S |> in
+                  let F0 := add_size_var (subst_function_ctx VarM VarR (up_size VarS) VarT F)
+                              in
                   let up := ren_type id id S id in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
@@ -3322,16 +3322,16 @@ Definition unpacked_existential_getter F L ϕ L' :
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
               Some (F0, L0, ϕ0, L'0)
           | ExistsRepT κ τ =>
-              let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
-                          <| fc_kind_ctx ::= set kc_rep_vars S |> in
+              let F0 := add_rep_var (subst_function_ctx VarM (up_representation VarR) VarS VarT F)
+                           in
               let up := ren_type id S id id in
               let L0 := (map up L) in
               let L'0 := (map up L') in
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
               Some (F0, L0, ϕ0, L'0)
           | ExistsSizeT κ τ =>
-              let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
-                          <| fc_kind_ctx ::= set kc_size_vars S |> in
+              let F0 := add_size_var (subst_function_ctx VarM VarR (up_size VarS) VarT F)
+                           in
               let up := ren_type id id S id in
               let L0 := (map up L) in
               let L'0 := (map up L') in

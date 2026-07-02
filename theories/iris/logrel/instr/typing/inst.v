@@ -598,6 +598,24 @@ Admitted.
     - cbn. by rewrite <- eval_rep_up_shift_rep_eq.
   Qed.
 
+  Lemma eval_size_up_shift_size_eq se n σ :
+    eval_size se σ =
+      eval_size (senv_insert_size (Σ:=Σ) n se) (ren_size unscoped.id unscoped.shift σ).
+  Proof.
+    induction σ using size_ind; try by cbn.
+    - cbn.
+      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_size n se))
+             (map (ren_size unscoped.id unscoped.shift) σs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn.
+      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_size n se))
+             (map (ren_size unscoped.id unscoped.shift) σs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn -[senv_insert_size].
+      rewrite rinstId'_representation.
+      by rewrite <- eval_rep_size_irrel_eq.
+  Qed.
+
   Lemma eval_size_up_shift_rep se ρ n ιs :
     eval_rep se ρ = Some n ->
     eval_rep (senv_insert_rep (Σ:=Σ) ιs se) (ren_representation unscoped.shift ρ) = Some n.
@@ -638,6 +656,18 @@ Admitted.
     induction κ as [ρ ξ | σ ξ].
     - cbn. by rewrite <- eval_rep_up_shift_rep_eq.
     - cbn. by rewrite <- eval_size_up_shift_rep_eq.
+  Qed.
+
+  Lemma eval_kind_up_shift_size_eq se κ n:
+    eval_kind se κ =
+    eval_kind (senv_insert_size (Σ:=Σ) n se) (ren_kind unscoped.id unscoped.shift κ) .
+  Proof.
+    induction κ as [ρ ξ | σ ξ].
+    - cbn -[senv_insert_size].
+      rewrite rinstId'_representation.
+      by rewrite <- eval_rep_size_irrel_eq.
+    - cbn -[senv_insert_size].
+      by rewrite <- eval_size_up_shift_size_eq.
   Qed.
 
   Lemma eval_kind_up_shift_rep se κ sκ ιs :
@@ -3283,7 +3313,7 @@ Admitted.
 
   Lemma sem_env_insert_rep F se ιs :
     sem_env_interp (Σ:=Σ) F se ->
-    sem_env_interp (F <| fc_kind_ctx ::= set kc_rep_vars S |>) (senv_insert_rep ιs se).
+    sem_env_interp (add_rep_var F) (senv_insert_rep ιs se).
   Proof.
     Transparent senv_insert_rep.
     intros Hse.
@@ -3295,19 +3325,69 @@ Admitted.
       done.
     + unfold type_ctx_interp.
       cbn.
-      eapply Forall2_impl; first exact h4.
+      unfold type_ctx_interp in h4.
+      cbn in h4.
+      apply Forall2_same_length_lookup_2.
+      {
+        unfold add_rep_var; cbn.
+        unfold set.
+        cbn.
+        rewrite length_map.
+        eapply Forall2_length; done.
+      }
       intros *.
-      destruct y.
+      destruct y as [sκ [sκ_T T]].
       intros.
       change (se.1.1.1, ιs::se.1.1.2, se.1.2, se.2) with (senv_insert_rep ιs se).
       pose proof (eval_kind_up_shift_rep_eq).
-      (* i cry *)
-  Abort.
+      apply map_lookup_helper_backwards in H.
+      destruct H as (K & lokp & ->).
+      rewrite <- eval_kind_up_shift_rep_eq.
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ h4 lokp H0).
+      cbn in H.
+      done.
+  Qed.
+
+  Lemma sem_env_insert_size F se n :
+    sem_env_interp (Σ:=Σ) F se ->
+    sem_env_interp (add_size_var F) (senv_insert_size n se).
+  Proof.
+    Transparent senv_insert_size.
+    intros Hse.
+    destruct Hse as ((h1 & h2 & h3) & h4).
+    cbn in h1; cbn in h2; cbn in h3.
+    repeat split; try done.
+    + cbn.
+      rewrite <- h3.
+      done.
+    + unfold type_ctx_interp.
+      cbn.
+      unfold type_ctx_interp in h4.
+      cbn in h4.
+      apply Forall2_same_length_lookup_2.
+      {
+        unfold add_rep_var; cbn.
+        unfold set.
+        cbn.
+        rewrite length_map.
+        eapply Forall2_length; done.
+      }
+      intros *.
+      destruct y as [sκ [sκ_T T]].
+      intros.
+      change (se.1.1.1, se.1.1.2, n::se.1.2, se.2) with (senv_insert_size n se).
+      apply map_lookup_helper_backwards in H.
+      destruct H as (K & lokp & ->).
+      rewrite <- eval_kind_up_shift_size_eq.
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ h4 lokp H0).
+      cbn in H.
+      done.
+  Qed.
 
   Lemma closure_interp_scons_insert_rep F se ρ ϕ cl :
     let ϕ' := refresh_kinds_ft F (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ) in
     has_kind_ft F ϕ' ->
-    has_kind_ft (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ ->
+    has_kind_ft (add_rep_var F) ϕ ->
     rep_ok (fc_kind_ctx F) ρ ->
     sem_env_interp F se ->
     (∀ ιs, closure_interp rti sr ϕ (senv_insert_rep ιs se) cl) -∗
@@ -3338,26 +3418,13 @@ Admitted.
       cbn.
       destruct i; by cbn.
     }
-    - destruct Hse as ((h1 & h2 & h3) & h4).
-      cbn in h1; cbn in h2; cbn in h3.
-      repeat split; try done.
-      + cbn.
-        rewrite <- h2.
-        done.
-      + unfold type_ctx_interp.
-        cbn.
-        eapply Forall2_impl; first exact h4.
-        intros *.
-        destruct y.
-        intros.
-        change (se.1.1.1, ιs::se.1.1.2, se.1.2, se.2) with (senv_insert_rep ιs se).
-        (* this is NOT TRUE THE WORLD IS PAIN *)
-  Admitted.
+    apply sem_env_insert_rep; done.
+  Qed.
 
   Lemma closure_interp_scons_insert_size F se σ ϕ cl :
     let ϕ' := refresh_kinds_ft F (subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ) in
     has_kind_ft F ϕ' ->
-    has_kind_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ ->
+    has_kind_ft (add_size_var F) ϕ ->
     size_ok (fc_kind_ctx F) σ ->
     sem_env_interp F se ->
     (∀ n, closure_interp rti sr ϕ (senv_insert_size n se) cl) -∗
@@ -3389,8 +3456,8 @@ Admitted.
       intros.
       destruct i; by cbn.
     }
-    (* same issue *)
-  Admitted.
+    apply sem_env_insert_size; done.
+  Qed.
 
   Lemma inner_closure_interp_scons_insert_type F se τ κ κ0 sκ ϕ cl :
     let ϕ' := refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) in
@@ -3466,8 +3533,9 @@ Admitted.
       symmetry.
       destruct (refresh_kinds_id) as (this & _).
       eapply this; done.
-    (* now just the has_kind_fts *)
-  Admitted.
+    - exact Hkind_ϕ.
+    - exact Hkind_ϕ'.
+  Qed.
 
   Lemma has_kind_ft_function_type_eq_mod_kinds:
     (∀ τ F κ subm subr subs subt,
