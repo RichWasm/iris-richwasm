@@ -39,13 +39,6 @@ Section function.
     destruct c; cbn; intros Heq; by inversion Heq.
   Qed.
 
-  Lemma insert_type_inst_get mr M wt tf wt' tid wtf inst :
-    ⌜insert_type wt tf = (wt', tid)⌝ -∗
-    instance_interp rti sr mr M (wt ++ option_list wt' ++ wtf) inst -∗
-    ⌜inst_types inst !! tid = Some tf⌝.
-  Proof.
-  Admitted.
-
   Definition atom_zero (ι : atomic_rep) : atom :=
     match ι with
     | PtrR => PtrA (PtrInt 0%N)
@@ -433,6 +426,84 @@ Section function.
       cbn.
   Admitted.
 
+  Lemma mapM_fmap {X Y Z} (xs : list X) (f : X → option Y) (g : Y → Z) :
+    mapM (λ x, g <$> f x) xs = map g <$> mapM f xs.
+  Proof.
+    induction xs; cbn; try done.
+    rewrite IHxs.
+    destruct (mapM f xs), (f a); cbn; done.
+  Qed.
+
+  Lemma has_prims_arep_to_prims ιs os vs :
+    has_areps ιs (SAtoms os) →
+    atoms_interp os vs -∗
+    ⌜has_prims (map arep_to_prim ιs) vs⌝.
+  Proof.
+  Admitted.
+
+  Lemma has_kind_empty_type_skind (se : semantic_env (Σ := Σ)) F τ ρ ξ ιs :
+    sem_env_interp F se →
+    has_kind F τ (VALTYPE ρ ξ) →
+    eval_rep EmptyEnv ρ = Some ιs →
+    type_skind se τ = Some (SVALTYPE ιs ξ).
+  Proof.
+    intros Hse Hk Henv.
+    eapply type_skind_has_kind_Some; eauto.
+    cbn.
+    erewrite eval_rep_emptyenv; eauto.
+  Qed.
+
+  Lemma has_reps_has_prims se F τ ρ ηs os vs :
+    sem_env_interp F se →
+    has_rep F τ ρ →
+    eval_rep_prim EmptyEnv ρ = Some ηs →
+    atoms_interp os vs -∗
+    type_interp rti sr τ se (SAtoms os) -∗
+    ⌜has_prims ηs vs⌝.
+  Proof.
+    iIntros (Hse Hrep Hev) "Hat Hty".
+    inversion Hrep; subst.
+    rewrite type_interp_eq.
+    iDestruct "Hty" as "(%sk & %Hevk & %Hsk & Hty)".
+    unfold eval_rep_prim in Hev.
+    apply fmap_Some in Hev.
+    destruct Hev as (ιs & Hevrep & ->).
+    assert (sk = SVALTYPE ιs ξ).
+    {
+      erewrite has_kind_empty_type_skind in Hevk; eauto.
+      congruence.
+    }
+    subst sk.
+    inversion Hsk.
+    by iApply (has_prims_arep_to_prims with "[$]").
+  Qed.
+
+  Lemma has_repss_has_primss se F τs ρs ηss oss vss :
+    sem_env_interp F se →
+    Forall2 (has_rep F) τs ρs →
+    mapM (eval_rep_prim EmptyEnv) ρs = Some ηss →
+    ([∗ list] os;vs ∈ oss; vss, atoms_interp os vs) -∗
+    ([∗ list] τ;os ∈ τs;oss, type_interp rti sr τ se (SAtoms os)) -∗
+    ⌜Forall2 has_prims ηss vss⌝.
+  Proof.
+    intros Hse Hrep.
+    revert vss oss ηss.
+    induction Hrep; intros * Hev; iIntros "Hat Hty".
+    - cbn in Hev; inversion Hev; subst.
+      iPoseProof (big_sepL2_nil_inv_l with "Hty") as "->".
+      iPoseProof (big_sepL2_nil_inv_l with "Hat") as "->".
+      done.
+    - cbn in Hev.
+      apply bind_Some in Hev.
+      destruct Hev as (ηs & Hev & Hevs).
+      apply bind_Some in Hevs.
+      destruct Hevs as (ηss' & Hevs & Hret).
+      inversion Hret; subst.
+      iPoseProof (big_sepL2_cons_inv_l with "Hty") as "(%os & %oss' & -> & Hos & Hoss)".
+      iPoseProof (big_sepL2_cons_inv_l with "Hat") as "(%vs & %vss' & -> & Hvs & Hvss)".
+      iPoseProof (IHHrep with "Hvss Hoss") as "%Hall"; eauto.
+      iPoseProof (has_reps_has_prims with "Hvs Hos") as "%Hfst"; eauto.
+  Qed.
 
   Theorem interp_has_ifun_type ϕ : ∀ fe M K κs wt wt' wtf locs body tf mf' (se : semantic_env (Σ := Σ)),
     body_has_ifun_type M K locs body κs ϕ →
@@ -535,7 +606,12 @@ Section function.
       }
       assert (ηss_L = map (map arep_to_prim) ιs).
       {
-        admit.
+        rename H3 into Hevprim.
+        apply try_opt_inr in Hevrep.
+        unfold eval_rep_prim in Hevprim.
+        rewrite mapM_fmap Hevrep in Hevprim.
+        cbn in Hevprim; inversion Hevprim; subst ηss_L.
+        done.
       }
       iApply (cwp_wand with "[-]").
       {
@@ -563,6 +639,11 @@ Section function.
           iDestruct "Hvs" as "(%oss & -> & Hvs)".
           rewrite big_sepL2_fmap_l.
           iPoseProof (big_sepL2_concat_inv_l with "Hats") as "(%vss & -> & Hvss)".
+          iAssert (⌜Forall2 has_prims ηss_P vss⌝%I) with "[Hvs Hvss]" as "%Hhasprims".
+          {
+            iApply (has_repss_has_primss with "Hvss Hvs"); eauto.
+            split; cbn; done.
+          }
           iExists (oss ++ _).
           iExists (vss ++ _).
           iExists _.
@@ -576,26 +657,25 @@ Section function.
             rewrite -concat_app.
             done.
           + iPureIntro.
-            apply Forall2_app; eauto.
-            * admit. (* need to use the atom interp before the iSplitRs above to prove this. *)
-            * replace (map (map translate_arep) ιs) with (map (map translate_prim) ηss_L); swap 1 2.
-              {
-                subst ηss_L.
-                unfold translate_arep.
-                repeat setoid_rewrite map_map.
-                done.
-              }
-              apply Forall2_fmap_r.
-              apply Forall2_fmap_r.
-              apply Forall_Forall2_diag.
-              apply Forall_true.
-              intros; cbn.
-              unfold has_prims.
-              apply Forall2_fmap_r.
-              apply Forall2_fmap_r.
-              apply Forall_Forall2_diag.
-              apply Forall_true.
-              intros [| | |]; done.
+            apply Forall2_app; first done.
+            replace (map (map translate_arep) ιs) with (map (map translate_prim) ηss_L); swap 1 2.
+            {
+              subst ηss_L.
+              unfold translate_arep.
+              repeat setoid_rewrite map_map.
+              done.
+            }
+            apply Forall2_fmap_r.
+            apply Forall2_fmap_r.
+            apply Forall_Forall2_diag.
+            apply Forall_true.
+            intros; cbn.
+            unfold has_prims.
+            apply Forall2_fmap_r.
+            apply Forall2_fmap_r.
+            apply Forall_Forall2_diag.
+            apply Forall_true.
+            intros [| | |]; done.
           + iPureIntro.
             apply Forall2_fmap_r.
             apply Forall_Forall2_diag.
@@ -628,7 +708,7 @@ Section function.
         destruct y.
         erewrite eval_kind_kinds_only; first eassumption.
         done.
-  Admitted.
+  Qed.
 
   Theorem interp_has_fun_type ϕ : ∀ M locs body fe K tf wt wt' wtf mf' (se : semantic_env (Σ := Σ)),
     body_has_fun_type M locs body K ϕ →
@@ -672,6 +752,90 @@ Section function.
       repeat split; cbn; eauto.
   Qed.
 
+  Lemma fe_of_ifun_ty_ok κs ϕ locs fe K :
+    fe_of_ifun_type κs ϕ locs = Some fe →
+    ifunction_env_ok locs K κs ϕ fe.
+  Proof.
+    revert κs.
+    induction ϕ; intros κs.
+    - cbn.
+      intros Hfe.
+      apply bind_Some in Hfe.
+      destruct Hfe as (ρs & Hρs & Hev).
+      apply bind_Some in Hev.
+      destruct Hev as (ηss_P & HP & Hev).
+      apply bind_Some in Hev.
+      destruct Hev as (ηss_L & HL & Hev).
+      inversion Hev.
+      by econstructor; eauto.
+    - cbn.
+      intros Hfe.
+      constructor.
+      by eapply IHϕ.
+  Qed.
+
+  Lemma fe_of_fun_ty_ok ϕ locs fe K :
+    fe_of_fun_type ϕ locs = Some fe →
+    function_env_ok locs K ϕ fe.
+  Proof.
+    revert K.
+    induction ϕ; intros K Hfe;
+      cbn in Hfe; try by (constructor; eauto).
+    constructor.
+    cbn in Hfe.
+    apply fe_of_ifun_ty_ok; eauto.
+  Qed.
+
+  Lemma fe_of_mod_func_ok mf fe :
+    fe_of_module_func mf = Some fe →
+    function_env_ok (mf_locals mf) kc_empty (mf_type mf) fe.
+  Proof.
+    unfold fe_of_module_func.
+    intros Hfe.
+    by apply fe_of_fun_ty_ok.
+  Qed.
+
+  Lemma insert_type_inst_get wt tf wt' tid wtf :
+    insert_type wt tf = (wt', tid) →
+    (wt ++ option_list wt' ++ wtf) !! tid = Some tf.
+  Proof.
+    unfold insert_type.
+    destruct (list_find (λ v2 : function_type, W.function_type_eqb tf v2) wt) as [[n ϕ]|] eqn:?.
+    - intros Hret.
+      inversion Hret; subst.
+      cbn.
+      rewrite list_find_Some in Heqo.
+      destruct Heqo as (Hget & Heq & _).
+      destruct (eqfunction_typeP tf ϕ); subst; try done.
+      rewrite lookup_app_l; eauto.
+      by apply lookup_lt_is_Some_1.
+    - intros Hret.
+      inversion Hret; subst.
+      cbn.
+      rewrite lookup_app_r; eauto.
+      by rewrite Nat.sub_diag.
+  Qed.
+
+  Lemma modfun_type_is_translate_type mf tf wt' mf' inst wt fe wtf :
+    translate_func_type [] (mf_type mf) = Some tf →
+    compile_fun_body wt tf fe (mf_locals mf) (mf_body mf) = inr (wt', mf') →
+    inst_types inst = wt ++ wt' ++ wtf →
+    inst_types inst !! typeimm (modfunc_type mf') = Some tf.
+  Proof.
+    intros Htf Hcf Hinst.
+    unfold compile_fun_body in Hcf.
+    destruct (insert_type wt tf) as [wt'' tid] eqn:Htid.
+    apply bind_inr in Hcf.
+    destruct Hcf as ([[[[] wt2] wl] es] & Hcb & Hcf).
+    apply bind_inr in Hcf.
+    destruct Hcf as (ιss & Hiss & Hret).
+    inversion Hret; subst; clear Hret.
+    cbn.
+    rewrite Hinst.
+    rewrite -app_assoc.
+    by apply insert_type_inst_get.
+  Qed.
+
   Theorem fundamental_function : ∀ M wt wt' wtf mf mf',
     has_function_type M mf ->
     compile_function wt mf = inr (wt', mf') ->
@@ -683,17 +847,21 @@ Section function.
     destruct Hcf as (tf & Htf & Hcf).
     apply bind_inr in Hcf.
     destruct Hcf as (fe & Hfe & Hcf).
-
     apply try_opt_inr in Htf.
     apply try_opt_inr in Hfe.
-
     unfold has_func_type_sem.
     iIntros "% % % Hinst".
-    replace tf0 with tf in *; swap 1 2.
-    { admit. }
+    iAssert (⌜inst_types inst = wt ++ wt' ++ wtf⌝%I) with "[Hinst]" as "%Htys".
+    {
+      iDestruct "Hinst" as "[A B]".
+      iApply "A".
+    }
+    pose proof H as Htf0.
+    erewrite modfun_type_is_translate_type in Htf0; eauto.
+    inversion Htf0; subst tf0.
     iApply interp_has_fun_type; eauto.
     - done.
-    - admit. (* probably need to change the definition of fe_of_module_func *)
-  Admitted.
+    - by apply fe_of_mod_func_ok.
+  Qed.
 
 End function.
