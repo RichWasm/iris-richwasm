@@ -24,11 +24,6 @@ Definition kc_empty : kind_ctx :=
      kc_rep_vars := 0;
      kc_size_vars := 0 |}.
 
-Definition kc_of_fft (fft : flat_function_type) : kind_ctx :=
-  {| kc_mem_vars := fft.(fft_mem_vars);
-     kc_rep_vars := fft.(fft_rep_vars);
-     kc_size_vars := fft.(fft_size_vars) |}.
-
 Record function_ctx :=
   { fc_return : list type;
     fc_locals : list (list primitive);

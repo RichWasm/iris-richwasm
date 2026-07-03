@@ -36,12 +36,29 @@ Inductive error :=
 | EOffsetUnrepresentable (i : nat)
 | ETodo.
 
+Fixpoint fe_of_ifun_type (κs : list kind) (ϕ : inner_function_type) locs : option function_env :=
+  match ϕ with
+  | MonoFunT τs1 τs2 =>
+    ρs ← mapM (type_rep κs) τs1;
+    ηss_P ← mapM eval_rep_prim_empty ρs;
+    ηss_L ← mapM eval_rep_prim_empty locs;
+    Some {| fe_type_vars := κs;
+            fe_return := τs2;
+            fe_locals := ηss_P ++ ηss_L |}
+  | ForallTypeT κ ϕ =>
+    fe_of_ifun_type (κ :: κs) ϕ locs
+  end.
+
+Fixpoint fe_of_fun_type (ϕ : function_type) locs : option function_env :=
+  match ϕ with
+  | InnerFunT ϕ => fe_of_ifun_type [] ϕ locs
+  | ForallMemT ϕ
+  | ForallRepT ϕ
+  | ForallSizeT ϕ => fe_of_fun_type ϕ locs
+  end.
+
 Definition fe_of_module_func (mf : module_function) : option function_env :=
-  let ϕ := flatten_function_type mf.(mf_type) in
-  ρs ← mapM (type_rep ϕ.(fft_type_vars)) ϕ.(fft_in);
-  ηss_P ← mapM eval_rep_prim_empty ρs;
-  ηss_L ← mapM eval_rep_prim_empty mf.(mf_locals);
-  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) (ηss_P ++ ηss_L)).
+  fe_of_fun_type mf.(mf_type) mf.(mf_locals).
 
 Definition fe_of_context (F : function_ctx) : function_env :=
   {| fe_type_vars := F.(fc_type_vars);
