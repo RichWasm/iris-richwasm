@@ -1,11 +1,17 @@
 (* Fundamental theorem for the kind system:
      well-kinded syntactic types are semantically well-kinded *)
 
+Require Import RecordUpdate.RecordUpdate.
 From iris.proofmode Require Import base proofmode classes.
+From iris Require Import
+          bi.bi
+          bi.lib.fixpoint_banach.
+Import bi.
 From RichWasm Require Import layout syntax typing kinding_subst.
 From RichWasm.compiler Require Import prelude module codegen.
 From RichWasm.iris Require Import autowp memory util wp_codegen lenient_wp logpred.
 Require Import RichWasm.iris.logrel.
+Require Import RichWasm.iris.logrel.env_props.
 From stdpp Require Import list.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -658,26 +664,123 @@ Section kinding.
     by destruct ξ; destruct ξ'.
   Qed.
 
+  (* cribbed from iris.bi.lib.fixpoint_banach. *)
+  Lemma fixpoint_persistent {A} (F : (A -n> iProp Σ) → A -n> iProp Σ) `{!Contractive F} :
+    (∀ (Φ : A -n> iProp Σ),
+       (∀ x, Persistent (Φ x)) →
+       (∀ x, Persistent (F Φ x))) →
+    ∀ x, Persistent (fixpoint F x).
+  Proof.
+    intros ?. apply fixpoint_ind.
+    - intros Φ1 Φ2 HΦ ??. by rewrite -(HΦ _).
+    - exists (λne _, emp%I); apply _.
+    - done.
+    - apply limit_preserving_forall=> x.
+      apply limit_preserving_Persistent; solve_proper.
+  Qed.
+
+  Program Definition srec1 sκ : semantic_type -n> semantic_env -n>
+                                  (leibnizO semantic_value -n> iPropO Σ) -n> (leibnizO semantic_value -n> iPropO Σ) :=
+    (λne T se T0 sv, ▷ (T (senv_insert_type sκ sκ T0 se) sv))%I.
+  Admit Obligations.
+
+  Instance srec1_contr sκ T se : Contractive (srec1 sκ T se).
+  Admitted.
+
+  Program Definition srec sκ : semantic_type -n> semantic_type :=
+    λne T se, fixpoint (srec1 sκ T se).
+  Admit Obligations.
+
+  Notation refok sk T := (ref_flag_stype_interp (skind_ref_flag sk) T).
+  Lemma srec_interp_pers_aux (T : semantic_type) sk (se : semantic_env (Σ := Σ)) :
+    (∀ (Φ : leibnizO semantic_value -n> iPropO Σ),
+       refok sk Φ →
+       refok sk (T (se.1, (sk, (sk, Φ)) :: se.2))) →
+    refok sk (fixpoint (skind_rec_interp1 sk T se)).
+  Proof.
+    intros.
+    apply fixpoint_ind.
+    - intros U V Huv Hu.
+      unfold equiv in Huv.
+      destruct (skind_ref_flag sk); cbn in Hu; try done; intros sv.
+      * specialize (Huv sv).
+        unfold Persistent.
+        unfold Persistent in Hu.
+        iIntros "H".
+        setoid_rewrite <- Huv.
+        by iApply Hu.
+      * specialize (Huv sv).
+        unfold Persistent.
+        unfold Persistent in Hu.
+        iIntros "H".
+        setoid_rewrite <- Huv.
+        by iApply Hu.
+    - exists (λne (sv : leibnizO semantic_value), emp%I).
+      destruct (skind_ref_flag sk); cbn; try done; typeclasses eauto.
+    - intros T0 Hsk.
+      cbn.
+      destruct (skind_ref_flag sk); cbn; last done; intros sv.
+      + eapply later_persistent; eapply H; done.
+      + eapply later_persistent; eapply H; done.
+    - destruct (skind_ref_flag sk); cbn; last done.
+      + apply limit_preserving_forall => sv.
+        apply limit_preserving_Persistent; solve_proper.
+      + apply limit_preserving_forall => sv.
+        apply limit_preserving_Persistent; solve_proper.
+  Qed.
+
+  Lemma add_skind_interp_pers τ (T : semantic_type) (se : semantic_env (Σ := Σ)) (sv : semantic_value) :
+    Persistent (T se sv) →
+    Persistent (add_skind_interp τ T se sv).
+  Proof.
+    intros H.
+    unfold add_skind_interp.
+    apply bi.exist_persistent; intros sk.
+    apply bi.sep_persistent; first typeclasses eauto.
+    apply bi.sep_persistent; first typeclasses eauto.
+    done.
+  Qed.
+
+  Lemma ref_flag_interp_pers sk τ (T : semantic_type) (se : semantic_env (Σ := Σ)) :
+    ref_flag_stype_interp sk (T se) →
+    ref_flag_stype_interp sk (add_skind_interp τ T se).
+  Proof.
+    unfold ref_flag_stype_interp.
+    destruct sk; last done; intros sv; eauto using add_skind_interp_pers.
+  Qed.
+
+  Lemma type_interp_equiv τ se :
+    type_interp rti sr τ se ≡ add_skind_interp τ (pre_type_interp rti sr τ) se.
+  Proof.
+  Admitted.
+
   Lemma kinding_sound_ref_flag F se τ κ sκ :
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
     ref_flag_stype_interp (skind_ref_flag sκ) (value_interp rti sr se τ).
   Proof.
-    intros Hκ Hse Hsκ.
-    generalize dependent κ.
-    generalize dependent sκ.
-    induction τ using type_ind with (P0 := const True) (Pi := const True).
-    - (* VarT *)
-      intros ?? Hκ Hsκ.
-      admit.
+    intros Hκ.
+    revert se sκ.
+    induction Hκ using has_kind_ind' with (P0 := λ _ _, True) (Pi := λ _ _, True);
+      try intros * Hse Hsκ.
     - (* I31T *)
-      intros ?? Hκ0 Hsκ.
       eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
       intros ?.
       typeclasses eauto.
-    - (* NumT *)
-      intros ?? Hκ0 Hsκ.
+    - (* i32 *)
+      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      intros ?.
+      typeclasses eauto.
+    - (* i64 *)
+      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      intros ?.
+      typeclasses eauto.
+    - (* f32 *)
+      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      intros ?.
+      typeclasses eauto.
+    - (* f64 *)
       eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
       intros ?.
       typeclasses eauto.
@@ -689,37 +792,81 @@ Section kinding.
       admit.
     - (* StructT *)
       admit.
-    - (* RefT *)
-      intros ?? Hκ0 Hsκ.
-      destruct μ.
-      + (* VarM *)
-        admit.
-      + destruct b.
-        * (* MemMM *)
-          admit.
-        * (* MemGC *)
-          eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
-          intros ?.
-          destruct β; typeclasses eauto.
+    - (* RefT VarM *)
+      subst κ.
+      cbn in Hsκ; inversion Hsκ; subst.
+      done.
+    - (* RefT MemMM *)
+      subst κ.
+      cbn in Hsκ; inversion Hsκ.
+      done.
+    - (* RefT MemGC *)
+      subst κ.
+      cbn in Hsκ; inversion Hsκ.
+      cbn.
+      intros ?.
+      destruct β; typeclasses eauto.
     - (* CodeRefT *)
-      intros ?? Hκ0 Hsκ.
-      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      subst κ; cbn in Hsκ; inversion Hsκ; subst.
       intros ?.
       rewrite value_interp_eq.
       typeclasses eauto.
     - (* SerT *)
-      admit.
+      subst κ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ.
+      destruct Hsκ as (n & Hn & Hret).
+      apply fmap_Some in Hn.
+      destruct Hn as (ιs & Hιs & Hsum).
+      inversion Hret; subst sκ.
+      cbn.
+      specialize (IHHκ se (SVALTYPE ιs ξ) Hse).
+      cbn in IHHκ.
+      rewrite Hιs in IHHκ.
+      cbn in IHHκ.
+      specialize (IHHκ eq_refl).
+      unfold ref_flag_stype_interp.
+      destruct ξ.
+      + cbn in *.
+        intros sv.
+        setoid_rewrite value_interp_eq.
+        apply add_skind_interp_pers.
+        cbn.
+        apply bi.exist_persistent; intros os.
+        apply bi.sep_persistent; first typeclasses eauto.
+        eapply IHHκ.
+      + cbn in *.
+        intros sv.
+        setoid_rewrite value_interp_eq.
+        apply add_skind_interp_pers.
+        cbn.
+        apply bi.exist_persistent; intros os.
+        apply bi.sep_persistent; first typeclasses eauto.
+        eapply IHHκ.
+      + done.
     - (* PlugT *)
-      intros ?? Hκ0 Hsκ.
       eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
       intros ?.
       typeclasses eauto.
-    - intros ?? Hκ0 Hsκ.
-      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+    - eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
       intros ?.
       typeclasses eauto.
     - (* RecT *)
-      admit.
+      cut (refok sκ (type_interp rti sr (RecT κ τ) se)); first done.
+      Transparent type_interp.
+      assert (Proper (equiv ==> flip impl) (ref_flag_stype_interp (Σ := Σ) (skind_ref_flag sκ))).
+      { admit. }
+      setoid_rewrite type_interp_equiv.
+      apply ref_flag_interp_pers.
+      cbn -[rec_interp].
+      unfold rec_interp.
+      cbn.
+      rewrite Hsκ.
+      apply srec_interp_pers_aux .
+      intros T Ht.
+      apply IHHκ; eauto.
+      + admit.
+      + admit.
     - (* ExistsMemT *)
       admit.
     - (* ExistsRepT *)
@@ -727,6 +874,8 @@ Section kinding.
     - (* ExistsSizeT *)
       admit.
     - (* ExistsTypeT *)
+      admit.
+    - (* VarT *)
       admit.
     - done.
     - done.

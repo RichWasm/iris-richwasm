@@ -707,6 +707,7 @@ Section instr.
   Next Obligation. solve_proper. Qed.
   Final Obligation. solve_proper. Qed.
 
+  #[global]
   Instance skind_rec_interp1_contractive sκ T se : Contractive (skind_rec_interp1 sκ T se).
   Proof.
     unfold semantic_type in *.
