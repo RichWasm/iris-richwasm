@@ -25,7 +25,7 @@ Section cast.
     run_codegen (compile_instr mr fe (ICast ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    intros fe WT WL lmask ψ Heq Hok Hcg.
+    intros fe WT WL lmask ψ Htype_eq Hok Hcg.
     inv_cg_ret Hcg.
     subst ψ WT WL wt' wl' es'.
     clear Hretval.
@@ -38,10 +38,9 @@ Section cast.
     inversion Hrep1 as [F1 τ1 ρ1' ξ1 Hkind1]; subst F1 τ1 ρ1'.
     inversion Hrep2 as [F2 τ2 ρ2' ξ2 Hkind2]; subst F2 τ2 ρ2'.
     iApply sem_type_erased; first done.
-    iIntros (se os) "%Hse Hv".
+    iIntros (se vs Hsemenv) "Hos".
     rewrite !values_interp_one_eq !value_interp_eq -!type_interp_eq.
-    iEval (rewrite (type_interp_type_eq rti sr _ _ Heq F _ _ se (SAtoms os) Hkind1 Hkind2 Hse)) in "Hv".
-    done.
+    iApply (type_eq_type_interp _ _ _ _ _ _ _ Htype_eq Hkind1 Hkind2 with "Hos").
   Qed.
 
 End cast.

@@ -272,6 +272,79 @@ Section type_eq_sem.
       done.
   Qed.
 
+  Lemma eval_rep_senv_insert_mem (μ : base_memory) (se : semantic_env (Σ:=Σ)) ρ :
+    eval_rep (senv_insert_mem μ se) ρ = eval_rep se ρ.
+  Proof.
+    induction ρ using rep_ind; cbn.
+    - reflexivity.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros ρ' IH. apply IH.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros ρ' IH. apply IH.
+    - reflexivity.
+  Qed.
+
+  Lemma eval_size_senv_insert_mem (μ : base_memory) (se : semantic_env (Σ:=Σ)) σ :
+    eval_size (senv_insert_mem μ se) σ = eval_size se σ.
+  Proof.
+    induction σ using size_ind; cbn.
+    - reflexivity.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros σ' IH. apply IH.
+    - f_equal. apply Forall_mapM_ext. exact H.
+    - by rewrite eval_rep_senv_insert_mem.
+    - reflexivity.
+  Qed.
+
+  Lemma eval_kind_senv_insert_mem (μ : base_memory) (se : semantic_env (Σ:=Σ)) κ :
+    eval_kind (senv_insert_mem μ se) κ = eval_kind se κ.
+  Proof.
+    unfold eval_kind. simpl.
+    destruct κ; simpl.
+    - rewrite eval_rep_senv_insert_mem. reflexivity.
+    - rewrite eval_size_senv_insert_mem. reflexivity.
+  Qed.
+
+  Lemma sem_env_interp_insert_mem F (se : semantic_env (Σ:=Σ)) (μ : base_memory) :
+    sem_env_interp F se →
+    sem_env_interp (F <| fc_kind_ctx; kc_mem_vars ::= S |>) (senv_insert_mem μ se).
+  Proof.
+    intros [Hkind Htypes].
+    split.
+    - destruct Hkind as (Hmem & Hrep & Hsize).
+      unfold kind_ctx_interp. cbn.
+      repeat split; destruct F as [? ? ? [? ? ?] ?]; cbn in *; lia.
+    - cbn [fc_type_vars].
+      eapply Forall2_impl; [exact Htypes|].
+      intros κ' [sκ' T'] [Heval' HT'].
+      split; [by rewrite eval_kind_senv_insert_mem | exact HT'].
+  Qed.
+
+  Lemma sem_env_interp_insert_type F (se : semantic_env (Σ:=Σ)) κ sκ T :
+    sem_env_interp F se →
+    eval_kind se κ = Some sκ →
+    skind_has_stype sκ T →
+    sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se).
+  Proof.
+    intros [Hkind Htypes] Hκ HT.
+    Search sem_env_interp.
+    split.
+    - destruct Hkind as (Hmem & Hrep & Hsize).
+      repeat split; cbn; done.
+    - cbn [fc_type_vars].
+      apply Forall2_cons.
+      split.
+      + split.
+        * by rewrite eval_kind_senv_insert_type.
+        * exact HT.
+      + eapply Forall2_impl; [exact Htypes|].
+        intros κ' [sκ' T'] [Heval' HT'].
+        split; [by rewrite eval_kind_senv_insert_type | exact HT'].
+  Qed.
+
   Lemma type_interp_type_eq :
     forall τ τ',
       type_eq τ τ' ->
@@ -289,12 +362,75 @@ Section type_eq_sem.
                   sem_env_interp F se ->
                   type_interp rti sr τ se sv ⊣⊢ type_interp rti sr τ' se sv)).
     - done.
-    - intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
-    - intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
-    - intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
+    - (* Sum *)
+      intros κ0 τs τs' Heq IH F κ κ' se sv Hkind Hkind' Hse.
+      rewrite !type_interp_eq.
+      iSplit; iIntros "H".
+      + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hsum)".
+        iExists sκ.
+        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first done.
+        simpl.
+        admit.
+      + admit. (* Symmetric *)
+    - (* Variant *)
+      intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
+      rewrite !type_interp_eq.
+      inversion Hκ; subst.
+      inversion Hκ'; subst.
+      iSplit; iIntros "H".
+      + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hvar)".
+        iExists sκ.
+        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first done.
+        simpl.
+        iDestruct "Hvar" as (i n ws ws' Hrepr ->) "HTi".
+        iExists i, n, ws, ws'.
+        do 2 (iSplit; first done).
+        destruct (τs !! i) as [τi_raw|] eqn:Hiraw.
+        * 
+          eapply (Forall2_lookup_l) in Heq as [τi_raw' [Hiraw' Heqi]]; last exact Hiraw.
+
+          iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn) in "HTi".
+
+          iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn).
+
+          eapply Forall3_lookup_l in H3, H5; try done.
+          destruct H3 as (? & ? & ? & ? & ?).
+          destruct H5 as (? & ? & ? & ? & ?).
+          eapply Forall2_lookup_lr in IH; try done.
+          iApply IH; try done.
+
+        * iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn) in "HTi".
+          iDestruct "HTi" as "[]".
+      + admit. (* Symmetric *)
+    - (* Product *)
+      intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
+      rewrite !type_interp_eq.
+      inversion Hκ; subst.
+      inversion Hκ'; subst.
+      iSplit; iIntros "H".
+      + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hprod)".
+        iExists sκ.
+        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first done.
+        simpl.
+        iDestruct "Hprod" as "(%oss & -> & Hbig)".
+        iSimpl. iExists oss. iSplit; first done.
+        iApply (big_sepL2_svr_transport _ (map (type_interp rti sr) τs') with "Hbig" ); try done.
+        apply Forall2_fmap_2.
+        eapply Forall2_mini_impl; try done.
+        Search Forall3.
+        apply Forall2_length in Heq as Hlen.
+        apply Forall2_same_length_lookup_2.
+        { have := Forall3_length_lm _ _ _ _ H3.
+          have := Forall3_length_lm _ _ _ _ H5.
+          by intros. }
+        intros i a b Hai Hbi Hpair x.
+        destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (ρ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (ρ' & ξ' & _ & _ & Hkb).
+        by eapply Hpair.
+      + admit. (* Symmetric *)
     - intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
     - intros κ0 μ β τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
@@ -327,13 +463,57 @@ Section type_eq_sem.
     - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
     - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
+      (* TEqExMem *)
+      inversion Hκ; subst. inversion Hκ'; subst.
+      match goal with Hk : has_kind (F <| fc_kind_ctx; kc_mem_vars ::= S |>) τ _ |- _ =>
+        rename Hk into Hkτ end.
+      match goal with Hk : has_kind (F <| fc_kind_ctx; kc_mem_vars ::= S |>) τ' _ |- _ =>
+        rename Hk into Hkτ' end.
+      rewrite !type_interp_eq /add_skind_interp /=.
+      iSplit.
+      + iIntros "(%sκ & %Hsk & %Hsv & %μ & Hτ)".
+        iExists sκ. iSplit; first done. iSplit; first done.
+        iExists μ.
+        iEval (rewrite (IH (F <| fc_kind_ctx; kc_mem_vars ::= S |>) _ _
+                           (senv_insert_mem μ se) _
+                           Hkτ Hkτ' (sem_env_interp_insert_mem F se μ Hse))) in "Hτ".
+        iExact "Hτ".
+      + iIntros "(%sκ & %Hsk & %Hsv & %μ & Hτ)".
+        iExists sκ. iSplit; first done. iSplit; first done.
+        iExists μ.
+        iEval (rewrite -(IH (F <| fc_kind_ctx; kc_mem_vars ::= S |>) _ _
+                            (senv_insert_mem μ se) _
+                            Hkτ Hkτ' (sem_env_interp_insert_mem F se μ Hse))) in "Hτ".
+        iExact "Hτ".
     - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
     - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
     - intros κ0 κτ τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
+      (* TEqExType *)
+      inversion Hκ; subst. inversion Hκ'; subst.
+      match goal with Hk : has_kind (F <| fc_type_vars ::= cons κτ |>) τ _ |- _ =>
+        rename Hk into Hkτ end.
+      match goal with Hk : has_kind (F <| fc_type_vars ::= cons κτ |>) τ' _ |- _ =>
+        rename Hk into Hkτ' end.
+      rewrite !type_interp_eq /add_skind_interp /=.
+      iSplit.
+      + iIntros "(%sκ & %Hsk & %Hsv & %T' & %sκ0 & %Heval & %HsT & Hτ)".
+        iExists sκ. iSplit; first done. iSplit; first done.
+        iExists T', sκ0. iSplit; first done. iSplit; first done.
+        iEval (rewrite (IH (F <| fc_type_vars ::= cons κτ |>) _ _
+                           (senv_insert_type sκ0 T' se) _
+                           Hkτ Hkτ'
+                           (sem_env_interp_insert_type F se κτ sκ0 T' Hse Heval HsT))) in "Hτ".
+        iExact "Hτ".
+      + iIntros "(%sκ & %Hsk & %Hsv & %T' & %sκ0 & %Heval & %HsT & Hτ)".
+        iExists sκ. iSplit; first done. iSplit; first done.
+        iExists T', sκ0. iSplit; first done. iSplit; first done.
+        iEval (rewrite -(IH (F <| fc_type_vars ::= cons κτ |>) _ _
+                            (senv_insert_type sκ0 T' se) _
+                            Hkτ Hkτ'
+                            (sem_env_interp_insert_type F se κτ sκ0 T' Hse Heval HsT))) in "Hτ".
+        iExact "Hτ".
     - intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
     - intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
