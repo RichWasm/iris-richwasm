@@ -330,7 +330,6 @@ Section type_eq_sem.
     sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se).
   Proof.
     intros [Hkind Htypes] Hκ HT.
-    Search sem_env_interp.
     split.
     - destruct Hkind as (Hmem & Hrep & Hsize).
       repeat split; cbn; done.
@@ -388,8 +387,7 @@ Section type_eq_sem.
         iExists i, n, ws, ws'.
         do 2 (iSplit; first done).
         destruct (τs !! i) as [τi_raw|] eqn:Hiraw.
-        * 
-          eapply (Forall2_lookup_l) in Heq as [τi_raw' [Hiraw' Heqi]]; last exact Hiraw.
+        * eapply (Forall2_lookup_l) in Heq as [τi_raw' [Hiraw' Heqi]]; last exact Hiraw.
 
           iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn) in "HTi".
 
@@ -403,7 +401,25 @@ Section type_eq_sem.
 
         * iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn) in "HTi".
           iDestruct "HTi" as "[]".
-      + admit. (* Symmetric *)
+      + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hvar)".
+        iExists sκ.
+        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first done.
+        simpl.
+        iDestruct "Hvar" as (i n ws ws' Hrepr ->) "HTi".
+        iExists i, n, ws, ws'.
+        do 2 (iSplit; first done).
+        destruct (τs' !! i) as [τi_raw'|] eqn:Hiraw'.
+        * eapply (Forall2_lookup_r) in Heq as [τi_raw [Hiraw Heqi]]; last exact Hiraw'.
+          iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn) in "HTi".
+          iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn).
+          eapply Forall3_lookup_l in H3, H5; try done.
+          destruct H3 as (? & ? & ? & ? & ?).
+          destruct H5 as (? & ? & ? & ? & ?).
+          eapply Forall2_lookup_lr in IH; try done.
+          iApply IH; try done.
+        * iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn) in "HTi".
+          iDestruct "HTi" as "[]".
     - (* Product *)
       intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       rewrite !type_interp_eq.
@@ -417,25 +433,152 @@ Section type_eq_sem.
         simpl.
         iDestruct "Hprod" as "(%oss & -> & Hbig)".
         iSimpl. iExists oss. iSplit; first done.
-        iApply (big_sepL2_svr_transport _ (map (type_interp rti sr) τs') with "Hbig" ); try done.
+        iApply (big_sepL2_svr_transport _ (map (type_interp rti sr) τs') with "Hbig").
         apply Forall2_fmap_2.
         eapply Forall2_mini_impl; try done.
-        Search Forall3.
-        apply Forall2_length in Heq as Hlen.
         apply Forall2_same_length_lookup_2.
-        { have := Forall3_length_lm _ _ _ _ H3.
-          have := Forall3_length_lm _ _ _ _ H5.
-          by intros. }
+        { exact (Forall2_length _ _ _ Heq). }
         intros i a b Hai Hbi Hpair x.
         destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (ρ & ξ & _ & _ & Hka).
         destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (ρ' & ξ' & _ & _ & Hkb).
         by eapply Hpair.
-      + admit. (* Symmetric *)
-    - intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
+      + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hprod)".
+        iExists sκ.
+        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first done.
+        simpl.
+        iDestruct "Hprod" as "(%oss & -> & Hbig)".
+        iSimpl.
+        iExists oss.
+        iSplit; first done.
+        iApply (big_sepL2_svr_transport _ (map (type_interp rti sr) τs) with "Hbig").
+        apply Forall2_fmap_2.
+        apply Forall2_same_length_lookup_2.
+        { exact (eq_sym (Forall2_length _ _ _ Heq)). }
+        intros i b a Hbi Hai x0.
+        destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (ρ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (ρ' & ξ' & _ & _ & Hkb).
+        eapply Forall2_lookup_lr in IH; try done.
+        symmetry.
+        exact (IH F _ _ se (SAtoms x0) Hka Hkb Hse).
+    - (* Struct *)
+      intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hse.
+      rewrite !type_interp_eq.
+      inversion Hκ; subst.
+      inversion Hκ'; subst.
+      iSplit; iIntros "H".
+      + iDestruct "H" as (wss) "(%Hwss & Hbig)".
+        iDestruct "Hbig" as "(%Hsv & Hstruct)".
+        iExists wss.
+        iSplitL "". { iPureIntro. exact Hwss. }
+        iSplitL "". { iPureIntro. exact Hsv. }
+        simpl.
+        iDestruct "Hstruct" as (wss0) "(%Hwss0 & Hbig)".
+        iExists wss0. iSplit; first done.
+        iEval (rewrite big_sepL2_flip) in "Hbig".
+        iEval (rewrite big_sepL2_flip).
+        iApply (big_sepL2_svr_transport _ (map (type_interp rti sr) τs') with "Hbig").
+        apply Forall2_fmap_2.
+        eapply Forall2_mini_impl; try done.
+        apply Forall2_same_length_lookup_2.
+        { exact (Forall2_length _ _ _ Heq). }
+        intros i a b Hai Hbi Hpair ws.
+        destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (σ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (σ' & ξ' & _ & _ & Hkb).
+        by eapply Hpair.
+      + iDestruct "H" as (wss) "(%Hwss & Hbig)".
+        iDestruct "Hbig" as "(%Hsv & Hstruct)".
+        iExists wss.
+        iSplitL "". { iPureIntro. exact Hwss. }
+        iSplitL "". { iPureIntro. exact Hsv. }
+        simpl.
+        iDestruct "Hstruct" as (wss0) "(%Hwss0 & Hbig)".
+        iExists wss0. iSplit; first done.
+        iEval (rewrite big_sepL2_flip) in "Hbig".
+        iEval (rewrite big_sepL2_flip).
+        iApply (big_sepL2_svr_transport _ (map (type_interp rti sr) τs) with "Hbig").
+        apply Forall2_fmap_2.
+        apply Forall2_same_length_lookup_2.
+        { exact (eq_sym (Forall2_length _ _ _ Heq)). }
+        intros i b a Hbi Hai ws.
+        destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (σ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (σ' & ξ' & _ & _ & Hkb).
+        eapply Forall2_lookup_lr in IH; try done.
+        symmetry.
+        exact (IH F _ _ se (SWords ws) Hka Hkb Hse).
     - intros κ0 μ β τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
-    - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
+      destruct (has_kind_ref_ty _ _ _ _ _ _ Hκ) as (σ & ξ & Hkτ).
+      destruct (has_kind_ref_ty _ _ _ _ _ _ Hκ') as (σ' & ξ' & Hkτ').
+      rewrite !type_interp_eq /add_skind_interp /=.
+      iSplit.
+      { iIntros "(%sκ & %Hsk & %Hsv & Hr)".
+        iExists sκ. iSplit; first done. iSplit; first done.
+        destruct (eval_mem se μ) as [bm|] eqn:Hμ.
+        2: { iDestruct "Hr" as "[]". }
+        destruct bm, β.
+        { iDestruct "Hr" as "(%ℓ & %fs & %ws & %Hsveq & Hlayout & Hheap & Hτ)".
+          iExists ℓ, fs, ws. iSplit; first done. iFrame.
+          iEval (rewrite (IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ". }
+        { iDestruct "Hr" as "(%ℓ & %fs & %ws & %Hsveq & Hinv & Hτ)".
+          iExists ℓ, fs, ws. iSplit; first done. iFrame.
+          iEval (rewrite (IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ". }
+        { iDestruct "Hr" as "(%ℓ & %fs & %Hsveq & Hinv)".
+          iExists ℓ, fs. iSplit; first done.
+          iApply (na_inv_iff with "Hinv").
+          repeat iModIntro.
+          iSplitR; iIntros "Hlocal".
+          + iDestruct "Hlocal" as "(%ws & Hlayout & Hheap & Hτ)".
+            iExists ws. iFrame.
+            iEval (rewrite (IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ".
+          + iDestruct "Hlocal" as "(%ws & Hlayout & Hheap & Hτ)".
+            iExists ws. iFrame.
+            iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ". }
+        { iDestruct "Hr" as "(%ℓ & %fs & %ws & %Hsveq & Hinv)".
+          iExists ℓ, fs, ws. iSplit; first done.
+          iApply (na_inv_iff with "Hinv").
+          repeat iModIntro.
+          iSplitR; iIntros "Hlocal".
+          + iDestruct "Hlocal" as "(Hlayout & Hheap & Hτ)".
+            iFrame.
+            iEval (rewrite (IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ".
+          + iDestruct "Hlocal" as "(Hlayout & Hheap & Hτ)".
+            iFrame.
+            iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ". } }
+      { iIntros "(%sκ & %Hsk & %Hsv & Hr)".
+        iExists sκ. iSplit; first done. iSplit; first done.
+        destruct (eval_mem se μ) as [bm|] eqn:Hμ.
+        2: { iDestruct "Hr" as "[]". }
+        destruct bm, β.
+        { iDestruct "Hr" as "(%ℓ & %fs & %ws & %Hsveq & Hlayout & Hheap & Hτ)".
+          iExists ℓ, fs, ws. iSplit; first done. iFrame.
+          iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ". }
+        { iDestruct "Hr" as "(%ℓ & %fs & %ws & %Hsveq & Hinv & Hτ)".
+          iExists ℓ, fs, ws. iSplit; first done. iFrame.
+          iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ". }
+        { iDestruct "Hr" as "(%ℓ & %fs & %Hsveq & Hinv)".
+          iExists ℓ, fs. iSplit; first done.
+          iApply (na_inv_iff with "Hinv").
+          repeat iModIntro.
+          iSplitR; iIntros "Hlocal".
+          + iDestruct "Hlocal" as "(%ws & Hlayout & Hheap & Hτ)".
+            iExists ws. iFrame.
+            iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ".
+          + iDestruct "Hlocal" as "(%ws & Hlayout & Hheap & Hτ)".
+            iExists ws. iFrame.
+            iEval (rewrite (IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ". }
+        { iDestruct "Hr" as "(%ℓ & %fs & %ws & %Hsveq & Hinv)".
+          iExists ℓ, fs, ws. iSplit; first done.
+          iApply (na_inv_iff with "Hinv").
+          repeat iModIntro.
+          iSplitR; iIntros "Hlocal".
+          + iDestruct "Hlocal" as "(Hlayout & Hheap & Hτ)".
+            iFrame.
+            iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ".
+          + iDestruct "Hlocal" as "(Hlayout & Hheap & Hτ)".
+            iFrame.
+            iEval (rewrite (IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ". iExact "Hτ". } }
+    - (* Ser *)
+      intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       inversion Hκ; subst.
       inversion Hκ'; subst.
       match goal with Hk : has_kind F τ (VALTYPE _ _) |- _ => rename Hk into Hkτ end.
@@ -460,7 +603,8 @@ Section type_eq_sem.
         iExists os.
         iSplit; first done.
         by iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ".
-    - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
+    - (* RecT *)
+      intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
     - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       (* TEqExMem *)
@@ -485,7 +629,8 @@ Section type_eq_sem.
                             (senv_insert_mem μ se) _
                             Hkτ Hkτ' (sem_env_interp_insert_mem F se μ Hse))) in "Hτ".
         iExact "Hτ".
-    - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
+    - (* ExistsRep *)
+      intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
     - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
