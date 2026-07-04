@@ -299,7 +299,7 @@ Section instr.
       end.
 
   Definition skind_has_stype (sκ : skind) (T : SVR) : Prop :=
-    ref_flag_stype_interp (skind_ref_flag sκ) T /\ (forall sv, T sv -∗ ⌜skind_has_svalue sκ sv⌝).
+    ref_flag_stype_interp (skind_ref_flag sκ) T /\ (forall sv, T sv ⊢ ⌜skind_has_svalue sκ sv⌝).
 
   Program Definition eval_rep_se : semantic_env -n> leibnizO representation -n> leibnizO (option (list atomic_rep)) :=
     λne se ρ, eval_rep se ρ.
@@ -701,11 +701,13 @@ Section instr.
     λne _ _, True%I.
 
   Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
-    (λne T se T0 sv, ▷ T (senv_insert_type sκ sκ T0 se) sv)%I.
+    (λne T se T0 sv,
+      ▷ T (senv_insert_type sκ sκ T0 se) sv)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
   Final Obligation. solve_proper. Qed.
+
 
   #[global]
   Instance skind_rec_interp1_contractive sκ T se : Contractive (skind_rec_interp1 sκ T se).

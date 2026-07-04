@@ -1846,7 +1846,7 @@ Admitted.
       admit.
     * (* mono fun *)
       intros.
-      rewrite !inner_closure_interp_eq.
+      setoid_rewrite inner_closure_interp_eq.
       asimpl'.
       unfold inner_closure_interp'.
       rename H into IHτs1. rename H0 into IHτs2.

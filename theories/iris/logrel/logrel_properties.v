@@ -1908,16 +1908,3 @@ Section properties.
 
 End properties.
 
-(* Setting up Inhabited instances allows commuting existential quantifiers
-   with later modalities, like this:
-
-     ▷ (exists sk, P sk) ⊣⊢ exists sk, ▷ P sk
-
- *)
-#[global]
-Instance skind_inhabited : Inhabited skind :=
-  populate (SVALTYPE [] NoRefs).
-
-#[global]
-Instance atom_inhabited : Inhabited atom :=
-  populate (PtrA (PtrInt 0)).
