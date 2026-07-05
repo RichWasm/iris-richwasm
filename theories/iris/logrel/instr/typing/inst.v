@@ -508,6 +508,14 @@ Admitted.
       by rewrite <- (eval_size_subst_senv_eq _ _ _ _ _ Hsub_r Hsub_s).
   Qed.
 
+  Lemma eq_subskind_of_option u v :
+    u = v →
+    subskind_of_option u v.
+  Proof.
+    intros H. subst u.
+    apply subskind_of_option_refl.
+  Qed.
+
   (* Later: move this to kinding.v? *)
   Lemma skind_rep_subskinds sκ sκ' ιs:
     skind_rep sκ = Some ιs -> subskind_of sκ' sκ -> skind_rep sκ' = Some ιs.
@@ -2260,35 +2268,24 @@ Admitted.
     set T := value_interp rti sr se (RecT κ τ).
     have HT : skind_has_stype sκ T :=
       kinding_sound _ _ mr _ _ _ _ _ (KRec F τ κ Hτκ) Hse Heval_kind.
-    have Hse' : sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se) :=
-      sem_env_interp_insert_type F se κ sκ T Hse Heval_kind HT.
-    have Heval_kind' : eval_kind (senv_insert_type sκ T se) κ = Some sκ.
+    have Hse' : sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ sκ T se) :=
+      sem_env_interp_insert_type F se κ sκ sκ T Hse Heval_kind (subskind_of_refl _) HT.
+    have Heval_kind' : eval_kind (senv_insert_type sκ sκ T se) κ = Some sκ.
     { rewrite eval_kind_senv_insert_type. exact Heval_kind. }
-    have Htsk : type_skind (senv_insert_type sκ T se) τ = Some sκ :=
+    have Htsk : type_skind (senv_insert_type sκ sκ T se) τ = Some sκ :=
       type_skind_has_kind_Some _ _ _ _ _ Hτκ Hse' Heval_kind'.
-    erewrite <- type_skind_subst_senv_eq.
-    - (* type_skind (senv_insert_type sκ T se) τ = eval_kind se κ *)
-      instantiate (1 := senv_insert_type sκ T se).
-      congruence.
-    - (* sem_env_rel_rep_eq: senv_insert_type doesn't change reps *)
-      done.
-    - (* sem_env_rel_size_eq: senv_insert_type doesn't change sizes *)
-      done.
-    - (* sem_env_rel_sκ_eq *)
-      rewrite /sem_env_rel_sκ_eq.
-      intros [|i]; cbn; done.
-  Qed.
+    (* need a substitution lemma *)
+  Admitted.
 
   Lemma fold_type_interp_subst_value_interp (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
     sem_env_interp F se ->
     has_kind F (RecT κ τ) κ ->
     eval_kind se κ = Some sκ →
-    type_interp rti sr τ (senv_insert_type sκ (value_interp rti sr se (RecT κ τ)) se) sv ⊣⊢
+    type_interp rti sr τ (senv_insert_type sκ sκ (value_interp rti sr se (RecT κ τ)) se) sv ⊣⊢
     type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
   Proof.
     intros.
     pose proof (sem_well_formed_from_interp F se H) as HH.
-    iStartProof.
     iApply type_interp_subst_type_BIDIRECTIONAL; unfold_sem_rels.
     - cbn.
       apply Forall_cons; split; [|done].

@@ -412,11 +412,11 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (ExistsMemT κ τ) κ
 | KExistsRep F τ κ :
   kind_ok F.(fc_kind_ctx) κ ->
-  has_kind (add_rep_var F) τ κ ->
+  has_kind (add_rep_var F) τ (ren_kind unscoped.shift unscoped.id κ) ->
   has_kind F (ExistsRepT κ τ) κ
 | KExistsSize F τ κ :
   kind_ok F.(fc_kind_ctx) κ ->
-  has_kind (add_size_var F) τ κ ->
+  has_kind (add_size_var F) τ (ren_kind unscoped.id unscoped.shift κ) ->
   has_kind F (ExistsSizeT κ τ) κ
 | KExistsType F τ κ0 κ :
   kind_ok F.(fc_kind_ctx) κ0 ->
@@ -507,10 +507,10 @@ Section HasKindInd.
                              P (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
                              P F (ExistsMemT κ τ) κ)
       (HExistsRep : forall F τ κ, kind_ok F.(fc_kind_ctx) κ ->
-                             P (add_rep_var F) τ κ ->
+                             P (add_rep_var F) τ (ren_kind unscoped.shift unscoped.id κ) ->
                              P F (ExistsRepT κ τ) κ)
       (HExistsSize : forall F τ κ, kind_ok F.(fc_kind_ctx) κ ->
-                              P (add_size_var F) τ κ ->
+                              P (add_size_var F) τ (ren_kind unscoped.id unscoped.shift κ) ->
                               P F (ExistsSizeT κ τ) κ)
       (HExistsType : forall F τ κ0 κ, kind_ok F.(fc_kind_ctx) κ0 ->
                                  kind_ok F.(fc_kind_ctx) κ ->

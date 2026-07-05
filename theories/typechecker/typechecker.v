@@ -1290,7 +1290,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
       | inl () =>
           match has_kind_synther (add_rep_var F) τ with
           | inl κ' =>
-              if kind_beq κ κ'
+              if kind_beq (ren_kind unscoped.shift unscoped.id κ) κ'
               then inl κ
               else inr (HasKindError "synthed kind for t in existsrep not equal to outer kind" [])
           | err => err
@@ -1302,7 +1302,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
       | inl () =>
           match has_kind_synther (add_size_var F) τ with
           | inl κ' =>
-              if kind_beq κ κ'
+              if kind_beq (ren_kind unscoped.id unscoped.shift κ) κ'
               then inl κ
               else inr (HasKindError "synthed kind for t in existssize not equal to outer kind" [])
           | err => err

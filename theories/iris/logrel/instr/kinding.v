@@ -870,6 +870,12 @@ Section kinding.
       admit.
   Admitted.
 
+  Lemma eval_kind_flags (se : semantic_env (Σ := Σ)) κ sκ :
+    eval_kind se κ = Some sκ →
+    kind_ref_flag κ = skind_ref_flag sκ.
+  Proof.
+  Admitted.
+
   Lemma kinding_sound_ref_flag F se τ κ sκ :
     has_kind F τ κ ->
     sem_env_interp_refs F se ->
@@ -901,13 +907,141 @@ Section kinding.
       intros ?.
       typeclasses eauto.
     - (* SumT *)
+      setoid_rewrite type_interp_equiv.
+      apply ref_flag_interp_pers.
+      setoid_rewrite <- eval_kind_flags; last by eauto.
+      cbn.
       admit.
     - (* VariantT *)
+      setoid_rewrite type_interp_equiv.
+      apply ref_flag_interp_pers.
       admit.
     - (* ProdT *)
-      admit.
+      setoid_rewrite type_interp_equiv.
+      apply ref_flag_interp_pers.
+      setoid_rewrite <- eval_kind_flags; last by eauto.
+      cbn.
+
+      subst κ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ.
+      destruct Hsκ as (ιs & Hcat & Hret).
+      apply fmap_Some in Hcat.
+      destruct Hcat as (ιss & Hιss & ->).
+      inversion Hret; subst sκ; clear Hret.
+      pose proof (length_mapM _ _ _ Hιss) as Hlens1.
+      pose proof (Forall3_length_lm _ _ _ _ H).
+      pose proof (Forall3_length_lr _ _ _ _ H).
+
+      unfold ref_flag_stype_interp.
+      destruct (ref_flag_lub ξs) eqn:Hlub; last done.
+      + intros sv.
+        apply bi.exist_persistent; intros oss.
+        apply bi.sep_persistent; first typeclasses eauto.
+        rewrite big_sepL2_fmap_l.
+        apply big_sepL2_persistent; intros k τ os Hτ Hos.
+        assert (k < length τs).
+        { by apply lookup_lt_is_Some. }
+        assert (is_Some (ρs !! k)) as [ρ Hρ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ξs !! k)) as [ξ Hξ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ιss !! k)) as [ιs Hιs].
+        { apply lookup_lt_is_Some; lia. }
+        eapply Forall3_lookup_lmr in H; eauto.
+        apply (util.mapM_lookup _ _ _ k) in Hιss.
+        rewrite Hιs Hρ in Hιss; cbn in Hιss.
+        specialize (H se (SVALTYPE ιs ξ) ltac:(done) ltac:(cbn; by rewrite Hιss)).
+        unfold refok in H.
+        cbn in H.
+        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
+        rewrite Hlub in Hub.
+        destruct ξ; eauto; last by inversion Hub.
+      + intros sv.
+        apply bi.exist_persistent; intros oss.
+        apply bi.sep_persistent; first typeclasses eauto.
+        rewrite big_sepL2_fmap_l.
+        apply big_sepL2_persistent; intros k τ os Hτ Hos.
+        assert (k < length τs).
+        { by apply lookup_lt_is_Some. }
+        assert (is_Some (ρs !! k)) as [ρ Hρ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ξs !! k)) as [ξ Hξ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ιss !! k)) as [ιs Hιs].
+        { apply lookup_lt_is_Some; lia. }
+        eapply Forall3_lookup_lmr in H; eauto.
+        apply (util.mapM_lookup _ _ _ k) in Hιss.
+        rewrite Hιs Hρ in Hιss; cbn in Hιss.
+        specialize (H se (SVALTYPE ιs ξ) ltac:(done) ltac:(cbn; by rewrite Hιss)).
+        unfold refok in H.
+        cbn in H.
+        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
+        rewrite Hlub in Hub.
+        destruct ξ; eauto; last by inversion Hub.
     - (* StructT *)
-      admit.
+      setoid_rewrite type_interp_equiv.
+      apply ref_flag_interp_pers.
+      setoid_rewrite <- eval_kind_flags; last by eauto.
+      cbn.
+
+      subst κ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ.
+      destruct Hsκ as (ιs & Hcat & Hret).
+      apply fmap_Some in Hcat.
+      destruct Hcat as (ns & Hns & ->).
+      inversion Hret; subst sκ; clear Hret.
+      pose proof (length_mapM _ _ _ Hns) as Hlens1.
+      pose proof (Forall3_length_lm _ _ _ _ H).
+      pose proof (Forall3_length_lr _ _ _ _ H).
+
+      unfold ref_flag_stype_interp.
+      destruct (ref_flag_lub ξs) eqn:Hlub; last done.
+      + intros sv.
+        apply bi.exist_persistent; intros oss.
+        apply bi.sep_persistent; first typeclasses eauto.
+        rewrite big_sepL2_fmap_r.
+        apply big_sepL2_persistent; intros k os τ Hos Hτ.
+        assert (k < length τs).
+        { by apply lookup_lt_is_Some. }
+        assert (is_Some (σs !! k)) as [ρ Hρ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ξs !! k)) as [ξ Hξ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ns !! k)) as [n Hn].
+        { apply lookup_lt_is_Some; lia. }
+        eapply Forall3_lookup_lmr in H; eauto.
+        apply (util.mapM_lookup _ _ _ k) in Hns.
+        rewrite Hn Hρ in Hns; cbn in Hns.
+        specialize (H se (SMEMTYPE n ξ) ltac:(done) ltac:(cbn; by rewrite Hns)).
+        unfold refok in H.
+        cbn in H.
+        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
+        rewrite Hlub in Hub.
+        destruct ξ; eauto; last by inversion Hub.
+      + intros sv.
+        apply bi.exist_persistent; intros oss.
+        apply bi.sep_persistent; first typeclasses eauto.
+        rewrite big_sepL2_fmap_r.
+        apply big_sepL2_persistent; intros k os τ Hos Hτ.
+        assert (k < length τs).
+        { by apply lookup_lt_is_Some. }
+        assert (is_Some (σs !! k)) as [ρ Hρ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ξs !! k)) as [ξ Hξ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ns !! k)) as [n Hn].
+        { apply lookup_lt_is_Some; lia. }
+        eapply Forall3_lookup_lmr in H; eauto.
+        apply (util.mapM_lookup _ _ _ k) in Hns.
+        rewrite Hn Hρ in Hns; cbn in Hns.
+        specialize (H se (SMEMTYPE n ξ) ltac:(done) ltac:(cbn; by rewrite Hns)).
+        unfold refok in H.
+        cbn in H.
+        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
+        rewrite Hlub in Hub.
+        destruct ξ; eauto; last by inversion Hub.
     - (* RefT VarM *)
       subst κ.
       cbn in Hsκ; inversion Hsκ; subst.
@@ -991,13 +1125,69 @@ Section kinding.
         unfold refok in IHHκ.
         rewrite Hflag in IHHκ.
         eapply IHHκ.
-        * admit. (* this needs se.2 to be de bruijn shifted... *)
-        * admit. (* this needs κ to be de bruijn shifted... *)
+        * admit.
+        * admit.
       + admit.
     - (* ExistsRepT *)
-      admit.
+      rewrite value_interp_equiv.
+      apply ref_flag_interp_pers.
+      cbn.
+      unfold refok.
+      destruct (skind_ref_flag sκ) eqn:Hflag; last done.
+      + intros sv.
+        apply bi.exist_persistent; intros ιs.
+        specialize (IHHκ (se.1.1.1, ιs :: se.1.1.2, se.1.2, se.2) sκ).
+        unfold refok in IHHκ.
+        rewrite Hflag in IHHκ.
+        eapply IHHκ.
+        * destruct Hse as [[Hsem [Hser Hses]] Hset].
+          repeat split; cbn; try done.
+          -- destruct F; destruct fc_kind_ctx; cbn in *.
+             congruence.
+          -- admit.
+        * admit.
+      + intros sv.
+        apply bi.exist_persistent; intros ιs.
+        specialize (IHHκ (se.1.1.1, ιs :: se.1.1.2, se.1.2, se.2) sκ).
+        unfold refok in IHHκ.
+        rewrite Hflag in IHHκ.
+        eapply IHHκ.
+        * destruct Hse as [[Hsem [Hser Hses]] Hset].
+          repeat split; cbn; try done.
+          -- destruct F; destruct fc_kind_ctx; cbn in *.
+             congruence.
+          -- admit.
+        * admit.
     - (* ExistsSizeT *)
-      admit.
+      rewrite value_interp_equiv.
+      apply ref_flag_interp_pers.
+      cbn.
+      unfold refok.
+      destruct (skind_ref_flag sκ) eqn:Hflag; last done.
+      + intros sv.
+        apply bi.exist_persistent; intros n.
+        specialize (IHHκ (se.1.1.1, se.1.1.2, n :: se.1.2, se.2) sκ).
+        unfold refok in IHHκ.
+        rewrite Hflag in IHHκ.
+        eapply IHHκ.
+        * destruct Hse as [[Hsem [Hser Hses]] Hset].
+          repeat split; cbn; try done.
+          -- destruct F; destruct fc_kind_ctx; cbn in *.
+             congruence.
+          -- admit.
+        * admit.
+      + intros sv.
+        apply bi.exist_persistent; intros n.
+        specialize (IHHκ (se.1.1.1, se.1.1.2, n :: se.1.2, se.2) sκ).
+        unfold refok in IHHκ.
+        rewrite Hflag in IHHκ.
+        eapply IHHκ.
+        * destruct Hse as [[Hsem [Hser Hses]] Hset].
+          repeat split; cbn; try done.
+          -- destruct F; destruct fc_kind_ctx; cbn in *.
+             congruence.
+          -- admit.
+        * admit.
     - (* ExistsTypeT *)
       rewrite value_interp_equiv.
       apply ref_flag_interp_pers.
@@ -1034,7 +1224,21 @@ Section kinding.
           apply sem_env_interp_refs_insert_type; eauto.
         * by apply eval_kind_type_irrel.
     - (* VarT *)
-      admit.
+      cbn.
+      setoid_rewrite value_interp_equiv.
+      apply ref_flag_interp_pers.
+      cbn.
+      destruct Hse as [Hsek Hset].
+      eapply Forall2_lookup in Hset.
+      erewrite H in Hset.
+      inversion Hset; subst.
+      destruct y as [sk [skT T]].
+      setoid_rewrite <- H2.
+      destruct H3 as (Hev & Hsub & Hok).
+      cbn.
+      rewrite Hsκ in Hev; inversion Hev; subst.
+      eapply ref_flag_stype_interp_refine; last done.
+      inversion Hsub; subst; cbn; eauto.
     - done.
     - done.
     - done.

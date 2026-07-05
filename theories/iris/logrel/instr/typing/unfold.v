@@ -50,10 +50,18 @@ Section unfold.
       inversion Hhas_kind; subst.
       constructor. assumption.
     }
-    (*
-    iEval (rewrite (fold_type_interp rti sr mr se F τ κ sκ (SAtoms os) Hse Hkind Hκ)) in "Hval".
-    iDestruct "Hval" as "[_ Hτrec]".
-    iExact "Hτrec". *)
+    unfold τrec.
+
+    iEval (rewrite type_interp_eq) in "Hval".
+    iDestruct "Hval" as "(%sk & %Hsk & %Hsv & Hos)".
+    iEval (cbn -[skind_rec_interp]) in "Hos".
+    rewrite Hκ.
+    unfold skind_rec_interp.
+    pose proof (fixpoint_unfold (skind_rec_interp1 sκ (type_interp rti sr τ) se)) as Hunf.
+    specialize (Hunf (SAtoms os)).
+    rewrite Hunf.
+    (* This looks like it should follow from a substitution lemma. *)
+    admit.
   Admitted.
 
 End unfold.

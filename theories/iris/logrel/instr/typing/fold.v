@@ -49,17 +49,22 @@ Section fold.
       inversion Hhas_kind; subst.
       by constructor.
     }
-    (*
+    iEval (rewrite type_interp_eq).
+    iModIntro.
+    subst τrec.
     assert (eval_kind se κ = Some sκ) as Hκ.
     {
-      erewrite <- fold_type_skind_eq; try done.
-      by inversion Hkind; subst.
+      admit.
     }
-
-    rewrite (fold_type_interp rti sr mr se F τ κ _ (SAtoms os) Hse Hkind Hκ).
-    iSplit.
-    - iPureIntro. exact Hsv.
-    - iExact "Hval". *)
+    iExists sκ.
+    iSplit; first eauto.
+    iSplit; first eauto.
+    cbn -[skind_rec_interp1].
+    rewrite Hκ.
+    pose proof (fixpoint_unfold (skind_rec_interp1 sκ (type_interp rti sr τ) se)) as Hunf.
+    specialize (Hunf (SAtoms os)).
+    rewrite Hunf.
+    cbn.
   Admitted.
 
 End fold.
