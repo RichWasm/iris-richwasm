@@ -713,41 +713,6 @@ Admitted.
     rewrite Y; done.
   Admitted.
 
-  Lemma map_lookup_helper_forwards {A B:Type} (f:A → B) (l: list A) (i:nat) (a:A) :
-    l !! i = Some a -> map f l !! i = Some (f a).
-  Proof.
-    revert l i.
-    induction l.
-    - intros.
-      rewrite lookup_nil in H; inversion H.
-    - intros.
-      destruct i.
-      + cbn in *.
-        inversion H; subst; done.
-      + rewrite <- lookup_tail in H. cbn in H.
-        apply IHl in H.
-        rewrite <- lookup_tail.
-        cbn. done.
-  Qed.
-
-  Lemma map_lookup_helper_backwards {A B:Type} (f:A → B) (l: list A) (i:nat) (fa:B) :
-    map f l !! i = Some fa -> ∃ a, l !! i = Some a /\ fa = f a.
-  Proof.
-    revert l i.
-    induction l.
-    - intros.
-      rewrite lookup_nil in H; inversion H.
-    - intros.
-      destruct i.
-      + cbn in *.
-        inversion H; subst.
-        exists a; done.
-      + rewrite <- lookup_tail in H. cbn in H.
-        apply IHl in H.
-        rewrite <- lookup_tail.
-        cbn. done.
-  Qed.
-
   (* probably move elsewhere *)
   Lemma ref_flag_le_preserves_atoms_interp ξ ξ' os:
     ref_flag_le ξ ξ' -> ref_flag_atoms_interp ξ (SAtoms os) ->
@@ -2435,78 +2400,6 @@ Admitted.
   Qed.
 
   (* SEM ENV INTERPS - TO MOVE TO LOGREL_PROPERTIES? *)
-  Lemma sem_env_insert_rep F se ιs :
-    sem_env_interp (Σ:=Σ) F se ->
-    sem_env_interp (add_rep_var F) (senv_insert_rep ιs se).
-  Proof.
-    Transparent senv_insert_rep.
-    intros Hse.
-    destruct Hse as ((h1 & h2 & h3) & h4).
-    cbn in h1; cbn in h2; cbn in h3.
-    repeat split; try done.
-    + cbn.
-      rewrite <- h2.
-      done.
-    + unfold type_ctx_interp.
-      cbn.
-      unfold type_ctx_interp in h4.
-      cbn in h4.
-      apply Forall2_same_length_lookup_2.
-      {
-        unfold add_rep_var; cbn.
-        unfold set.
-        cbn.
-        rewrite length_map.
-        eapply Forall2_length; done.
-      }
-      intros *.
-      destruct y as [sκ [sκ_T T]].
-      intros.
-      change (se.1.1.1, ιs::se.1.1.2, se.1.2, se.2) with (senv_insert_rep ιs se).
-      pose proof (@eval_kind_up_shift_rep_eq Σ).
-      apply map_lookup_helper_backwards in H.
-      destruct H as (K & lokp & ->).
-      rewrite <- (@eval_kind_up_shift_rep_eq Σ).
-      pose proof (Forall2_lookup_lr _ _ _ _ _ _ h4 lokp H0).
-      cbn in H.
-      done.
-  Qed.
-
-  Lemma sem_env_insert_size F se n :
-    sem_env_interp (Σ:=Σ) F se ->
-    sem_env_interp (add_size_var F) (senv_insert_size n se).
-  Proof.
-    Transparent senv_insert_size.
-    intros Hse.
-    destruct Hse as ((h1 & h2 & h3) & h4).
-    cbn in h1; cbn in h2; cbn in h3.
-    repeat split; try done.
-    + cbn.
-      rewrite <- h3.
-      done.
-    + unfold type_ctx_interp.
-      cbn.
-      unfold type_ctx_interp in h4.
-      cbn in h4.
-      apply Forall2_same_length_lookup_2.
-      {
-        unfold add_rep_var; cbn.
-        unfold set.
-        cbn.
-        rewrite length_map.
-        eapply Forall2_length; done.
-      }
-      intros *.
-      destruct y as [sκ [sκ_T T]].
-      intros.
-      change (se.1.1.1, se.1.1.2, n::se.1.2, se.2) with (senv_insert_size n se).
-      apply map_lookup_helper_backwards in H.
-      destruct H as (K & lokp & ->).
-      rewrite <- (@eval_kind_up_shift_size_eq Σ).
-      pose proof (Forall2_lookup_lr _ _ _ _ _ _ h4 lokp H0).
-      cbn in H.
-      done.
-  Qed.
 
   Lemma closure_interp_scons_insert_rep F se ρ ϕ cl :
     let ϕ' := refresh_kinds_ft F (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ) in

@@ -596,4 +596,94 @@ Section env_props.
         split; [by eapply eval_kind_type_irrel | exact HT'].
   Qed.
 
+  Lemma sem_env_insert_mem F (se : semantic_env (Σ:=Σ)) μ :
+    sem_env_interp F se ->
+    sem_env_interp (F <| fc_kind_ctx ::= set kc_mem_vars S |>) (senv_insert_mem μ se).
+  Proof.
+    intros [(Hmem & Hrep & Hsize) Htypes].
+    split; first (repeat split); try done.
+    - cbn. cbn in Hmem. rewrite <- Hmem.
+      unfold set. cbn. done.
+    - unfold set; cbn -[senv_insert_mem].
+      unfold type_ctx_interp in *; cbn -[senv_insert_mem] in *.
+      eapply Forall2_impl; [exact Htypes|].
+      intros κ' [sκ' [sκ_T' T']] [Heval' HT'].
+      rewrite <- eval_kind_mem_irrel_eq.
+      done.
+  Qed.
+
+
+  Lemma sem_env_insert_rep F se ιs :
+    sem_env_interp (Σ:=Σ) F se ->
+    sem_env_interp (add_rep_var F) (senv_insert_rep ιs se).
+  Proof.
+    Transparent senv_insert_rep.
+    intros Hse.
+    destruct Hse as ((h1 & h2 & h3) & h4).
+    cbn in h1; cbn in h2; cbn in h3.
+    repeat split; try done.
+    + cbn.
+      rewrite <- h2.
+      done.
+    + unfold type_ctx_interp.
+      cbn.
+      unfold type_ctx_interp in h4.
+      cbn in h4.
+      apply Forall2_same_length_lookup_2.
+      {
+        unfold add_rep_var; cbn.
+        unfold set.
+        cbn.
+        rewrite length_map.
+        eapply Forall2_length; done.
+      }
+      intros *.
+      destruct y as [sκ [sκ_T T]].
+      intros.
+      change (se.1.1.1, ιs::se.1.1.2, se.1.2, se.2) with (senv_insert_rep ιs se).
+      pose proof eval_kind_up_shift_rep_eq.
+      apply map_lookup_helper_backwards in H.
+      destruct H as (K & lokp & ->).
+      rewrite <- (eval_kind_up_shift_rep_eq).
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ h4 lokp H0).
+      cbn in H.
+      done.
+  Qed.
+
+  Lemma sem_env_insert_size F se n :
+    sem_env_interp (Σ:=Σ) F se ->
+    sem_env_interp (add_size_var F) (senv_insert_size n se).
+  Proof.
+    Transparent senv_insert_size.
+    intros Hse.
+    destruct Hse as ((h1 & h2 & h3) & h4).
+    cbn in h1; cbn in h2; cbn in h3.
+    repeat split; try done.
+    + cbn.
+      rewrite <- h3.
+      done.
+    + unfold type_ctx_interp.
+      cbn.
+      unfold type_ctx_interp in h4.
+      cbn in h4.
+      apply Forall2_same_length_lookup_2.
+      {
+        unfold add_rep_var; cbn.
+        unfold set.
+        cbn.
+        rewrite length_map.
+        eapply Forall2_length; done.
+      }
+      intros *.
+      destruct y as [sκ [sκ_T T]].
+      intros.
+      change (se.1.1.1, se.1.1.2, n::se.1.2, se.2) with (senv_insert_size n se).
+      apply map_lookup_helper_backwards in H.
+      destruct H as (K & lokp & ->).
+      rewrite <- (eval_kind_up_shift_size_eq).
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ h4 lokp H0).
+      cbn in H.
+      done.
+  Qed.
+
 End env_props.
