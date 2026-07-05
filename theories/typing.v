@@ -24,11 +24,6 @@ Definition kc_empty : kind_ctx :=
      kc_rep_vars := 0;
      kc_size_vars := 0 |}.
 
-Definition kc_of_fft (fft : flat_function_type) : kind_ctx :=
-  {| kc_mem_vars := fft.(fft_mem_vars);
-     kc_rep_vars := fft.(fft_rep_vars);
-     kc_size_vars := fft.(fft_size_vars) |}.
-
 Record function_ctx :=
   { fc_return : list type;
     fc_locals : list (list primitive);
@@ -62,6 +57,14 @@ Definition subst_function_ctx
      fc_labels := map (fun '(τs, L) => (map sub τs, map sub L)) F.(fc_labels);
      fc_kind_ctx := F.(fc_kind_ctx);
      fc_type_vars := map (subst_kind s__rep s__size) F.(fc_type_vars) |}.
+
+
+Definition add_size_var (F :function_ctx) :=
+  (F <| fc_kind_ctx ::= set kc_size_vars S |>)
+     <| fc_type_vars ::= map (ren_kind unscoped.id unscoped.shift) |>.
+Definition add_rep_var (F :function_ctx) :=
+  (F <| fc_kind_ctx ::= set kc_rep_vars S |>)
+     <| fc_type_vars ::= map (ren_kind unscoped.shift unscoped.id) |>.
 
 Inductive mem_ok : kind_ctx -> memory -> Prop :=
 | OKVarM K m :
@@ -165,11 +168,11 @@ Inductive type_ok : function_ctx -> type -> Prop :=
   type_ok F (ExistsMemT κ τ)
 | OKExistsRepT F κ τ :
   kind_ok F.(fc_kind_ctx) κ ->
-  type_ok (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ ->
+  type_ok (add_rep_var F) τ ->
   type_ok F (ExistsRepT κ τ)
 | OKExistsSizeT F κ τ :
   kind_ok F.(fc_kind_ctx) κ ->
-  type_ok (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ ->
+  type_ok (add_size_var F) τ ->
   type_ok F (ExistsSizeT κ τ)
 | OKExistsType F κ κ0 τ :
   kind_ok F.(fc_kind_ctx) κ ->
@@ -189,10 +192,10 @@ with inner_function_type_ok : function_ctx -> inner_function_type -> Prop :=
 with function_type_ok : function_ctx -> function_type -> Prop :=
 | OKInnerFunT F ϕ : inner_function_type_ok F ϕ -> function_type_ok F (InnerFunT ϕ)
 | OKForallRepT F ϕ :
-  function_type_ok (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ ->
+  function_type_ok (add_rep_var F) ϕ ->
   function_type_ok F (ForallRepT ϕ)
 | OKForallSizeT F ϕ :
-  function_type_ok (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ ->
+  function_type_ok (add_size_var F) ϕ ->
   function_type_ok F (ForallSizeT ϕ)
 | OKForallMemT F ϕ :
   function_type_ok (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
@@ -409,11 +412,11 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (ExistsMemT κ τ) κ
 | KExistsRep F τ κ :
   kind_ok F.(fc_kind_ctx) κ ->
-  has_kind (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ ->
+  has_kind (add_rep_var F) τ (ren_kind unscoped.shift unscoped.id κ) ->
   has_kind F (ExistsRepT κ τ) κ
 | KExistsSize F τ κ :
   kind_ok F.(fc_kind_ctx) κ ->
-  has_kind (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ ->
+  has_kind (add_size_var F) τ (ren_kind unscoped.id unscoped.shift κ) ->
   has_kind F (ExistsSizeT κ τ) κ
 | KExistsType F τ κ0 κ :
   kind_ok F.(fc_kind_ctx) κ0 ->
@@ -440,10 +443,10 @@ with has_kind_ft : function_ctx -> function_type -> Prop :=
   has_kind_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
   has_kind_ft F (ForallMemT ϕ)
 | KForallRep F ϕ :
-  has_kind_ft (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ ->
+  has_kind_ft (add_rep_var F) ϕ ->
   has_kind_ft F (ForallRepT ϕ)
 | KForallSize F ϕ :
-  has_kind_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ ->
+  has_kind_ft (add_size_var F) ϕ ->
   has_kind_ft F (ForallSizeT ϕ).
 
 
@@ -504,10 +507,10 @@ Section HasKindInd.
                              P (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
                              P F (ExistsMemT κ τ) κ)
       (HExistsRep : forall F τ κ, kind_ok F.(fc_kind_ctx) κ ->
-                             P (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ ->
+                             P (add_rep_var F) τ (ren_kind unscoped.shift unscoped.id κ) ->
                              P F (ExistsRepT κ τ) κ)
       (HExistsSize : forall F τ κ, kind_ok F.(fc_kind_ctx) κ ->
-                              P (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ ->
+                              P (add_size_var F) τ (ren_kind unscoped.id unscoped.shift κ) ->
                               P F (ExistsSizeT κ τ) κ)
       (HExistsType : forall F τ κ0 κ, kind_ok F.(fc_kind_ctx) κ0 ->
                                  kind_ok F.(fc_kind_ctx) κ ->
@@ -521,9 +524,9 @@ Section HasKindInd.
       (HInnerFun : ∀ F ft, Pi F ft -> P0 F (InnerFunT ft))
       (HForallMem : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ft ->
                              P0 F (ForallMemT ft))
-      (HForallRep : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ft ->
+      (HForallRep : ∀ F ft, P0 (add_rep_var F) ft ->
                              P0 F (ForallRepT ft))
-      (HForallSize : ∀ F ft, P0 (F <| fc_kind_ctx ::= set kc_size_vars S |>) ft ->
+      (HForallSize : ∀ F ft, P0 (add_size_var F) ft ->
                               P0 F (ForallSizeT ft))
       (HForallType : ∀ F κ ft, kind_ok F.(fc_kind_ctx) κ ->
           Pi (F <| fc_type_vars ::= cons κ |>) ft ->
@@ -913,7 +916,7 @@ Inductive unpacked_existential :
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackRep F L L' τs1 κ τ τs2 :
   let F0 :=
-    subst_function_ctx VarM (up_representation VarR) VarS VarT F <| fc_kind_ctx ::= set kc_rep_vars S |>
+    add_rep_var (subst_function_ctx VarM (up_representation VarR) VarS VarT F)
   in
   let up := ren_type id S id id in
   unpacked_existential
@@ -921,7 +924,7 @@ Inductive unpacked_existential :
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackSize F L L' τs1 κ τ τs2 :
   let F0 :=
-    subst_function_ctx VarM VarR (up_size VarS) VarT F <| fc_kind_ctx ::= set kc_size_vars S |>
+    add_size_var (subst_function_ctx VarM VarR (up_size VarS) VarT F)
   in
   let up := ren_type id id S id in
   unpacked_existential
@@ -1579,24 +1582,46 @@ Proof.
   - by inversion IHhave_instruction_type.
 Qed.
 
-Inductive has_function_type : module_ctx -> module_function -> function_type -> Prop :=
-| TFunction M mf ηss_L ηss_P ρs_P L' :
-  let ϕ := flatten_function_type mf.(mf_type) in
-  let K := kc_of_fft ϕ in
-  let F := {| fc_return := ϕ.(fft_out);
-              fc_locals := ηss_P ++ ηss_L;
-              fc_labels := [(ϕ.(fft_out), L')];
+Inductive body_has_ifun_type (M : module_ctx) (K : kind_ctx) (mf_locs : list representation) (body : list instruction)
+  : list kind -> inner_function_type -> Prop :=
+| TMono κs τs1 τs2 ηss_P ηss_L L' ρs_P :
+  let F0 := {| fc_return := [];
+              fc_locals := [];
+              fc_labels := [];
               fc_kind_ctx := K;
-              fc_type_vars := ϕ.(fft_type_vars) |} in
-  let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
-  let ψ := InstrT [] ϕ.(fft_out) in
-  mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) = Some ηss_L ->
-  Forall2 (has_rep F) ϕ.(fft_in) ρs_P ->
+              fc_type_vars := κs |} in
+  Forall2 (has_rep F0) τs1 ρs_P ->
   mapM (eval_rep_prim EmptyEnv) ρs_P = Some ηss_P ->
+  mapM (eval_rep_prim EmptyEnv) mf_locs = Some ηss_L ->
+  let F := {| fc_return := τs2;
+              fc_locals := ηss_P ++ ηss_L;
+              fc_labels := [(τs2, L')];
+              fc_kind_ctx := K;
+              fc_type_vars := κs |} in
+  let L := τs1 ++ map type_plug_prim ηss_L in
   Forall (fun τ => has_ref_flag F τ NoRefs) L' ->
-  have_instruction_type M F L mf.(mf_body) ψ L' ->
-  (* has_kind_ft F mf.(mf_type) -> *)
-  has_function_type M mf mf.(mf_type).
+  have_instruction_type M F L body (InstrT [] τs2) L' ->
+  body_has_ifun_type M K mf_locs body κs (MonoFunT τs1 τs2)
+| TForallType ϕ κ κs :
+  body_has_ifun_type M K mf_locs body (κ :: κs) ϕ →
+  body_has_ifun_type M K mf_locs body κs (ForallTypeT κ ϕ).
+
+Inductive body_has_fun_type (M : module_ctx) (mf_locs : list representation) (body : list instruction) : kind_ctx -> function_type -> Prop :=
+| TInner K ϕ :
+  body_has_ifun_type M K mf_locs body [] ϕ ->
+  body_has_fun_type M mf_locs body K (InnerFunT ϕ)
+| TForallMem K ϕ :
+  body_has_fun_type M mf_locs body (K <| kc_mem_vars ::= S |>) ϕ →
+  body_has_fun_type M mf_locs body K (ForallMemT ϕ)
+| TForallRep K ϕ :
+  body_has_fun_type M mf_locs body (K <| kc_rep_vars ::= S |>) ϕ →
+  body_has_fun_type M mf_locs body K (ForallRepT ϕ)
+| TForallSize K ϕ :
+  body_has_fun_type M mf_locs body (K <| kc_size_vars ::= S |>) ϕ →
+  body_has_fun_type M mf_locs body K (ForallSizeT ϕ).
+
+Definition has_function_type (M : module_ctx) (mf : module_function) : Prop :=
+  body_has_fun_type M mf.(mf_locals) mf.(mf_body) kc_empty mf.(mf_type).
 
 Inductive has_module_type : module -> module_type -> Prop :=
 | TModule m table exports :
@@ -1604,5 +1629,5 @@ Inductive has_module_type : module -> module_type -> Prop :=
   nths_error ϕs m.(m_table) = Some table ->
   nths_error ϕs (map me_desc m.(m_exports)) = Some exports ->
   let M := Build_module_ctx ϕs table in
-  Forall (fun mf => has_function_type M mf mf.(mf_type)) m.(m_functions) ->
+  Forall (fun mf => has_function_type M mf) m.(m_functions) ->
   has_module_type m (Build_module_type m.(m_imports) exports).

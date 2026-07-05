@@ -689,3 +689,53 @@ Qed.
       cbn.
       lia.
   Qed.
+
+  Lemma Forall_mapM_map_ext {A B:Type} (f g:A → option B) h (l: list A) :
+    Forall (λ x, f x = g (h x)) l -> mapM f l = mapM g (map h l).
+  Proof.
+    revert l.
+    induction l.
+    - by cbn.
+    - intros.
+      apply Forall_cons_1 in H as [ha Hl].
+      apply IHl in Hl.
+      cbn.
+      rewrite ha.
+      rewrite Hl. done.
+  Qed.
+
+  Lemma map_lookup_helper_forwards {A B:Type} (f:A → B) (l: list A) (i:nat) (a:A) :
+    l !! i = Some a -> map f l !! i = Some (f a).
+  Proof.
+    revert l i.
+    induction l.
+    - intros.
+      rewrite lookup_nil in H; inversion H.
+    - intros.
+      destruct i.
+      + cbn in *.
+        inversion H; subst; done.
+      + rewrite <- lookup_tail in H. cbn in H.
+        apply IHl in H.
+        rewrite <- lookup_tail.
+        cbn. done.
+  Qed.
+
+  Lemma map_lookup_helper_backwards {A B:Type} (f:A → B) (l: list A) (i:nat) (fa:B) :
+    map f l !! i = Some fa -> ∃ a, l !! i = Some a /\ fa = f a.
+  Proof.
+    revert l i.
+    induction l.
+    1: {
+      intros. cbn in H.
+      rewrite lookup_nil in H; inversion H. }
+    - intros.
+      destruct i.
+      + cbn in *.
+        inversion H; subst.
+        exists a; done.
+      + rewrite <- lookup_tail in H. cbn in H.
+        apply IHl in H.
+        rewrite <- lookup_tail.
+        cbn. done.
+  Qed.

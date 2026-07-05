@@ -759,12 +759,12 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
       end
   | ExistsRepT κ τ =>
       match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
-      | inl () => type_ok_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ
+      | inl () => type_ok_checker (add_rep_var F) τ
       | err => err
       end
   | ExistsSizeT κ τ =>
       match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
-      | inl () => type_ok_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ
+      | inl () => type_ok_checker (add_size_var F) τ
       | err => err
       end
   | ExistsTypeT κ1 κ2 τ =>
@@ -804,8 +804,8 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
       match ft with
       | InnerFunT ϕ => inner_function_type_ok_checker F ϕ
       | ForallMemT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
-      | ForallRepT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
-      | ForallSizeT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
+      | ForallRepT ϕ => function_type_ok_checker (add_rep_var F) ϕ
+      | ForallSizeT ϕ => function_type_ok_checker (add_size_var F) ϕ
       end.
 
 Ltac destruct_match_kind_ok F κ o Hres HMatchKind :=
@@ -1288,9 +1288,9 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
   | ExistsRepT κ τ =>
       match kind_ok_checker (F.(fc_kind_ctx)) κ with
       | inl () =>
-          match has_kind_synther (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ with
+          match has_kind_synther (add_rep_var F) τ with
           | inl κ' =>
-              if kind_beq κ κ'
+              if kind_beq (ren_kind unscoped.shift unscoped.id κ) κ'
               then inl κ
               else inr (HasKindError "synthed kind for t in existsrep not equal to outer kind" [])
           | err => err
@@ -1300,9 +1300,9 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
    | ExistsSizeT κ τ =>
       match kind_ok_checker (F.(fc_kind_ctx)) κ with
       | inl () =>
-          match has_kind_synther (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ with
+          match has_kind_synther (add_size_var F) τ with
           | inl κ' =>
-              if kind_beq κ κ'
+              if kind_beq (ren_kind unscoped.id unscoped.shift κ) κ'
               then inl κ
               else inr (HasKindError "synthed kind for t in existssize not equal to outer kind" [])
           | err => err
@@ -1347,8 +1347,8 @@ with has_kind_ft_checker (F:function_ctx) (ϕ:function_type) : type_checker_res 
   match ϕ with
   | InnerFunT ϕ => has_kind_ift_checker F ϕ
   | ForallMemT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
-  | ForallRepT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
-  | ForallSizeT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
+  | ForallRepT ϕ => has_kind_ft_checker (add_rep_var F) ϕ
+  | ForallSizeT ϕ => has_kind_ft_checker (add_size_var F) ϕ
   end.
 
 (* Check kind in a naive way. I guess. *)
@@ -2621,9 +2621,9 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
   | ExistsMemT κ τ =>
       ExistsMemT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ)
   | ExistsRepT κ τ =>
-      ExistsRepT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ)
+      ExistsRepT κ (refresh_kinds (add_rep_var F) τ)
   | ExistsSizeT κ τ =>
-      ExistsSizeT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ)
+      ExistsSizeT κ (refresh_kinds (add_size_var F) τ)
   | ExistsTypeT κ κ0 τ =>
       ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
   end
@@ -2636,8 +2636,8 @@ with refresh_kinds_ft (F : function_ctx) (ϕ : function_type) : function_type :=
   match ϕ with
   | InnerFunT ϕ => InnerFunT (refresh_kinds_ift F ϕ)
   | ForallMemT ϕ => ForallMemT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ)
-  | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ)
-  | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ)
+  | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (add_rep_var F) ϕ)
+  | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (add_size_var F) ϕ)
   end.
 
 Lemma refresh_kinds_eq_mod_kinds :
@@ -3255,8 +3255,8 @@ Definition unpacked_existential_checker
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsRepT κ τ_check =>
-                  let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
-                              <| fc_kind_ctx ::= set kc_rep_vars S |> in
+                  let F0 := add_rep_var (subst_function_ctx VarM (up_representation VarR) VarS VarT F)
+                              in
                   let up := ren_type id S id id in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
@@ -3265,8 +3265,8 @@ Definition unpacked_existential_checker
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsSizeT κ τ_check =>
-                  let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
-                              <| fc_kind_ctx ::= set kc_size_vars S |> in
+                  let F0 := add_size_var (subst_function_ctx VarM VarR (up_size VarS) VarT F)
+                              in
                   let up := ren_type id id S id in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
@@ -3322,16 +3322,16 @@ Definition unpacked_existential_getter F L ϕ L' :
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
               Some (F0, L0, ϕ0, L'0)
           | ExistsRepT κ τ =>
-              let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
-                          <| fc_kind_ctx ::= set kc_rep_vars S |> in
+              let F0 := add_rep_var (subst_function_ctx VarM (up_representation VarR) VarS VarT F)
+                           in
               let up := ren_type id S id id in
               let L0 := (map up L) in
               let L'0 := (map up L') in
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
               Some (F0, L0, ϕ0, L'0)
           | ExistsSizeT κ τ =>
-              let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
-                          <| fc_kind_ctx ::= set kc_size_vars S |> in
+              let F0 := add_size_var (subst_function_ctx VarM VarR (up_size VarS) VarT F)
+                           in
               let up := ren_type id id S id in
               let L0 := (map up L) in
               let L'0 := (map up L') in
@@ -5186,45 +5186,80 @@ Fixpoint synth_possible_resulting_local_ctx_insts F insts L : (option local_ctx)
       end
   end.
 
+Fixpoint body_has_mono_type_checker
+  (M : module_ctx)
+  (K : kind_ctx)
+  (mf_locs : list representation)
+  (body : list instruction)
+  (κs : list kind)
+  (τs1 τs2 : list type)
+  : type_checker_res :=
+  match mapM (eval_rep_prim EmptyEnv) mf_locs with
+  | Some ηss_L =>
+      let tempF := Build_function_ctx [] [] [] K κs in
+      match mapM (grab_rep tempF) τs1 with
+      | Some ρs_P =>
+          match mapM (eval_rep_prim EmptyEnv) ρs_P with
+          | Some ηss_P =>
+              let tempF2 := Build_function_ctx τs2 (ηss_P ++ ηss_L) [] K κs in
+              let L := τs1 ++ map type_plug_prim ηss_L in
+              let ψ := InstrT [] τs2 in
+              match synth_possible_resulting_local_ctx_insts tempF2 body L with
+              | inl (Some L') =>
+                  let F := tempF2 <| fc_labels := [(τs2, L')] |> in
+                  let res := map (λ t, has_ref_flag_checker F t NoRefs) L' in
+                  let folded := foldr (λ r, andb (check_ok_output r)) true res in
+                  if folded
+                  then have_instruction_type_checker M F L body ψ L'
+                  else
+                    inr ([LocalCtxSynthError "your resulting locals aren't all nonrefs"
+                            L L' (combine_error_messages res)])
+                    (* inr ([NormalError "your resulting locals aren't all nonrefs"] ++ combine_error_messages res) *)
+                    (* INR ("your resulting locals aren't all norefs (" ++ *)
+                    (*           (combine_error_messages res) ++ ")"%string) *)
+              | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
+              | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
+              end
+          | None => INR "AAAAAAAAAAAAA"
+          end
+      | None => INR "aaaaaa"
+      end
+  | None => INR "can't give function type"
+  end.
+
+Fixpoint body_has_ifun_type_checker
+  (M : module_ctx)
+  (K : kind_ctx)
+  (mf_locs : list representation)
+  (body : list instruction)
+  (κs : list kind) (ϕ : inner_function_type)
+  : type_checker_res :=
+  match ϕ with
+  | MonoFunT τs1 τs2 => body_has_mono_type_checker M K mf_locs body κs τs1 τs2
+  | ForallTypeT κ ϕ => body_has_ifun_type_checker M K mf_locs body (κ :: κs) ϕ
+  end.
+
+Fixpoint body_has_fun_type_checker
+  (M : module_ctx)
+  (mf_locs : list representation)
+  (body : list instruction)
+  (K : kind_ctx)
+  (ϕ : function_type)
+  : type_checker_res :=
+  match ϕ with
+  | InnerFunT ϕ =>
+    body_has_ifun_type_checker M K mf_locs body [] ϕ
+  | ForallMemT ϕ =>
+    body_has_fun_type_checker M mf_locs body (K <| kc_mem_vars ::= S |>) ϕ
+  | ForallRepT ϕ =>
+    body_has_fun_type_checker M mf_locs body (K <| kc_rep_vars ::= S |>) ϕ
+  | ForallSizeT ϕ =>
+    body_has_fun_type_checker M mf_locs body (K <| kc_size_vars ::= S |>) ϕ
+  end.
+
 Definition has_function_type_checker
-    (M:module_ctx) (mf:module_function) (ft:function_type) : type_checker_res :=
-  if function_type_beq mf.(mf_type) ft
-  then
-    let ϕ := flatten_function_type mf.(mf_type) in
-    let K := kc_of_fft ϕ in
-    match mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) with
-    | Some ηss_L =>
-        let tempF := Build_function_ctx [] [] [] K ϕ.(fft_type_vars) in
-        match mapM (grab_rep tempF) ϕ.(fft_in) with
-        | Some ρs_P =>
-            match mapM (eval_rep_prim EmptyEnv) ρs_P with
-            | Some ηss_P =>
-                let tempF2 := Build_function_ctx ϕ.(fft_out) (ηss_P ++ ηss_L) [] K ϕ.(fft_type_vars) in
-                let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
-                let ψ := InstrT [] ϕ.(fft_out) in
-                match synth_possible_resulting_local_ctx_insts tempF2 (mf.(mf_body)) L with
-                | inl (Some L') =>
-                    let F := tempF2 <| fc_labels := [(ϕ.(fft_out), L')] |> in
-                    let res := map (λ t, has_ref_flag_checker F t NoRefs) L' in
-                    let folded := foldr (λ r, andb (check_ok_output r)) true res in
-                    if folded
-                    then have_instruction_type_checker M F L mf.(mf_body) ψ L'
-                    else
-                      inr ([LocalCtxSynthError "your resulting locals aren't all nonrefs"
-                              L L' (combine_error_messages res)])
-                      (* inr ([NormalError "your resulting locals aren't all nonrefs"] ++ combine_error_messages res) *)
-                      (* INR ("your resulting locals aren't all norefs (" ++ *)
-                      (*           (combine_error_messages res) ++ ")"%string) *)
-                | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
-                | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
-                end
-            | None => INR "AAAAAAAAAAAAA"
-            end
-        | None => INR "aaaaaa"
-        end
-    | None => INR "can't give function type"
-    end
-  else INR "bad".
+    (M:module_ctx) (mf:module_function) : type_checker_res :=
+  body_has_fun_type_checker M mf.(mf_locals) mf.(mf_body) kc_empty mf.(mf_type).
 
 
 Lemma grab_rep_in_messed_up_F :
@@ -5251,56 +5286,10 @@ Proof.
 Qed.
 
 Lemma has_function_type_checker_correct :
-  ∀ M mf ft, has_function_type_checker M mf ft = ok_term ->
-             has_function_type M mf ft.
+  ∀ M mf, has_function_type_checker M mf = ok_term ->
+          has_function_type M mf.
 Proof.
-  intros.
-  Opaque have_instruction_type_checker.
-  unfold has_function_type_checker in H.
-  repeat my_auto5.
-  rename l into ηss_L; rename l0 into ρs_P; rename l1 into ηss_P.
-  rename l2 into L'.
-  apply function_type_eq_convert in HMatch. subst ft.
-  apply (TFunction M mf ηss_L ηss_P ρs_P L'); auto.
-  - cbn. (* lemma: prove that grab rep with messed up F is correct *)
-    clear H1 HMatch5 HMatch3 HMatch2 HMatch4 o.
-    rewrite (mapM_grab_rep_in_messed_up_F
-             (fft_out (flatten_function_type (mf_type mf)))
-             ηss_P
-             ηss_L
-             (kc_of_fft (flatten_function_type (mf_type mf)))
-             (fft_type_vars (flatten_function_type (mf_type mf)))
-             (fft_in (flatten_function_type (mf_type mf)))
-             ρs_P
-          ) in HMatch1.
-    (* the lemma: grab_rep_correct *)
-    set (F := {|
-           fc_return := fft_out (flatten_function_type (mf_type mf));
-           fc_locals := ηss_P ++ ηss_L;
-           fc_labels := [];
-           fc_kind_ctx := kc_of_fft (flatten_function_type (mf_type mf));
-           fc_type_vars := fft_type_vars (flatten_function_type (mf_type mf))
-         |}) in *.
-    set (ϕ_in := fft_in (flatten_function_type (mf_type mf)) ) in *.
-    (* now it's just a grab_rep has_rep situation through a mapM *)
-    generalize dependent ρs_P.
-    induction ϕ_in as [|ϕ1 ϕ_inrest]; intros.
-    + cbn in HMatch1. inversion HMatch1.
-      by apply Forall2_nil.
-    + cbn in HMatch1.
-      apply bind_Some in HMatch1.
-      destruct HMatch1 as [ρ1 [Hϕ1_ρ1 Hrest]].
-      apply bind_Some in Hrest.
-      destruct Hrest as [ρ_rest [H1 H2]].
-      apply IHϕ_inrest in H1.
-      inversion H2.
-      apply Forall2_cons; split; auto.
-      apply grab_rep_correct; auto.
-  - (* foldr *) admit.
-  - apply have_instruction_type_checker_correct in H1.
-    auto.
 Admitted.
-
 
 
 Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_res :=
@@ -5312,7 +5301,7 @@ Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_re
           if module_type_beq mt (Build_module_type m.(m_imports) exports)
           then
             let M := Build_module_ctx ϕs table in
-            let res := map (λ mf, has_function_type_checker M mf mf.(mf_type)) m.(m_functions) in
+            let res := map (λ mf, has_function_type_checker M mf) m.(m_functions) in
             let folded := foldr (λ r, andb (check_ok_output r)) true res in
             if folded
             then ok_term

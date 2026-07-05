@@ -153,7 +153,7 @@ Section local_get_copy.
 
     iFrame "Hatoms_i".
 
-    pose proof (kinding_sound rti sr mr _ _ _ _ _ H2 Hsem Heval_kind) as [Hpers _].
+    pose proof (kinding_sound rti sr _ _ _ _ _ H2 Hsem Heval_kind) as [Hpers _].
     cbn in Hpers.
     iDestruct "Hval_i" as "#Hval_i".
 

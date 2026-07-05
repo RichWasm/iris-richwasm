@@ -36,16 +36,8 @@
           }
         );
 
-        # NOTE: despite the recommendations online claiming that one should use ocaml 4 for rocq,
-        # there doesn't seem to be any real-world performance difference. I tried comparing
-        # ocamlPackages_5_3 and ocamlPackages_4_14 and produced the following results using `time`:
-        # - ocaml 5: nix flake check -LL 2.93s user 0.59s system 0% cpu 12:39.59 total
-        # - ocaml 4: nix flake check -LL 3.00s user 0.64s system 0% cpu 12:34.31 total
-        # Using ocaml 5 uniformly makes everything much simpler so that is what is specified below:
-        ocamlPackages = pkgs.ocaml-ng.ocamlPackages_5_4.overrideScope (
-          # vsrocq's ppx_yojson_conv pins yojson_2 (2.2.2) while its lsp uses yojson 3.0.0 — collide in findlib.
-          _: prev: { yojson_2 = prev.yojson; }
-        );
+        # NOTE: Some dependencies (rocq-autosubst-ocaml, coq-compcert) require OCaml 4.
+        ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
 
         ocaml = ocamlPackages.ocaml;
         rocqPackages = pkgs.rocqPackages_9_0.overrideScope (

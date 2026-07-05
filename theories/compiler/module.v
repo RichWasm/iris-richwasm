@@ -85,15 +85,19 @@ Definition user_export (func_user : nat) (exp : module_export) : W.module_export
     W.modexp_desc := W.MED_func (W.Mk_funcidx (func_user + exp.(me_desc)))
   |}.
 
+Definition compile_fun_body (wt : list W.function_type) tf fe locs body :
+  error + list W.function_type * W.module_func :=
+  let '(wt', tid) := insert_type wt tf in
+  '((), wt'', wl, es) ← run_codegen (compile_instrs mr fe body) (wt ++ option_list wt') [];
+  ls ← try_option EFail (mapM (eval_rep EmptyEnv) locs);
+  let ls' := flat_map (map translate_arep) ls ++ wl in
+  inr (option_list wt' ++ wt'', W.Build_module_func (W.Mk_typeidx tid) ls' es).
+
 Definition compile_function (wt : list W.function_type) (mf : module_function) :
   error + list W.function_type * W.module_func :=
   tf ← try_option EFail (translate_func_type [] mf.(mf_type));
-  let '(wt', tid) := insert_type wt tf in
   fe ← try_option EFail (fe_of_module_func mf);
-  ls ← try_option EFail (mapM (eval_rep EmptyEnv) mf.(mf_locals));
-  '((), wt'', wl, es) ← run_codegen (compile_instrs mr fe mf.(mf_body)) (wt ++ option_list wt') [];
-  let ls' := flat_map (map translate_arep) ls ++ wl in
-  inr (option_list wt' ++ wt'', W.Build_module_func (W.Mk_typeidx tid) ls' es).
+  compile_fun_body wt tf fe mf.(mf_locals) mf.(mf_body).
 
 Definition compile_functions (wt : list W.function_type) (mfs : list module_function) :
   error + list W.function_type * list W.module_func :=

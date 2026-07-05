@@ -79,7 +79,8 @@ let%expect_test "examples" =
     (let (<> : int) = (10 : int) in
      (app (λ (<> : (⊗)) : int .
              (<1:x> : int)
-           : ((⊗) ⊸ int)) (tup : (⊗)) : int)
+           : ((⊗) ⊸ int))
+        (tup : (⊗)) : int)
      : int)
     -----------closure_call_var-----------
     (let (<> : int) = (21 : int) in
@@ -108,8 +109,8 @@ let%expect_test "examples" =
        then (0 : int)
        else
          (+ (<0:n> : int)
-            (app (coderef triangle : (int ⊸ int)) (- (<0:n> : int) (1 : int) : int)
-               : int)
+            (app (coderef triangle : (int ⊸ int))
+               (- (<0:n> : int) (1 : int) : int) : int)
             : int)
        : int))
 
@@ -150,7 +151,8 @@ let%expect_test "examples" =
        (app (coderef safe_div : ((⊗ int int) ⊸ (⊕ int (⊗))))
           (tup (10 : int) (0 : int) : (⊗ int int)) : (⊕ int (⊗)))
        in
-     (app (coderef from_either : ((⊕ int (⊗)) ⊸ int)) (<0:r> : (⊕ int (⊗))) : int)
+     (app (coderef from_either : ((⊕ int (⊗)) ⊸ int))
+        (<0:r> : (⊕ int (⊗))) : int)
      : int)
     -----------incr_n-----------
     (fun incr_1 (<> : (ref int)) : (ref int) .
@@ -170,8 +172,8 @@ let%expect_test "examples" =
         else
           (app (coderef incr_n : ((⊗ (ref int) int) ⊸ int))
              (tup
-                (app (coderef incr_1 : ((ref int) ⊸ (ref int))) (<1:r> : (ref int))
-                   : (ref int))
+                (app (coderef incr_1 : ((ref int) ⊸ (ref int)))
+                   (<1:r> : (ref int)) : (ref int))
                 (- (<0:n> : int) (1 : int) : int)
               : (⊗ (ref int) int))
              : int)
@@ -187,24 +189,29 @@ let%expect_test "examples" =
        (λ (<> : ((int ⊸ int) ⊸ (int ⊸ int))) : (int ⊸ int) .
           (let (<> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int))) =
              (λ (<> : (rec [] ([0:a] ⊸ (int ⊸ int)))) : (int ⊸ int) .
-                (let (<> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int))) =
+                (let (<> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
+                   =
                    (unfold (rec [] ([0:a] ⊸ (int ⊸ int)))
                       (<0:x> : (rec [] ([0:a] ⊸ (int ⊸ int))))
                       : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
                    in
                  (let (<> : (int ⊸ int)) =
-                    (app (<0:ux> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
+                    (app
+                       (<0:ux>
+                          : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
                        (<1:x> : (rec [] ([0:a] ⊸ (int ⊸ int)))) : (int ⊸ int))
                     in
-                  (app (<3:f> : ((int ⊸ int) ⊸ (int ⊸ int))) (<0:xx> : (int ⊸ int))
-                     : (int ⊸ int))
+                  (app (<3:f> : ((int ⊸ int) ⊸ (int ⊸ int)))
+                     (<0:xx> : (int ⊸ int)) : (int ⊸ int))
                   : (int ⊸ int))
                  : (int ⊸ int))
               : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
              in
-           (app (<0:omega> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
+           (app
+              (<0:omega> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
               (fold (rec [] ([0:a] ⊸ (int ⊸ int)))
-                 (<0:omega> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
+                 (<0:omega>
+                    : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int)))
                  : (rec [] ([0:a] ⊸ (int ⊸ int))))
               : (int ⊸ int))
            : (int ⊸ int))
@@ -250,11 +257,13 @@ let%expect_test "examples" =
                    (tup (app (<4:f> : (int ⊸ int)) (<1:hd> : int) : int)
                       (app
                          (coderef map_int
-                            : ((⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int [0:α])))) ⊸
-                                (rec [] (⊕ (⊗) (⊗ int [0:α])))))
+                            : ((⊗ (int ⊸ int)
+                                 (rec [] (⊕ (⊗) (⊗ int [0:α]))))
+                                ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                          (tup (<4:f> : (int ⊸ int))
                             (<0:tl> : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
-                          : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
+                          : (⊗ (int ⊸ int)
+                              (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                          : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
                     : (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                    : (⊕ (⊗) (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
@@ -265,35 +274,45 @@ let%expect_test "examples" =
 
     (let (<> : (rec [] (⊕ (⊗) (⊗ int [0:α])))) =
        (fold (rec [] (⊕ (⊗) (⊗ int [0:α])))
-          (inj 0 (tup : (⊗)) : (⊕ (⊗) (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
+          (inj 0 (tup : (⊗))
+             : (⊕ (⊗) (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
           : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
        in
      (app
         (coderef map_int
            : ((⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int [0:α])))) ⊸
                (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-        (tup (λ (<> : int) : int .
-                (+ (<0:x> : int) (1 : int) : int)
-              : (int ⊸ int))
+        (tup
+           (λ (<> : int) : int .
+              (+ (<0:x> : int) (1 : int) : int)
+            : (int ⊸ int))
            (<0:lst> : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
          : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
         : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
      : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
     -----------boxed_list[invalid]-----------
-    (fun map_int (<> : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) :
+    (fun map_int
+      (<> : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) :
       (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))) .
-      (split (<> : (int ⊸ int)) (<> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) =
-         (<0:p> : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) in
+      (split (<> : (int ⊸ int))
+         (<> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) =
+         (<0:p> : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+         in
        (fold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
           (cases (unfold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
                     (<0:lst> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
-                    : (⊕ (⊗) (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
+                    : (⊕ (⊗)
+                        (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
              (case (<> : (⊗))
                (inj 0 (<0:nil> : (⊗))
-                  : (⊕ (⊗) (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))
-             (case (<> : (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
-               (split (<> : int) (<> : (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-                  = (<0:cons> : (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
+                  : (⊕ (⊗)
+                      (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))
+             (case (<> : (⊗ int
+                           (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
+               (split (<> : int)
+                  (<> : (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) =
+                  (<0:cons>
+                     : (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
                   in
                 (inj 1
                    (tup (app (<4:f> : (int ⊸ int)) (<1:hd> : int) : int)
@@ -306,15 +325,21 @@ let%expect_test "examples" =
                             (tup (<4:f> : (int ⊸ int))
                                (free
                                   (<0:tl>
-                                     : (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+                                     : (ref
+                                         (rec []
+                                           (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                   : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
-                             : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+                             : (⊗ (int ⊸ int)
+                                 (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                             : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
                          : (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                     : (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
-                   : (⊕ (⊗) (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
-               : (⊕ (⊗) (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))
-           : (⊕ (⊗) (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
+                   : (⊕ (⊗)
+                       (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
+               : (⊕ (⊗)
+                   (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))
+           : (⊕ (⊗)
+               (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
           : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
       : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
 
@@ -326,20 +351,23 @@ let%expect_test "examples" =
                    (fold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
                       (inj 0 (tup : (⊗))
                          : (⊕ (⊗)
-                             (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
+                             (⊗ int
+                               (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
                       : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
                    : (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
               : (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
-             : (⊕ (⊗) (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
+             : (⊕ (⊗)
+                 (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))
           : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
        in
      (app
         (coderef map_int
            : ((⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) ⊸
                (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-        (tup (λ (<> : int) : int .
-                (+ (<0:x> : int) (1 : int) : int)
-              : (int ⊸ int))
+        (tup
+           (λ (<> : int) : int .
+              (+ (<0:x> : int) (1 : int) : int)
+            : (int ⊸ int))
            (<0:lst> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
          : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
         : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
@@ -356,7 +384,8 @@ let%expect_test "examples" =
                             (new
                                (fold (rec [] (⊕ (⊗) (ref [0:a])))
                                   (inj 0 (tup : (⊗))
-                                     : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))
+                                     : (⊕ (⊗)
+                                         (ref (rec [] (⊕ (⊗) (ref [0:a]))))))
                                   : (rec [] (⊕ (⊗) (ref [0:a]))))
                                : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
                             : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))
@@ -368,11 +397,15 @@ let%expect_test "examples" =
           : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))
        : (rec [] (⊕ (⊗) (ref [0:a]))))
     -----------peano-----------
-    (fun add (<> : (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) :
+    (fun add
+      (<> : (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) :
       (rec [] (⊕ (⊗) (ref [0:a]))) .
       (split (<> : (rec [] (⊕ (⊗) (ref [0:a]))))
          (<> : (rec [] (⊕ (⊗) (ref [0:a])))) =
-         (<0:p> : (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) in
+         (<0:p>
+            : (⊗ (rec [] (⊕ (⊗) (ref [0:a])))
+                (rec [] (⊕ (⊗) (ref [0:a])))))
+         in
        (cases (unfold (rec [] (⊕ (⊗) (ref [0:a])))
                  (<1:left> : (rec [] (⊕ (⊗) (ref [0:a]))))
                  : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))
@@ -387,7 +420,8 @@ let%expect_test "examples" =
                                 (rec [] (⊕ (⊗) (ref [0:a]))))
                                ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
                         (tup
-                           (free (<0:succ> : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
+                           (free
+                              (<0:succ> : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
                               : (rec [] (⊕ (⊗) (ref [0:a]))))
                            (<1:right> : (rec [] (⊕ (⊗) (ref [0:a]))))
                          : (⊗ (rec [] (⊕ (⊗) (ref [0:a])))
@@ -402,11 +436,13 @@ let%expect_test "examples" =
     (fun from-int (<> : int) : (rec [] (⊕ (⊗) (ref [0:a]))) .
       (fold (rec [] (⊕ (⊗) (ref [0:a])))
          (if0 (<0:int> : int)
-          then (inj 0 (tup : (⊗)) : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))
+          then (inj 0 (tup : (⊗))
+                  : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))
           else
             (inj 1
                (new
-                  (app (coderef from-int : (int ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+                  (app
+                     (coderef from-int : (int ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
                      (- (<0:int> : int) (1 : int) : int)
                      : (rec [] (⊕ (⊗) (ref [0:a]))))
                   : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
@@ -429,21 +465,23 @@ let%expect_test "examples" =
        : int))
 
     (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) =
-       (app (coderef from-int : (int ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))) (6 : int)
-          : (rec [] (⊕ (⊗) (ref [0:a]))))
+       (app (coderef from-int : (int ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+          (6 : int) : (rec [] (⊕ (⊗) (ref [0:a]))))
        in
      (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) =
-        (app (coderef from-int : (int ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))) (7 : int)
-           : (rec [] (⊕ (⊗) (ref [0:a]))))
+        (app (coderef from-int : (int ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+           (7 : int) : (rec [] (⊕ (⊗) (ref [0:a]))))
         in
       (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) =
          (app
             (coderef add
-               : ((⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸
-                   (rec [] (⊕ (⊗) (ref [0:a])))))
+               : ((⊗ (rec [] (⊕ (⊗) (ref [0:a])))
+                    (rec [] (⊕ (⊗) (ref [0:a]))))
+                   ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
             (tup (<1:six> : (rec [] (⊕ (⊗) (ref [0:a]))))
                (<0:seven> : (rec [] (⊕ (⊗) (ref [0:a]))))
-             : (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
+             : (⊗ (rec [] (⊕ (⊗) (ref [0:a])))
+                 (rec [] (⊕ (⊗) (ref [0:a])))))
             : (rec [] (⊕ (⊗) (ref [0:a]))))
          in
        (app (coderef to-int : ((rec [] (⊕ (⊗) (ref [0:a]))) ⊸ int))
@@ -480,9 +518,10 @@ let%expect_test "examples" =
       : int))
 
     (app (coderef apply : ((⊗ (int ⊸ int) int) ⊸ int))
-       (tup (λ (<> : int) : int .
-               (+ (<0:x> : int) (5 : int) : int)
-             : (int ⊸ int))
+       (tup
+          (λ (<> : int) : int .
+             (+ (<0:x> : int) (5 : int) : int)
+           : (int ⊸ int))
           (10 : int)
         : (⊗ (int ⊸ int) int))
        : int)
@@ -490,14 +529,15 @@ let%expect_test "examples" =
     (fun compose (<> : (⊗ (int ⊸ int) (int ⊸ int) int)) : int .
       (split (<> : (int ⊸ int)) (<> : (int ⊸ int)) (<> : int) =
          (<0:p> : (⊗ (int ⊸ int) (int ⊸ int) int)) in
-       (app (<2:f> : (int ⊸ int)) (app (<1:g> : (int ⊸ int)) (<0:x> : int) : int)
-          : int)
+       (app (<2:f> : (int ⊸ int))
+          (app (<1:g> : (int ⊸ int)) (<0:x> : int) : int) : int)
       : int))
 
     (app (coderef compose : ((⊗ (int ⊸ int) (int ⊸ int) int) ⊸ int))
-       (tup (λ (<> : int) : int .
-               (+ (<0:x> : int) (1 : int) : int)
-             : (int ⊸ int))
+       (tup
+          (λ (<> : int) : int .
+             (+ (<0:x> : int) (1 : int) : int)
+           : (int ⊸ int))
           (λ (<> : int) : int .
              (× (<0:x> : int) (2 : int) : int)
            : (int ⊸ int))
@@ -514,7 +554,8 @@ let%expect_test "examples" =
       (app (<0:f> : (int ⊸ int)) (100 : int) : int))
 
     (app (coderef apply_to_100 : ((int ⊸ int) ⊸ int))
-       (app (coderef mk_adder : (int ⊸ (int ⊸ int))) (7 : int) : (int ⊸ int)) : int)
+       (app (coderef mk_adder : (int ⊸ (int ⊸ int))) (7 : int) : (int ⊸ int))
+       : int)
     -----------closure_with_ref-----------
     (let (<> : (ref int)) = (new (42 : int) : (ref int)) in
      (let (<> : ((⊗) ⊸ int)) =
