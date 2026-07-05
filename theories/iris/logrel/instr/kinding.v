@@ -709,7 +709,7 @@ Section kinding.
   Lemma srec_interp_pers_aux (T : semantic_type) sk (se : semantic_env (Σ := Σ)) :
     (∀ (Φ : leibnizO semantic_value -n> iPropO Σ),
        refok sk Φ →
-       refok sk (T (se.1, (sk, (sk, Φ)) :: se.2))) →
+       refok sk (T (se.1, (sk, (sk, add_skind_interp_closed sk Φ)) :: se.2))) →
     refok sk (fixpoint (skind_rec_interp1 sk T se)).
   Proof.
     intros.
@@ -873,6 +873,12 @@ Section kinding.
   Lemma eval_kind_flags (se : semantic_env (Σ := Σ)) κ sκ :
     eval_kind se κ = Some sκ →
     kind_ref_flag κ = skind_ref_flag sκ.
+  Proof.
+  Admitted.
+
+  Lemma refok_add_skind_closed sκ (T : leibnizO semantic_value -n> iPropO Σ) :
+    refok sκ T →
+    refok sκ (add_skind_interp_closed sκ T).
   Proof.
   Admitted.
 
@@ -1319,7 +1325,7 @@ Section kinding.
       apply srec_interp_pers_aux.
       intros T Ht.
       apply IHHκ; eauto.
-      + apply sem_env_interp_refs_insert_type; eauto using subskind_of_refl.
+      + apply sem_env_interp_refs_insert_type; eauto using subskind_of_refl, refok_add_skind_closed.
       + by apply eval_kind_type_irrel.
     - (* ExistsMemT *)
       rewrite value_interp_equiv.

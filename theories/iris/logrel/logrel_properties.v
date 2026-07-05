@@ -1476,11 +1476,15 @@ Section properties.
   Qed.
 
   Lemma skind_rec_interp_unfold sκ T (se: semantic_env (Σ:=Σ)) sv :
-    skind_rec_interp sκ T se sv ≡ (▷ T (senv_insert_type sκ sκ (skind_rec_interp sκ T se) se) sv)%I.
+    skind_rec_interp sκ T se sv ≡
+      (▷ T (senv_insert_type sκ sκ
+              (add_skind_interp_closed sκ
+                 (skind_rec_interp sκ T se)) se) sv)%I.
   Proof.
-    simpl.
+    cbn -[add_skind_interp_closed].
+    cbn.
     set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ,
-                 λne sv0 : leibnizO semantic_value, (▷ T (se.1, (sκ, (sκ, T0)) :: se.2) sv0)%I).
+                 λne sv0 : leibnizO semantic_value, (▷ T (se.1, (sκ, (sκ, add_skind_interp_closed sκ T0)) :: se.2) sv0)%I).
      etransitivity.
      - exact (fixpoint_unfold f sv).
      - simpl. reflexivity.
@@ -1583,7 +1587,9 @@ Section properties.
   Lemma rec_interp_unfold κ T (se: semantic_env (Σ:=Σ)) sv :
     rec_interp κ T se sv ≡
     match eval_kind_se se κ with
-    | Some sκ => ▷ T (senv_insert_type sκ sκ (skind_rec_interp sκ T se) se) sv
+    | Some sκ => ▷ T (senv_insert_type sκ sκ
+                        (add_skind_interp_closed sκ (skind_rec_interp sκ T se))
+                        se) sv
     | None => False
     end%I.
   Proof.
@@ -1591,7 +1597,7 @@ Section properties.
     destruct (eval_kind se κ) as [sκ|]; simpl.
     - set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ,
       λne sv0 : leibnizO semantic_value,
-      (▷ T (se.1, (sκ, (sκ, T0)) :: se.2) sv0)%I).
+      (▷ T (se.1, (sκ, (sκ, add_skind_interp_closed sκ T0)) :: se.2) sv0)%I).
       etransitivity.
       + exact (fixpoint_unfold f sv).
       + simpl. reflexivity.

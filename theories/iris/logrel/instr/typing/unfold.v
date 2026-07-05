@@ -79,7 +79,9 @@ Section unfold.
     iEval (cbn -[skind_rec_interp]) in "Hos".
     rewrite Hκ.
     unfold skind_rec_interp.
-    pose proof (fixpoint_unfold (skind_rec_interp1 sκ (type_interp rti sr τ) se)) as Hunf.
+    (*
+    pose proof (fixpoint_unfold (skind_rec_interp1 rti sr sκ (type_interp rti sr τ) se)) as Hunf.
+    cbn in Hunf.
     specialize (Hunf (SAtoms os)).
     rewrite Hunf.
     unfold skind_rec_interp1. iEval (cbn) in "Hos".
@@ -118,6 +120,8 @@ Section unfold.
       }
       (* hm this is suspicious. is this true? it's a different shape than
         it used to be, so maybe it is *)
+      intros sv.
+      rewrite value_interp_eq.
       admit.
     - intros i; destruct i; try done.
       cbn.
@@ -127,6 +131,7 @@ Section unfold.
       done.
     - (* this is whatever the kinding admit above is *)
       admit.
+*)
   Admitted.
 
 End unfold.

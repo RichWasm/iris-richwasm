@@ -536,10 +536,13 @@ Admitted.
     rewrite value_interp_eq.
     iSplitR; iIntros; done.
   Qed.
+
+
   Lemma skind_rec_interp_unfold_no_sv :
-  ∀ {Σ : gFunctors} (sκ : skind) (T : semantic_type) (se : semantic_env),
+  ∀ (sκ : skind) (T : semantic_type) (se : semantic_env),
     skind_rec_interp sκ T se
-    ≡ (λne sv, (▷ T (senv_insert_type (Σ:=Σ) sκ sκ (skind_rec_interp sκ T se) se) sv))%I.
+      ≡ (λne sv, (▷ T (senv_insert_type (Σ:=Σ) sκ sκ
+                         (add_skind_interp_closed sκ (skind_rec_interp sκ T se)) se) sv))%I.
   Proof.
     intros.
     iIntros.

@@ -93,6 +93,10 @@ Section instr.
     - solve_proper.
   Qed.
 
+  Global Instance senv_insert_type_ne (sκ : skind) (sκ_T : skind) :
+  ∀ n, Proper (dist n ==> dist n) (@senv_insert_type sκ sκ_T).
+  Proof. solve_proper. Qed.
+
   Global Instance senv_insert_type_proper (sκ : skind) (sκ_T : skind) :
   Proper (equiv ==> equiv) (@senv_insert_type sκ sκ_T).
   Proof. solve_proper. Qed.
@@ -700,24 +704,44 @@ Section instr.
   Program Definition span_interp : semantic_type :=
     λne _ _, True%I.
 
-  Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
-    (λne T se T0 sv,
-      ▷ T (senv_insert_type sκ sκ T0 se) sv)%I.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
+  Program Definition add_skind_interp_closed (sκ : skind) : SVR -n> SVR :=
+    (λne T sv,
+      ⌜skind_has_svalue sκ sv⌝ ∗
+      T sv)%I.
+  Next Obligation.
+    repeat intros ?; cbn.
+    destruct sκ.
+    - f_equiv.
+      + by setoid_rewrite H.
+      + by eapply ofe_mor_ne.
+    - f_equiv.
+      + by setoid_rewrite H.
+      + by eapply ofe_mor_ne.
+  Qed.
   Final Obligation. solve_proper. Qed.
 
+  Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
+    (λne T se T0 sv,
+      ▷ T (senv_insert_type sκ sκ (add_skind_interp_closed sκ T0) se) sv)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    repeat intros ?.
+    cbn -[add_skind_interp_closed].
+    by repeat f_equiv.
+  Qed.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation. solve_proper. Qed.
 
   #[global]
   Instance skind_rec_interp1_contractive sκ T se : Contractive (skind_rec_interp1 sκ T se).
   Proof.
     unfold semantic_type in *.
     repeat intros ?.
-    cbn.
+    cbn -[add_skind_interp_closed].
     eapply later_contractive.
-    eapply (ne_dist_later (λ svr, T (senv_insert_type sκ sκ svr se) x0)); [|done].
-    solve_proper.
+    eapply (ne_dist_later (λ svr, T (senv_insert_type sκ sκ (add_skind_interp_closed sκ svr) se) x0)); [|done].
+    repeat intros ?.
+    by repeat f_equiv.
   Qed.
 
   Program Definition skind_rec_interp sκ : semantic_type -n> semantic_type :=
