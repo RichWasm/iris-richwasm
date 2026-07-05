@@ -739,9 +739,11 @@ Section type_eq_sem.
                             Hkτ Hkτ'
                             (sem_env_interp_insert_type F se κτ sκ0 T' Hse Heval HsT))) in "Hτ".
         iExact "Hτ".
-    - intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
+    - (* Ser Struct *)
+      intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
-    - intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
+    - (* Struct Ser *)
+      intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
   Admitted.
 
