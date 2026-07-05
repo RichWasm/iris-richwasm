@@ -567,7 +567,18 @@ Section type_eq_sem.
         by iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ".
     - (* RecT *)
       intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
+      iEval (rewrite !type_interp_eq /add_skind_interp).
+      iSplit.
+      + iIntros "(%sκ & %Htsk & %Hsksv & Hrec)".
+        iExists sκ.
+        iSplit; first done.
+        iSplit; first done.
+        rewrite /pre_type_interp.
+        rewrite !rec_interp_unfold.
+        destruct (eval_kind_se se κ0) eqn:H; try done.
+        iNext.
+        admit.
+      + admit.
     - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       (* TEqExMem *)
       inversion Hκ; subst. inversion Hκ'; subst.
@@ -638,7 +649,20 @@ Section type_eq_sem.
         apply sem_env_interp_insert_type; try done.
     - (* Ser Struct *)
       intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      admit.
+      inversion Hκ; subst. inversion Hκ'; subst.
+      rewrite !type_interp_eq /add_skind_interp.
+      iSplit.
+      + iIntros "(%sκ & %Hsk & %Hsv & Hser)".
+        iExists sκ.
+        iSplit; first admit.
+        iSplit; first done.
+        cbn.
+        iDestruct "Hser" as (os) "(-> & Hprod)".
+        iExists (map serialize_atom os).
+        rewrite flat_map_concat_map.
+        iSplit; first done.
+        admit.
+      + admit.
     - (* Struct Ser *)
       intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
