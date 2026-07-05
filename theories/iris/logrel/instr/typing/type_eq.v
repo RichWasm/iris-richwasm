@@ -1,4 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.env_props.
 Require Import RichWasm.iris.logrel.instr.kinding.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -270,78 +271,6 @@ Section type_eq_sem.
     - iSplit; iIntros "H"; iDestruct (big_sepL2_length with "H") as %Hlen; done.
     - rewrite !big_sepL2_cons HTT' IH.
       done.
-  Qed.
-
-  Lemma eval_rep_senv_insert_mem (μ : base_memory) (se : semantic_env (Σ:=Σ)) ρ :
-    eval_rep (senv_insert_mem μ se) ρ = eval_rep se ρ.
-  Proof.
-    induction ρ using rep_ind; cbn.
-    - reflexivity.
-    - f_equal. apply Forall_mapM_ext.
-      eapply Forall_impl; [exact H |].
-      intros ρ' IH. apply IH.
-    - f_equal. apply Forall_mapM_ext.
-      eapply Forall_impl; [exact H |].
-      intros ρ' IH. apply IH.
-    - reflexivity.
-  Qed.
-
-  Lemma eval_size_senv_insert_mem (μ : base_memory) (se : semantic_env (Σ:=Σ)) σ :
-    eval_size (senv_insert_mem μ se) σ = eval_size se σ.
-  Proof.
-    induction σ using size_ind; cbn.
-    - reflexivity.
-    - f_equal. apply Forall_mapM_ext.
-      eapply Forall_impl; [exact H |].
-      intros σ' IH. apply IH.
-    - f_equal. apply Forall_mapM_ext. exact H.
-    - by rewrite eval_rep_senv_insert_mem.
-    - reflexivity.
-  Qed.
-
-  Lemma eval_kind_senv_insert_mem (μ : base_memory) (se : semantic_env (Σ:=Σ)) κ :
-    eval_kind (senv_insert_mem μ se) κ = eval_kind se κ.
-  Proof.
-    unfold eval_kind. simpl.
-    destruct κ; simpl.
-    - rewrite eval_rep_senv_insert_mem. reflexivity.
-    - rewrite eval_size_senv_insert_mem. reflexivity.
-  Qed.
-
-  Lemma sem_env_interp_insert_mem F (se : semantic_env (Σ:=Σ)) (μ : base_memory) :
-    sem_env_interp F se →
-    sem_env_interp (F <| fc_kind_ctx; kc_mem_vars ::= S |>) (senv_insert_mem μ se).
-  Proof.
-    intros [Hkind Htypes].
-    split.
-    - destruct Hkind as (Hmem & Hrep & Hsize).
-      unfold kind_ctx_interp. cbn.
-      repeat split; destruct F as [? ? ? [? ? ?] ?]; cbn in *; lia.
-    - cbn [fc_type_vars].
-      eapply Forall2_impl; [exact Htypes|].
-      intros κ' [sκ' T'] [Heval' HT'].
-      split; [by rewrite eval_kind_senv_insert_mem | exact HT'].
-  Qed.
-
-  Lemma sem_env_interp_insert_type F (se : semantic_env (Σ:=Σ)) κ sκ T :
-    sem_env_interp F se →
-    eval_kind se κ = Some sκ →
-    skind_has_stype sκ T →
-    sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se).
-  Proof.
-    intros [Hkind Htypes] Hκ HT.
-    split.
-    - destruct Hkind as (Hmem & Hrep & Hsize).
-      repeat split; cbn; done.
-    - cbn [fc_type_vars].
-      apply Forall2_cons.
-      split.
-      + split.
-        * by rewrite eval_kind_senv_insert_type.
-        * exact HT.
-      + eapply Forall2_impl; [exact Htypes|].
-        intros κ' [sκ' T'] [Heval' HT'].
-        split; [by rewrite eval_kind_senv_insert_type | exact HT'].
   Qed.
 
   Lemma type_interp_type_eq :
@@ -651,69 +580,43 @@ Section type_eq_sem.
       + iIntros "(%sκ & %Hsk & %Hsv & %μ & Hτ)".
         iExists sκ. iSplit; first done. iSplit; first done.
         iExists μ.
-        iEval (rewrite (IH (F <| fc_kind_ctx; kc_mem_vars ::= S |>) _ _
-                           (senv_insert_mem μ se) _
-                           Hkτ Hkτ' (sem_env_interp_insert_mem F se μ Hse))) in "Hτ".
-        iExact "Hτ".
+        iApply IH; try done.
+        by apply sem_env_insert_mem.
       + iIntros "(%sκ & %Hsk & %Hsv & %μ & Hτ)".
         iExists sκ. iSplit; first done. iSplit; first done.
         iExists μ.
-        iEval (rewrite -(IH (F <| fc_kind_ctx; kc_mem_vars ::= S |>) _ _
-                            (senv_insert_mem μ se) _
-                            Hkτ Hkτ' (sem_env_interp_insert_mem F se μ Hse))) in "Hτ".
-        iExact "Hτ".
-
+        iApply IH; try done.
+        by apply sem_env_insert_mem.
     - (* ExistsRep *)
       intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       inversion Hκ; subst. inversion Hκ'; subst.
-      match goal with Hk : has_kind (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ _ |- _ =>
-        rename Hk into Hkτ end.
-      match goal with Hk : has_kind (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ' _ |- _ =>
-        rename Hk into Hkτ' end.
       rewrite !type_interp_eq /add_skind_interp /=.
       iSplit.
       + iIntros "(%sκ & %Hsk & %Hsv & %ιs & Hτ)".
         iExists sκ. iSplit; first done. iSplit; first done.
         iExists ιs.
-        Search sem_env_interp.
-        (* TODO: sem_env_interp lemma about senv_insert_rep *)
-        iDestruct (IH (F <| fc_kind_ctx ::= set kc_rep_vars S |>) _ _
-                           (senv_insert_rep ιs se) _
-                           Hkτ Hkτ' _) as "H".
-        by iApply "H".
+        iApply IH; try done.
+        by apply sem_env_insert_rep.
       + iIntros "(%sκ & %Hsk & %Hsv & %ιs & Hτ)".
         iExists sκ. iSplit; first done. iSplit; first done.
         iExists ιs.
-        (* TODO: sem_env_interp lemma about senv_insert_rep *)
-        iDestruct (IH (F <| fc_kind_ctx ::= set kc_rep_vars S |>) _ _
-                           (senv_insert_rep ιs se) _
-                           Hkτ Hkτ' _) as "H".
-        by iApply "H".
+        iApply IH; try done.
+        by apply sem_env_insert_rep.
     - (* ExistsSize *)
       intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       inversion Hκ; subst. inversion Hκ'; subst.
-      match goal with Hk : has_kind (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ _ |- _ =>
-        rename Hk into Hkτ end.
-      match goal with Hk : has_kind (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ' _ |- _ =>
-        rename Hk into Hkτ' end.
       rewrite !type_interp_eq /add_skind_interp /=.
       iSplit.
       + iIntros "(%sκ & %Hsk & %Hsv & %n & Hτ)".
         iExists sκ. iSplit; first done. iSplit; first done.
         iExists n.
-        (* TODO: sem_env_interp lemma about senv_insert_size *)
-        iDestruct (IH (F <| fc_kind_ctx ::= set kc_size_vars S |>) _ _
-                           (senv_insert_size n se) _
-                           Hkτ Hkτ' _) as "H".
-        by iApply "H".
+        iApply IH; try done.
+        by apply sem_env_insert_size.
       + iIntros "(%sκ & %Hsk & %Hsv & %n & Hτ)".
         iExists sκ. iSplit; first done. iSplit; first done.
         iExists n.
-        (* TODO: sem_env_interp lemma about senv_insert_size *)
-        iDestruct (IH (F <| fc_kind_ctx ::= set kc_size_vars S |>) _ _
-                           (senv_insert_size n se) _
-                           Hkτ Hkτ' _) as "H".
-        by iApply "H".
+        iApply IH; try done.
+        by apply sem_env_insert_size.
     - intros κ0 κτ τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
       (* TEqExType *)
       inversion Hκ; subst. inversion Hκ'; subst.
@@ -723,22 +626,16 @@ Section type_eq_sem.
         rename Hk into Hkτ' end.
       rewrite !type_interp_eq /add_skind_interp /=.
       iSplit.
-      + iIntros "(%sκ & %Hsk & %Hsv & %T' & %sκ0 & %Heval & %HsT & Hτ)".
+      + iIntros "(%sκ & %Hsk & %Hsv & %T' & %sκ0 & %sκ_T & %Heval & %HsT & %Hskst & Hτ)".
         iExists sκ. iSplit; first done. iSplit; first done.
-        iExists T', sκ0. iSplit; first done. iSplit; first done.
-        iEval (rewrite (IH (F <| fc_type_vars ::= cons κτ |>) _ _
-                           (senv_insert_type sκ0 T' se) _
-                           Hkτ Hkτ'
-                           (sem_env_interp_insert_type F se κτ sκ0 T' Hse Heval HsT))) in "Hτ".
-        iExact "Hτ".
-      + iIntros "(%sκ & %Hsk & %Hsv & %T' & %sκ0 & %Heval & %HsT & Hτ)".
+        iExists T', sκ0, sκ_T. iSplit; first done. iSplit; first done. iSplit; first done.
+        iApply IH; try done.
+        apply sem_env_interp_insert_type; try done.
+      + iIntros "(%sκ & %Hsk & %Hsv & %T' & %sκ0 & %sκ_T & %Heval & %HsT & %Hskst & Hτ)".
         iExists sκ. iSplit; first done. iSplit; first done.
-        iExists T', sκ0. iSplit; first done. iSplit; first done.
-        iEval (rewrite -(IH (F <| fc_type_vars ::= cons κτ |>) _ _
-                            (senv_insert_type sκ0 T' se) _
-                            Hkτ Hkτ'
-                            (sem_env_interp_insert_type F se κτ sκ0 T' Hse Heval HsT))) in "Hτ".
-        iExact "Hτ".
+        iExists T', sκ0, sκ_T. iSplit; first done. iSplit; first done. iSplit; first done.
+        iApply IH; try done.
+        apply sem_env_interp_insert_type; try done.
     - (* Ser Struct *)
       intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
