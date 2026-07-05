@@ -911,11 +911,219 @@ Section kinding.
       apply ref_flag_interp_pers.
       setoid_rewrite <- eval_kind_flags; last by eauto.
       cbn.
-      admit.
+
+      subst κ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ.
+      destruct Hsκ as (ιs & Hcat & Hret).
+      apply fmap_Some in Hcat.
+      destruct Hcat as (ιss & Hιss & ->).
+      inversion Hret; subst sκ; clear Hret.
+      pose proof (length_mapM _ _ _ Hιss) as Hlens1.
+      pose proof (Forall3_length_lm _ _ _ _ H).
+      pose proof (Forall3_length_lr _ _ _ _ H).
+
+      destruct (ref_flag_lub ξs) eqn:Hlub; cbn; last done.
+      + intros sv.
+        apply bi.exist_persistent; intros i.
+        apply bi.exist_persistent; intros os.
+        apply bi.exist_persistent; intros off.
+        apply bi.exist_persistent; intros count.
+        unfold Persistent.
+        iIntros "(-> & %Hoff & %Hev & Hty)".
+
+        apply bind_Some in Hev.
+        destruct Hev as (ιs & Hev & Hret).
+        inversion Hret; subst count; clear Hret.
+        apply bind_Some in Hev.
+        destruct Hev as (ρ & Hev & Hret).
+        assert (i < length ρs).
+        { by apply lookup_lt_is_Some. }
+        assert (is_Some (τs !! i)) as [τ Hτ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ξs !! i)) as [ξ Hξ].
+        { apply lookup_lt_is_Some; lia. }
+        apply (util.mapM_lookup _ _ _ i) in Hιss.
+        rewrite Hev in Hιss; cbn in Hιss.
+        rewrite Hret in Hιss; symmetry in Hιss.
+
+        pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
+        unfold fmap in Hfmap.
+        replace list_fmap with map in Hfmap by done.
+        unfold lookup in Hfmap, Hτ.
+        rewrite Hfmap Hτ.
+        cbn.
+        iSplit; first eauto.
+        iSplit; first eauto.
+        iSplit.
+        {  cbn.
+           rewrite Hev; cbn; rewrite Hret.
+           iModIntro; iPureIntro.
+           done. }
+
+        eapply Forall3_lookup_lmr in H; eauto.
+        specialize (H se (SVALTYPE ιs ξ) ltac:(done) ltac:(cbn; rewrite Hret; done)).
+        unfold refok in H.
+        cbn in H.
+        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
+        rewrite Hlub in Hub.
+        destruct ξ; last by inversion Hub; eauto.
+        * specialize (H (SAtoms (take (length ιs) (drop off os)))).
+          unfold Persistent in H.
+          by iApply H.
+        * specialize (H (SAtoms (take (length ιs) (drop off os)))).
+          unfold Persistent in H.
+          by iApply H.
+      + intros sv.
+        apply bi.exist_persistent; intros i.
+        apply bi.exist_persistent; intros os.
+        apply bi.exist_persistent; intros off.
+        apply bi.exist_persistent; intros count.
+        unfold Persistent.
+        iIntros "(-> & %Hoff & %Hev & Hty)".
+
+        apply bind_Some in Hev.
+        destruct Hev as (ιs & Hev & Hret).
+        inversion Hret; subst count; clear Hret.
+        apply bind_Some in Hev.
+        destruct Hev as (ρ & Hev & Hret).
+        assert (i < length ρs).
+        { by apply lookup_lt_is_Some. }
+        assert (is_Some (τs !! i)) as [τ Hτ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ξs !! i)) as [ξ Hξ].
+        { apply lookup_lt_is_Some; lia. }
+        apply (util.mapM_lookup _ _ _ i) in Hιss.
+        rewrite Hev in Hιss; cbn in Hιss.
+        rewrite Hret in Hιss; symmetry in Hιss.
+
+        pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
+        unfold fmap in Hfmap.
+        replace list_fmap with map in Hfmap by done.
+        unfold lookup in Hfmap, Hτ.
+        rewrite Hfmap Hτ.
+        cbn.
+        iSplit; first eauto.
+        iSplit; first eauto.
+        iSplit.
+        {  cbn.
+           rewrite Hev; cbn; rewrite Hret.
+           iModIntro; iPureIntro.
+           done. }
+
+        eapply Forall3_lookup_lmr in H; eauto.
+        specialize (H se (SVALTYPE ιs ξ) ltac:(done) ltac:(cbn; rewrite Hret; done)).
+        unfold refok in H.
+        cbn in H.
+        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
+        rewrite Hlub in Hub.
+        destruct ξ; last by inversion Hub; eauto.
+        * specialize (H (SAtoms (take (length ιs) (drop off os)))).
+          unfold Persistent in H.
+          by iApply H.
+        * specialize (H (SAtoms (take (length ιs) (drop off os)))).
+          unfold Persistent in H.
+          by iApply H.
     - (* VariantT *)
       setoid_rewrite type_interp_equiv.
       apply ref_flag_interp_pers.
-      admit.
+      setoid_rewrite <- eval_kind_flags; last by eauto.
+      cbn.
+
+      subst κ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ.
+      destruct Hsκ as (n & Hcat & Hret).
+      apply fmap_Some in Hcat.
+      destruct Hcat as (ns & Hns & ->).
+      inversion Hret; subst sκ; clear Hret.
+      pose proof (length_mapM _ _ _ Hns) as Hlens1.
+      pose proof (Forall3_length_lm _ _ _ _ H).
+      pose proof (Forall3_length_lr _ _ _ _ H).
+
+      destruct (ref_flag_lub ξs) eqn:Hlub; cbn; last done.
+      + intros sv.
+        apply bi.exist_persistent; intros i.
+        apply bi.exist_persistent; intros n.
+        apply bi.exist_persistent; intros ws.
+        apply bi.exist_persistent; intros ws'.
+        unfold Persistent.
+        iIntros "(%Hrep & -> & Hty)".
+
+        pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
+        unfold fmap in Hfmap.
+        replace list_fmap with map in Hfmap by done.
+        unfold lookup in Hfmap.
+        rewrite Hfmap.
+        destruct (list_lookup i τs) eqn:Hτs; rewrite Hτs; cbn; last done.
+
+        assert (i < length τs).
+        { by apply lookup_lt_is_Some. }
+        assert (is_Some (ns !! i)) as [m Hm].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (σs !! i)) as [σ Hσ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ξs !! i)) as [ξ Hξ].
+        { apply lookup_lt_is_Some; lia. }
+        apply (util.mapM_lookup _ _ _ i) in Hns.
+        rewrite Hσ in Hns; cbn in Hns.
+        rewrite Hm in Hns.
+
+        iSplit; first eauto.
+        iSplit; first eauto.
+
+        eapply Forall3_lookup_lmr in H; eauto.
+        specialize (H se (SMEMTYPE m ξ) ltac:(done) ltac:(cbn; rewrite Hns; done)).
+        unfold refok in H.
+        cbn in H.
+        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
+        rewrite Hlub in Hub.
+        destruct ξ; last by inversion Hub; eauto.
+        * unfold Persistent in H.
+          by iApply H.
+        * unfold Persistent in H.
+          by iApply H.
+      + intros sv.
+        apply bi.exist_persistent; intros i.
+        apply bi.exist_persistent; intros n.
+        apply bi.exist_persistent; intros ws.
+        apply bi.exist_persistent; intros ws'.
+        unfold Persistent.
+        iIntros "(%Hrep & -> & Hty)".
+
+        pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
+        unfold fmap in Hfmap.
+        replace list_fmap with map in Hfmap by done.
+        unfold lookup in Hfmap.
+        rewrite Hfmap.
+        destruct (list_lookup i τs) eqn:Hτs; rewrite Hτs; cbn; last done.
+
+        assert (i < length τs).
+        { by apply lookup_lt_is_Some. }
+        assert (is_Some (ns !! i)) as [m Hm].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (σs !! i)) as [σ Hσ].
+        { apply lookup_lt_is_Some; lia. }
+        assert (is_Some (ξs !! i)) as [ξ Hξ].
+        { apply lookup_lt_is_Some; lia. }
+        apply (util.mapM_lookup _ _ _ i) in Hns.
+        rewrite Hσ in Hns; cbn in Hns.
+        rewrite Hm in Hns.
+
+        iSplit; first eauto.
+        iSplit; first eauto.
+
+        eapply Forall3_lookup_lmr in H; eauto.
+        specialize (H se (SMEMTYPE m ξ) ltac:(done) ltac:(cbn; rewrite Hns; done)).
+        unfold refok in H.
+        cbn in H.
+        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
+        rewrite Hlub in Hub.
+        destruct ξ; last by inversion Hub; eauto.
+        * unfold Persistent in H.
+          by iApply H.
+        * unfold Persistent in H.
+          by iApply H.
     - (* ProdT *)
       setoid_rewrite type_interp_equiv.
       apply ref_flag_interp_pers.
