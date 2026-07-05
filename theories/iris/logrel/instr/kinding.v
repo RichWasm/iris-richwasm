@@ -7,7 +7,7 @@ From iris Require Import
           bi.bi
           bi.lib.fixpoint_banach.
 Import bi.
-From RichWasm Require Import layout syntax typing kinding_subst.
+From RichWasm Require Import layout syntax typing kinding_subst util.
 From RichWasm.compiler Require Import prelude module codegen.
 From RichWasm.iris Require Import autowp memory util wp_codegen lenient_wp logpred.
 Require Import RichWasm.iris.logrel.
@@ -853,6 +853,79 @@ Section kinding.
         split; [by eapply eval_kind_type_irrel | exact HT'].
   Qed.
 
+  Lemma sem_env_interp_refs_insert_rep F se ιs :
+    sem_env_interp_refs F se ->
+    sem_env_interp_refs (add_rep_var F) (senv_insert_rep ιs se).
+  Proof.
+    Transparent senv_insert_rep.
+    intros Hse.
+    destruct Hse as ((h1 & h2 & h3) & h4).
+    cbn in h1; cbn in h2; cbn in h3.
+    repeat split; try done.
+    + cbn.
+      rewrite <- h2.
+      done.
+    + unfold type_ctx_interp.
+      cbn.
+      unfold type_ctx_refs_interp in h4.
+      cbn in h4.
+      apply Forall2_same_length_lookup_2.
+      {
+        unfold add_rep_var; cbn.
+        unfold set.
+        cbn.
+        rewrite length_map.
+        eapply Forall2_length; done.
+      }
+      intros *.
+      destruct y as [sκ [sκ_T T]].
+      intros.
+      change (se.1.1.1, ιs::se.1.1.2, se.1.2, se.2) with (senv_insert_rep ιs se).
+      pose proof (eval_kind_up_shift_rep_eq (Σ := Σ)).
+      apply map_lookup_helper_backwards in H.
+      destruct H as (K & lokp & ->).
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ h4 lokp H0) as [? [? ?]].
+      split; try done.
+      by setoid_rewrite <- eval_kind_up_shift_rep_eq.
+  Qed.
+
+  Lemma sem_env_interp_refs_insert_size F se n :
+    sem_env_interp_refs F se ->
+    sem_env_interp_refs (add_size_var F) (senv_insert_size n se).
+  Proof.
+    Transparent senv_insert_size.
+    intros Hse.
+    destruct Hse as ((h1 & h2 & h3) & h4).
+    cbn in h1; cbn in h2; cbn in h3.
+    repeat split; try done.
+    + cbn.
+      rewrite <- h3.
+      done.
+    + unfold type_ctx_refs_interp.
+      cbn.
+      unfold type_ctx_interp in h4.
+      cbn in h4.
+      apply Forall2_same_length_lookup_2.
+      {
+        unfold add_rep_var; cbn.
+        unfold set.
+        cbn.
+        rewrite length_map.
+        eapply Forall2_length; done.
+      }
+      intros *.
+      destruct y as [sκ [sκ_T T]].
+      intros.
+      change (se.1.1.1, se.1.1.2, n::se.1.2, se.2) with (senv_insert_size n se).
+      apply map_lookup_helper_backwards in H.
+      destruct H as (K & lokp & ->).
+      setoid_rewrite <- (eval_kind_up_shift_size_eq).
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ h4 lokp H0).
+      cbn in H.
+      done.
+  Qed.
+
+
   Lemma sem_env_interp_refs_insert_mem F (se : semantic_env (Σ:=Σ)) μ :
     sem_env_interp_refs F se →
     sem_env_interp_refs (F <| fc_kind_ctx; kc_mem_vars ::= S |>) (senv_insert_mem μ se).
@@ -860,15 +933,17 @@ Section kinding.
     intros [Hkind Htypes].
     destruct se as [[[m r] s] t].
     destruct F as [ret loc lab K tys]; destruct K.
-    cbn in *;  split.
+    cbn -[senv_insert_mem] in *;  split.
     - destruct Hkind as (Hmem & Hrep & Hsize); cbn in *.
       repeat split; cbn; try done.
       congruence.
-    - cbn [fc_type_vars].
+    - unfold set; cbn -[senv_insert_mem].
+      unfold type_ctx_interp in *; cbn -[senv_insert_mem] in *.
       eapply Forall2_impl; [exact Htypes|].
       intros κ' [sκ' [sκ_T' T']] [Heval' HT'].
-      admit.
-  Admitted.
+      split; eauto.
+      by setoid_rewrite <- eval_kind_mem_irrel_eq.
+  Qed.
 
   Lemma eval_kind_flags (se : semantic_env (Σ := Σ)) κ sκ :
     eval_kind se κ = Some sκ →
@@ -1339,9 +1414,17 @@ Section kinding.
         unfold refok in IHHκ.
         rewrite Hflag in IHHκ.
         eapply IHHκ.
-        * admit.
-        * admit.
-      + admit.
+        * by eapply sem_env_interp_refs_insert_mem.
+        * by setoid_rewrite <- eval_kind_mem_irrel_eq.
+      + intros sv.
+        apply bi.exist_persistent; intros μ.
+        specialize (IHHκ (μ :: se.1.1.1, se.1.1.2, se.1.2, se.2) sκ).
+        unfold refok in IHHκ.
+        rewrite Hflag in IHHκ.
+        eapply IHHκ.
+        * by eapply sem_env_interp_refs_insert_mem.
+        * by setoid_rewrite <- eval_kind_mem_irrel_eq.
+
     - (* ExistsRepT *)
       rewrite value_interp_equiv.
       apply ref_flag_interp_pers.
@@ -1354,24 +1437,16 @@ Section kinding.
         unfold refok in IHHκ.
         rewrite Hflag in IHHκ.
         eapply IHHκ.
-        * destruct Hse as [[Hsem [Hser Hses]] Hset].
-          repeat split; cbn; try done.
-          -- destruct F; destruct fc_kind_ctx; cbn in *.
-             congruence.
-          -- admit.
-        * admit.
+        * by eapply sem_env_interp_refs_insert_rep.
+        * by setoid_rewrite <- eval_kind_up_shift_rep_eq.
       + intros sv.
         apply bi.exist_persistent; intros ιs.
         specialize (IHHκ (se.1.1.1, ιs :: se.1.1.2, se.1.2, se.2) sκ).
         unfold refok in IHHκ.
         rewrite Hflag in IHHκ.
         eapply IHHκ.
-        * destruct Hse as [[Hsem [Hser Hses]] Hset].
-          repeat split; cbn; try done.
-          -- destruct F; destruct fc_kind_ctx; cbn in *.
-             congruence.
-          -- admit.
-        * admit.
+        * by eapply sem_env_interp_refs_insert_rep.
+        * by setoid_rewrite <- eval_kind_up_shift_rep_eq.
     - (* ExistsSizeT *)
       rewrite value_interp_equiv.
       apply ref_flag_interp_pers.
@@ -1384,24 +1459,16 @@ Section kinding.
         unfold refok in IHHκ.
         rewrite Hflag in IHHκ.
         eapply IHHκ.
-        * destruct Hse as [[Hsem [Hser Hses]] Hset].
-          repeat split; cbn; try done.
-          -- destruct F; destruct fc_kind_ctx; cbn in *.
-             congruence.
-          -- admit.
-        * admit.
+        * by eapply sem_env_interp_refs_insert_size.
+        * by setoid_rewrite <- eval_kind_up_shift_size_eq.
       + intros sv.
         apply bi.exist_persistent; intros n.
         specialize (IHHκ (se.1.1.1, se.1.1.2, n :: se.1.2, se.2) sκ).
         unfold refok in IHHκ.
         rewrite Hflag in IHHκ.
         eapply IHHκ.
-        * destruct Hse as [[Hsem [Hser Hses]] Hset].
-          repeat split; cbn; try done.
-          -- destruct F; destruct fc_kind_ctx; cbn in *.
-             congruence.
-          -- admit.
-        * admit.
+        * by eapply sem_env_interp_refs_insert_size.
+        * by setoid_rewrite <- eval_kind_up_shift_size_eq.
     - (* ExistsTypeT *)
       rewrite value_interp_equiv.
       apply ref_flag_interp_pers.
@@ -1484,5 +1551,4 @@ Section kinding.
     - eapply kinding_sound_ref_flag; eauto using sem_env_interp_proj_refs.
     - intros sv. eapply kinding_sound_svalue; eauto.
   Qed.
-
 End kinding.
