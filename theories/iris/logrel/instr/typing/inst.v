@@ -2499,7 +2499,7 @@ Admitted.
     destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ_T Hsκ_T].
 
     pose proof (subkind_subskind _ _ _ _ _ Hsκ_T Hsκ Hsubkind) as Hsubskind.
-    pose proof (kinding_sound rti sr mr _ _ _ _ _ Hκ Hse Hsκ_T) as HT.
+    pose proof (kinding_sound rti sr _ _ _ _ _ Hκ Hse Hsκ_T) as HT.
     set T := value_interp rti sr se τ.
     iSpecialize ("Hcl" $! sκ sκ_T T Hsκ Hsubskind HT).
     iApply inner_closure_interp_subst_senv_eq; last done.

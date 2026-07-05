@@ -344,7 +344,7 @@ Section PathFacts.
     inversion Hok as [F' τ' κ' Ht Hk]; subst F' τ' κ'.
     eapply eval_kind_ok_Some in Hk; eauto.
     destruct Hk as [sκ Hev].
-    pose proof (kinding_sound rti sr mr _ _ _ _ _ Hκ HF Hev) as [_ Hsv].
+    pose proof (kinding_sound rti sr _ _ _ _ _ Hκ HF Hev) as [_ Hsv].
     iDestruct (Hsv with "Hws") as "%Hkind".
     destruct sκ; cbn in Hkind.
     - destruct Hkind as [[vs [Hcontra _]] _]; congruence.

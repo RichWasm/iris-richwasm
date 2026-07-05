@@ -949,13 +949,25 @@ Section kinding.
     eval_kind se κ = Some sκ →
     kind_ref_flag κ = skind_ref_flag sκ.
   Proof.
-  Admitted.
+    destruct κ; cbn; intros Hev.
+    - apply bind_Some in Hev.
+      destruct Hev as (ιs & Hιs & Hret).
+      by inversion Hret.
+    - apply bind_Some in Hev.
+      destruct Hev as (n & Hn & Hret).
+      by inversion Hret.
+  Qed.
 
   Lemma refok_add_skind_closed sκ (T : leibnizO semantic_value -n> iPropO Σ) :
     refok sκ T →
     refok sκ (add_skind_interp_closed sκ T).
   Proof.
-  Admitted.
+    unfold refok, add_skind_interp_closed.
+    destruct (skind_ref_flag sκ); intros.
+    - apply sep_persistent; typeclasses eauto.
+    - apply sep_persistent; typeclasses eauto.
+    - done.
+  Qed.
 
   Lemma kinding_sound_ref_flag F se τ κ sκ :
     has_kind F τ κ ->
@@ -1525,7 +1537,8 @@ Section kinding.
     - done.
     - done.
     - done.
-  Admitted.
+    - done.
+  Qed.
 
   Lemma kinding_sound_svalue F se τ κ sκ sv :
     has_kind F τ κ ->
