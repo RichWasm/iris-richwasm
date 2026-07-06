@@ -185,11 +185,16 @@ Section unfold.
       (* there's the senv_insert_type difference but even islating that and cbn-ing it didn't
         do anything *)
       pose proof (add_skind_interp_closed_equiv_value_interp sκ τ κ se Hκ).
-      (* I went through line by line and could only see the %I difference, but that shouldn't *)
-      (* cause an issue..? I'm confused *)
-      (* note that I did a pass through without doing this iAssert, and that would almost certainly
-         also work, but just have the proof of add_skind-interp_closed_equiv_value_interp copied*)
-      admit.
+      assert (Hproper: Proper (equiv ==> equiv) (type_interp rti sr τ)). {
+        typeclasses eauto.
+      }
+      iApply Hproper.
+      {
+        apply senv_insert_type_proper.
+        symmetry.
+        apply H1.
+      }
+      done.
     }
     pose proof (sem_well_formed_from_interp F se Hse) as HseF.
 
@@ -243,6 +248,6 @@ Section unfold.
       rewrite H0.
       exact Hkindτrec.
       Transparent skind_has_svalue.
-  Admitted.
+  Qed.
 
 End unfold.
