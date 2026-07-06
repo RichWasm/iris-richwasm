@@ -661,6 +661,18 @@ Section type_eq_sem.
         iExists (map serialize_atom os).
         rewrite flat_map_concat_map.
         iSplit; first done.
+        rewrite big_sepL2_fmap_r big_sepL2_fmap_l.
+        rewrite !type_interp_eq /add_skind_interp.
+        iDestruct "Hprod" as (sκ0 Htskind Hsksv) "Hprod".
+        cbn.
+        iDestruct "Hprod" as (oss Hatoms_eq) "H".
+        inversion Hatoms_eq.
+        subst os.
+        rewrite big_sepL2_fmap_l.
+        rewrite big_sepL2_flip. (* The definitions should really agree on the order... *)
+        (* TODO: this feels like an odd thing to prove...
+           The lenght implications mean that, if this is true, then length oss = length $ concat oss *)
+
         admit.
       + admit.
     - (* Struct Ser *)
