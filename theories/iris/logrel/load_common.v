@@ -315,7 +315,7 @@ Section load_common.
     | [n1; n2] =>
         let n1' := Wasm_int.Int32.unsigned n1 in
         let n2' := Wasm_int.Int32.unsigned n2 in
-        Some (Wasm_int.Int64.repr (Z.shiftl n1' 32 + n2'))
+        Some (Wasm_int.Int64.repr (Z.shiftl n2' 32 + n1'))
     | _ => None
     end.
 
@@ -347,6 +347,28 @@ Section load_common.
   Proof.
     induction ι; cbn; intros Hcong; destruct ns32 as [| ? [| ? [| ? ]]]; try done;
       cbn in Hcong; inversion Hcong; subst; done.
+  Qed.
+
+  Lemma split_Z32 a :
+    (a = (a ≫ 32) ≪ 32 + a `mod` 2 ^ 32)%Z.
+  Proof.
+    etransitivity.
+    { eapply (Z_div_mod_eq_full a (2 ^ 32)). }
+    f_equal.
+    rewrite Z.shiftr_div_pow2; last done.
+    rewrite Z.shiftl_mul_pow2; last done.
+    by rewrite Z.mul_comm.
+  Qed.
+
+  Lemma int64_eq_intval (x y : Integers.Int64.int) :
+    Integers.Int64.intval x = Integers.Int64.intval y →
+    x = y.
+  Proof.
+    intros.
+    destruct x as [x xpf], y as [y ypf].
+    cbn in *; subst.
+    f_equal.
+    destruct xpf, ypf; f_equal; apply Wasm_int.Int32.Z_lt_irrelevant.
   Qed.
 
   Lemma gc_word_to_atom ι o ns ns32 v θ :
@@ -393,7 +415,47 @@ Section load_common.
       iPureIntro. f_equal.
       eapply N_i32_repr_inj2; eauto.
       done.
-    - admit.
+    - iPoseProof (big_sepL2_length with "Hw") as "%Hlenns".
+      pose proof (Forall2_length _ _ _ Hns) as Hlenns32.
+      destruct ns as [| n1 [| n2 [| n3 ns]]]; try (cbn in Hlenns; done).
+      destruct ns32 as [| lo32 [| hi32 [| extra ns32]]]; try (cbn in Hlenns32; done).
+      cbn in *.
+      clear Hlenns Hlenns32 Harep.
+      iDestruct "Hw" as "(-> & -> & _)".
+      inversion Hv; subst; clear Hv.
+      iPureIntro.
+      f_equal.
+      apply Forall2_cons_1 in Hns.
+      destruct Hns as [Hn1 Hns].
+      apply Forall2_cons_1 in Hns.
+      destruct Hns as [Hn2 _].
+      unfold N_i32_repr in Hn1, Hn2.
+      destruct n as [n npf].
+      apply Wasm_int.Int64.eq_T_intval.
+      cut (n = (Wasm_int.Int32.unsigned hi32 ≪ 32 + Wasm_int.Int32.unsigned lo32)%Z).
+      {
+        intros ->; cbn.
+        by rewrite Wasm_int.Int64.Z_mod_modulus_id.
+      }
+      cbn in Hn1, Hn2.
+
+      assert (0 ≤ Wasm_int.Int32.Z_mod_modulus n)%Z.
+      { apply Wasm_int.Int32.Z_mod_modulus_range. }
+      assert (0 ≤ Wasm_int.Int32.unsigned lo32)%Z.
+      { apply Wasm_int.Int32.unsigned_range_2. }
+      assert (0 ≤ Wasm_int.Int32.unsigned hi32)%Z.
+      { apply Wasm_int.Int32.unsigned_range_2. }
+      assert (0 ≤ n ≫ 32)%Z.
+      { apply Z.shiftr_nonneg; lia. }
+      apply Z2N.inj in Hn1; auto; [].
+      apply Z2N.inj in Hn2; auto.
+      rewrite -Hn1 -Hn2.
+      rewrite Hn1.
+      rewrite unsigned_is_N in Hn1, Hn2.
+      unfold Wasm_int.Int64.Z_mod_modulus.
+      rewrite Wasm_int.Int32.Z_mod_modulus_eq in Hn1.
+      rewrite unsigned_is_N -Hn1.
+      apply (split_Z32 n).
     - cbn.
       iPoseProof (big_sepL2_cons_inv_l with "Hw") as "(%n' & %ns' & %Hns' & Hn & Hns)".
       cbn.
@@ -403,9 +465,69 @@ Section load_common.
       destruct ns32 as [| ? [| ? ?]]; cbn in Hv; inversion Hv; subst.
       inversion Hns; subst.
       iPureIntro.
-      admit.
-    - admit.
-  Admitted.
+      f_equal.
+      inversion H2.
+      assert (0 ≤ Integers.Int.intval (Wasm_float.FloatSize32.to_bits n))%Z.
+      { pose proof Integers.Int.intrange (Wasm_float.FloatSize32.to_bits n); lia. }
+      assert (0 ≤ Wasm_int.Int32.unsigned s)%Z.
+      { apply Wasm_int.Int32.unsigned_range_2. }
+      apply Z2N.inj in H0; eauto; [].
+      unfold mk_float32.
+      destruct s as [s spf]; cbn in H0; subst s; cbn.
+      etransitivity; last apply Wasm_float.FloatSize32.of_to_bits.
+      f_equal.
+    - cbn in *.
+      rename n into f.
+      iPoseProof (big_sepL2_length with "Hw") as "%Hlenns".
+      pose proof (Forall2_length _ _ _ Hns) as Hlenns32.
+      destruct ns as [| n1 [| n2 [| n3 ns]]]; try (cbn in Hlenns; done).
+      destruct ns32 as [| lo32 [| hi32 [| extra ns32]]]; try (cbn in Hlenns32; done).
+      cbn in *.
+      clear Hlenns Hlenns32 Harep.
+      iDestruct "Hw" as "(-> & -> & _)".
+      iPureIntro.
+      inversion Hv; subst; clear Hv.
+      f_equal.
+      apply Forall2_cons_1 in Hns.
+      destruct Hns as [Hn1 Hns].
+      apply Forall2_cons_1 in Hns.
+      destruct Hns as [Hn2 _].
+      unfold N_i32_repr in Hn1, Hn2.
+      remember (Wasm_float.FloatSize64.to_bits f) as n.
+      assert (Wasm_int.Int64.intval (Wasm_int.Int64.repr (Wasm_int.Int32.unsigned hi32 ≪ 32 + Wasm_int.Int32.unsigned lo32)) = Integers.Int64.intval n).
+      {
+        destruct n as [n npf].
+        cbn.
+        cut (n = (Wasm_int.Int32.unsigned hi32 ≪ 32 + Wasm_int.Int32.unsigned lo32)%Z).
+        {
+          intros ->; cbn.
+          by rewrite Wasm_int.Int64.Z_mod_modulus_id.
+        }
+        cbn in Hn1, Hn2.
+        assert (0 ≤ n ≫ 32)%Z.
+        { apply Z.shiftr_nonneg; lia. }
+        assert (0 ≤ Wasm_int.Int32.unsigned hi32)%Z.
+        { apply Wasm_int.Int32.unsigned_range_2. }
+        assert (0 ≤ Wasm_int.Int32.Z_mod_modulus n)%Z.
+        { apply Wasm_int.Int32.Z_mod_modulus_range. }
+        assert (0 ≤ Wasm_int.Int32.unsigned lo32)%Z.
+        { apply Wasm_int.Int32.unsigned_range_2. }
+        apply Z2N.inj in Hn1; first apply Z2N.inj in Hn2; eauto; [].
+        rewrite -Hn1 -Hn2.
+        rewrite Hn1.
+        rewrite unsigned_is_N in Hn1, Hn2.
+        unfold Wasm_int.Int64.Z_mod_modulus.
+        rewrite Wasm_int.Int32.Z_mod_modulus_eq in Hn1.
+        rewrite unsigned_is_N -Hn1.
+        apply (split_Z32 n).
+      }
+      unfold mk_float64; cbn.
+      etransitivity; last apply Wasm_float.FloatSize64.of_to_bits.
+      f_equal.
+      apply int64_eq_intval; cbn.
+      subst n.
+      by rewrite -H.
+  Qed.
 
   Definition mk_load1_frame' fe f vloc v :=
     let vloc := localimm (W.Mk_localidx (fe_wlocal_offset fe + vloc)) in
@@ -1920,11 +2042,6 @@ Section load_common.
     intros off.
     apply seq_foldl_sum_list_with.
   Qed.
-
-  (* Lemma sum_list_with_rcons {X : Type} (f : X -> nat) (x : X) (xs : list X) : *)
-  (*   sum_list_with f (seq.rcons xs x) = f x + sum_list_with f xs. *)
-  (* Proof. *)
-  (* Admitted. *)
 
   Lemma update_update_wordint ιs off ws ns1 ns2 :
     update_path_words (seq.foldl (λ off' ι0, off' + arep_size ι0) off ιs)
