@@ -24,12 +24,20 @@ Section pack.
     run_codegen (compile_instr mr fe (IPack ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    (* intros fe WT WL τrec ψ Hok Hcg. *)
-    (* cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg. *)
-    (* simpl to_e_list. *)
-    (* iApply sem_type_erased; first done. *)
-    (* iIntros (se vs) "Hrec". *)
-    (* do 2 rewrite values_interp_one_eq value_interp_eq. *)
+    intros *.
+    intros Hpack Hty Hcg.
+    cbn [compile_instr] in Hcg.
+    cbn in Hcg.
+    inversion Hcg; subst; clear Hcg.
+    iApply sem_type_erased; first done.
+    iIntros (se vs) "Hex".
+    rewrite !values_interp_one_eq.
+    rewrite !value_interp_eq.
+    inversion Hpack; subst.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
   Admitted.
 
 End pack.

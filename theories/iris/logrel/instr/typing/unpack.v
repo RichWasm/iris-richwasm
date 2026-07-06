@@ -31,6 +31,19 @@ Section unpack.
         ⊢ have_instr_type_sem rti sr mr M F0' L0 WT WL lmask es' ψ0 L0') ->
     run_codegen (compile_instr mr fe (IUnpack ψ L' es)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
+  Proof.
+    intros * Hunpack Hty IH Hcg.
+    cbn [compile_instr] in Hcg.
+    unfold compile_unpack in Hcg.
+    destruct ψ as [τs1' τs2'].
+    inv_cg_bind Hcg ?τ ?wt ?wt ?wl ?wl ?es_emp ?es Hlast Hcg.
+    inv_cg_try_option Hlast; subst; clear_nils.
+    inv_cg_bind Hcg ?tf ?wt ?wt ?wl ?wl ?es_emp ?es Hft Hcg.
+    inv_cg_try_option Hft; subst; clear_nils.
+    fold (compile_instrs mr) in Hcg.
+    apply wp_ignore in Hcg.
+    destruct Hcg as (_ & [] & Hcg).
+    admit.
   Admitted.
 
 End unpack.
