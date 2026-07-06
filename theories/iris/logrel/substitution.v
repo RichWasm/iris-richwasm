@@ -2129,4 +2129,89 @@ Admitted.
     type_interp rti sr τ se' sv.
     Proof. (* use the bidirect *) Admitted.
 
+
+  Lemma has_kind_subst_stupid :
+    (∀ τ F κ, let τrec := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+              has_kind F (RecT κ τ) κ -> has_kind F τrec κ) /\
+      (∀ (ϕ :Core.function_type), True) /\ (∀ (iϕ:inner_function_type), True).
+  Proof.
+    apply type_and_function_ind; try done.
+    all: repeat (intros ?).
+    all: unfold τrec; cbn in *;
+      match goal with
+      | H: ( has_kind _ (RecT _ _) _ ) |- _ => inversion H; subst
+      end.
+    1: {
+      destruct idx.
+      + cbn.
+        constructor. done.
+      + cbn.
+        inversion H4; subst.
+        constructor; try done.
+      }
+    1: inversion H4; subst; try done; subst κ1; cbn; constructor.
+    1: inversion H4; subst; cbn; try constructor.
+    (* okay base cases are chill *)
+    10: {
+      inversion H5; subst.
+      clear H3 H7.
+      apply H in H5.
+      subst τrec.
+      rewrite instId'_kind.
+      eapply KRec.
+      cbn in H5.
+      (* this seems probably true.. *)
+      admit.
+    }
+  Admitted.
+
+  Lemma has_kind_subst :
+    (∀ τ F κ, let τrec := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+              has_kind F (RecT κ τ) κ -> has_kind F τrec κ).
+  Proof. destruct has_kind_subst_stupid as (this & _). exact this. Qed.
+
+  (* Note: the implicit hell below is because rocq can't figure out the contractive
+   instances. In plain text, this lemma is the following:
+
+  eval_kind se κ = Some sκ
+  → add_skind_interp_closed sκ
+      (fixpoint
+         (λ T0 : leibnizO semantic_value -n> iPropO Σ,
+            λne sv : leibnizO semantic_value,
+            (▷ type_interp rti sr τ (se.1, (sκ, (sκ, add_skind_interp_closed sκ T0)) :: se.2) sv)%I))
+    ≡ value_interp rti sr se (RecT κ τ)
+
+   *)
+  Lemma add_skind_interp_closed_equiv_value_interp sκ τ κ (se: semantic_env (Σ:=Σ)):
+    eval_kind se κ = Some sκ ->
+    (@add_skind_interp_closed Σ sκ)
+    (@fixpoint natSI (leibnizO semantic_value -n> iPropO Σ)
+       (@ofe_mor_cofe natSI (leibnizO semantic_value) (iPropO Σ) (@uPred_cofe (iResUR Σ)))
+       (@ofe_mor_inhabited natSI (leibnizO semantic_value) (iPropO Σ) (@bi_inhabited (iPropI Σ)))
+       (λ T0 : leibnizO semantic_value -n> iPropO Σ,
+          λne sv : leibnizO semantic_value,
+          (▷ (@type_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr τ)
+               (senv_insert_type sκ sκ ((@add_skind_interp_closed Σ sκ) T0) se) sv)%I)
+       (@skind_rec_interp1_contractive Σ sκ
+          (@type_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr τ) se))
+    ≡ (@value_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr) se (RecT κ τ).
+  Proof.
+    intros Hκ sv.
+    rewrite value_interp_eq.
+    Transparent rec_interp.
+    iSplitR; iIntros "Hoa".
+    + cbn.
+      rewrite Hκ.
+      iExists sκ.
+      iSplitR; first done.
+      done.
+    + cbn.
+      rewrite Hκ.
+      iDestruct "Hoa" as "(%sκ_old & %toinv & this)".
+      inversion toinv; subst.
+      done.
+  Qed.
+
+
+
 End substitution.
