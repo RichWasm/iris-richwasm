@@ -676,7 +676,11 @@ Section load_move.
       + iIntros (f' vf' v' ns'').
         repeat iIntros "@".
         iApply ("HΦ" with "[Hptr] [Haddr] [$Hown] [$Htok] [Hregf] [Hats Ho] [] [] []").
-        * by erewrite update_update_wordint.
+        * rewrite simple_fold_sum_list_with.
+          rewrite sum_list_with_list_sum.
+          unfold areps_size in Hns'; cbn in Hns'.
+          rewrite -Hns'.
+          by erewrite update_update_wordint.
         * done.
         * by rewrite load_frame_inst.
         * rewrite rcons_app.
@@ -1334,6 +1338,11 @@ Section load_move.
         iIntros (f' vf' v' ns'').
         repeat iIntros "@".
         iApply ("HΦ" with "[] [] [] [Hptr] [$Hown] [$Htok] [Hregf] [Hats Ho]").
+
+        4:rewrite simple_fold_sum_list_with.
+        4:rewrite sum_list_with_list_sum.
+        4:unfold areps_size in Hns'; cbn in Hns'.
+        4:rewrite -Hns'.
         4: by erewrite update_update_wordint. (* to instantiate evars *)
         all: try done.
         * iPureIntro.

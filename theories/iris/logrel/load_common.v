@@ -2187,10 +2187,24 @@ Section load_common.
   Qed.
 
   Lemma congeal_rcons ιs ι nss ns vs :
+    length ιs = length nss ->
     congeal_atoms (seq.rcons ιs ι) (seq.rcons nss ns) = Some vs ->
     exists vs' v, vs = seq.rcons vs' v /\ congeal_atoms ιs nss = Some vs' /\ congeal_atom ι ns = Some v.
   Proof using.
-  Admitted.
+    intros Hlen.
+    unfold congeal_atoms.
+    rewrite zip_rcons; eauto.
+    repeat setoid_rewrite rcons_app.
+    intros Hev.
+    rewrite option_mapM_app in Hev.
+    cbn in Hev.
+    apply bind_Some in Hev; destruct Hev as (vs' & Hvs' & Hev).
+    apply bind_Some in Hev. destruct Hev as (vv & Hev & Hret).
+    inversion Hret; subst.
+    apply bind_Some in Hev; destruct Hev as (y & Hy & Hret').
+    inversion Hret'; subst.
+    eauto.
+  Qed.
 
   Lemma ref_flag_atoms_interp_rcons:
     ∀ (ξ : ref_flag) (o : atom) (os : list atom),
@@ -2266,13 +2280,17 @@ Section load_common.
     apply seq_foldl_sum_list_with.
   Qed.
 
-  Lemma update_update_wordint ιs off ws ns1 ns2 :
-    update_path_words (seq.foldl (λ off' ι0, off' + arep_size ι0) off ιs)
+  Lemma update_update_wordint off ws ns1 ns2 :
+    update_path_words (off + length ns1)
       (update_path_words off ws (map WordInt ns1))
       (map WordInt ns2) =
       update_path_words off ws (map WordInt (ns1 ++ ns2)).
   Proof.
-  Admitted.
+    rewrite map_app.
+    rewrite update_path_words_in_stages.
+    rewrite length_map.
+    done.
+  Qed.
 
   Lemma Forall2_rcons_inv_r:
     ∀ {A B : Type} (P : A → B → Prop) (x : B) (l : list B) (k : list A),
