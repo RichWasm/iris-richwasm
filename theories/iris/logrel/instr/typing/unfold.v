@@ -1,5 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
-Require Import RichWasm.iris.logrel.instr.typing.inst. (* TODO: import proper subst file when created *)
+Require Import RichWasm.iris.logrel.substitution. (* TODO: import proper subst file when created *)
 Require Import RichWasm.iris.logrel.env_props.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -53,28 +53,7 @@ Section unfold.
   Lemma has_kind_subst :
     (∀ τ F κ, let τrec := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
               has_kind F (RecT κ τ) κ -> has_kind F τrec κ).
-  Proof. destruct has_kind_subst_stupid as (this & _). exact this. Admitted.
-
-  (* copied: just because iApply was being annoying with doing the wrong
-   direction *)
-  Lemma type_interp_subst_type_forwards F F' se se' τ κ κ' sv sub_m sub_r sub_s sub_t :
-    let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
-    (sem_env_types_well_formed se') ->
-    (sem_env_types_well_formed se) ->
-    (sem_env_interp F' se') ->
-    (sem_env_interp F se) ->
-    (sem_env_rel_rep_eq se' se sub_r) ->
-    (sem_env_rel_size_eq se' se sub_s) ->
-    (sem_env_rel_mem_eq se' se sub_m) ->
-    (sem_env_rel_sκ_eq se' se sub_t) ->
-    (sem_env_rel_type_eq rti sr se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
-    has_kind F' τ κ ->
-    has_kind F τ' κ' ->
-    (* type_eq_mod_kinds τ' (subst_type sub_m sub_r sub_s sub_t τ) -> *)
-    type_interp rti sr τ se' sv -∗
-    type_interp rti sr τ' se sv.
-  Proof. Admitted.
+  Proof. destruct has_kind_subst_stupid as (this & _). exact this. Qed.
 
   (* Note: the implicit hell below is because rocq can't figure out the contractive
    instances. In plain text, this lemma is the following:
@@ -199,6 +178,7 @@ Section unfold.
     pose proof (sem_well_formed_from_interp F se Hse) as HseF.
 
     iApply (type_interp_subst_type_forwards with "[$Hos]").
+    1: exact mr.
     11: exact H4.
     1-9: try done.
     - unfold sem_env_types_well_formed in *.
