@@ -2081,23 +2081,58 @@ Section load_common.
     ∀ {PROP : bi} {A B : Type} (Φ : nat → A → B → PROP) (x1 : A) (l1 : list A) (l2 : list B),
       ([∗ list] k↦y1;y2 ∈ (seq.rcons l1 x1);l2, Φ k y1 y2)
       ⊢ ∃ (x2 : B) (l2' : list B),
-          ⌜l2 = seq.rcons l2' x2⌝ ∧ Φ 0 x1 x2 ∗ ([∗ list] k↦y1;y2 ∈ l1;l2', Φ (S k) y1 y2).
+          ⌜l2 = seq.rcons l2' x2⌝ ∧ Φ (length l1) x1 x2 ∗ ([∗ list] k↦y1;y2 ∈ l1;l2', Φ k y1 y2).
   Proof using.
-  Admitted.
+    intros *.
+    setoid_rewrite rcons_app.
+    iIntros "H".
+    iPoseProof (big_sepL2_app_inv_l with "H") as "(%xs & %ys & -> & Hxs & Hys)".
+    iPoseProof (big_sepL2_cons_inv_l with "Hys") as "(%x & %ys' & -> & Hx & Hy)".
+    iPoseProof (big_sepL2_nil_inv_l with "Hy") as "->".
+    iExists x, xs.
+    rewrite Nat.add_0_r.
+    iFrame.
+    iSplit; eauto.
+  Qed.
 
   Lemma big_sepL2_rcons_inv_r :
     ∀ {PROP: bi} {A B : Type} (Φ : nat → A → B → PROP) (x2 : B) (l1 : list A) (l2 : list B),
          ([∗ list] k↦y1;y2 ∈ l1;(seq.rcons l2 x2), Φ k y1 y2)
          ⊢ ∃ (x1 : A) (l1' : list A),
-             ⌜l1 = seq.rcons l1' x1⌝ ∧ Φ 0 x1 x2 ∗ ([∗ list] k↦y1;y2 ∈ l1';l2, Φ (S k) y1 y2).
+             ⌜l1 = seq.rcons l1' x1⌝ ∧ Φ (length l2) x1 x2 ∗ ([∗ list] k↦y1;y2 ∈ l1';l2, Φ k y1 y2).
   Proof using.
-  Admitted.
+    intros *.
+    setoid_rewrite rcons_app.
+    iIntros "H".
+    iPoseProof (big_sepL2_app_inv_r with "H") as "(%xs & %ys & -> & Hxs & Hys)".
+    iPoseProof (big_sepL2_cons_inv_r with "Hys") as "(%x & %ys' & -> & Hx & Hy)".
+    iPoseProof (big_sepL2_nil_inv_r with "Hy") as "->".
+    iExists x, xs.
+    rewrite Nat.add_0_r.
+    iFrame.
+    iSplit; eauto.
+  Qed.
 
   Lemma big_sepL2_rcons :
     ∀ {PROP : bi} {A B : Type} (Φ : nat → A → B → PROP) (x1 : A) (x2 : B) (l1 : list A) (l2 : list B),
-      ([∗ list] k↦y1;y2 ∈ (seq.rcons l1 x1);(seq.rcons l2 x2), Φ k y1 y2) ⊣⊢ Φ 0 x1 x2 ∗ ([∗ list] k↦y1;y2 ∈ l1;l2, Φ (S k) y1 y2).
+      ([∗ list] k↦y1;y2 ∈ (seq.rcons l1 x1);(seq.rcons l2 x2), Φ k y1 y2) ⊣⊢ Φ (length l1) x1 x2 ∗ ([∗ list] k↦y1;y2 ∈ l1;l2, Φ k y1 y2).
   Proof using.
-  Admitted.
+    intros *.
+    setoid_rewrite rcons_app.
+    iSplit; iIntros "H".
+    - iPoseProof (big_sepL2_length with "H") as "%Hlen".
+      rewrite !length_app in Hlen; cbn in Hlen.
+      iPoseProof (big_sepL2_app_inv with "H") as "[Hxs Hx]"; first (left; lia).
+      cbn.
+      iDestruct "Hx" as "[Hx _]".
+      rewrite Nat.add_0_r.
+      iFrame.
+    - iDestruct "H" as "[Hx Hxs]".
+      iApply (big_sepL2_app with "Hxs [Hx]").
+      cbn.
+      rewrite Nat.add_0_r.
+      iFrame.
+  Qed.
 
   Lemma foldl_map :
     ∀ A B (f : A → B) l,
