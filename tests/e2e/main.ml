@@ -138,8 +138,16 @@ let ty_i32 = "(Num (Int I32))"
 let ty_i31 = "I31"
 
 (* mini-ml calls the wrapper; the wrapper forwards to a lin-lang import. *)
-let ml_calls_ll_glue ~name ~ml_arg ~ml_ret ~ll_arg ~ll_ret ?(extra_locals = "")
-    ~conv_arg ~conv_ret () =
+let ml_calls_ll_glue
+    ~name
+    ~ml_arg
+    ~ml_ret
+    ~ll_arg
+    ~ll_ret
+    ?(extra_locals = "")
+    ~conv_arg
+    ~conv_ret
+    () =
   sprintf
     {|
       ((imports
@@ -160,8 +168,17 @@ let ml_calls_ll_glue ~name ~ml_arg ~ml_ret ~ll_arg ~ll_ret ?(extra_locals = "")
     ll_arg ll_ret ml_arg ml_ret extra_locals conv_arg conv_ret name
 
 (* lin-lang calls the wrapper; the wrapper forwards to a mini-ml import. *)
-let ll_calls_ml_glue ~name ~ll_arg ~ll_ret ~ml_arg ~ml_ret ~arg_local
-    ?(extra_locals = "") ~conv_arg ~conv_ret () =
+let ll_calls_ml_glue
+    ~name
+    ~ll_arg
+    ~ll_ret
+    ~ml_arg
+    ~ml_ret
+    ~arg_local
+    ?(extra_locals = "")
+    ~conv_arg
+    ~conv_ret
+    () =
   sprintf
     {|
       ((imports
@@ -616,4 +633,3 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
               check_result "42" Triple.E2Err.pp logs result);
         ] );
     ]
-
