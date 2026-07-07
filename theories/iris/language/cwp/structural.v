@@ -306,14 +306,18 @@ Section structural.
   Qed.
 
   (* todo: rename this to cwp_wand_strong *)
-  Lemma cwp_wand_strong s1 s2 E1 E2 es L R Φ Ψ :
-    CWP es @ s1; E1 UNDER L; R {{ Φ }} -∗
+  Lemma lenient_wp_wand_strong s1 s2 E1 E2 es Φ Ψ :
+    lenient_wp s1 E1 es Φ -∗
     ⌜s1 ⊑ s2⌝ -∗
     ⌜E1 ⊆ E2⌝ -∗
-    (∀ f v, Φ f v ={E2}=∗ Ψ f v) -∗
-    CWP es @ s2; E2 UNDER L; R {{ Ψ }}.
+    lp_wand' Φ Ψ -∗
+    lenient_wp s2 E2 es Ψ.
   Proof.
-  Admitted.
+    iIntros "Hwp %Hs %HE Hpost".
+    iApply (lwp_wand with "[Hwp]"); eauto.
+    iApply wp_mask_mono; eauto.
+    iApply wp_stuck_mono; eauto.
+  Qed.
 
   (* TODO: Clean up... *)
   Lemma cwp_frame_ctx1 s E e n P1 P1' P2 P2' R Φ Φ' :
@@ -375,5 +379,26 @@ Section structural.
       first (iDestruct "H" as "(% & ? & _ & ? & ?)"; by iFrame);
       by iModIntro.
   Qed.
+
+  Lemma cwp_wand_strong s1 s2 E1 E2 es L R Φ Ψ :
+    CWP es @ s1; E1 UNDER L; R {{ Φ }} -∗
+    ⌜s1 ⊑ s2⌝ -∗
+    ⌜E1 ⊆ E2⌝ -∗
+    (∀ f v, Φ f v ={E2}=∗ Ψ f v) -∗
+    CWP es @ s2; E2 UNDER L; R {{ Ψ }}.
+  Proof.
+    iIntros "Hwp %Hs %HE Hpost".
+    iApply cwp_fupd.
+    iApply (lenient_wp_wand_strong with "[Hwp]"); eauto.
+    unfold lp_wand'; iIntros (lv) "(%f & Hf & Hinv & Hlv)".
+    unfold denote_logpred; cbn.
+    iExists f.
+    iFrame.
+    destruct lv; cbn; try iFrame.
+    iDestruct "Hlv" as "[Hrun Hlv]".
+    iFrame.
+    by iApply "Hpost".
+  Qed.
+
 
 End structural.

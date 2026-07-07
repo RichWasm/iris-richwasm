@@ -131,5 +131,6 @@ Section typing.
     - eapply compat_singleton; eassumption.
     - eapply compat_frame; try eassumption.
   Qed.
+  Print Assumptions fundamental_typing .
 
 End typing.

@@ -1012,7 +1012,20 @@ Section instr.
           ⌜skind_has_stype sκ_T T⌝ -∗
           FT (senv_insert_type sκ sκ_T T se) cl)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
+  Next Obligation.
+    intros *.
+    intros [sek se] [sek' se'] [Hsek Hset] cl.
+    cbn in Hsek, Hset; cbn.
+    f_equiv.
+    f_equiv; intro sk.
+    f_equiv; intro sk_T.
+    f_equiv; intro T.
+    f_equiv.
+    - f_equiv.
+      f_equiv.
+      by eapply eval_kind_se.
+    - repeat f_equiv; eauto.
+  Qed.
   Final Obligation. solve_proper. Qed.
 
   Fixpoint type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
