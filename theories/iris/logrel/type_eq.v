@@ -5,6 +5,8 @@ Require Import RichWasm.iris.logrel.instr.kinding.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
+(* TODO: cleanup file *)
+
 Section serialize.
 
   Lemma has_arep_serialize_length ι o :
@@ -567,6 +569,14 @@ Section type_eq_sem.
         by iEval (rewrite -(IH F _ _ se _ Hkτ Hkτ' Hse)) in "Hτ".
     - (* RecT *)
       intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hse.
+      inversion Hκ'; subst.
+      inversion Hκ; subst.
+      specialize (IH (F <| fc_type_vars ::= cons κ |>) κ κ).
+      (* Surely there is a better way to do this... *)
+      assert (∀ (se0 : semantic_env) (sv0 : leibnizO semantic_value),
+            sem_env_interp (F <| fc_type_vars ::= cons κ |>) se0
+            -> type_interp rti sr τ se0 sv0 ⊣⊢ type_interp rti sr τ' se0 sv0
+      ) as IH'. { intros.  by apply IH. }
       iEval (rewrite !type_interp_eq /add_skind_interp).
       iSplit.
       + iIntros "(%sκ & %Htsk & %Hsksv & Hrec)".
@@ -575,7 +585,7 @@ Section type_eq_sem.
         iSplit; first done.
         rewrite /pre_type_interp.
         rewrite !rec_interp_unfold.
-        destruct (eval_kind_se se κ0) eqn:H; try done.
+        destruct (eval_kind_se se κ) eqn:H; try done.
         iNext.
         admit.
       + admit.
@@ -649,32 +659,74 @@ Section type_eq_sem.
         apply sem_env_interp_insert_type; try done.
     - (* Ser Struct *)
       intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
-      inversion Hκ; subst. inversion Hκ'; subst.
+      assert (eval_kind se κ = eval_kind se κ') as Heval_kind.
+      { eapply type_eq_eval_kind_agree; [ | done | apply Hκ']; by constructor. }
+      inversion Hκ; subst.
+      inversion Hκ'; subst.
       rewrite !type_interp_eq /add_skind_interp.
       iSplit.
       + iIntros "(%sκ & %Hsk & %Hsv & Hser)".
+        Opaque eval_kind.
+        cbn in Hsk.
+        Transparent eval_kind.
+        rewrite Hsk in Heval_kind.
         iExists sκ.
-        iSplit; first admit.
+        iSplit; first done.
         iSplit; first done.
         cbn.
         iDestruct "Hser" as (os) "(-> & Hprod)".
-        iExists (map serialize_atom os).
-        rewrite flat_map_concat_map.
-        iSplit; first done.
-        rewrite big_sepL2_fmap_r big_sepL2_fmap_l.
         rewrite !type_interp_eq /add_skind_interp.
         iDestruct "Hprod" as (sκ0 Htskind Hsksv) "Hprod".
-        cbn.
         iDestruct "Hprod" as (oss Hatoms_eq) "H".
+        iExists (map (flat_map serialize_atom) oss).
         inversion Hatoms_eq.
         subst os.
-        rewrite big_sepL2_fmap_l.
+        rewrite flat_map_concat.
+        iSplit; first done.
+        rewrite big_sepL2_fmap_r !big_sepL2_fmap_l.
         rewrite big_sepL2_flip. (* The definitions should really agree on the order... *)
-        (* TODO: this feels like an odd thing to prove...
-           The lenght implications mean that, if this is true, then length oss = length $ concat oss *)
-
+        iDestruct (big_sepL2_length with "H") as "%Hlents".
+        apply Forall2_length in Heq as Hlentsts'.
+        (* (* TODO: should probably use a helper lemma here *) *)
+        (* iInduction oss as [|os oss] forall (τs τs' κs_ser Hlen Heq IH Hκ Hκ' H3 H4 Hsk Htskind Hlents Hlentsts'). (* TODO: yiiiiiikes *) *)
+        (* * destruct τs; last done. *)
+        (*   destruct τs'; last done. *)
+        (*   rewrite zip_with_nil_r. *)
+        (*   cbn. *)
+        (*   done. *)
+        (* * destruct τs as [|τ τs]; first done. *)
+        (*   destruct τs' as [|τ' τs']; first done. *)
+        (*   destruct κs_ser as [|κ_ser κs_ser]; first done. *)
+        (*   iSimpl. *)
+        (*   iSimpl in "H". *)
+        (*   iDestruct "H" as "[Hτ_os H]". *)
+        (*   simpl in IH. *)
+        (*   apply Forall2_cons in IH as [IHτ IH]. *)
+        (*   iDestruct (IHτ with "Hτ_os") as "Hτ'_os". *)
+        (*   1,2,3: admit. *)
+        (*   iFrame "Hτ'_os". *)
+        (*   iSplit; first admit. *)
+        (*   iApply "IHoss"; try done. *)
+        (*   1,2,3,4,5,6,7,8,9,10: admit. *)
         admit.
-      + admit.
+      + iIntros "(%sκ & %Hsk & %Hsv & Hstruct)".
+        Opaque eval_kind.
+        cbn in Hsk.
+        Transparent eval_kind.
+        rewrite Hsk in Heval_kind.
+        iExists sκ.
+        iSplit; first done.
+        iSplit; first done.
+        cbn.
+        iDestruct "Hstruct" as (wss) "(-> & Hser)".
+        iExists _.
+        iSplit; first admit.
+        rewrite !type_interp_eq /add_skind_interp.
+        iExists _.
+        iSplit; first admit.
+        iSplit; first admit.
+        iSimpl.
+        admit.
     - (* Struct Ser *)
       intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hse.
       admit.
