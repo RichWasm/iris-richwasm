@@ -90,7 +90,7 @@ Section load_copy.
     iPoseProof (virt_to_phys_slice_acc rti sr off (arep_size ι) with "[//] [$] [$] [$]")
       as "(%hm & Hnp & [(%ns & %ns32 & %Hrepns & Hphys & Hwords) Hclose])".
     (* Opening word_interp *)
-    iPoseProof (reconstitute_val rti sr mr with "[$Hwords] [//] [//] [//] [//]") as "(%v & %Hserws & Hat & Hret)".
+    iPoseProof (reconstitute_val with "[$Hwords] [//] [//] [//] [//]") as "(%v & %Hserws & Hat & Hret)".
     rewrite !Hserws.
     set (PHYS := (rt_memaddr sr MemMM↦[wms][a + 4 * N.of_nat off]bits v)%I) in *.
     iPoseProof (atom_interp_weak_types_agree with "[//] [$Hat]") as "%Htag".
@@ -297,7 +297,7 @@ Section load_copy.
     iPoseProof ( virt_to_phys_slice_acc_gc rti sr off (arep_size ι) with "[//] [$] [$] [//]")
       as "(%hm & Hnp & [(%ns & %ns32 & %Hrepns & Hphys & Hwords) Hclose])".
     (* Opening word_interp *)
-    iPoseProof (reconstitute_val rti sr mr with "[$Hwords] [//] [//] [//] [//]")
+    iPoseProof (reconstitute_val with "[$Hwords] [//] [//] [//] [//]")
       as "(%v & %Hserws & Hat & Hret)".
     rewrite !Hserws.
     set (PHYS := (rt_memaddr sr MemGC↦[wms][a + 4 * N.of_nat off]bits v)%I) in *.

@@ -453,8 +453,8 @@ and elab_function_type
     function
     | [] -> ret (MonoFunT (input', output'))
     | Type kind :: xs ->
-       let* xs' = go_inner xs in
-       ret (ForallTypeT (elab_kind kind, xs'))
+        let* xs' = go_inner xs in
+        ret (ForallTypeT (elab_kind kind, xs'))
     | _ -> fail (TypeQuantifiersTooEarly (FunctionType (quals, input, output)))
   in
 
@@ -462,17 +462,17 @@ and elab_function_type
     let open B.FunctionType in
     function
     | Memory :: xs ->
-       let* xs' = go xs in
-       ret (ForallMemT xs')
+        let* xs' = go xs in
+        ret (ForallMemT xs')
     | Representation :: xs ->
-       let* xs' = go xs in
-       ret (ForallRepT xs')
+        let* xs' = go xs in
+        ret (ForallRepT xs')
     | Size :: xs ->
-       let* xs' = go xs in
-       ret (ForallSizeT xs')
+        let* xs' = go xs in
+        ret (ForallSizeT xs')
     | xs ->
-       let* ft' = go_inner xs in
-       ret (InnerFunT ft')
+        let* ft' = go_inner xs in
+        ret (InnerFunT ft')
   in
 
   go quals

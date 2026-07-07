@@ -82,7 +82,10 @@ let rw2wasm =
   Command.basic ~summary:"Compile a RichWasm (sexp) module to wasm."
     (let%map_open.Command richwasm = file_or_stdin "richwasm" in
      fun () ->
-       get_contents richwasm |> parse_richwasm |> wasm_pipeline |> print_endline)
+       get_contents richwasm
+       |> parse_richwasm_ann
+       |> wasm_pipeline_ann
+       |> print_endline)
 
 let command =
   Command.group ~summary:"iris-richwasm"

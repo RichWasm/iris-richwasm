@@ -29,6 +29,13 @@ let parse_richwasm s =
   |> Parsexp.Single.parse_string_exn
   |> Richwasm_common.Syntax.Module.t_of_sexp
 
+let parse_richwasm_ann s =
+  match Parsexp.Single.parse_string_exn s with
+  | Sexp.List (Sexp.List (Sexp.Atom field :: _) :: _) as sexp
+    when String.is_prefix field ~prefix:"m_" ->
+      Richwasm_common.Annotated_syntax.Module.t_of_sexp sexp
+  | sexp -> Richwasm_common.Syntax.Module.t_of_sexp sexp |> elab_pipeline
+
 let rec pp_typecheck_error ff =
   let open Richwasm_common.Annotated_syntax in
   let open Richwasm_extract.Typechecker in
@@ -57,13 +64,15 @@ and pp_typecheck_errors ff =
 let pp_typecheck_errors_prefix ff =
   fprintf ff "Typechecker failed with error(s):@.%a" pp_typecheck_errors
 
-let wasm_pipeline x =
-  elab_pipeline x
-  |> (fun x -> Richwasm_common.Main.typecheck x |> Result.map ~f:(fun () -> x))
+let wasm_pipeline_ann x =
+  Richwasm_common.Main.typecheck x
+  |> Result.map ~f:(fun () -> x)
   |> or_fail_pp pp_typecheck_errors_prefix
   |> Richwasm_common.Main.compile
   |> or_fail_pp Richwasm_common.Extract_compat.CompilerError.pp
   |> Richwasm_common.Main.wasm_ugly_printer
+
+let wasm_pipeline x = elab_pipeline x |> wasm_pipeline_ann
 
 let pp_wasm ?(pretty = false) ff x =
   let fmted =

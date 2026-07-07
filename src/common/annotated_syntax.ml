@@ -566,6 +566,7 @@ module Internal = struct
           coq_type := typ;
           inner_function_type := inner_function_typ;
           function_type := function_typ])]
+
     and function_typ =
       [%import:
         (Richwasm_extract.Rw.Core.function_type
@@ -577,7 +578,10 @@ module Internal = struct
     [@@deriving eq, ord, sexp]
 
     let pp_sexp_typ ff x = Sexp.pp_hum ff (sexp_of_typ x)
-    let pp_sexp_inner_function_typ ff x = Sexp.pp_hum ff (sexp_of_inner_function_typ x)
+
+    let pp_sexp_inner_function_typ ff x =
+      Sexp.pp_hum ff (sexp_of_inner_function_typ x)
+
     let pp_sexp_function_typ ff x = Sexp.pp_hum ff (sexp_of_function_typ x)
 
     let rec pp_rocq_typ ff : typ -> unit = function
@@ -632,7 +636,8 @@ module Internal = struct
           fprintf ff "@[<2>(MonoFunT@ %a@ %a)@]" (pp_rocq_list pp_rocq_typ) t1s
             (pp_rocq_list pp_rocq_typ) t2s
       | ForallTypeT (kind, ft) ->
-          fprintf ff "@[<2>(ForallTypeT@ %a@ %a)@]" Kind.pp_rocq kind pp_rocq_inner_function_typ ft
+          fprintf ff "@[<2>(ForallTypeT@ %a@ %a)@]" Kind.pp_rocq kind
+            pp_rocq_inner_function_typ ft
 
     and pp_rocq_function_typ ff : function_typ -> unit = function
       | InnerFunT ft ->
