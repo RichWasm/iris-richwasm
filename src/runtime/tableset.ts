@@ -1,4 +1,4 @@
-import type { Runtime } from "../../src/runtime/interface.d.ts";
+import type { Runtime } from "./interface.d.ts";
 
 function actually_set(
   table: Runtime["table"],

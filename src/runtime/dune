@@ -14,4 +14,10 @@
  (section lib)
  (package iris-richwasm)
  (files
-  (richwasm.wasm as runtime/richwasm.wasm)))
+  (richwasm.wasm as runtime/richwasm.wasm)
+  (host_common.ts as runtime/host_common.ts)
+  (host_single.ts as runtime/host_single.ts)
+  (host_double.ts as runtime/host_double.ts)
+  (host_triple.ts as runtime/host_triple.ts)
+  (tableset.ts as runtime/tableset.ts)
+  (walker.ts as runtime/walker.ts)))

@@ -4,6 +4,21 @@ open! Stdlib.Format
 open Richwasm_support.Pipeline
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 module RichWasm = Richwasm_common.Syntax
+module Run_rw = Richwasm_support.Run_rw
+module Wat2wasm = Richwasm_support.Wat2wasm
+
+let ( ^/ ) = Filename.concat
+
+let runtime_asset_dir =
+  match Sys.getenv "RW_RUNTIME_DIR" with
+  | Some dir -> dir
+  | None ->
+      Filename.dirname Sys_unix.executable_name ^/ ".." ^/ "src" ^/ "runtime"
+
+module SingleRW = Run_rw.SingleRichWasm (struct
+  let rw_runtime_path = runtime_asset_dir ^/ "richwasm.wasm"
+  let host_runtime_path = runtime_asset_dir ^/ "host_single.ts"
+end)
 
 let pp_rwasm = function
   | `pp -> RichWasm.Module.pp
@@ -87,6 +102,27 @@ let rw2wasm =
        |> wasm_pipeline_ann
        |> print_endline)
 
+let run =
+  Command.basic
+    ~summary:
+      "Compile a RichWasm (sexp) module to wasm and run it on the runtime."
+    (let%map_open.Command richwasm = file_or_stdin "richwasm" in
+     fun () ->
+       let src = get_contents richwasm in
+       let rwmod = parse_richwasm src in
+       let start_type = Run_rw.start_type_sexp rwmod in
+       let wat = wasm_pipeline rwmod in
+       match Wat2wasm.wat2wasm wat with
+       | Error e ->
+           eprintf "wat2wasm: %s@." e;
+           exit 1
+       | Ok wasm ->
+           (match SingleRW.run_wasm ?start_type wasm with
+           | Ok output -> print_endline output
+           | Error err ->
+               eprintf "%s@." err;
+               exit 1))
+
 let command =
   Command.group ~summary:"iris-richwasm"
     [
@@ -94,6 +130,7 @@ let command =
       ("mml2rw", mml2rw);
       ("rw-elab", rw_elab);
       ("rw2wasm", rw2wasm);
+      ("run", run);
     ]
 
 let () = Command_unix.run command

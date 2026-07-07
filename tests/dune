@@ -8,20 +8,20 @@
   iris-richwasm.runtime
   iris-richwasm.test-e2e)
  (deps
-  %{dep:support/tableset.ts}
-  %{dep:support/walker.ts}
-  %{dep:support/host_common.ts})
+  %{dep:../src/runtime/tableset.ts}
+  %{dep:../src/runtime/walker.ts}
+  %{dep:../src/runtime/host_common.ts})
  (action
   (setenv
    RW_RUNTIME_WASM_PATH
    %{lib:iris-richwasm.runtime:richwasm.wasm}
    (setenv
     HOST_SINGLE_PATH
-    %{dep:support/host_single.ts}
+    %{dep:../src/runtime/host_single.ts}
     (setenv
      HOST_DOUBLE_PATH
-     %{dep:support/host_double.ts}
+     %{dep:../src/runtime/host_double.ts}
      (setenv
       HOST_TRIPLE_PATH
-      %{dep:support/host_triple.ts}
+      %{dep:../src/runtime/host_triple.ts}
       (run %{test})))))))

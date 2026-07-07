@@ -1,6 +1,6 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { renderStart } from "./walker.ts";
+import { renderStart } from "../../src/runtime/walker.ts";
 
 const tag = (n: number): number => n << 1;
 

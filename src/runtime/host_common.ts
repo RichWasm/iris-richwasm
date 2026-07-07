@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { mkTableset } from "./tableset.ts";
 import { renderStart } from "./walker.ts";
-import type { Runtime } from "../../src/runtime/interface.d.ts";
+import type { Runtime } from "./interface.d.ts";
 import { inspect } from "node:util";
 
 /** Instantiate the shared RichWasm runtime named by `RW_RUNTIME_WASM_PATH`. */
