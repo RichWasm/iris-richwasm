@@ -415,6 +415,38 @@ Section type_eq_sem.
   Qed.
 
 
+  Lemma type_interp_serialize τ os κ_ser se :
+    type_interp rti sr τ se (SAtoms os) ⊢
+    type_interp rti sr (SerT κ_ser τ) se (SWords (flat_map serialize_atom os)).
+  Proof.
+    iIntros "H".
+    iDestruct (type_interp_skind_svalue with "H") as "(%sk & %Hsk & %Hsksv)".
+    iEval (rewrite !type_interp_eq /add_skind_interp).
+    iFrame.
+    iPureIntro.
+    apply skind_svalue_serialize_exist in Hsksv as (ιs & ξ & -> & Hsksv).
+    exists (SMEMTYPE (length (flat_map serialize_atom os)) ξ).
+    split; try done.
+    simpl.
+  Admitted.
+
+
+  Lemma type_interp_deserialize τ os κ_ser se :
+    type_interp rti sr (SerT κ_ser τ) se (SWords (flat_map serialize_atom os)) ⊢
+    type_interp rti sr τ se (SAtoms os).
+  Proof.
+    iIntros "H".
+    iDestruct (type_interp_skind_svalue with "H") as "(%sk & %Hsk & %Hsksv)".
+    iEval (rewrite !type_interp_eq /add_skind_interp) in "H".
+    apply skind_svalue_deserialize_exist in Hsksv as (ιs & ξ & -> & Hsksv).
+    iDestruct "H" as "(%sk & %Hsk' & %Hsksv' & H)".
+    rewrite /pre_type_interp.
+    cbn.
+    iDestruct "H" as "(%os' & %Hos_eq & H)".
+    inversion Hos_eq; subst.
+    (* TODO: unprovable... *)
+  Admitted.
+
 
   Lemma pre_type_interp_prod_ser' κ_prod κ_struct κ_ser κs_ser sκ τs τs' se sv :
     length κs_ser = length τs' ->
@@ -426,7 +458,7 @@ Section type_eq_sem.
       (λ τ τ' : type,
          ∀ (se0 : semantic_env) (sv0 : leibnizO semantic_value),
              type_interp rti sr τ se0 sv0 ⊣⊢ type_interp rti sr τ' se0 sv0)
-             τs τs') ->
+      τs τs') ->
     pre_type_interp rti sr (StructT κ_struct (zip_with SerT κs_ser τs')) se sv
     ⊣⊢
     pre_type_interp rti sr (SerT κ_ser (ProdT κ_prod τs)) se sv.
@@ -464,7 +496,8 @@ Section type_eq_sem.
       rewrite big_sepL2_fmap_r !big_sepL2_fmap_l.
       rewrite big_sepL2_flip. (* The definitions should really agree on the order... *)
       iDestruct (big_sepL2_length with "H") as "%Hlents".
-      iInduction oss as [|os oss] forall (τs τs' Hlen_eq Hteq Heq Htskind Hlents IH).
+      clear Hsksv Hsksv'.
+      iInduction oss as [|os oss] forall (τs τs' κs_ser Hlen_eq Hteq Heq Htskind Hlents IH).
       * destruct τs; last done.
         destruct τs'; last done.
         rewrite zip_with_nil_r.
@@ -479,11 +512,15 @@ Section type_eq_sem.
         simpl in IH.
         apply Forall2_cons in IH as [IHτ IH].
         iDestruct (IHτ with "Hτ_os") as "Hτ'_os".
-        iFrame "Hτ'_os".
-        iSplit; first admit.
-        (* iApply "IHoss"; try done. *)
-        (* 1,2,3,4,5,6,7,8,9,10: admit. *)
-
+        inversion Hlen_eq; subst.
+        inversion Hlents; subst.
+        apply Forall2_cons in Hteq as [Hteq Htseq].
+        apply Forall2_length in Htseq as Htslen.
+        iSplitL "Hτ'_os".
+        {
+          by iApply type_interp_serialize.
+        }
+        iApply "IHoss"; done.
   Admitted.
 
 
