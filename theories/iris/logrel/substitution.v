@@ -1388,7 +1388,7 @@ Section substitution.
 
         iApply IHτ; last done; try done. (* okay yay *)
         - admit.
-        - (* RYAN: this is a tricky one *)
+        - (* NOTE: this is a tricky one *)
           cbn.
           apply Forall_cons.
           split; last done.
@@ -1439,7 +1439,7 @@ Section substitution.
 
           Transparent type_skind.
           Opaque skind_rec_interp.
-        - (* RYAN: this is where skindrecinterp needs to be equiv to val interp *)
+        - (* NOTE: this is where skindrecinterp needs to be equiv to val interp *)
           cbn.
           intros.
           destruct i.

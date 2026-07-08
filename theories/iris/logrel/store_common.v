@@ -752,7 +752,7 @@ Section store_common.
       clear Hes_store_w.
       iIntros "!> Hf Hrun".
 
-      (* now we destruct p! Ryan inverted ptr_shaped so we'll do that too *)
+      (* now we destruct p by inverting ptr_shaped *)
       inversion Hptrshaped; subst; last destruct μ eqn:?.
       + (* Hcg1 - Ptr Int - done with atom_interp *)
         apply wp_store_w in Hcg1 as (_ & -> & -> & Hcg1spec).
@@ -1893,7 +1893,7 @@ Section store_common.
       clear Hes_store_w.
       iIntros "!> Hf Hrun".
 
-      (* now we destruct p! Ryan inverted ptr_shaped so we'll do that too *)
+      (* now we destruct p by inverting ptr_shaped *)
       inversion Hptrshaped; subst; last destruct μ eqn:?.
       + (* Hcg1 - Ptr Int - done with atom_interp *)
         apply wp_store_w in Hcg1 as (_ & -> & -> & Hcg1spec).
