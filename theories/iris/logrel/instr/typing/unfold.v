@@ -1,6 +1,7 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.substitution. (* TODO: import proper subst file when created *)
 Require Import RichWasm.iris.logrel.env_props.
+Require Import RichWasm.kinding_subst.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -70,7 +71,7 @@ Section unfold.
     iModIntro.
     inversion Hkind; subst.
     assert (Hkindτrec: has_kind F τrec κ) by by apply has_kind_rec_subst.
-    destruct (refresh_kinds_id rti sr mr) as (this & _).
+    destruct (refresh_kinds_id) as (this & _).
     assert (refresh_kinds F τrec = τrec) by (symmetry; by eapply this).
     unfold τrec in H0.
     rewrite <- H0.

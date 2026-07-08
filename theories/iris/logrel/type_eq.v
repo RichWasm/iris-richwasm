@@ -827,7 +827,8 @@ Section type_eq_sem.
         iExists sκ.
         iSplit; first done.
         iSplit; first done.
-        iApply pre_type_interp_prod_ser'; try done.
+        (* iApply pre_type_interp_prod_ser'; try done. *)
+        admit. (* TODO: add the above lemma somewhere? *)
         (* cbn. *)
         (* iDestruct "Hser" as (os) "(-> & Hprod)". *)
         (* iDestruct (atoms_of_prod_interps with "Hprod") as (wss oss) "(%Heqos & %Hwss_eq)". *)
@@ -881,7 +882,8 @@ Section type_eq_sem.
         iExists sκ.
         iSplit; first done.
         iSplit; first done.
-        iApply pre_type_interp_prod_ser'; try done.
+        (* iApply pre_type_interp_prod_ser'; try done. *)
+        admit. (* TODO: add the above lemma somewhere? *)
 
         (* cbn. *)
         (* iDestruct "Hstruct" as (wss) "(-> & Hser)". *)

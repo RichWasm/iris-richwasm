@@ -2,6 +2,7 @@ Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.substitution.
 Require Import RichWasm.iris.logrel.logrel_properties.
 Require Import RichWasm.iris.logrel.env_props.
+Require Import RichWasm.kinding_subst.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -72,7 +73,7 @@ Section inst.
     1: destruct H1.
     1: assert (Hϕ': ϕ' = refresh_kinds_ift F
             (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)) by
-        (pose proof (has_kind_ft_function_type_eq_mod_kinds rti sr mr) as (_ & H10);
+        (pose proof (has_kind_ft_function_type_eq_mod_kinds) as (_ & H10);
          eapply H10; try done; inversion Hkind_ft; subst; done).
     1: rewrite Hϕ'.
     2-4: unfold ϕ'.

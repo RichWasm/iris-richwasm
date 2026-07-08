@@ -1,6 +1,7 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.substitution.
 Require Import RichWasm.iris.logrel.env_props.
+Require Import RichWasm.kinding_subst.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -14,33 +15,6 @@ Section call.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
-
-  (* a deeply critical lemma that should almost certainly be true *)
-  Lemma has_kind_ft_through_inst_iff F ϕ ϕ' ix :
-    function_type_inst F ix ϕ ϕ' ->
-    (has_kind_ft F ϕ <->
-    has_kind_ft F ϕ').
-  Proof.
-  Admitted.
-
-  Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
-    function_type_inst F ix ϕ ϕ' ->
-    has_kind_ft F ϕ ->
-    has_kind_ft F ϕ'.
-  Proof.
-    intros.
-    by apply (has_kind_ft_through_inst_iff F ϕ ϕ' ix H).
-  Qed.
-
-  Lemma has_kind_ft_through_inst_backwards F ϕ ϕ' ix :
-    function_type_inst F ix ϕ ϕ' ->
-    has_kind_ft F ϕ' ->
-    has_kind_ft F ϕ.
-  Proof.
-    intros.
-    by apply (has_kind_ft_through_inst_iff F ϕ ϕ' ix H).
-  Qed.
-
 
   Lemma unravel_closure_interp :
     ∀ F ixs τs1_s τs2_s ϕ se cl,
@@ -64,7 +38,7 @@ Section call.
       + inversion H0; subst.
         assert (Hϕ': ϕ'0 = refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)). {
           (* by hkind_ϕ_middle and refresh_kinds_eq_mod_kinds *)
-          pose proof (has_kind_ft_function_type_eq_mod_kinds rti sr mr) as (_ & _ & this).
+          pose proof (has_kind_ft_function_type_eq_mod_kinds) as (_ & _ & this).
           eapply this; try done.
           inversion Hkind_ϕ_middle; subst; done.
         }
