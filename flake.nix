@@ -82,14 +82,7 @@
               parseque
             ])
             ++ (with coqPackages; [
-              # NOTE: compcert works fine with ocaml 5, they just don't officially support it;
-              # but we are using it at the rocq level anyways, so it doesn't really matter.
-              (compcert.overrideAttrs (o: {
-                configurePhase = ''
-                  ${o.configurePhase} \
-                    -ignore-ocaml-version
-                '';
-              }))
+              compcert
               ITree
               ExtLib
 
