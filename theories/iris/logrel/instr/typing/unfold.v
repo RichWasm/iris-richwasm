@@ -69,7 +69,7 @@ Section unfold.
     Transparent senv_insert_type.
     iModIntro.
     inversion Hkind; subst.
-    assert (Hkindτrec: has_kind F τrec κ) by by apply has_kind_subst.
+    assert (Hkindτrec: has_kind F τrec κ) by by apply has_kind_rec_subst.
     destruct (refresh_kinds_id rti sr mr) as (this & _).
     assert (refresh_kinds F τrec = τrec) by (symmetry; by eapply this).
     unfold τrec in H0.

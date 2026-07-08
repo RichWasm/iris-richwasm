@@ -16,20 +16,32 @@ Section call.
   Variable mr : module_runtime.
 
   (* a deeply critical lemma that should almost certainly be true *)
+  Lemma has_kind_ft_through_inst_iff F ϕ ϕ' ix :
+    function_type_inst F ix ϕ ϕ' ->
+    (has_kind_ft F ϕ <->
+    has_kind_ft F ϕ').
+  Proof.
+  Admitted.
+
   Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
     function_type_inst F ix ϕ ϕ' ->
     has_kind_ft F ϕ ->
     has_kind_ft F ϕ'.
   Proof.
-    intros Hfinst Hkind.
-    induction Hfinst.
-    - inversion Hkind; subst; clear Hkind; rename H2 into Hkind.
-      constructor.
-      induction H.
-  Admitted.
+    intros.
+    by apply (has_kind_ft_through_inst_iff F ϕ ϕ' ix H).
+  Qed.
 
-  (* Note: there's a lot more we know about se', τs1, and τs2 *)
-  (* I'll figure out what I need as I go *)
+  Lemma has_kind_ft_through_inst_backwards F ϕ ϕ' ix :
+    function_type_inst F ix ϕ ϕ' ->
+    has_kind_ft F ϕ' ->
+    has_kind_ft F ϕ.
+  Proof.
+    intros.
+    by apply (has_kind_ft_through_inst_iff F ϕ ϕ' ix H).
+  Qed.
+
+
   Lemma unravel_closure_interp :
     ∀ F ixs τs1_s τs2_s ϕ se cl,
       let ϕ' := InnerFunT (MonoFunT τs1_s τs2_s) in
@@ -152,8 +164,35 @@ Section call.
     has_instruction_type_ok F (InstrT τs1 τs2) L ->
     has_kind_ft F (InnerFunT (MonoFunT τs1 τs2)).
   Proof.
-    (* this should be true by similar logic to first case below *)
-  Admitted.
+    intros Hok.
+    inversion Hok; subst.
+    inversion H; subst.
+    unfold has_mono_rep in *.
+    assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs1). {
+      apply Forall_lookup_2.
+      intros i τ Hiτ.
+      pose proof (Forall_lookup_1 _ _ _ _ H1 Hiτ).
+      cbn in H3.
+      destruct H3 as (ρ & hrep & hmono).
+      inversion hrep; subst.
+      eexists; done.
+    }
+    apply Forall_exists_Forall2_l in H3.
+    destruct H3 as (κs1 & Hτs1). clear H1.
+    assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs2). {
+      apply Forall_lookup_2.
+      intros i τ Hiτ.
+      pose proof (Forall_lookup_1 _ _ _ _ H2 Hiτ).
+      cbn in H1.
+      destruct H1 as (ρ & hrep & hmono).
+      inversion hrep; subst.
+      eexists; done.
+    }
+    apply Forall_exists_Forall2_l in H1.
+    destruct H1 as (κs2 & Hτs2). clear H2.
+    constructor.
+    econstructor; done.
+  Qed.
 
   (* should be true, but requires an actual fully fleged subsitution lemma most likely *)
   (* but for has_kind which. not now. *)
@@ -180,25 +219,25 @@ Section call.
         inversion hrep; subst.
         eexists; done.
       }
-      (* okay and yes from there, we can get similar things to κs1 and \kappas2  *)
-      (* maybe a weird induction of some lemma on bringing an existential out of a forall *)
-      admit.
-    -
-      subst ϕ''.
+      apply Forall_exists_Forall2_l in H3.
+      destruct H3 as (κs1 & Hτs1). clear H1.
+      assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs2). {
+        apply Forall_lookup_2.
+        intros i τ Hiτ.
+        pose proof (Forall_lookup_1 _ _ _ _ H2 Hiτ).
+        cbn in H1.
+        destruct H1 as (ρ & hrep & hmono).
+        inversion hrep; subst.
+        eexists; done.
+      }
+      apply Forall_exists_Forall2_l in H1.
+      destruct H1 as (κs2 & Hτs2). clear H2.
+      econstructor; done.
+    - subst ϕ''.
       specialize (IHHfinst eq_refl Hok).
       rename IHHfinst into Hkind_ϕ'.
-      induction H; subst.
-      + constructor.
-        inversion H; subst.
-        constructor.
-        * (* true by has_kind κ' and subskind_of only changing ref flag *)
-          admit.
-        * (* this seems hard *)
-          admit.
-      + constructor.
-        (* oh crap this is a proper has_kind subst lemma *)
-        (* ugh okay sure that's a future thing *)
-  Admitted.
+      by apply (has_kind_ft_through_inst_iff F ϕ ϕ' ix H).
+  Qed.
 
 
   Lemma compat_call M F L wt wt' wtf wl wl' wlf es' i ixs ϕ τs1 τs2 :

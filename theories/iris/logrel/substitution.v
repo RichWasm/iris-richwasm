@@ -15,158 +15,190 @@ Section substitution.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-Fixpoint get_all_lefts {A B : Type} (l: list (A + B)) : list A :=
-  match l with
-  | [] => []
-  | a::l =>
-      match a with
-      | inl a => a:: get_all_lefts l
-      | inr _ => get_all_lefts l
-      end
-  end.
-Fixpoint get_all_rights {A B : Type} (l: list (A + B)) : list B :=
-  match l with
-  | [] => []
-  | a::l =>
-      match a with
-      | inl _ => get_all_rights l
-      | inr b => b :: get_all_rights l
-      end
-  end.
-Definition kind_of_num (nt : num_type) : kind :=
-  match nt with
-  | IntT I32T => VALTYPE (AtomR I32R) NoRefs
-  | IntT I64T => VALTYPE (AtomR I64R) NoRefs
-  | FloatT F32T => VALTYPE (AtomR F32R) NoRefs
-  | FloatT F64T => VALTYPE (AtomR F64R) NoRefs
-  end.
+  (* copied from typechecker.v *)
+  Fixpoint get_all_lefts {A B : Type} (l: list (A + B)) : list A :=
+    match l with
+    | [] => []
+    | a::l =>
+        match a with
+        | inl a => a:: get_all_lefts l
+        | inr _ => get_all_lefts l
+        end
+    end.
+  Fixpoint get_all_rights {A B : Type} (l: list (A + B)) : list B :=
+    match l with
+    | [] => []
+    | a::l =>
+        match a with
+        | inl _ => get_all_rights l
+        | inr b => b :: get_all_rights l
+        end
+    end.
+  Definition kind_of_num (nt : num_type) : kind :=
+    match nt with
+    | IntT I32T => VALTYPE (AtomR I32R) NoRefs
+    | IntT I64T => VALTYPE (AtomR I64R) NoRefs
+    | FloatT F32T => VALTYPE (AtomR F32R) NoRefs
+    | FloatT F64T => VALTYPE (AtomR F64R) NoRefs
+    end.
 
-Definition kind_of_node (F : function_ctx) (τ : type) : kind :=
-  match τ with
-  | VarT t => match F.(fc_type_vars) !! t with
-              | Some κ => κ
-              | None => VALTYPE (AtomR I32R) NoRefs
-              end
-  | I31T κ | NumT κ _ | SumT κ _ | VariantT κ _ | ProdT κ _ | StructT κ _
-  | RefT κ _ _ _ | CodeRefT κ _ | SerT κ _ | PlugT κ _ | SpanT κ _
-  | RecT κ _ | ExistsMemT κ _ | ExistsRepT κ _ | ExistsSizeT κ _
-  | ExistsTypeT κ _ _ => κ
-  end.
+  Definition kind_of_node (F : function_ctx) (τ : type) : kind :=
+    match τ with
+    | VarT t => match F.(fc_type_vars) !! t with
+               | Some κ => κ
+               | None => VALTYPE (AtomR I32R) NoRefs
+               end
+    | I31T κ | NumT κ _ | SumT κ _ | VariantT κ _ | ProdT κ _ | StructT κ _
+    | RefT κ _ _ _ | CodeRefT κ _ | SerT κ _ | PlugT κ _ | SpanT κ _
+    | RecT κ _ | ExistsMemT κ _ | ExistsRepT κ _ | ExistsSizeT κ _
+    | ExistsTypeT κ _ _ => κ
+    end.
 
-Definition get_rep_or_size κ :=
-  match κ with
-  | VALTYPE ρ _ => inl ρ
-  | MEMTYPE σ _ => inr σ
-  end.
-(* rebuilds the cached kind annotations that [subst] leaves stale *)
-Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
-  match τ with
-  | VarT t => VarT t
-  | I31T _ => I31T (VALTYPE (AtomR PtrR) NoRefs)
-  | NumT _ nt => NumT (kind_of_num nt) nt
-  | SumT _ τs =>
-      let τs' := map (refresh_kinds F) τs in
-      let κs := map (kind_of_node F) τs' in
-      SumT (VALTYPE (SumR (get_all_lefts (map get_rep_or_size κs)))
+  Definition get_rep_or_size κ :=
+    match κ with
+    | VALTYPE ρ _ => inl ρ
+    | MEMTYPE σ _ => inr σ
+    end.
+  (* rebuilds the cached kind annotations that [subst] leaves stale *)
+  Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
+    match τ with
+    | VarT t => VarT t
+    | I31T _ => I31T (VALTYPE (AtomR PtrR) NoRefs)
+    | NumT _ nt => NumT (kind_of_num nt) nt
+    | SumT _ τs =>
+        let τs' := map (refresh_kinds F) τs in
+        let κs := map (kind_of_node F) τs' in
+        SumT (VALTYPE (SumR (get_all_lefts (map get_rep_or_size κs)))
+                (ref_flag_lub (map kind_ref_flag κs))) τs'
+    | VariantT _ τs =>
+        let τs' := map (refresh_kinds F) τs in
+        let κs := map (kind_of_node F) τs' in
+        VariantT (MEMTYPE (SumS (get_all_rights (map get_rep_or_size κs)))
                     (ref_flag_lub (map kind_ref_flag κs))) τs'
-  | VariantT _ τs =>
-      let τs' := map (refresh_kinds F) τs in
-      let κs := map (kind_of_node F) τs' in
-      VariantT (MEMTYPE (SumS (get_all_rights (map get_rep_or_size κs)))
-                        (ref_flag_lub (map kind_ref_flag κs))) τs'
-  | ProdT _ τs =>
-      let τs' := map (refresh_kinds F) τs in
-      let κs := map (kind_of_node F) τs' in
-      ProdT (VALTYPE (ProdR (get_all_lefts (map get_rep_or_size κs)))
-                     (ref_flag_lub (map kind_ref_flag κs))) τs'
-  | StructT _ τs =>
-      let τs' := map (refresh_kinds F) τs in
-      let κs := map (kind_of_node F) τs' in
-      StructT (MEMTYPE (ProdS (get_all_rights (map get_rep_or_size κs)))
-                       (ref_flag_lub (map kind_ref_flag κs))) τs'
-  | RefT _ μ β τ =>
-      let κ := match μ with
-               | BaseM MemGC => VALTYPE (AtomR PtrR) GCRefs
-               | _ => VALTYPE (AtomR PtrR) AnyRefs
-               end in
-      RefT κ μ β (refresh_kinds F τ)
-  | CodeRefT _ ϕ => CodeRefT (VALTYPE (AtomR I32R) NoRefs) (refresh_kinds_ft F ϕ)
-  | SerT _ τ =>
-      let τ' := refresh_kinds F τ in
-      let κ := match kind_of_node F τ' with
-               | VALTYPE ρ ξ => MEMTYPE (RepS ρ) ξ
-               | MEMTYPE σ ξ => MEMTYPE σ ξ
-               end in
-      SerT κ τ'
-  | PlugT _ ρ => PlugT (VALTYPE ρ NoRefs) ρ
-  | SpanT _ σ => SpanT (MEMTYPE σ NoRefs) σ
-  | RecT κ τ => RecT κ (refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ)
-  | ExistsMemT κ τ =>
-      ExistsMemT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ)
-  | ExistsRepT κ τ =>
-      ExistsRepT κ (refresh_kinds (add_rep_var F) τ)
-  | ExistsSizeT κ τ =>
-      ExistsSizeT κ (refresh_kinds (add_size_var F) τ)
-  | ExistsTypeT κ κ0 τ =>
-      ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
-  end
-with refresh_kinds_ift (F : function_ctx) (ϕ : inner_function_type) : inner_function_type :=
-  match ϕ with
-  | MonoFunT τs1 τs2 => MonoFunT (map (refresh_kinds F) τs1) (map (refresh_kinds F) τs2)
-  | ForallTypeT κ ϕ => ForallTypeT κ (refresh_kinds_ift (F <| fc_type_vars ::= cons κ |>) ϕ)
-  end
-with refresh_kinds_ft (F : function_ctx) (ϕ : Core.function_type) : Core.function_type :=
-  match ϕ with
-  | InnerFunT ϕ => InnerFunT (refresh_kinds_ift F ϕ)
-  | ForallMemT ϕ => ForallMemT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ)
-  | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (add_rep_var F) ϕ)
-  | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (add_size_var F) ϕ)
-  end.
+    | ProdT _ τs =>
+        let τs' := map (refresh_kinds F) τs in
+        let κs := map (kind_of_node F) τs' in
+        ProdT (VALTYPE (ProdR (get_all_lefts (map get_rep_or_size κs)))
+                 (ref_flag_lub (map kind_ref_flag κs))) τs'
+    | StructT _ τs =>
+        let τs' := map (refresh_kinds F) τs in
+        let κs := map (kind_of_node F) τs' in
+        StructT (MEMTYPE (ProdS (get_all_rights (map get_rep_or_size κs)))
+                   (ref_flag_lub (map kind_ref_flag κs))) τs'
+    | RefT _ μ β τ =>
+        let κ := match μ with
+                 | BaseM MemGC => VALTYPE (AtomR PtrR) GCRefs
+                 | _ => VALTYPE (AtomR PtrR) AnyRefs
+                 end in
+        RefT κ μ β (refresh_kinds F τ)
+    | CodeRefT _ ϕ => CodeRefT (VALTYPE (AtomR I32R) NoRefs) (refresh_kinds_ft F ϕ)
+    | SerT _ τ =>
+        let τ' := refresh_kinds F τ in
+        let κ := match kind_of_node F τ' with
+                 | VALTYPE ρ ξ => MEMTYPE (RepS ρ) ξ
+                 | MEMTYPE σ ξ => MEMTYPE σ ξ
+                 end in
+        SerT κ τ'
+    | PlugT _ ρ => PlugT (VALTYPE ρ NoRefs) ρ
+    | SpanT _ σ => SpanT (MEMTYPE σ NoRefs) σ
+    | RecT κ τ => RecT κ (refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ)
+    | ExistsMemT κ τ =>
+        ExistsMemT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ)
+    | ExistsRepT κ τ =>
+        ExistsRepT κ (refresh_kinds (add_rep_var F) τ)
+    | ExistsSizeT κ τ =>
+        ExistsSizeT κ (refresh_kinds (add_size_var F) τ)
+    | ExistsTypeT κ κ0 τ =>
+        ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
+    end
+  with refresh_kinds_ift (F : function_ctx) (ϕ : inner_function_type) : inner_function_type :=
+         match ϕ with
+         | MonoFunT τs1 τs2 => MonoFunT (map (refresh_kinds F) τs1) (map (refresh_kinds F) τs2)
+         | ForallTypeT κ ϕ => ForallTypeT κ (refresh_kinds_ift (F <| fc_type_vars ::= cons κ |>) ϕ)
+         end
+  with refresh_kinds_ft (F : function_ctx) (ϕ : Core.function_type) : Core.function_type :=
+         match ϕ with
+         | InnerFunT ϕ => InnerFunT (refresh_kinds_ift F ϕ)
+         | ForallMemT ϕ => ForallMemT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ)
+         | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (add_rep_var F) ϕ)
+         | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (add_size_var F) ϕ)
+         end.
 
-Lemma refresh_kinds_eq_mod_kinds :
-  (forall τ F, type_eq_mod_kinds (refresh_kinds F τ) τ) /\
-  (forall ϕ F, function_type_eq_mod_kinds (refresh_kinds_ft F ϕ) ϕ) /\
-  (forall ϕ F, inner_function_type_eq_mod_kinds (refresh_kinds_ift F ϕ) ϕ).
-Proof.
-Admitted.
-
-
-Lemma kind_of_node_good F τ κ:
-  has_kind F τ κ -> κ = kind_of_node F τ.
-Proof.
-  intros Hkind.
-  induction Hkind using has_kind_ind' with (P0 := const (const True)) (Pi := const (const True));
-    intros; cbn; try done; try (rewrite <- IHHkind; done).
-  rewrite H. done.
-Qed.
-
-(* NOT DONE P:M VERY FOUNDATIONAL BUT TRUE *)
-Lemma refresh_kinds_id :
-  (* has_kind F τ κ -> τ = refresh_kinds F τ. *)
-  (∀ τ F κ, has_kind F τ κ -> τ = refresh_kinds F τ) /\
-    (∀ ϕ F, has_kind_ft F ϕ -> ϕ = refresh_kinds_ft F ϕ) /\
-    (∀ iϕ F, has_kind_ift F iϕ -> iϕ = refresh_kinds_ift F iϕ).
-Proof.
-  apply type_and_function_ind.
-  (* checked a few cases, it's fine (especially the functions) *)
-  13: { (* RecT *)
-    intros *. intros IH. intros * Hkind.
-    inversion Hkind; subst.
-    apply IH in H3.
-    cbn.
-    rewrite <- H3.
-    done.
-  }
-Admitted.
+  (* copied from typechecker.v *)
+  Lemma refresh_kinds_eq_mod_kinds :
+    (forall τ F, type_eq_mod_kinds (refresh_kinds F τ) τ) /\
+      (forall ϕ F, function_type_eq_mod_kinds (refresh_kinds_ft F ϕ) ϕ) /\
+      (forall ϕ F, inner_function_type_eq_mod_kinds (refresh_kinds_ift F ϕ) ϕ).
+  Proof.
+    apply type_and_function_ind.
+    - intros idx F; simpl; reflexivity.
+    - intros κ F; simpl; exact I.
+    - intros κ nt F; simpl; reflexivity.
+    - intros κ ts IH F; simpl; induction IH as [|t ts' Hh Ht IHl]; simpl;
+        [exact I | split; [apply Hh | exact IHl]].
+    - intros κ ts IH F; simpl; induction IH as [|t ts' Hh Ht IHl]; simpl;
+        [exact I | split; [apply Hh | exact IHl]].
+    - intros κ ts IH F; simpl; induction IH as [|t ts' Hh Ht IHl]; simpl;
+        [exact I | split; [apply Hh | exact IHl]].
+    - intros κ ts IH F; simpl; induction IH as [|t ts' Hh Ht IHl]; simpl;
+        [exact I | split; [apply Hh | exact IHl]].
+    - intros κ μ β t IH F; simpl; split; [reflexivity | split; [reflexivity | apply IH]].
+    - intros κ ft IH F; simpl; apply IH.
+    - intros κ t IH F; simpl; apply IH.
+    - intros κ ρ F; simpl; reflexivity.
+    - intros κ σ F; simpl; reflexivity.
+    - intros κ t IH F; simpl; apply IH.
+    - intros κ t IH F; simpl; apply IH.
+    - intros κ t IH F; simpl; apply IH.
+    - intros κ t IH F; simpl; apply IH.
+    - intros κ1 κ2 t IH F; simpl; split; [reflexivity | apply IH].
+    - intros τs1 τs2 IH1 IH2 F; simpl; split;
+        [ induction IH1 as [|t ts' Hh Ht IHl]; simpl; [exact I | split; [apply Hh | exact IHl]]
+        | induction IH2 as [|t ts' Hh Ht IHl]; simpl; [exact I | split; [apply Hh | exact IHl]] ].
+    - intros κ ft IH F; simpl; split; [reflexivity | apply IH].
+    - done.
+    - intros ft IH F; simpl; apply IH.
+    - intros ft IH F; simpl; apply IH.
+    - intros ft IH F; simpl; apply IH.
+  Admitted.
 
 
-(* NOT DONE P:L these substitution lemmas are almost certainly okay *)
-Lemma refresh_kinds_up_shift_type F κ τ :
-  refresh_kinds (F <| fc_type_vars ::= cons κ |>)
-    (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift τ) =
-  ren_type unscoped.id unscoped.id unscoped.id unscoped.shift (refresh_kinds F τ).
-Proof.
-Admitted.
+  Lemma kind_of_node_good F τ κ:
+    has_kind F τ κ -> κ = kind_of_node F τ.
+  Proof.
+    intros Hkind.
+    induction Hkind using has_kind_ind' with (P0 := const (const True)) (Pi := const (const True));
+      intros; cbn; try done; try (rewrite <- IHHkind; done).
+    rewrite H. done.
+  Qed.
+
+  (* NOT DONE P:M VERY FOUNDATIONAL BUT TRUE *)
+  Lemma refresh_kinds_id :
+    (* has_kind F τ κ -> τ = refresh_kinds F τ. *)
+    (∀ τ F κ, has_kind F τ κ -> τ = refresh_kinds F τ) /\
+      (∀ ϕ F, has_kind_ft F ϕ -> ϕ = refresh_kinds_ft F ϕ) /\
+      (∀ iϕ F, has_kind_ift F iϕ -> iϕ = refresh_kinds_ift F iϕ).
+  Proof.
+    apply type_and_function_ind.
+    (* checked a few cases, it's fine (especially the functions) *)
+    13: { (* RecT *)
+      intros *. intros IH. intros * Hkind.
+      inversion Hkind; subst.
+      apply IH in H3.
+      cbn.
+      rewrite <- H3.
+      done.
+    }
+  Admitted.
+
+
+  (* NOT DONE P:L these substitution lemmas are almost certainly okay *)
+  Lemma refresh_kinds_up_shift_type F κ τ :
+    refresh_kinds (F <| fc_type_vars ::= cons κ |>)
+      (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift τ) =
+      ren_type unscoped.id unscoped.id unscoped.id unscoped.shift (refresh_kinds F τ).
+  Proof.
+  Admitted.
 
 
 
@@ -2109,7 +2141,11 @@ Admitted.
     (* type_eq_mod_kinds τ' (subst_type sub_m sub_r sub_s sub_t τ) -> *)
     type_interp rti sr τ se' sv -∗
     type_interp rti sr τ' se sv.
-    Proof. (* use the bidirect *) Admitted.
+  Proof.
+    intros.
+    iIntros "H".
+    iApply (type_interp_subst_type_BIDIRECTIONAL F F' se se' τ κ κ'); try done.
+  Qed.
   Lemma type_interp_subst_type_backwards F F' se se' τ κ κ' sv sub_m sub_r sub_s sub_t :
     let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
     (sem_env_types_well_formed se') ->
@@ -2124,13 +2160,16 @@ Admitted.
     (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
-    (* type_eq_mod_kinds τ' (subst_type sub_m sub_r sub_s sub_t τ) -> *)
     type_interp rti sr τ' se sv -∗
     type_interp rti sr τ se' sv.
-    Proof. (* use the bidirect *) Admitted.
+  Proof.
+    intros.
+    iIntros "H".
+    iApply (type_interp_subst_type_BIDIRECTIONAL F F' se se' τ κ κ'); try done.
+  Qed.
 
 
-  Lemma has_kind_subst_stupid :
+  Lemma has_kind_subst_rec_helper :
     (∀ τ F κ, let τrec := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
               has_kind F (RecT κ τ) κ -> has_kind F τrec κ) /\
       (∀ (ϕ :Core.function_type), True) /\ (∀ (iϕ:inner_function_type), True).
@@ -2165,10 +2204,10 @@ Admitted.
     }
   Admitted.
 
-  Lemma has_kind_subst :
+  Lemma has_kind_rec_subst :
     (∀ τ F κ, let τrec := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
               has_kind F (RecT κ τ) κ -> has_kind F τrec κ).
-  Proof. destruct has_kind_subst_stupid as (this & _). exact this. Qed.
+  Proof. destruct has_kind_subst_rec_helper as (this & _). exact this. Qed.
 
   (* Note: the implicit hell below is because rocq can't figure out the contractive
    instances. In plain text, this lemma is the following:
@@ -2213,7 +2252,7 @@ Admitted.
   Qed.
 
 
-  Lemma stupid K n :
+  Lemma invert_memok K n :
     mem_ok K (VarM n) -> n < kc_mem_vars K.
   Proof.
     intros.
@@ -2243,7 +2282,7 @@ Admitted.
         cbn.
         destruct Hse as [ (Hse & _ & _)  _].
         cbn in Hse.
-        apply stupid in Hok.
+        apply invert_memok in Hok.
         rewrite Hse in Hok.
         apply lookup_lt_is_Some_2 in Hok.
         done.
