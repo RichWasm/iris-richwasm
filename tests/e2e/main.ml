@@ -136,6 +136,8 @@ end)
 let mm_ref pointee = sprintf "(Ref (Base MM) Mut (Ser %s))" pointee
 let ty_i32 = "(Num (Int I32))"
 let ty_i31 = "I31"
+let ty_ml_ref_tup = "(Ref (Base GC) Mut (Ser (Ref (Base GC) Imm (Struct ((Ser I31) (Ser I31))))))"
+let ty_ll_ref_tup = "(Ref (Base MM) Mut (Struct ((Ser (Num (Int I32))) (Ser (Num (Int I32))))))"
 
 (* mini-ml calls the wrapper; the wrapper forwards to a lin-lang import. *)
 let ml_calls_ll_glue
@@ -388,6 +390,88 @@ let run ({ rw_runtime; host_single; host_double; host_triple } : run_env) =
                 |> Triple.M.run
               in
               check_result "7" Triple.E2Err.pp logs result);
+          (* --------------------------------------------------- *)
+          test_case "naive ref (int x int) (ml -> ll)" `Quick (fun () ->
+              let module Triple = EndToEnd.Make3 (MM_RW_LL) (TripleRW) in
+              let module1 =
+                (* mini-ml *)
+                {|
+                  (export (add_tup : (() (ref (* int int)) -> int))
+                    (fun () (r : (ref (* int int))) : int
+                      (let (x : (* int int)) (! r) (op + (proj 0 x) (proj 1 x)) )))
+                |}
+              in
+              let module2 =
+                (* conv_arg Tag can error if the i32 exceeds 31 bits *)
+                ll_calls_ml_glue ~name:"add_tup_wrapped" ~ll_arg:ty_ll_ref_tup
+                  ~ll_ret:ty_i32 ~ml_arg:ty_ml_ref_tup ~ml_ret:ty_i31
+                  ~arg_local:"(Atom I32)" ~extra_locals:"(Atom I32) (Atom I32)"
+                  ~conv_arg: (* this is ll ref type -> ml ref tup *)
+                  "(Load (Path (0)) Copy) (LocalSet 2) (Load (Path (1)) Copy) (LocalSet 3) Drop
+                   (LocalGet 2 Move) Tag (LocalGet 3 Move) Tag (Group 2)
+                   (New GC Imm)
+                   (Cast (Ref (Base GC) Imm (Struct ((Ser I31) (Ser I31)))))
+                   (New GC Mut)
+                   "
+                  ~conv_ret: "Untag"
+                  ()
+              in
+              let module3 =
+                (* lin-lang *)
+                {|
+                  (import ((ref (prod int int)) -> int) as add_tup)
+
+                  (app add_tup (new (tup 23 44)))
+                |}
+              in
+              let result, logs =
+                Triple.run3 ~asprintf ~links:("add_tup", "add_tup_wrapped") module1
+                  module2 module3
+                |> Triple.M.run
+              in
+              check_result "67" Triple.E2Err.pp logs result);
+          (* --------------------------------------------------- *)
+          test_case "naive ref (int x int) (ll -> ml)" `Quick (fun () ->
+              let module Triple = EndToEnd.Make3 (LL_RW_MM) (TripleRW) in
+              let module1 =
+                (* lin-lang *)
+                {|
+                  (export fun add_tup2 (r : (ref (prod int int))) : int .
+                 (let (pair : (prod int int)) = (free r) in
+                 (split (a : int) (b : int) = pair in (a + b))
+                 ))
+                |}
+              in
+              let module2 =
+                ml_calls_ll_glue ~name:"add_tup2_wrapped" ~ml_arg:ty_ml_ref_tup
+                  ~ml_ret:ty_i31 ~ll_arg:ty_ll_ref_tup ~ll_ret:ty_i32
+                  ~extra_locals:"(Atom I32) (Atom I32) (Atom I32)"
+                  ~conv_arg: (* this is ml ref tup -> ll ref tup *)
+                  "(Load (Path ()) Copy) (LocalSet 2) Drop (LocalGet 2 Move)
+                   (Load (Path (0)) Copy) (LocalSet 2) (Load (Path (1)) Copy) (LocalSet 3) Drop
+                   (LocalGet 2 Move) Untag (LocalGet 3 Move) Untag
+                   (Group 2)
+                   (New MM Mut)
+                   (Cast (Ref (Base MM) Mut (Struct ((Ser (Num (Int I32))) (Ser (Num (Int I32)))))))
+                   "
+                  ~conv_ret:"Tag" ()
+              in
+              let module3 =
+                (* mini-ml *)
+                {|
+                  (import (add_tup2 : (() (ref (* int int)) -> int)))
+
+                  (app add_tup2 () (new (tup 5 7)))
+                |}
+              in
+              let result, logs =
+                Triple.run3 ~asprintf ~links:("add_tup2", "add_tup2_wrapped") module1
+                  module2 module3
+                |> Triple.M.run
+              in
+              (* add_dup (5 7) = 12. Make3 runs without RW_START_TYPE, so the i31
+                 result prints raw (doubled): 12 -> 24. *)
+              check_result "24" Triple.E2Err.pp logs result);
           (* --------------------------------------------------- *)
           test_case "lin ref passed as argument (rw -> ml)" `Quick (fun () ->
               let module Double = EndToEnd.Make2 (MM_RW) (DoubleRW) in
