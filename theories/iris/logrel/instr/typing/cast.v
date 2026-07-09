@@ -40,7 +40,7 @@ Section cast.
     iApply sem_type_erased; first done.
     iIntros (se vs Hsemenv) "Hos".
     rewrite !values_interp_one_eq !value_interp_eq -!type_interp_eq.
-    by iApply (type_interp_type_eq _ _ _ _ Htype_eq  _ _ _ _ _ Hkind1 Hkind2 with "Hos").
+    by iApply (type_interp_type_eq _ _ _ _ Htype_eq  _ _ _ _ _ Hkind1 Hkind2 Hsemenv with "Hos").
   Qed.
 
 End cast.
