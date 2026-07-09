@@ -75,43 +75,46 @@ $ just cli run tests/examples/standalone/safe_div.rw
 
 (`safe_div.rw` is `ll2rw -pp sexp -elab false` applied to `safe_div.ll`; dividing by zero takes the error branch, which the caller maps to `0`.)
 
-## Structure
+## Differences between paper and mechanization
+- Kinds are baked into the type syntax to allow the compiler access to them. These kinds are defined to be the most specific kinds, with subkinding allowed only in specific locations. Instruction types are also baked into instruction syntax.
+- Function types: in the paper, a function type is `forall a*.xi`, where a* can be a list of quantifiers in any order. The mechanized syntax differs by ensuring that all `t:kappa` quantifiers are inner-most by stratifying functions types into `function_type` and `inner_function_type`. This was done to simplify flatenning and indexing (as type quantifiers can rely on previously declared variables).
+- The live memory resource is named the "runtime token" and is appreviated `RT`.
 
+## Important Files
+This overview will focus on the most important files and folders, as it relates to the paper. 
 
-(OWEN TODO)
+### Language and Compiler.
+`theories/syntax/rw.sig`: RichWasm syntax, using autosubst.
 
-```
-.
-├── bin/ -- cli
-├── src/
-│   ├── common/
-│   ├── lin-lang/
-│   ├── mini-ml/
-├── tests
-│   ├── e2e
-│   ├── examples
-│   ├── lin-lang
-│   ├── main.ml
-│   ├── mini-ml
-│   ├── richwasm
-│   ├── runtime
-│   └── support
-├── theories/
-│   ├── compiler
-│   ├── dune
-│   ├── examples
-│   ├── extract
-│   ├── iris
-│   ├── kinding_subst.v
-│   ├── layout.v
-│   ├── named_props
-│   ├── opsem
-│   ├── prelude.v
-│   ├── syntax
-│   ├── syntax.v
-│   ├── typechecker
-│   ├── typing.v
-│   ├── util.v
-│   └── wasm
-```
+`theories/typing.v`: the type system.
+
+`theories/typechecker/typechecker.v`: typechecker, not fully verified.
+
+`theories/compiler`: the RichWasm to Wasm compiler.
+
+### Model
+`theories/iris/logrel.v`: the main logical relation. Line 1031 for type and closure interpretation. Line 1297 for instruction logical relation. Line 1377 for the module interpretation.
+
+`theories/iris/memory.v`: memory model. Line 215 for the run time token.
+
+`theories/iris/runtime.v`: runtime specifications
+
+`theories/iris/language/cwp/def.v`: definition of weakest precondition modality.
+
+### FTLR
+`theories/iris/logrel/instr/typing.v`: statement of theorem 5.1
+
+`theories/iris/logrel/instr/typing folder`: proofs of ABI compliance for each RichWasm instruction, supported by helper files in `theories/iris/logrel/instr folder`.
+
+### Examples
+`src` contains our case study compilers, and `tests` test case study + RichWasm compilers all together. `tests/e2e/main.ml` has the glue code and linking type examples.
+
+`theories/examples`: the two proofs of linking with external Wasm.
+
+## Our Admits
+Aside from some instruction cases being admitted, we have the following admits:
+- `theories/kinding_subst.v`: lemmas about kinding remaining true through a substitution, modulo the kind getting more specific
+- `theories/iris/logrel/substitution.v`: lemmas related to the type interpretation remaining true through a substitution. Some pertinent cases were verified.
+- `theories/iris/logrel/logrel_properties`: closure interpretation in an empty semantic environment implies closure interpretation in any semantic environment
+- `theories/iris/logrel/function.v`: helper lemmas, mostly about representations
 
