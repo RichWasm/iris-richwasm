@@ -241,6 +241,7 @@
               dune_3_23_1
             ]
             ++ (with pkgs; [
+              just
               nixd
               nil
               nixfmt
