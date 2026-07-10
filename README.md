@@ -79,6 +79,7 @@ $ just cli run tests/examples/standalone/safe_div.rw
 - Kinds are baked into the type syntax to allow the compiler access to them. These kinds are defined to be the most specific kinds, with subkinding allowed only in specific locations. Instruction types are also baked into instruction syntax.
 - Function types: in the paper, a function type is `forall a*.xi`, where a* can be a list of quantifiers in any order. The mechanized syntax differs by ensuring that all `t:kappa` quantifiers are inner-most by stratifying functions types into `function_type` and `inner_function_type`. This was done to simplify flatenning and indexing (as type quantifiers can rely on previously declared variables).
 - The live memory resource is named the "runtime token" and is appreviated `RT`.
+- The `dup` instruction in the paper is `copy` in the mechanization.
 
 ## Important Files
 This overview will focus on the most important files and folders, as it relates to the paper. 
