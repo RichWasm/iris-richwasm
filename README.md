@@ -100,7 +100,7 @@ This overview will focus on the most important files and folders, as it relates 
 
 `theories/iris/runtime.v`: runtime specifications
 
-`theories/iris/language/cwp/def.v`: definition of weakest precondition modality.
+`theories/iris/language/cwp/def.v`: definition of the new weakest precondition modality, CWP.
 
 ### FTLR
 `theories/iris/logrel/instr/typing.v`: statement of theorem 5.1
