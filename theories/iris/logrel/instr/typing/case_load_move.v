@@ -1,5 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
-Require Import RichWasm.iris.logrel.case_ptr.
+From RichWasm.iris.logrel Require Import case_ptr roots load_copy.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -84,9 +84,64 @@ Section case_load_move.
     }
 
     iIntros (??) "[-> ->] Hfr Hrun".
-    rewrite app_nil_l.
+    rewrite value_interp_eq.
+    iDestruct "Hos" as "(% & % & % & % & % & % & % & Hℓ & Href)".
+    inversion H1.
+    subst o.
+    clear H1.
+    iDestruct "Hvs" as "(% & % & % & -> & % & % & Hrp)".
+    inversion H2.
+    { iDestruct "Hrp" as "[]". }
+    subst rp n0.
+    destruct μ; first last.
+    { iDestruct "Hrp" as "[]". }
 
-    (* case_ptr *)
+    apply cwp_case_ptr in Hcg as (? & ? & ? & ? & ? & ? & ? & ? & ? &
+                                    Hcg_unr & Hcg_mm & Hcg_gc & -> & -> & Hcwp).
+    iApply (Hcwp with "[$Hfr] [$Hrun]").
+    { by instantiate (1 := []). }
+    { done. }
+    {
+      instantiate (2 := PtrHeap MemMM ℓ).
+      instantiate (1 := tag_address MemMM a).
+      by constructor.
+    }
+    { done. }
+    { iPureIntro. admit. }
+    iIntros "!> Hfr Hrun".
+    clear Hcwp Hcg_gc.
+
+    rewrite type_interp_eq.
+    iDestruct "Href" as "(% & % & % & % & % & % & % & % & % & Hτ)".
+    inversion H8.
+    subst ws.
+    clear H8.
+    destruct (list_lookup i (map (type_interp rti sr) τs_ser)) as [τ|] eqn:Hτ; first last.
+    { by rewrite Hτ. }
+    rewrite Hτ.
+
+    inv_cg_emit Hcg_unr.
+    inv_cg_bind Hcg_mm [] ?wt ?wt ?wl ?wl ?es ?es Hcg_root Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_tag Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_case Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_flags Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_ptr Hcg_free.
+    subst x0 x3 x6 wt7 wl7 es6 wt5 wl5 es4 wt3 wl3 es2 wt1 wl1 es0 x1 x4 x7.
+    clear Hretval.
+    clear_nils.
+
+    apply wp_root_to_heap_mm in Hcg_root as (_ & -> & -> & ->).
+    rewrite app_nil_l.
+    iApply (cwp_seq with "[-]").
+    {
+      iApply fupd_cwp.
+      iMod (na_inv_acc with "Hℓ Hown") as "(>[Hlayout Hheap] & Hown & Hclose)".
+      { done. }
+      { done. }
+      iModIntro.
+      (* iApply wp_load1_copy_mm. *)
+      admit.
+    }
   Admitted.
 
 End case_load_move.
