@@ -6,6 +6,10 @@ From Stdlib.Strings Require Import String.
 From RichWasm Require Import layout syntax typing util.
 Set Bullet Behavior "Strict Subproofs".
 
+
+Ltac clear_nils :=
+    repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
+
 Inductive type_error :=
 | NormalError: string -> type_error
 | FrameError: string -> instruction_type -> instruction_type -> type_error
@@ -83,6 +87,27 @@ Proof.
   intros. apply H.
   by apply check_ok_true_to_prop.
 Qed.
+
+Lemma convert_foldr_to_Forall_check_ok
+  {In: Type} (func : In -> type_checker_res) (Pbool : In -> Prop) (l : list In) :
+  foldr (λ i, andb (check_ok (func) i)) true l = true ->
+  (forall i, func i = ok_term -> Pbool i) ->
+  Forall Pbool l.
+Proof.
+  generalize dependent l.
+  induction l.
+  - cbn. done.
+  - intros Hfold.
+    cbn in Hfold.
+    apply andb_prop in Hfold; destruct Hfold as [?H1 ?H2].
+    intros Hpbool.
+    apply IHl in H2; try done.
+    constructor; try done.
+    eapply equal_okterm_to_checkok; try done.
+    exact (Hpbool a).
+
+Qed.
+
 
 (** TACTICS **)
 Ltac solve_Forall_foldr HForall Hfoldr checker proper :=
@@ -311,6 +336,10 @@ Lemma inner_function_type_eq_convert :
 Proof. Admitted.
 
 
+Lemma mutability_eq_convert :
+  ∀ τ1 τ2, mutability_beq τ1 τ2 = true <-> τ1 = τ2.
+Proof. Admitted.
+
 Lemma memory_eq_convert :
   ∀ m1 m2, memory_beq m1 m2 = true <-> m1 = m2.
 Proof.
@@ -321,6 +350,12 @@ Qed.
 (* I'm bad at everything so monomorphic *)
 Lemma list_eq_convert_type :
   ∀ τs1 τs2, list_beq type type_beq τs1 τs2 = true <-> τs1 = τs2.
+Proof. Admitted.
+Lemma list_eq_convert_primitive :
+  ∀ τs1 τs2, list_beq primitive primitive_beq τs1 τs2 = true <-> τs1 = τs2.
+Proof. Admitted.
+Lemma list_eq_convert_representation :
+  ∀ τs1 τs2, list_beq representation representation_beq τs1 τs2 = true <-> τs1 = τs2.
 Proof. Admitted.
 Lemma list_eq_convert_size :
   ∀ τs1 τs2, list_beq size size_beq τs1 τs2 = true <-> τs1 = τs2.
@@ -493,10 +528,15 @@ Ltac boolean_equality_auto :=
   | H: (instruction_type_beq _ _ = true) |- _ => apply instruction_type_eq_convert in H; subst; auto
   | H: (module_type_beq _ _ = true) |- _ => apply module_type_eq_convert in H; subst; auto
   | H: (memory_beq _ _ = true) |- _ => apply memory_eq_convert in H; subst; auto
+  | H: (mutability_beq _ _ = true) |- _ => apply mutability_eq_convert in H; subst; auto
   | H: (num_type_beq _ _ = true) |- _ => apply num_type_eq_convert in H; subst; auto
   | H: (path_result_beq _ _ = true) |- _ => apply path_result_eq_convert in H; subst; auto
   | H: (list_beq type type_beq _ _ = true) |- _ => apply list_eq_convert_type in H; subst; auto
   | H: (list_beq size size_beq _ _ = true) |- _ => apply list_eq_convert_size in H; subst; auto
+  | H: (list_beq representation representation_beq _ _ = true) |- _ =>
+      apply list_eq_convert_representation in H; subst; auto
+  | H: (list_beq primitive primitive_beq _ _ = true) |- _ =>
+      apply list_eq_convert_primitive in H; subst; auto
   | H: (function_ctx_beq _ _ = true) |- _ => apply function_ctx_eq_convert in H; subst; auto
   | H: (instruction_beq _ _ = true) |- _ => apply instruction_eq_convert in H; subst; auto
   | H: (list_beq instruction instruction_beq _ _ = true) |- _ => apply list_eq_convert_instruction in H; subst; auto
@@ -550,41 +590,107 @@ Fixpoint list_suffix_helper (l1 l2: list type) (l1len l2len: nat) : option (list
     end.
 
 Definition list_suffix l1 l2 : option (list type) :=
-  let l1len := Init.Datatypes.length l1 in
-  let l2len := Init.Datatypes.length l2 in
+  let l1len := Datatypes.length l1 in
+  let l2len := Datatypes.length l2 in
   list_suffix_helper l1 l2 l1len l2len.
+
+Lemma list_suffix_helper_same :
+  ∀ l, list_suffix_helper l l (Init.Datatypes.length l) (Init.Datatypes.length l) = Some [].
+Proof.
+  induction l.
+  - cbn. done.
+  - cbn.
+    rewrite Nat.eqb_refl.
+    assert (type_beq a a = true). { rewrite type_eq_convert. done. }
+    rewrite H.
+    assert (list_beq type type_beq l l = true). { rewrite list_eq_convert_type. done. }
+    rewrite H0.
+    cbn. done.
+Qed.
+
+Lemma list_suffix_helper_if_equal :
+  ∀ lful lsuf,
+    list_suffix_helper lful lsuf (Datatypes.length lful) (Datatypes.length lsuf) = Some []->
+    lful = lsuf.
+Proof.
+  induction lful.
+  - cbn. intros lsuf; destruct lsuf; cbn; try done.
+  - intros lsuf_big Hbig.
+    destruct lsuf_big as [|a2 lsuf]; cbn in Hbig.
+    { structural_auto. }
+    repeat structural_auto.
+    repeat boolean_equality_auto.
+Qed.
+
+
+Lemma list_suffix_add_one :
+  forall a lpre lsuf,
+    list_suffix (lpre ++ lsuf) lsuf = Some (lpre) ->
+    list_suffix (a :: lpre ++ lsuf) lsuf = Some (a :: lpre).
+Proof.
+  intros * H.
+  destruct lsuf.
+  - cbn. clear_nils.
+    unfold list_suffix in H.
+    cbn in H.
+    rewrite H.
+    done.
+  - unfold list_suffix in *; cbn in *.
+    rewrite length_app at 1. cbn.
+    assert (Datatypes.length lpre + S (Datatypes.length lsuf) =? Datatypes.length lsuf = false). {
+      cbn.
+      rewrite Nat.eqb_neq.
+      lia.
+    }
+    rewrite H0; cbn.
+    rewrite H.
+    done.
+Qed.
+
 
 Lemma list_suffix_correct_l :
   ∀ lfull lpre lsuf,
     lfull = lpre ++ lsuf -> list_suffix lfull lsuf = Some lpre.
 Proof.
-  intros lfull.
-  induction lfull.
-  - intros.
-    destruct lpre, lsuf; try inversion H.
-    auto.
-  - intros lprebig.
-    destruct lprebig as [ | a' lpre ].
-    + admit.
-    + intros.
-      inversion H; subst.
-      specialize (IHlfull lpre lsuf eq_refl).
-      (* yeah this is right, I just need theorems about lengths of lists *)
-      admit.
-Admitted.
+  intros lfull lpre.
+  generalize dependent lfull.
+  generalize dependent lpre.
+
+  induction lpre.
+  - intros lfull lsuf.
+    clear_nils.
+    intros H; subst.
+    unfold list_suffix.
+    apply list_suffix_helper_same.
+  - intros lfull_big lsuf H.
+    change ((?x::?y)++?z) with (x::(y++z)) in *.
+    destruct lfull_big as [|a1 lfull]; [inversion H; done| inversion H; subst].
+    specialize (IHlpre (lpre ++ lsuf) lsuf ltac:(auto)).
+    apply list_suffix_add_one; done.
+Qed.
 
 Lemma list_suffix_correct_r :
   ∀ lfull lpre lsuf,
     list_suffix lfull lsuf = Some lpre -> lfull = lpre ++ lsuf.
 Proof.
-  intros lfull; induction lfull.
-  - intros; simpl in *. destruct lpre, lsuf; try inversion H. auto.
-  - intros lprebig.
-    destruct lprebig as [ | a' lpre ].
-    + intros lsuf Hlsuf.
-      admit.
-    + (* yeah this is fine too *) admit.
-Admitted.
+  intros lfull lpre.
+  generalize dependent lfull.
+  generalize dependent lpre.
+
+  induction lpre.
+  - intros lfull lsuf H.
+    clear_nils.
+    by apply list_suffix_helper_if_equal.
+  - intros lfull_big lsuf H.
+    change ((?x::?y)++?z) with (x::(y++z)) in *.
+    destruct lfull_big as [|a1 lfull]; cbn in *; clear_nils; repeat structural_auto; subst.
+    + destruct lsuf; cbn in HMatch1; try (by inversion HMatch1).
+      apply IHlpre in HMatch0. clear_nils.
+      subst. done.
+    + rewrite <- HMatch1 in HMatch0.
+      apply IHlpre in HMatch0.
+      subst; done.
+Qed.
 
 
 
@@ -1030,6 +1136,16 @@ Fixpoint foldr2 {A B C : Type} (f : B → C → A → A) (a0 : A)
   | _, _ => a0
   end.
 
+(* foldr2 lemmas location *)
+Lemma convert_foldr2_to_Forall2_check_ok_output
+  {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (Pbool : In1 -> In2 -> Prop)
+  (l1 : list In1) (l2 : list In2) :
+  foldr2 (λ i1 i2, andb (check_ok_output (func i1 i2))) true l1 l2 = true ->
+  Forall (λ i1, ∀ i2, func i1 i2 = ok_term -> Pbool i1 i2) l1 ->
+  Forall2 Pbool l1 l2.
+Proof.
+Admitted.
+
 Fixpoint all_left {A B : Type} (l: list (A + B)) : bool :=
   match l with
   | [] => true
@@ -1399,6 +1515,53 @@ Proof.
   constructor; auto.
 Qed.
 
+Lemma convert_forall2_has_kind_to_forall3_has_valtype F τs (κs : list kind) :
+  foldr andb true (map is_valtype κs) = true ->
+  Forall2 (has_kind F) τs κs ->
+  Forall3 (λ τ ρ ξ, has_kind F τ (VALTYPE ρ ξ)) τs (get_all_lefts (map get_rep_or_size κs))
+    (map kind_ref_flag κs).
+Proof.
+  generalize dependent τs.
+  induction κs as [|κ κs].
+  - intros τs Hval Hkind.
+    destruct τs; inversion Hkind.
+    cbn.
+    constructor.
+  - intros τs Hval Hkind.
+    destruct τs as [|τ τs]; inversion Hkind; subst.
+    cbn in Hval.
+    repeat my_auto3.
+    specialize (IHκs τs H0 H4).
+    cbn.
+    destruct κ as [ρ ξ | σ ξ]; try inversion H1.
+    cbn.
+    constructor; try done.
+Qed.
+
+Lemma convert_forall2_has_kind_to_forall3_has_memtype F τs (κs : list kind) :
+  foldr andb true (map is_memtype κs) = true ->
+  Forall2 (has_kind F) τs κs ->
+  Forall3 (λ τ σ ξ, has_kind F τ (MEMTYPE σ ξ)) τs (get_all_rights (map get_rep_or_size κs))
+    (map kind_ref_flag κs).
+Proof.
+  generalize dependent τs.
+  induction κs as [|κ κs].
+  - intros τs Hval Hkind.
+    destruct τs; inversion Hkind.
+    cbn.
+    constructor.
+  - intros τs Hval Hkind.
+    destruct τs as [|τ τs]; inversion Hkind; subst.
+    cbn in Hval.
+    repeat my_auto3.
+    specialize (IHκs τs H0 H4).
+    cbn.
+    destruct κ as [ρ ξ | σ ξ]; try inversion H1.
+    cbn.
+    constructor; try done.
+Qed.
+
+
 Lemma has_kind_synther_correct_basic :
   (∀ t F k, has_kind_synther F t = inl k -> has_kind F t k) /\
   (∀ (ft:function_type) (F:function_ctx),
@@ -1426,28 +1589,32 @@ Proof.
 
   [SumT]: {
     constructor.
-    clear H6.
-    assert (HH: l = (get_all_lefts
-         (map get_rep_or_size
-            (get_all_lefts (map (has_kind_synther F) τs)))) ). {
-      (* by h4 and list_beq lemmas *)
-      admit.
-    }
-    subst l. clear H4.
+    pose proof all_left_Forall2_has_kind F τs H HMatch1.
     set (synthed_κs := (map (has_kind_synther F) τs)) in *.
     set (κs := get_all_lefts synthed_κs) in *.
-    (* okay logic for why good:
-       - HMatch2 says that all synthed_κs are lefts, meaning they're all inl κ
-       - this means that κs is a list of kinds st map2 (has_kind F) τs κs is true by
-         inductive hypothesis
-       - moreover, by H4, we know that all κs are VALTYPES by H0
-       - so this means that the lefts get reps are all reps, and the has-kind in the forall3
-         is actually good.
-      Okay I'm convinced I didn't miss anything
-     *)
-    admit.
+    by apply convert_forall2_has_kind_to_forall3_has_valtype.
   }
-  [VariantT]: admit. [ProdT]: admit. [StructT]: admit.
+  [VariantT]: {
+    constructor.
+    pose proof all_left_Forall2_has_kind F τs H HMatch1.
+    set (synthed_κs := (map (has_kind_synther F) τs)) in *.
+    set (κs := get_all_lefts synthed_κs) in *.
+    by apply convert_forall2_has_kind_to_forall3_has_memtype.
+  }
+  [ProdT]: {
+    constructor.
+    pose proof all_left_Forall2_has_kind F τs H HMatch1.
+    set (synthed_κs := (map (has_kind_synther F) τs)) in *.
+    set (κs := get_all_lefts synthed_κs) in *.
+    by apply convert_forall2_has_kind_to_forall3_has_valtype.
+  }
+  [StructT]: {
+    constructor.
+    pose proof all_left_Forall2_has_kind F τs H HMatch1.
+    set (synthed_κs := (map (has_kind_synther F) τs)) in *.
+    set (κs := get_all_lefts synthed_κs) in *.
+    by apply convert_forall2_has_kind_to_forall3_has_memtype.
+  }
 
 
   Ltac do_it IH :=
@@ -1465,7 +1632,7 @@ Proof.
   (* the rest are simple *)
   all: do_it H; by constructor.
 
-Admitted.
+Qed.
 
 Lemma has_kind_synther_correct :
   (∀ t F k, has_kind_synther F t = inl k -> has_kind F t k).
@@ -1530,11 +1697,6 @@ Definition grab_rep F τ : option representation :=
   | None => None
   end.
 
-Lemma grab_rep_correct :
-  ∀ F τ ρ, grab_rep F τ = Some ρ -> has_rep F τ ρ.
-Proof.
-Admitted.
-
 Definition is_mono_rep_checker :=
   rep_ok_checker kc_empty.
 
@@ -1585,9 +1747,11 @@ Proof.
   repeat my_auto3. pose proof has_mono_rep_checker_correct.
   split; [clear HMatch1 | clear HMatch0].
   - (* yeah this is true but I dont wanna prove it *)
-    admit.
-  - admit.
-Admitted.
+    eapply convert_foldr_to_Forall_check_ok; try done.
+    exact (H F).
+  - eapply convert_foldr_to_Forall_check_ok; try done.
+    exact (H F).
+Qed.
 
 (* I think type_size can do this but oh well *)
 Definition grab_size F τ : option size :=
@@ -1616,11 +1780,6 @@ Proof.
   apply has_kind_synther_correct in HMatch.
   by exists r.
 Qed.
-
-Definition grab_size_correct :
-  ∀ F τ σ, grab_size F τ = Some σ -> has_size F τ σ.
-Proof.
-Admitted.
 
 Definition is_mono_size_checker := size_ok_checker kc_empty.
 
@@ -1671,9 +1830,7 @@ Proof.
   repeat my_auto3.
   apply has_rep_checker_correct in HMatch0. rename l into ηs1.
   exists r. split; auto.
-  (* give some theorems about list_beq, this is obvious *)
-  admit.
-Admitted.
+Qed.
 
 (* NOTE:  a bit of confusing terminology. size_beq is actual equality.
  size_eq_checker will be about it evalling to the same n *)
@@ -2163,9 +2320,29 @@ Proof.
 
   all: idtac. (* this is here because doom emacs despises the match goal above *)
 
+  1-4: cbn in H0; repeat my_auto3; constructor;
+    eapply convert_foldr2_to_Forall2_check_ok_output; try done.
+  2: {
+    repeat my_auto3.
+    apply H in H0.
+    constructor; done.
+  }
+
   (* struct ser case *)
-  5: {
-    repeat structural_auto.
+  (* there's annoying monad stuff in here *)
+  1: {
+    (* Opaque sequence. *)
+    (* cbn in H0. *)
+    (* repeat structural_auto. *)
+    (* Search sequence. *)
+    (* About sequence. *)
+    (* repeat boolean_equality_auto. *)
+    (* Transparent sequence. *)
+    (* About sequence. *)
+    (* cbn in HMatch0. *)
+    (* Search List.mapT_list. *)
+    (* unfold List.mapT_list in HMatch0. *)
+    (* cbn. *)
     admit.
     (*
     assert (tosubst: τs = τ2) by admit. subst; clear HMatch.
@@ -2173,13 +2350,11 @@ Proof.
    *)
   }
   (* ser struct case *)
-  6: { admit. }
-  (* All the rest of are foldr2 lemma reliant, so *)
-  all: admit.
+  1: { admit. }
 
 Admitted.
 
-
+(* SAVE *)
 Lemma type_eq_checker_correct :
   ∀ τ1 τ2, type_eq_checker τ1 τ2 = ok_term -> type_eq τ1 τ2.
 Proof.
@@ -4815,8 +4990,6 @@ Ltac my_auto5 :=
   | H: (unpacked_existential_checker _ _ _ _ _ _ _ _ = inl ()) |- _ => apply unpacked_existential_checker_correct in H; auto
   | H: (unpacked_existential_checker _ _ _ _ _ _ _ _ = ok_term) |- _ => apply unpacked_existential_checker_correct in H; auto
   | H: (unpacked_existential_getter _ _ _ _ = Some (_, _, _, _)) |- _ => apply unpacked_existential_getter_correct in H; auto
-  | H: (grab_size _ _ = Some _) |- _ => apply grab_size_correct in H; auto
-  | H: (grab_rep _ _ = Some _) |- _ => apply grab_rep_correct in H; auto
 end.
 (* Great. Now through tactics. Let's think *)
 Lemma test_foldr2 F l2 :
@@ -4845,6 +5018,51 @@ Proof.
     rewrite foldr_cons in H. repeat my_auto5.
     apply TFrame; auto.
 Qed.
+
+Lemma grab_rep_has_kind F τ κ ρ :
+  grab_rep F τ = Some ρ ->
+  has_kind F τ κ ->
+  ∃ ξ, κ = VALTYPE ρ ξ.
+Proof.
+  intros Hgrab Hkind.
+  inversion Hkind; subst; cbn in *; try done; inversion Hgrab; subst; try (eexists; done).
+  all: destruct κ; try done.
+  all: inversion Hgrab; subst.
+  all: try (eexists; done).
+  - clear H3.
+    unfold grab_rep in H2. unfold grab_kind in H2.
+    cbn in H2.
+    rewrite H in H2.
+    inversion H2; subst.
+    eexists; done.
+  - clear H3.
+    unfold grab_rep in H2. unfold grab_kind in H2.
+    cbn in H2.
+    rewrite H in H2. done.
+Qed.
+
+Lemma grab_size_has_kind F τ κ σ :
+  grab_size F τ = Some σ ->
+  has_kind F τ κ ->
+  ∃ ξ, κ = MEMTYPE σ ξ.
+Proof.
+  intros Hgrab Hkind.
+  inversion Hkind; subst; cbn in *; try done; inversion Hgrab; subst; try (eexists; done).
+  all: destruct κ; try done.
+  all: inversion Hgrab; subst.
+  all: try (eexists; done).
+  - clear H3.
+    unfold grab_size in H2. unfold grab_kind in H2.
+    cbn in H2.
+    rewrite H in H2. done.
+  - clear H3.
+    unfold grab_size in H2. unfold grab_kind in H2.
+    cbn in H2.
+    rewrite H in H2.
+    inversion H2; subst.
+    eexists; done.
+Qed.
+
 
 Ltac convert_foldr Pbool Pprop l H :=
   apply (foldr_to_Forall Pbool Pprop l) in H; [|intros; repeat my_auto5].
@@ -4937,8 +5155,6 @@ Proof.
   Ltac shred := intros; simpl in *; repeat my_auto5; by constructor.
   Ltac eshred := intros; simpl in *; repeat my_auto5; by econstructor.
   Ltac half_shred := intros; simpl in *; repeat my_auto5.
-  Ltac clear_nils :=
-    repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
 
   [Pack]: shred.
   [Unpack]: {
@@ -5110,7 +5326,25 @@ Proof.
         (fun t => has_mono_size F t) (pr_prefix p0) H3.
       apply Nat.eqb_eq in H2; subst.
       rewrite <- HMatch1 in HMatch2.
-      by eapply TStoreStrong.
+      inversion HMatch14. rename x into κtarg. destruct H as [hkindtarg href].
+      pose proof grab_size_has_kind _ _ _ _ HMatch hkindtarg.
+      destruct H as [ξ ->].
+      eapply TStoreStrong; try done.
+      1: econstructor; done.
+      assert (exists κ, has_kind F t0 κ) as [κ Ht0]. {
+        (* this is basically quarantine hell using has_instruction_type_ok *)
+        clear - H0.
+        inversion H0.
+        inversion H.
+        inversion H2; subst.
+        inversion H7; subst.
+        inversion H8; subst.
+        destruct H4 as [hi _].
+        inversion hi; subst.
+        eexists; done.
+      }
+      pose proof grab_rep_has_kind _ _ _ _ HMatch0 Ht0 as [ξ0 ->].
+      eexists; done.
   }
   [Swap]: {
     half_shred.
