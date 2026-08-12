@@ -859,8 +859,8 @@ Section new.
       (* Step 8: register root *)
       iApply (Hreg_spec θ' (to_consts [VAL_int32 ta32]) ℓ (tag_address MemGC a) ta32
                Hrepr_ptr Htarepr' (proj1 (Is_true_true _) (has_values_to_consts _))
-        with "[Hframe Hlayout' Hheap' Hpre_type_interp] [$] [$] [] [$] [$] [$]").
-      2: { iPureIntro. solve_ndisj. }
+        with "[Hframe Hlayout' Hheap' Hpre_type_interp] [$] [$] [] [] [$] [$] [$]").
+      2, 3: done.
       iIntros (ar ar32 Hreprroot) "Haroot Hrt'' Hown'' %Harrep #_".
 
       iFrame (Hfrel_lmask_set_addr).

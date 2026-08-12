@@ -95,6 +95,7 @@ Section case_load_move.
     subst rp n0.
     destruct μ; first last.
     { iDestruct "Hrp" as "[]". }
+    unfold root_pointer_interp.
 
     apply cwp_case_ptr in Hcg as (? & ? & ? & ? & ? & ? & ? & ? & ? &
                                     Hcg_unr & Hcg_mm & Hcg_gc & -> & -> & Hcwp).
@@ -132,15 +133,35 @@ Section case_load_move.
 
     apply wp_root_to_heap_mm in Hcg_root as (_ & -> & -> & ->).
     rewrite app_nil_l.
-    iApply (cwp_seq with "[-]").
+    iApply (cwp_seq with "[-Hτ Hframe]").
     {
       iApply fupd_cwp.
       iMod (na_inv_acc with "Hℓ Hown") as "(>[Hlayout Hheap] & Hown & Hclose)".
       { done. }
       { done. }
       iModIntro.
-      (* iApply wp_load1_copy_mm. *)
-      admit.
+      iApply (wp_load1_copy_mm with "[$Hfr] [$Hrun] [$Hheap] [$Hrp] [$Hown] [$Hrt]").
+      - done.
+      - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & H & _) & _)".
+      - done.
+      - solve_ndisj.
+      - iPureIntro. cbn. lia.
+      - by instantiate (1 := I32A _).
+      - admit.
+      - done.
+      - admit.
+      - admit.
+      - done.
+      - done.
+      - done.
+      - done.
+      - by iDestruct "Hinst" as "(_ & _ & _ & _ & H & _)".
+      - by iDestruct "Hinst" as "(_ & _ & _ & _ & _ & H)".
+      - iIntros (???) "@@@@@@@@".
+        iClear "Hregf".
+        iSpecialize ("Ho" with "[//]").
+        iSpecialize ("Hclose" with "[Hlayout Hptr Hown]"); first iFrame.
+        admit.
     }
   Admitted.
 

@@ -1051,7 +1051,7 @@ Section load_move.
           done.
         }
 
-        iApply (Hreg_spec with "[Hat HΦ Hhp] [$] [$] [//] [$] [$] [$]").
+        iApply (Hreg_spec with "[Hat HΦ Hhp] [$] [$] [//] [//] [$] [$] [$]").
         3: by (apply Is_true_true; apply has_values_to_consts).
         2: done.
         {

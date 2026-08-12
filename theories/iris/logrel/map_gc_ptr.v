@@ -114,7 +114,7 @@ Section map_gc_ptr.
       iApply (cwp_seq with "[Hf Hr Htok Hrep HE]").
       {
         open_rt "Htok".
-        iApply (Hdup' with "[$] [$] [//] [//] [$] [$] [$] [-HE] [$HE]").
+        iApply (Hdup' with "[$] [$] [//] [//] [//] [$] [$] [$] [-HE] [$HE]").
         - apply Hn32.
         - apply Is_true_true. apply has_values_to_consts.
         - eauto.

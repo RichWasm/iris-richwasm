@@ -28,15 +28,16 @@ Section load_copy.
   Lemma wp_load1_copy_mm (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
     let fe := fe_of_context F in
     run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
-    ∀ f ℓ a32 a o ws s E B R θ lmask Φ,
+    ∀ f ℓ a32 a o ws s E1 E2 B R θ lmask Φ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hrun" ∷ ↪[RUN] -∗
       "Hptr" ∷ ℓ ↦heap ws -∗
       "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-      "Hown"  ∷ na_own logrel_nais E -∗
+      "Hown"  ∷ na_own logrel_nais E2 -∗
       "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%HE1" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E1⌝ -∗
+      "%HE2" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
       "%Hbound" ∷ ⌜off + arep_size ι ≤ length ws⌝ -∗
       "%Harep" ∷ ⌜has_arep ι o⌝ -∗
       "%Hser" ∷ ⌜serialize_atom o = get_path_words off (arep_size ι) ws⌝ -∗
@@ -55,12 +56,12 @@ Section load_copy.
            "%Hvf"  ∷ ⌜types_agree (translate_arep ι) vf⌝ -∗
            "Hptr"  ∷ ℓ ↦heap ws -∗
            "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-           "Hown"  ∷ na_own logrel_nais E -∗
+           "Hown"  ∷ na_own logrel_nais E2 -∗
            "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Ho"    ∷ (⌜atom_copyable o⌝ -∗ atom_interp o v) -∗
            Φ f' [v]) -∗
-      CWP es @ s; E UNDER B; R {{ Φ }}.
+      CWP es @ s; E1 UNDER B; R {{ Φ }}.
   Proof.
     unfold load1.
     intros Hcompile.
@@ -180,7 +181,7 @@ Section load_copy.
         iCombine "Hrt" "Hroot" gives "%Hrm".
         unfold PHYS.
         rewrite -Hserws.
-        iApply (Hduproot with "[$] [$] [//] [//] [$] [$] [$]
+        iApply (Hduproot with "[$] [$] [//] [] [] [$] [$] [$]
                   [Hphys Hclose Hret Hlayout
                    Hrti Hinj Hheapok Haddr] [$] [$]"); eauto.
         {
@@ -397,7 +398,7 @@ Section load_copy.
         pose proof (wp_registerroot rti sr mr _ _ _ _ _ _ Hcg3) as Hregroot.
         destruct Hregroot as (_ & -> & -> & Hregroot).
         inversion Ha; subst pn32.
-        iApply (Hregroot with "[HΦ Hheap] [$] [$] [] [$] [$] [$]"); eauto.
+        iApply (Hregroot with "[HΦ Hheap] [$] [$] [] [] [$] [$] [$]"); eauto.
         {
           apply Is_true_true.
           subst.
