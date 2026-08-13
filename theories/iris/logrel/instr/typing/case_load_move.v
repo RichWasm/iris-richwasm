@@ -134,8 +134,9 @@ Section case_load_move.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_case Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_flags Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_ptr Hcg_free.
-    subst x0 x3 x6 wt7 wl7 es6 wt5 wl5 es4 wt3 wl3 es2 wt1 wl1 es0 x1 x4 x7.
-    clear Hretval.
+    inv_cg_emit Hcg_ptr.
+    subst x0 x3 x6 wt8 wl8 es7 wt7 wl7 es6 wt5 wl5 es4 wt3 wl3 es2 wt1 wl1 es0 x1 x4 x7.
+    clear Hretval Hretval0.
     clear_nils.
 
     apply wp_root_to_heap_mm in Hcg_root as (_ & -> & -> & ->).
@@ -182,6 +183,34 @@ Section case_load_move.
 
     iIntros (??) "(-> & Haddr & Hrt & Hown) Hf Hrun".
     clear Hcg_tag.
+    iApply fupd_cwp.
+    iMod "Hown".
+    iModIntro.
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-]").
+    {
+      (* case_blocks *)
+      admit.
+    }
+
+    iIntros (??) "HΦ Hf Hrun".
+    iApply cwp_val_app; first apply has_values_to_consts.
+    iApply (cwp_seq with "[-]").
+    {
+      (* set_pointer_flags *)
+      instantiate (1 := fun f vs => ⌜vs = []⌝%I).
+      admit.
+    }
+
+    iIntros (??) "-> Hf Hrun".
+    rewrite app_nil_l.
+    iApply (cwp_seq with "[-]").
+    {
+      iApply (cwp_local_get with "[] [$Hf] [$Hrun]"); admit.
+    }
+
+    iIntros (??) "HΦ Hf Hrun".
+    (* free *)
   Admitted.
 
 End case_load_move.
