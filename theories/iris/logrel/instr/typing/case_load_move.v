@@ -47,6 +47,10 @@ Section case_load_move.
     cbn in Hcg.
     inv_cg_bind Hcg n ?wt ?wt ?wl ?wl ?es ?es Hn Hcg.
     inv_cg_bind Hcg ts ?wt ?wt ?wl ?wl ?es ?es Hts Hcg.
+    destruct (Wasm_int.Int32.modulus <? length τs_ser)%Z eqn:Hlength; first done.
+    rewrite Z.ltb_ge in Hlength.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hret Hcg.
+    inv_cg_ret Hret.
     inv_cg_bind Hcg x ?wt ?wt ?wl ?wl ?es ?es Hx Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hsetx Hcg.
     inv_cg_bind Hcg [[] [[] []]] ?wt ?wt ?wl ?wl ?es ?es Hcg Hret.
@@ -55,8 +59,8 @@ Section case_load_move.
     apply wp_wlalloc in Hx as (-> & -> & -> & ->).
     inv_cg_emit Hsetx.
     inv_cg_ret Hret.
-    subst wt0 wl0 es wt2 wl2 es1 wt6 wl6 es5 wt9 wl9 es8 wt7 wl7 es6 wt5 wl5 es4 es2 es0 es' wt3 wl3 wt1 wl1 wt' wl'.
-    clear Hretval Hretval0.
+    subst wt0 wl0 es wt2 wl2 es1 wt9 wl9 es8 wt7 wl7 es6 wt5 wl5 es4 es2 es0 es' wt3 wl3 wt1 wl1 wt' wl' wt4 wl4 es3 wt8 wl8 es7 wt11 wl11 es10.
+    clear Hretval Hretval0 Hretval1.
     clear_nils.
 
     rewrite values_interp_one_eq.
@@ -117,9 +121,12 @@ Section case_load_move.
     inversion H8.
     subst ws.
     clear H8.
-    destruct (list_lookup i (map (type_interp rti sr) τs_ser)) as [τ|] eqn:Hτ; first last.
-    { by rewrite Hτ. }
-    rewrite Hτ.
+    destruct (list_lookup i (map (type_interp rti sr) τs_ser)) as [T|] eqn:HT; first last.
+    { by rewrite HT. }
+    rewrite HT.
+    apply map_lookup_helper_backwards in HT as (τ & Hτ & ->).
+    assert (i < length τs_ser) as Hi_lt.
+    { apply lookup_lt_is_Some. by eexists. }
 
     inv_cg_emit Hcg_unr.
     inv_cg_bind Hcg_mm [] ?wt ?wt ?wl ?wl ?es ?es Hcg_root Hcg.
@@ -146,11 +153,15 @@ Section case_load_move.
       - done.
       - solve_ndisj.
       - iPureIntro. cbn. lia.
-      - by instantiate (1 := I32A _).
-      - admit.
+      - by instantiate (1 := I32A (Wasm_int.int_of_Z i32m (Z.of_nat i))).
+      - iPureIntro. cbn. rewrite take_0. do 2 f_equal. rewrite <- H7.
+        rewrite Wasm_int.Int32.Z_mod_modulus_id.
+        { rewrite <- Z_nat_N. by rewrite Nat2Z.id. }
+        split; first lia. rewrite Nat2Z.inj_lt in Hi_lt.
+        eapply Z.lt_le_trans; [apply Hi_lt|apply Hlength].
       - done.
       - admit.
-      - admit.
+      - iPureIntro. apply list_lookup_insert_eq. cbn. admit.
       - done.
       - done.
       - done.
@@ -161,8 +172,16 @@ Section case_load_move.
         iClear "Hregf".
         iSpecialize ("Ho" with "[//]").
         iSpecialize ("Hclose" with "[Hlayout Hptr Hown]"); first iFrame.
-        admit.
+        iDestruct "Ho" as "->".
+        instantiate (1 := fun f vs => (⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))]⌝ ∗
+                                      ℓ ↦addr (MemMM, a) ∗
+                                      rt_token rti sr lpall θ ∗
+                                      |={⊤}=> na_own logrel_nais ⊤)%I).
+        by iFrame.
     }
+
+    iIntros (??) "(-> & Haddr & Hrt & Hown) Hf Hrun".
+    clear Hcg_tag.
   Admitted.
 
 End case_load_move.

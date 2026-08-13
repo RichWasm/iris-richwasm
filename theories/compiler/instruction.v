@@ -163,6 +163,8 @@ Section Compiler.
     codegen unit :=
     n ← try_option EFail (eval_size EmptyEnv σ);
     res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
+    (* Check that the size of the variant fits in an i32 *)
+    if Z.ltb (Wasm_int.Int32.modulus) (Z.of_nat (length τs)) then raise EFail else ret ();;
     a ← wlalloc fe W.T_i32;
     match con with
     | Copy => emit (W.BI_tee_local (localimm a))
