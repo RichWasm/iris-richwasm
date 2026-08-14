@@ -243,8 +243,8 @@ Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : cod
   emit (W.BI_if tf es1 es2);;
   ret (x1, x2).
 
-
-Definition case_block (tag_idx : W.localidx) (result : W.result_type) (case : (nat -> codegen unit)) (tag_counter : nat) :=
+Definition case_block
+  (tag_idx : W.localidx) (result : W.result_type) (case : (nat -> codegen unit)) (tag_counter : nat) :=
   block_c (W.Tf result result) (
     (* Check if tag matches the current case *)
     emit (W.BI_get_local $ localimm tag_idx);;
@@ -258,22 +258,24 @@ Definition case_block (tag_idx : W.localidx) (result : W.result_type) (case : (n
     case tag_counter
   ).
 
-Fixpoint case_blocks_blocks (start : nat) (tag_idx : W.localidx)
-    (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
+Fixpoint case_blocks
+  (start : nat) (tag_idx : W.localidx) (result : W.result_type) (cases : list (nat -> codegen unit)) :
+  codegen unit :=
   match cases with
   | [] => mret tt
   | case :: cases' =>
-      case_block tag_idx result case start ;;
-      case_blocks_blocks (S start) tag_idx result cases'
+      case_block tag_idx result case start;;
+      case_blocks (S start) tag_idx result cases'
   end.
 
-Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
+Definition case_switch
+  (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
   (* Store tag in local *)
   tag_idx ← save_stack1 fe W.T_i32;
   (* Put default result values on stack *)
   create_defaults result;;
   (* Code for each case *)
-  case_blocks_blocks 0 tag_idx result cases.
+  case_blocks 0 tag_idx result cases.
 
 Lemma wlmask_mono fe wl wl' :
   length wl <= length wl' ->
@@ -624,15 +626,15 @@ Proof.
 Qed.
 
 (* wow... *)
-Lemma run_codegen_case_blocks_blocks_app start tag_idx result fs_pre f_mid fs_post wt wl x wt' wl' es :
-  run_codegen (case_blocks_blocks start tag_idx result (fs_pre ++ [f_mid] ++ fs_post)) wt wl
+Lemma run_codegen_case_blocks_app start tag_idx result fs_pre f_mid fs_post wt wl x wt' wl' es :
+  run_codegen (case_blocks start tag_idx result (fs_pre ++ [f_mid] ++ fs_post)) wt wl
     = inr (x, wt', wl', es) ->
   exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
-    run_codegen (case_blocks_blocks start tag_idx result fs_pre) wt wl
+    run_codegen (case_blocks start tag_idx result fs_pre) wt wl
       = inr (tt, wt1, wl1, es1) /\
     run_codegen (case_block tag_idx result f_mid (start + length fs_pre)) (wt ++ wt1) (wl ++ wl1)
       = inr (tt, wt2, wl2, es2) /\
-    run_codegen (case_blocks_blocks (S (start + length fs_pre)) tag_idx result fs_post)
+    run_codegen (case_blocks (S (start + length fs_pre)) tag_idx result fs_post)
       (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2)
       = inr (x, wt3, wl3, es3) /\
     wt' = wt1 ++ wt2 ++ wt3 /\ wl' = wl1 ++ wl2 ++ wl3 /\ es = es1 ++ es2 ++ es3.
@@ -640,7 +642,7 @@ Proof.
   revert start wt wl x wt' wl' es.
   induction fs_pre as [| f_head fs_pre IH]; intros start wt wl x wt' wl' es H.
   - change (run_codegen (case_block tag_idx result f_mid start ;;
-                         case_blocks_blocks (S start) tag_idx result fs_post)
+                         case_blocks (S start) tag_idx result fs_post)
                          wt wl = inr (x, wt', wl', es)) in H.
     apply run_codegen_bind_dist in H as
       (x1 & wt1 & wt2 & wl1 & wl2 & es1 & es2 & H1 & H2 & -> & -> & ->).
@@ -651,7 +653,7 @@ Proof.
     destruct x1.
     done.
   - change (run_codegen (case_block tag_idx result f_head start ;;
-                         case_blocks_blocks (S start) tag_idx result (fs_pre ++ [f_mid] ++ fs_post))
+                         case_blocks (S start) tag_idx result (fs_pre ++ [f_mid] ++ fs_post))
                          wt wl = inr (x, wt', wl', es)) in H.
     apply run_codegen_bind_dist in H as
       (x1 & wt1 & wt2' & wl1 & wl2' & es1 & es2' & H1 & H2 & Hwt & Hwl & Hes).
@@ -662,7 +664,7 @@ Proof.
     exists (wt1 ++ wt1'), wt2, wt3, (wl1 ++ wl1'), wl2, wl3, (es1 ++ es1'), es2, es3.
     repeat split.
     + change (run_codegen (case_block tag_idx result f_head start ;;
-                           case_blocks_blocks (S start) tag_idx result fs_pre)
+                           case_blocks (S start) tag_idx result fs_pre)
                            wt wl = inr ((), wt1 ++ wt1', wl1 ++ wl1', es1 ++ es1')).
       eapply run_codegen_bind_intro; [exact H1|].
       done.

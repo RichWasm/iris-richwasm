@@ -155,7 +155,7 @@ Section Compiler.
       restore_stack (take count (drop off ixs));;
       c
     in
-    case_blocks fe res (map do_case cases).
+    case_switch fe res (map do_case cases).
 
   Definition compile_case_load
     (fe : function_env) (σ : size) (τs : list type) (τ' : type) (con : consumption)
@@ -190,7 +190,7 @@ Section Compiler.
       (emit W.BI_unreachable)
       (fun μ => root_to_heap mr μ a;;
              load1 mr fe μ Copy a 0 I32R;;
-             case_blocks fe res (map (do_case μ) cases);;
+             case_switch fe res (map (do_case μ) cases);;
              cleanup).
 
   Definition compile_unpack

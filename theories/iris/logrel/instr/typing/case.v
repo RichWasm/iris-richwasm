@@ -59,7 +59,7 @@ Section case.
     length ρs_sum = length ιss ->
     length vs_res = length wl_ret ->
     run_codegen
-      (case_blocks_blocks start tag_localidx wl_ret
+      (case_blocks start tag_localidx wl_ret
          (map (λ c i,
             try_option EFail (sum_offset EmptyEnv ρs_sum i)
             ≫= λ off, try_option EFail (length <$> ιss !! i)
@@ -95,7 +95,7 @@ Section case.
                  ≫= λ off, try_option EFail (length <$> ιss !! i)
                  ≫= λ count, restore_stack (take count (drop off ixs))
                  ≫= λ _, mapM_ (compile_instr mr fe) es_hd) start;;
-         case_blocks_blocks (S start) tag_localidx wl_ret
+         case_blocks (S start) tag_localidx wl_ret
            (map (λ c i,
               try_option EFail (sum_offset EmptyEnv ρs_sum i)
               ≫= λ off, try_option EFail (length <$> ιss !! i)
@@ -531,7 +531,7 @@ Section case.
     rewrite map_app in Hcg.
     rewrite map_cons in Hcg.
     rewrite separate1 in Hcg.
-    apply run_codegen_case_blocks_blocks_app in Hcg as (wt_pre & wt_case_tag & wt_post & wl_pre & wl_case_tag & wl_post & es_pre & es_tag_cg & es_post & Hcg_pre & Hcg_tag & Hcg_post & -> & -> & ->).
+    apply run_codegen_case_blocks_app in Hcg as (wt_pre & wt_case_tag & wt_post & wl_pre & wl_case_tag & wl_post & es_pre & es_tag_cg & es_post & Hcg_pre & Hcg_tag & Hcg_post & -> & -> & ->).
 
     replace (length (map _ _)) with (length ess_pre) in Hcg_tag, Hcg_post.
     2: {
