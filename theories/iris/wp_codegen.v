@@ -32,6 +32,36 @@ Section CodeGen.
     destruct b; by inversion Hcg.
   Qed.
 
+  Lemma cwp_block_c {A} ts1 ts2 (c : codegen A) wt wl x wt' wl' es_b :
+    run_codegen (block_c (W.Tf ts1 ts2) c) wt wl = inr (x, wt', wl', es_b) ->
+    exists es_c,
+      run_codegen c wt wl = inr (x, wt', wl', es_c) /\
+        forall f vs B R Φ,
+          length vs = length ts1 ->
+          is_consts vs ->
+          ↪[frame] f -∗
+          ↪[RUN] -∗
+          (↪[frame] f -∗ ↪[RUN] -∗ CWP vs ++ es_c UNDER (length ts2, Φ) :: B; R {{ Φ }}) -∗
+          CWP vs ++ es_b UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    inv_cg_bind Hcg [?x ?es] ?wt ?wt ?wl ?wl ?es ?es Hcg_cap Hcg.
+    apply run_codegen_capture in Hcg_cap as [Hcg_c ->].
+    inv_cg_bind Hcg foo ?wt ?wt ?wl ?wl ?es ?es Hcg_emit Hcg_ret.
+    inv_cg_emit Hcg_emit.
+    inv_cg_ret Hcg_ret.
+    subst.
+    exists es.
+    clear_nils.
+    split; first done.
+
+    iIntros (????? Hlen Hconst) "Hfr Hrun Hes".
+    iApply (cwp_block with "[$Hfr] [$Hrun]").
+    - done.
+    - done.
+    - iIntros "!> Hfr Hrun". iApply ("Hes" with "[$Hfr] [$Hrun]").
+  Qed.
+
   Lemma wp_if_c {A B} s E tf (c1 : codegen A) (c2 : codegen B) wt wt' wl wl' es x y :
     run_codegen (if_c tf c1 c2) wt wl = inr (x, y, wt', wl', es) ->
     exists wt1 wt2 wl1 wl2 es1 es2,
@@ -1695,5 +1725,67 @@ Section CodeGen.
         cbn in Hstart_le.
         by rewrite Nat2Z.inj_add.
   Qed.
+
+  Lemma case_block_success wt wt' wl wl' idx tag tag_idx result case es_b :
+    run_codegen (case_block tag_idx result case idx) wt wl = inr ((), wt', wl', es_b) ->
+    exists es_c,
+      run_codegen (case idx) wt wl = inr ((), wt', wl', es_c) /\
+        forall vs fr B R Φ,
+          nat_i32_repr idx tag ->
+          length vs = length result ->
+          fr.(f_locs) !! localimm tag_idx = Some (VAL_int32 tag) ->
+          ↪[frame] fr -∗
+          ↪[RUN] -∗
+          (↪[frame] fr -∗ ↪[RUN] -∗ CWP to_consts vs ++ es_c UNDER (length result, Φ) :: B; R {{ Φ }}) -∗
+          CWP to_consts vs ++ es_b UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    apply cwp_block_c in Hcg as (es_c & Hcg & Hes_b).
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_emit1 Hcg.
+    inv_cg_emit Hcg_emit1.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_emit2 Hcg.
+    inv_cg_emit Hcg_emit2.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_emit3 Hcg.
+    inv_cg_emit Hcg_emit3.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_emit4 Hcg.
+    inv_cg_emit Hcg_emit4.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_drop Hcg_case.
+    inv_cg_emit_all Hcg_drop.
+    subst.
+    clear_nils.
+    clear Hretval Hretval0 Hretval1 Hretval2 Hretval3.
+    exists es8.
+    split; first done.
+
+    iIntros (????? Hidx_tag Hlen_vs_result Hfr_tag) "Hfr Hrun Hes".
+    iApply (Hes_b with "[$Hfr] [$Hrun]").
+    { rewrite -Hlen_vs_result. by rewrite length_map. }
+    { apply is_consts_to_consts. }
+
+    iIntros "Hfr Hrun".
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-Hes]").
+    {
+      iApply cwp_val_app.
+      { instantiate (1 := vs). apply has_values_to_consts. }
+      iApply (cwp_local_get with "[] [$Hfr] [$Hrun]").
+      { done. }
+      by instantiate (1 := fun fr' vs' => (⌜fr = fr'⌝ ∗ ⌜vs' = vs ++ [VAL_int32 tag]⌝)%I).
+    }
+
+    iIntros (??) "[-> ->] Hfr Hrun".
+    rewrite app_assoc app_assoc.
+    iApply (cwp_seq with "[-Hes]").
+    {
+      unfold to_consts.
+      rewrite map_app.
+      rewrite -app_assoc -app_assoc.
+      iApply cwp_val_app.
+      { instantiate (1 := vs). apply has_values_to_consts. }
+      iApply (cwp_relop with "[$Hfr] [$Hrun]").
+      { cbn. unfold nat_i32_repr in Hidx_tag. subst idx. cbn. admit. }
+      admit.
+    }
+  Abort.
 
 End CodeGen.
