@@ -1553,4 +1553,147 @@ Section CodeGen.
       done.
   Qed.
 
+  Lemma case_blocks_fail wt wt' wl wl' start tag tag_idx result cases vs es fr B R :
+    tag < start ∨ tag ≥ start + length cases ->
+    (tag < Wasm_int.Int32.modulus)%Z ->
+    (start + length cases <= Wasm_int.Int32.modulus)%Z ->
+    length vs = length result ->
+    f_locs fr !! localimm tag_idx = Some (VAL_int32 (Wasm_int.Int32.repr tag)) ->
+    run_codegen (case_blocks start tag_idx result cases) wt wl = inr ((), wt', wl', es) ->
+    ↪[frame] fr -∗
+    ↪[RUN] -∗
+    CWP to_consts vs ++ es UNDER B; R {{ fr'; vs', ⌜fr' = fr⌝ ∗ ⌜vs' = vs⌝ }}.
+  Proof.
+    revert start wt wl wt' wl' es.
+    induction cases as [| case_hd cases' IH]; intros ??????
+        Hrange Htag_lt Hstart_le Hvs_len Htag_lookup Hcg.
+    - (* base case: no blocks *)
+      simpl in Hcg.
+      inv_cg_ret Hcg; subst.
+      iIntros "Hfr Hrun".
+      rewrite app_nil_r.
+      iApply (cwp_val with "[$] [$]").
+      1: apply has_values_to_consts.
+      done.
+    - (* inductive case *)
+      change (run_codegen
+        (case_block tag_idx result case_hd start;;
+         case_blocks (S start) tag_idx result cases')
+        wt wl = inr ((), wt', wl', es)) in Hcg.
+      apply run_codegen_bind_dist in Hcg as
+        (x1 & wt1 & wt2 & wl1 & wl2 & es1 & es2 & Hcg_hd & Hcg_tl & -> & -> & ->).
+
+      (* Case es_i *)
+      inv_cg_bind Hcg_hd ?pair ?wt ?wt ?wl ?wl ?es ?es Hcase_es_i Hcase_es_i_block.
+      destruct pair, u.
+      inv_cg_emit Hcase_es_i_block; subst.
+      apply run_codegen_capture in Hcase_es_i as [Hcase_es_i ->].
+
+      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es_i.
+      inv_cg_emit Hget_tag; subst.
+
+      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es_i.
+      inv_cg_emit Htag0; subst.
+
+      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es_i.
+      inv_cg_emit Hcompare_tag; subst.
+
+      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es_i.
+      inv_cg_emit Hbr_case; subst.
+
+      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl es_drop_i ?es Hdrop_consts_i Hcase_es_i.
+      apply run_codegen_drop_consts in Hdrop_consts_i as H.
+      destruct H as (_ & -> & -> & _).
+
+      (* clean up *)
+      clear_nils.
+      simplify_eq.
+
+      assert (tag ≠ start) as Hneq.
+      {
+        destruct Hrange as [Hlt | Hge]; simpl in *; lia.
+      }
+
+      iIntros "Hfr Hrun".
+      rewrite app_assoc.
+      iApply (cwp_seq with "[Hfr Hrun]").
+      {
+        instantiate (1 := λ f' v, (⌜v = vs⌝ ∗ ⌜f' = fr⌝)%I).
+        iApply (cwp_block with "[$] [$]"); auto.
+        { apply is_consts_to_consts. }
+        { by rewrite length_map. }
+        iIntros "!> Hf Hrun".
+
+        iEval (do 3 rewrite app_assoc).
+        iApply (cwp_seq with "[Hf Hrun]").
+        {
+          iEval (do 2 rewrite -app_assoc).
+          iApply cwp_val_app; first apply has_values_to_consts.
+
+          (* Get tag from local *)
+          rewrite (separate1 (prelude.W.BI_get_local _)).
+          iApply (cwp_seq with "[Hf Hrun]").
+          {
+            iApply (cwp_local_get with "[] [$] [$]"); first apply Htag_lookup.
+            by instantiate (1 := λ f' v, (⌜v = [_]⌝ ∗ ⌜f' = fr⌝)%I).
+          }
+          iIntros (?fr w) "(-> & ->) Hf Hrun".
+          iSimpl.
+
+          (* compare tag with case number: start *)
+          rewrite separate3.
+          iApply (cwp_seq with "[Hf Hrun]").
+          {
+            iApply (cwp_relop with "[$] [$]"); first done.
+            iSimpl.
+            rewrite Wasm_int.Int32.eq_false.
+            2: {
+              intro Heq.
+              apply Hneq.
+              apply Nat2Z.inj.
+              apply Wasm_int.Int32.repr_inv.
+              - lia.
+              - cbn in Hstart_le. lia.
+              - exact Heq.
+            }
+            iSimpl.
+            by instantiate (1 := λ f' v, (⌜v = [_]⌝ ∗ ⌜f' = fr⌝)%I).
+          }
+          iIntros (?fr w) "(-> & ->) Hf Hrun".
+          iSimpl.
+          iApply (cwp_val with "[$] [$]").
+          - by instantiate (1 := [(VAL_int32 Wasm_int.Int32.one)]).
+          - unfold fvs_combine.
+            by instantiate (1 := λ f' v, (⌜v = _ ++ [_]⌝ ∗ ⌜f' = fr⌝)%I).
+        }
+        iIntros (?fr w) "(-> & ->) Hf Hrun".
+
+        iEval (rewrite app_assoc).
+
+        iApply (cwp_seq with "[-]").
+        2: {
+          instantiate (1 := λ f vs, False%I).
+          by iIntros.
+        }
+        unfold to_consts.
+        rewrite map_app.
+        rewrite -app_assoc.
+        replace (map BI_const [VAL_int32 Wasm_int.Int32.one] ++ [prelude.W.BI_br_if 0])
+        with [BI_const (VAL_int32 Wasm_int.Int32.one); prelude.W.BI_br_if 0]; last done.
+
+        iApply (cwp_br_if_nonzero with "[$] [$]"); try done.
+        1: apply has_values_to_consts.
+        by rewrite length_map.
+      }
+      iIntros (?fr w) "(-> & ->) Hfr Hrun".
+      iApply (IH (S start) with "[$] [$]"); try done.
+      + destruct Hrange as [Hlt | Hge]; simpl in *.
+        * left. lia.
+        * right. lia.
+      + rewrite <- Nat2Z.inj_add.
+        rewrite Nat.add_succ_comm.
+        cbn in Hstart_le.
+        by rewrite Nat2Z.inj_add.
+  Qed.
+
 End CodeGen.

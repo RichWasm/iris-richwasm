@@ -14,192 +14,6 @@ Section case.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_case_blocks_fail
-    F wt wt' (tag_idx : nat) tag wl_ret wl wl' ρs_sum (ιss : list (list atomic_rep)) ixs
-    vs_res
-    (ess : list (list instruction)) es_fail_cases (start : nat) fr B R τ_res :
-    let fe := fe_of_context F in
-    let tag_localidx := Mk_localidx tag_idx in
-    (tag < start ∨ tag ≥ start + length ess) ->
-    f_locs fr !! tag_idx = Some (VAL_int32 (Wasm_int.Int32.repr tag)) ->
-    prelude.translate_type (fe_type_vars fe) τ_res = Some wl_ret ->
-    (tag < Wasm_int.Int32.modulus)%Z ->
-    (length ρs_sum <= Wasm_int.Int32.modulus)%Z ->
-    (length ess <= length ρs_sum)%Z ->
-    length ρs_sum = length ιss ->
-    length vs_res = length wl_ret ->
-    run_codegen
-      (case_blocks start tag_localidx wl_ret
-         (map (λ c i,
-            try_option EFail (sum_offset EmptyEnv ρs_sum i)
-            ≫= λ off, try_option EFail (length <$> ιss !! i)
-            ≫= λ count, restore_stack (take count (drop off ixs))
-            ≫= λ _, c)
-            (compile_cases mr fe ess)))
-      wt wl =
-    inr ((), wt', wl', es_fail_cases) ->
-    ⊢
-    ↪[frame]fr -∗
-    ↪[RUN] -∗
-    CWP to_consts vs_res ++ es_fail_cases
-      UNDER B; R
-      {{ fr'; vs', ⌜fr' = fr⌝ ∗ ⌜vs' = vs_res⌝ }}.
-  Proof.
-    revert start wt wl wt' wl' es_fail_cases.
-    induction ess as [| es_hd ess IH]; intros start wt wl wt' wl' es_fail_cases fe tag_localidx
-        Hrange Htag_lookup Htranslate Htag_lt Hlen_lt Hlen_le Hρs_sum_len Hvs_len Hcg.
-    - (* base case: no blocks *)
-      simpl in Hcg.
-      inv_cg_ret Hcg; subst.
-      iIntros "Hfr Hrun".
-      rewrite app_nil_r.
-      iApply (cwp_val with "[$] [$]").
-      1: apply has_values_to_consts.
-      done.
-    - (* inductive case *)
-      simpl compile_cases in Hcg.
-      rewrite map_cons in Hcg.
-      change (run_codegen
-        (case_block tag_localidx wl_ret
-           (λ i, try_option EFail (sum_offset EmptyEnv ρs_sum i)
-                 ≫= λ off, try_option EFail (length <$> ιss !! i)
-                 ≫= λ count, restore_stack (take count (drop off ixs))
-                 ≫= λ _, mapM_ (compile_instr mr fe) es_hd) start;;
-         case_blocks (S start) tag_localidx wl_ret
-           (map (λ c i,
-              try_option EFail (sum_offset EmptyEnv ρs_sum i)
-              ≫= λ off, try_option EFail (length <$> ιss !! i)
-              ≫= λ count, restore_stack (take count (drop off ixs))
-              ≫= λ _, c)
-              (compile_cases mr fe ess)))
-        wt wl = inr ((), wt', wl', es_fail_cases)) in Hcg.
-      apply run_codegen_bind_dist in Hcg as
-        (x1 & wt1 & wt2 & wl1 & wl2 & es1 & es2 & Hcg_hd & Hcg_tl & -> & -> & ->).
-
-      (* Case es_i *)
-      inv_cg_bind Hcg_hd ?pair ?wt ?wt ?wl ?wl ?es ?es Hcase_es_i Hcase_es_i_block.
-      destruct pair, u.
-      inv_cg_emit Hcase_es_i_block; subst.
-      apply run_codegen_capture in Hcase_es_i as [Hcase_es_i ->].
-
-      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es_i.
-      inv_cg_emit Hget_tag; subst.
-
-      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es_i.
-      inv_cg_emit Htag0; subst.
-
-      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es_i.
-      inv_cg_emit Hcompare_tag; subst.
-
-      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es_i.
-      inv_cg_emit Hbr_case; subst.
-
-      inv_cg_bind Hcase_es_i [] ?wt ?wt ?wl ?wl es_drop_i ?es Hdrop_consts_i Hcase_es_i.
-      apply run_codegen_drop_consts in Hdrop_consts_i as H.
-      destruct H as (_ & -> & -> & _).
-
-      inv_cg_bind Hcase_es_i off ?wt ?wt ?wl ?wl ?es ?es Hsum_offset Hcase_es_i.
-      inv_cg_try_option Hsum_offset; subst.
-
-      inv_cg_bind Hcase_es_i case_i_sum_locals ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es_i.
-      inv_cg_try_option Hinject; subst.
-
-      inv_cg_bind Hcase_es_i [] ?wt wt_case_i ?wl wl_case_i es_get_locals_i es_case_i Hget_locals_i Hcase_es_i.
-
-      destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_i) as ([] & -> & ->).
-
-      (* clean up *)
-      clear_nils.
-      simplify_eq.
-
-      assert (tag ≠ start) as Hneq.
-      {
-        destruct Hrange as [Hlt | Hge]; simpl in *; lia.
-      }
-
-      assert (start < Wasm_int.Int32.modulus)%Z as Hlt_start.
-      {
-        apply bind_Some in Heq_some0 as [ιs [Hlu Hseq]].
-        apply lookup_lt_Some in Hlu.
-        lia.
-      }
-
-      iIntros "Hfr Hrun".
-      rewrite app_assoc.
-      iApply (cwp_seq with "[Hfr Hrun]").
-      {
-        instantiate (1 := λ f' v, (⌜v = vs_res⌝ ∗ ⌜f' = fr⌝)%I).
-        iApply (cwp_block with "[$] [$]"); auto.
-        { apply is_consts_to_consts. }
-        { by rewrite length_map. }
-        iIntros "!> Hf Hrun".
-
-        iEval (do 3 rewrite app_assoc).
-        iApply (cwp_seq with "[Hf Hrun]").
-        {
-          iEval (do 2 rewrite -app_assoc).
-          iApply cwp_val_app; first apply has_values_to_consts.
-
-          (* Get tag from local *)
-          rewrite (separate1 (prelude.W.BI_get_local _)).
-          iApply (cwp_seq with "[Hf Hrun]").
-          {
-            iApply (cwp_local_get with "[] [$] [$]"); first apply Htag_lookup.
-            by instantiate (1 := λ f' v, (⌜v = [_]⌝ ∗ ⌜f' = fr⌝)%I).
-          }
-          iIntros (?fr w) "(-> & ->) Hf Hrun".
-          iSimpl.
-
-          (* compare tag with case number: start *)
-          rewrite separate3.
-          iApply (cwp_seq with "[Hf Hrun]").
-          {
-            iApply (cwp_relop with "[$] [$]"); first done.
-            iSimpl.
-            rewrite Wasm_int.Int32.eq_false.
-            2: {
-              intro Heq.
-              apply Hneq.
-              apply Nat2Z.inj.
-              apply Wasm_int.Int32.repr_inv; [lia | lia | exact Heq].
-            }
-            iSimpl.
-            by instantiate (1 := λ f' v, (⌜v = [_]⌝ ∗ ⌜f' = fr⌝)%I).
-          }
-          iIntros (?fr w) "(-> & ->) Hf Hrun".
-          iSimpl.
-          iApply (cwp_val with "[$] [$]").
-          - by instantiate (1 := [(VAL_int32 Wasm_int.Int32.one)]).
-          - unfold fvs_combine.
-            by instantiate (1 := λ f' v, (⌜v = _ ++ [_]⌝ ∗ ⌜f' = fr⌝)%I).
-        }
-        iIntros (?fr w) "(-> & ->) Hf Hrun".
-
-        iEval (rewrite app_assoc).
-
-        iApply (cwp_seq with "[-]").
-        2: {
-          instantiate (1 := λ f vs, False%I).
-          by iIntros.
-        }
-        unfold to_consts.
-        rewrite map_app.
-        rewrite -app_assoc.
-        replace (map BI_const [VAL_int32 Wasm_int.Int32.one] ++ [prelude.W.BI_br_if 0])
-        with [BI_const (VAL_int32 Wasm_int.Int32.one); prelude.W.BI_br_if 0]; last done.
-
-        iApply (cwp_br_if_nonzero with "[$] [$]"); try done.
-        1: apply has_values_to_consts.
-        by rewrite length_map.
-      }
-      iIntros (?fr w) "(-> & ->) Hfr Hrun".
-      iApply (IH (S start) with "[$] [$]"); try done.
-      + destruct Hrange as [Hlt | Hge]; simpl in *.
-        * left. lia.
-        * right. lia.
-      + simpl in Hlen_le. lia.
-  Qed.
-
   Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -514,19 +328,33 @@ Section case.
     iEval (rewrite app_assoc).
     iApply (cwp_seq with "[Hfr Hrun]").
     {
-      iApply (compat_case_blocks_fail F wt wt_pre tag_idx tag
-      wl_ret (wl ++ wl_save ++ [prelude.W.T_i32]) wl_pre
-      ρs_sum ιss_payload val_localidxs (map default_of_value_type wl_ret)
-      ess_pre es_pre 0 fr_saved_and_tag B R τ_res with "[$] [$]").
-      1: right; rewrite Nat.add_0_l; rewrite -Hess_pre_τs_pre; subst tag; apply le_n.
-      1, 2, 3, 4, 8 : done.
-      2: by eapply length_mapM.
-      2: by rewrite length_map.
-      subst tag.
-      rewrite -Hess_pre_τs_pre.
-      rewrite -Htyp_rep_len.
-      apply Z.lt_le_incl.
-      by apply Nat2Z.inj_lt.
+      iApply (case_blocks_fail wt wt_pre (wl ++ wl_save ++ [prelude.W.T_i32]) wl_pre 0 tag
+                (Mk_localidx tag_idx) wl_ret
+                (map
+                   (λ (c : codegen ()) (i : nat),
+                     try_option EFail (sum_offset EmptyEnv ρs_sum i)
+                       ≫= λ off : nat,
+                       try_option EFail (length <$> ιss_payload !! i)
+                         ≫= λ count : nat,
+                         restore_stack (take count (drop off val_localidxs)) ≫= λ _ : (), c)
+                   ((fix compile_cases (fe : function_env) (ess : list (list instruction)) {struct ess} :
+                      list (codegen ()) :=
+                       match ess with
+                       | [] => []
+                       | es :: ess' => mapM_ (compile_instr mr fe) es :: compile_cases fe ess'
+                       end)
+                      fe ess_pre))
+                (map default_of_value_type wl_ret) es_pre fr_saved_and_tag B R with "[$] [$]").
+      - right. rewrite Nat.add_0_l. rewrite length_map.
+        fold (compile_cases mr fe ess_pre). rewrite <- compile_cases_length.
+        rewrite -Hess_pre_τs_pre. subst tag. apply le_n.
+      - done.
+      - rewrite length_map. rewrite <- Nat2Z.inj_add. rewrite Nat.add_0_l.
+        fold (compile_cases mr fe ess_pre). rewrite <- compile_cases_length.
+        rewrite -Hess_pre_τs_pre. rewrite <- Htag_len. lia.
+      - by rewrite length_map.
+      - done.
+      - done.
     }
     iIntros (?fr w) "(-> & ->) Hfr Hrun".
 
@@ -560,7 +388,6 @@ Section case.
 
     inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es_tag.
     inv_cg_emit Hbr_case. clear_nils. subst wt0 wl0 wt1 wl1 es es0.
-
 
     inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl es_drop_tag ?es Hdrop_consts_tag Hcase_es_tag.
     apply run_codegen_drop_consts in Hdrop_consts_tag as H.
@@ -728,21 +555,21 @@ Section case.
     (* Reason about ess_post *)
     iApply (cwp_wand with "[Hfr Hrun]").
     {
-      iApply (compat_case_blocks_fail with "[$] [$]").
-      1: left.
-      9: apply Hcg_post.
-      all: try done.
-      1: rewrite -Hess_pre_τs_pre -Htag_len; lia.
-      2: rewrite -Htyp_rep_len -Hess_post_τs_post; subst τs; rewrite length_app; lias.
-      2: by eapply length_mapM.
-      rewrite -Hsaved_and_tag.
-      destruct Hfrel_new as [Hmask _].
-      symmetry.
-      apply Hmask.
-      subst tag_idx fe.
-      unfold wlmask.
-      repeat rewrite length_app.
-      lias.
+      iApply (case_blocks_fail with "[$] [$]"); last apply Hcg_post.
+      - instantiate (1 := tag). left. rewrite -Hess_pre_τs_pre -Htag_len. lia.
+      - done.
+      - rewrite length_map. fold (compile_cases mr fe ess_post). rewrite <- compile_cases_length.
+        rewrite length_app in Hess_typ_len. rewrite length_cons in Hess_typ_len.
+        rewrite <- Nat2Z.inj_add.
+        rewrite Nat.add_succ_comm.
+        rewrite -Hess_typ_len.
+        by rewrite Htyp_rep_len.
+      - done.
+      - rewrite -Hsaved_and_tag. destruct Hfrel_new as [Hmask _]. symmetry. apply Hmask.
+        subst tag_idx fe. unfold wlmask. repeat rewrite length_app. subst tag_localidx. cbn [localimm].
+        split.
+        + lia.
+        + rewrite length_app. rewrite length_cons. lia.
     }
     iIntros (??) "(-> & ->)".
     iEval (repeat rewrite -app_assoc) in "Hframe".
