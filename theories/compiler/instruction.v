@@ -332,6 +332,12 @@ Section Compiler.
   Definition compile_instrs (fe : function_env) : list instruction -> codegen unit :=
     mapM_ (compile_instr fe).
 
+  Fixpoint compile_cases (fe : function_env) (ess : list (list instruction)) : list (codegen unit) :=
+    match ess with
+    | [] => []
+    | es :: ess' => mapM_ (compile_instr fe) es :: compile_cases fe ess'
+    end.
+
   Lemma run_codegen_compile_instrs_app fe es1 es2 wt wl wt' wl' es' :
     run_codegen (compile_instrs fe (es1 ++ es2)) wt wl = inr ((), wt', wl', es') ->
     exists wt1 wt2 wl1 wl2 es1' es2',
@@ -357,6 +363,26 @@ Section Compiler.
     - by rewrite !app_nil_r.
     - by rewrite !app_nil_r.
     - by rewrite !app_nil_r.
+  Qed.
+
+  Lemma compile_cases_length fe ess :
+    length ess = length $ compile_cases fe ess.
+  Proof.
+    induction ess as [|? ? IH]; [done | simpl; rewrite IH; done].
+  Qed.
+
+  Lemma compile_cases_app fe ess1 ess2 :
+    (fix compile_cases fe ess := match ess with
+     | [] => [] | es :: ess' => mapM_ (compile_instr fe) es :: compile_cases fe ess'
+     end) fe (ess1 ++ ess2) =
+    (fix compile_cases fe ess := match ess with
+     | [] => [] | es :: ess' => mapM_ (compile_instr fe) es :: compile_cases fe ess'
+     end) fe ess1 ++
+    (fix compile_cases fe ess := match ess with
+     | [] => [] | es :: ess' => mapM_ (compile_instr fe) es :: compile_cases fe ess'
+     end) fe ess2.
+  Proof.
+    induction ess1; simpl; [done | by setoid_rewrite IHess1].
   Qed.
 
 End Compiler.

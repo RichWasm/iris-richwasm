@@ -14,36 +14,6 @@ Section case.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  (* TODO: this should probably be a definition in the compiler. *)
-  Definition compile_cases :=
-    (fix compile_cases
-    (fe : function_env) (ess : list (list instruction)) {struct ess} : list (codegen ()) :=
-      match ess with
-      | [] => []
-      | es :: ess' =>
-          mapM_ (compile_instr mr fe) es :: compile_cases fe ess'
-      end).
-
-  Lemma compile_cases_length fe ess :
-    length ess = length $ compile_cases fe ess.
-  Proof.
-    induction ess as [|? ? IH]; [done | simpl; rewrite IH; done].
-  Qed.
-
-  Lemma compile_cases_app fe ess1 ess2 :
-    (fix compile_cases fe ess := match ess with
-     | [] => [] | es :: ess' => mapM_ (compile_instr mr fe) es :: compile_cases fe ess'
-     end) fe (ess1 ++ ess2) =
-    (fix compile_cases fe ess := match ess with
-     | [] => [] | es :: ess' => mapM_ (compile_instr mr fe) es :: compile_cases fe ess'
-     end) fe ess1 ++
-    (fix compile_cases fe ess := match ess with
-     | [] => [] | es :: ess' => mapM_ (compile_instr mr fe) es :: compile_cases fe ess'
-     end) fe ess2.
-  Proof.
-    induction ess1; simpl; [done | by rewrite IHess1].
-  Qed.
-
   Lemma compat_case_blocks_fail
     F wt wt' (tag_idx : nat) tag wl_ret wl wl' ρs_sum (ιss : list (list atomic_rep)) ixs
     vs_res
@@ -65,7 +35,7 @@ Section case.
             ≫= λ off, try_option EFail (length <$> ιss !! i)
             ≫= λ count, restore_stack (take count (drop off ixs))
             ≫= λ _, c)
-            (compile_cases fe ess)))
+            (compile_cases mr fe ess)))
       wt wl =
     inr ((), wt', wl', es_fail_cases) ->
     ⊢
@@ -101,7 +71,7 @@ Section case.
               ≫= λ off, try_option EFail (length <$> ιss !! i)
               ≫= λ count, restore_stack (take count (drop off ixs))
               ≫= λ _, c)
-              (compile_cases fe ess)))
+              (compile_cases mr fe ess)))
         wt wl = inr ((), wt', wl', es_fail_cases)) in Hcg.
       apply run_codegen_bind_dist in Hcg as
         (x1 & wt1 & wt2 & wl1 & wl2 & es1 & es2 & Hcg_hd & Hcg_tl & -> & -> & ->).
