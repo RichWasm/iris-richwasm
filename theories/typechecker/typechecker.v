@@ -1128,7 +1128,7 @@ Definition grab_kind (F:function_ctx) (t:type) : option kind :=
 (* Qed. *)
 
 
-
+(* foldr2 does not check for equal list length *)
 Fixpoint foldr2 {A B C : Type} (f : B → C → A → A) (a0 : A)
   (lB : list B) (lC : list C) :=
   match lB, lC with
@@ -1136,15 +1136,63 @@ Fixpoint foldr2 {A B C : Type} (f : B → C → A → A) (a0 : A)
   | _, _ => a0
   end.
 
+(* foldr2_bool has a param for equal list length base and unequal list length base *)
+Fixpoint foldr2_bool {B C : Type} (f : B → C → bool → bool) (a_good : bool) (a_bad : bool)
+  (lB : list B) (lC : list C) :=
+  match lB, lC with
+  | b :: lB0, c :: lC0 => f b c (foldr2_bool f a_good a_bad lB0 lC0)
+  | [], [] => a_good
+  | _, _ => a_bad
+  end.
 (* foldr2 lemmas location *)
-Lemma convert_foldr2_to_Forall2_check_ok_output
+(* this variation is particularly useful for after an induction *)
+Lemma convert_foldr2_bool_to_Forall2_check_ok_output
   {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (Pbool : In1 -> In2 -> Prop)
   (l1 : list In1) (l2 : list In2) :
-  foldr2 (λ i1 i2, andb (check_ok_output (func i1 i2))) true l1 l2 = true ->
+  foldr2_bool (λ i1 i2, andb (check_ok_output (func i1 i2))) true false l1 l2 = true ->
   Forall (λ i1, ∀ i2, func i1 i2 = ok_term -> Pbool i1 i2) l1 ->
   Forall2 Pbool l1 l2.
 Proof.
-Admitted.
+  generalize dependent l2.
+  induction l1.
+  - intros * Hfoldr Hall.
+    cbn in Hfoldr.
+    destruct l2; cbn in Hfoldr; try by inversion Hfoldr.
+  - intros * Hfoldr Hall.
+    destruct l2 as [|a2 l2]; try by (cbn in Hfoldr; inversion Hfoldr).
+    cbn in Hfoldr.
+    repeat my_auto2.
+    constructor.
+    + inversion Hall; subst.
+      specialize (H3 a2).
+      apply H3; try done.
+      by apply check_ok_output_true_to_prop.
+    + apply IHl1; try done.
+      inversion Hall; subst; done.
+Qed.
+
+Lemma convert_foldr2_bool_to_Forall2_check_ok_output_pure_forall
+  {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (Pbool : In1 -> In2 -> Prop)
+  (l1 : list In1) (l2 : list In2) :
+  foldr2_bool (λ i1 i2, andb (check_ok_output (func i1 i2))) true false l1 l2 = true ->
+  (∀ i1, ∀ i2, func i1 i2 = ok_term -> Pbool i1 i2) ->
+  Forall2 Pbool l1 l2.
+Proof.
+  generalize dependent l2.
+  induction l1.
+  - intros * Hfoldr Hall.
+    cbn in Hfoldr.
+    destruct l2; cbn in Hfoldr; try by inversion Hfoldr.
+  - intros * Hfoldr Hall.
+    destruct l2 as [|a2 l2]; try by (cbn in Hfoldr; inversion Hfoldr).
+    cbn in Hfoldr.
+    repeat my_auto2.
+    constructor.
+    + specialize (Hall a a2).
+      apply Hall; try done.
+      by apply check_ok_output_true_to_prop.
+    + apply IHl1; try done.
+Qed.
 
 Fixpoint all_left {A B : Type} (l: list (A + B)) : bool :=
   match l with
@@ -2101,7 +2149,7 @@ Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
           then
             (* match has_kind_checker F (SumT κ1 τs1) κ1 with *)
             (* | inl () => *)
-                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true τs1 τs2
+                if foldr2_bool (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true false τs1 τs2
                 then ok_term
                 else INR "types not equal"
             (* | err => err *)
@@ -2116,7 +2164,7 @@ Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
           then
             (* match has_kind_checker F (VariantT κ1 τs1) κ1 with *)
             (* | inl () => *)
-                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true τs1 τs2
+                if foldr2_bool (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true false τs1 τs2
                 then ok_term
                 else INR "types not equal"
             (* | err => err *)
@@ -2131,7 +2179,7 @@ Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
           then
             (* match has_kind_checker F (ProdT κ1 τs1) κ1 with *)
             (* | inl () => *)
-                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true τs1 τs2
+                if foldr2_bool (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true false τs1 τs2
                 then ok_term
                 else INR "types not equal"
             (* | err => err *)
@@ -2244,7 +2292,7 @@ Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
       | StructT κ2 τs2 =>
           if kind_beq κ_struct κ2
           then
-            if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true τs' τs2
+            if foldr2_bool (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true false τs' τs2
             then ok_term
             else INR "types not equal 1"
           else INR "types not equal 2"
@@ -2321,7 +2369,7 @@ Proof.
   all: idtac. (* this is here because doom emacs despises the match goal above *)
 
   1-4: cbn in H0; repeat my_auto3; constructor;
-    eapply convert_foldr2_to_Forall2_check_ok_output; try done.
+    eapply convert_foldr2_bool_to_Forall2_check_ok_output; try done.
   2: {
     repeat my_auto3.
     apply H in H0.
@@ -2354,7 +2402,6 @@ Proof.
 
 Admitted.
 
-(* SAVE *)
 Lemma type_eq_checker_correct :
   ∀ τ1 τ2, type_eq_checker τ1 τ2 = ok_term -> type_eq τ1 τ2.
 Proof.
@@ -3540,16 +3587,25 @@ Qed.
 
 
 Definition local_ctx_ok_checker (F:function_ctx) (L:local_ctx) : type_checker_res :=
-  let res := zip_with (type_rep_eq_prim_checker F) L F.(fc_locals) in
-  let folded := foldr (λ r, andb (check_ok_output r)) true res in
-  if folded
+  (* let res := zip_with (type_rep_eq_prim_checker F) L F.(fc_locals) in *)
+  (* let folded := foldr (λ r, andb (check_ok_output r)) true res in *)
+  (* if folded *)
+  if foldr2_bool (λ τ1, λ τ2, andb (check_ok_output (type_rep_eq_prim_checker F τ1 τ2))) true false L F.(fc_locals)
   then ok_term
-  else inr ([NormalError "local ctx not ok"] ++ combine_error_messages res).
+  else
+   let res := zip_with (type_rep_eq_prim_checker F) L F.(fc_locals) in (* just for the error message *)
+   inr ([NormalError "local ctx not ok"] ++ combine_error_messages res).
+
 Lemma local_ctx_ok_checker_correct :
   ∀ F L, local_ctx_ok_checker F L = ok_term -> local_ctx_ok F L.
 Proof.
-  (* this will be some foldr2 lemmas *)
-Admitted.
+  intros * H.
+  unfold local_ctx_ok.
+  pose proof (type_rep_eq_prim_checker_correct F).
+  eapply convert_foldr2_bool_to_Forall2_check_ok_output_pure_forall; last done.
+  unfold local_ctx_ok_checker in H.
+  repeat my_auto3_5. done.
+Qed.
 
 
 
@@ -4270,11 +4326,11 @@ Fixpoint has_instruction_type_checker
             match τ with
             | SumT κ τs =>
                 let F' := F <| fc_labels ::= cons (τs', L') |> in
-                if foldr2
-                     (λ t:type, λ es,
+                if foldr2_bool
+                     (λ es, λ t:type,
                            andb (check_ok_output
                                    (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
-                     ) true τs ess
+                     ) true false ess τs
                 then has_instruction_type_ok_checker F ψ L'
                 else INR "incorrect instruction type for case (failed looping check)"
             | _ => INR "incorrect instruction type for case (not casing on sum)"
@@ -4303,11 +4359,11 @@ Fixpoint has_instruction_type_checker
                               let F' := F <| fc_labels ::= cons (τs', L') |> in
                               if foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t GCRefs))) true τs
                               then
-                                if foldr2
-                                     (λ t:type, λ es,
+                                if foldr2_bool
+                                     (λ es, λ t:type,
                                          andb (check_ok_output
                                                  (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
-                                     ) true τs ess
+                                     ) true false ess τs
                                 then has_instruction_type_ok_checker F ψ L'
                                 else INR "incorrect instruction type for caseloadcopy (failed looping check)"
                               else INR "incorrect instruction type for caseloadcopy (potentially copying mm refs)"
@@ -4328,11 +4384,11 @@ Fixpoint has_instruction_type_checker
                     match unzip_sert τs_ser with
                     | Some (κs, τs) =>
                         let F' := F <| fc_labels ::= cons (τs', L') |> in
-                        if foldr2
-                             (λ t:type, λ es,
+                        if foldr2_bool
+                             (λ es, λ t:type,
                                  andb (check_ok_output
                                          (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
-                             ) true τs ess
+                             ) true false ess τs
                         then has_instruction_type_ok_checker F ψ L'
                         else INR "incorrect instruction type for caseloadmove (failed looping check)"
                     | None => INR "incorrect instruction type for caseloadmove (τs_ser isn't all SerT)"
@@ -5067,6 +5123,55 @@ Qed.
 Ltac convert_foldr Pbool Pprop l H :=
   apply (foldr_to_Forall Pbool Pprop l) in H; [|intros; repeat my_auto5].
 
+Lemma flip_foldr2_bool {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (l1 : list In1) (l2: list In2) :
+  foldr2_bool (λ i1 i2, andb (check_ok_output (func i1 i2))) true false l1 l2 = true <->
+    foldr2_bool (λ i2 i1, andb (check_ok_output (func i1 i2))) true false l2 l1 = true.
+Proof.
+  generalize dependent l2.
+  induction l1; intros *; split; intros H; destruct l2 as [|a2 l2]; cbn in H; try by inversion H.
+  - cbn.
+    repeat my_auto5.
+    apply andb_true_intro.
+    split.
+    + unfold check_ok_output.
+      rewrite H1. cbn. done.
+    + eapply IHl1; try done.
+  - cbn.
+    repeat my_auto5.
+    apply andb_true_intro.
+    split.
+    + unfold check_ok_output.
+      rewrite H1. cbn. done.
+    + eapply IHl1; try done.
+Qed.
+
+Lemma convert_foldr2_bool_to_Forall2_check_ok_output_right_list
+  {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (Pbool : In1 -> In2 -> Prop)
+  (l1 : list In1) (l2 : list In2) :
+  foldr2_bool (λ i1 i2, andb (check_ok_output (func i1 i2))) true false l1 l2 = true ->
+  Forall (λ i2, ∀ i1, func i1 i2 = ok_term -> Pbool i1 i2) l2 ->
+  Forall2 Pbool l1 l2.
+Proof.
+  generalize dependent l1.
+  induction l2.
+  - intros * Hfoldr Hall.
+    cbn in Hfoldr.
+    destruct l1; cbn in Hfoldr; try by inversion Hfoldr.
+  - intros * Hfoldr Hall.
+    destruct l1 as [|a2 l1]; try by (cbn in Hfoldr; inversion Hfoldr).
+    cbn in Hfoldr.
+    repeat my_auto2.
+    constructor.
+    + inversion Hall; subst.
+      specialize (H3 a2).
+      apply H3; try done.
+      by apply check_ok_output_true_to_prop.
+    + apply IHl2; try done.
+      inversion Hall; subst; done.
+Qed.
+(* TODO: move the above to the top *)
+
+
 Lemma has_instruction_type_checker_correct :
   ∀ inst M F L ψ L',
     has_instruction_type_checker M F L inst ψ L' = ok_term ->
@@ -5239,8 +5344,13 @@ Proof.
   [Case]: {
     half_shred.
     subst.
-    (* this needs a foldr2+Forall2 lemma, but it should just work *)
-    admit.
+    constructor; try done.
+    fold hitc in HMatch3.
+    apply flip_foldr2_bool in HMatch3.
+    eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch3.
+    (* I'm sure there's a way to make the following less jank but it's okay for now *)
+    eapply Forall_impl; first exact H.
+    intros x MiniF t; apply MiniF.
   }
   [CaseLoad]: {
     half_shred.
@@ -5248,12 +5358,23 @@ Proof.
       convert_foldr
         (λ t:type, check_ok_output (has_ref_flag_checker F t GCRefs))
         (fun t => has_ref_flag F t GCRefs) l5 HMatch10.
-      (* foldr2+Forall2 lemma, then should be good *)
-      admit.
+      fold hitc in HMatch12.
+      subst.
+      constructor; try done.
+      apply flip_foldr2_bool in HMatch12.
+      eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch12.
+      (* I'm sure there's a way to make the following less jank but it's okay for now *)
+      eapply Forall_impl; first exact H.
+      intros x MiniF t; apply MiniF.
     - (* case load move *)
       subst.
-      (* similar foldr2+Forall2 lemma. Slight concert: rocq "simplified" hitc a bit. Hopefully no issue *)
-      admit.
+      fold hitc in HMatch8.
+      constructor; try done.
+      apply flip_foldr2_bool in HMatch8.
+      eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch8.
+      (* I'm sure there's a way to make the following less jank but it's okay for now *)
+      eapply Forall_impl; first exact H.
+      intros x MiniF t; apply MiniF.
   }
 
   (* All the basic ones *)
@@ -5354,13 +5475,7 @@ Proof.
     by econstructor.
   }
 
-
-
-
-
-
-
-Admitted.
+Qed.
 
 
 Lemma have_instruction_type_checker_correct :
@@ -5420,7 +5535,7 @@ Fixpoint synth_possible_resulting_local_ctx_insts F insts L : (option local_ctx)
       end
   end.
 
-Fixpoint body_has_mono_type_checker
+Definition body_has_mono_type_checker
   (M : module_ctx)
   (K : kind_ctx)
   (mf_locs : list representation)
@@ -5523,6 +5638,10 @@ Lemma has_function_type_checker_correct :
   ∀ M mf, has_function_type_checker M mf = ok_term ->
           has_function_type M mf.
 Proof.
+  intros M mf H. destruct mf.
+  unfold has_function_type_checker in H.
+  unfold body_has_fun_type_checker in H. cbn in H.
+  induction mf_type.
 Admitted.
 
 
