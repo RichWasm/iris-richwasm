@@ -328,7 +328,7 @@ Section case.
     iEval (rewrite app_assoc).
     iApply (cwp_seq with "[Hfr Hrun]").
     {
-      iApply (case_blocks_fail wt wt_pre (wl ++ wl_save ++ [prelude.W.T_i32]) wl_pre 0 tag
+      iApply (cwp_case_blocks_fail wt wt_pre (wl ++ wl_save ++ [prelude.W.T_i32]) wl_pre 0 tag
                 (Mk_localidx tag_idx) wl_ret
                 (map
                    (λ (c : codegen ()) (i : nat),
@@ -357,6 +357,7 @@ Section case.
       - done.
     }
     iIntros (?fr w) "(-> & ->) Hfr Hrun".
+    clear Hcg_pre.
 
     iDestruct (labels_interp_mono _ _ _ _ _ fr_saved_and_tag _ _ _ _ with "Hlabels") as "Hlabels'''"; first done.
     {
@@ -371,38 +372,18 @@ Section case.
         lia.
     }
 
-    (* Reason about es_tag *)
-    inv_cg_bind Hcg_tag ?pair ?wt ?wt ?wl ?wl ?es ?es Hcase_es_tag Hcase_es_tag_block.
-    destruct pair, u.
-    inv_cg_emit Hcase_es_tag_block. clear_nils. subst wt1 wl1 es0 wt0 wl0 es_tag_cg.
-    apply run_codegen_capture in Hcase_es_tag as [Hcase_es_tag ->].
-
-    inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es_tag.
-    inv_cg_emit Hget_tag. clear_nils. subst wt0 wl0 wt1 wl1 es l.
-
-    inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es_tag.
-    inv_cg_emit Htag0. clear_nils. subst wt0 wl0 wt1 wl1 es es0.
-
-    inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es_tag.
-    inv_cg_emit Hcompare_tag. clear_nils. subst wt0 wl0 wt1 wl1 es es1.
-
-    inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es_tag.
-    inv_cg_emit Hbr_case. clear_nils. subst wt0 wl0 wt1 wl1 es es0.
-
-    inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl es_drop_tag ?es Hdrop_consts_tag Hcase_es_tag.
-    apply run_codegen_drop_consts in Hdrop_consts_tag as H.
-    destruct H as (_ & -> & -> & _).
-    clear_nils. subst wt1 wl1.
-
-    inv_cg_bind Hcase_es_tag off' ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es_tag.
-    inv_cg_try_option Hlookup. clear_nils. subst wt0 wl0 wt1 wl1 es es0 es1.
+    apply cwp_case_block_success with (tag := Wasm_int.Int32.repr tag) in Hcg_tag as
+        (es_case_tag & Hcg_case_tag & Hes_case_tag).
+    inv_cg_bind Hcg_case_tag off' ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es_tag.
+    inv_cg_try_option Hlookup.
 
     inv_cg_bind Hcase_es_tag count' ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es_tag.
-    inv_cg_try_option Hinject. clear_nils. subst wt0 wl0 wt1 wl1 es es0.
+    inv_cg_try_option Hinject.
 
-    inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl ?es es_case_tag Hget_locals_tag Hcase_es_tag.
+    inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl ?es ?es Hget_locals_tag Hcase_es_tag.
     destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_tag) as ([] & -> & ->).
-    clear_nils. subst wt1 wl1 es2.
+    clear_nils.
+    subst wt0 wl0 es wt2 wl2 es1 wt3 wl3 es2 wt1 wl1 es0 wt5 wl5 es_case_tag.
 
     (* off' = off *)
     apply sum_offset_emptyenv with (se:=se) in Heq_some0.
@@ -424,67 +405,20 @@ Section case.
 
     iDestruct (Hforall_tag _ _ (wt_post ++ wtf) _ _ (wl_post ++ wlf) _ Hcase_es_tag) as "Hsem_es_tag".
 
-    iEval (rewrite app_assoc).
+    rewrite (app_assoc _ es_tag_cg).
     iApply (cwp_seq with "[-]").
     {
-      iApply (cwp_block with "[$] [$]"); auto.
-      { apply is_consts_to_consts. }
-      { by do 2 rewrite length_map. }
-      iIntros "!> Hf Hrun".
-
-      iEval (do 4 rewrite app_assoc).
-      iApply (cwp_seq with "[Hf Hrun]").
-      {
-        iEval (do 3 rewrite -app_assoc).
-        iApply cwp_val_app; first apply has_values_to_consts.
-
-        (* Get tag from local *)
-        rewrite (separate1 (prelude.W.BI_get_local _)).
-        iApply (cwp_seq with "[Hf Hrun]").
-        {
-          iApply (cwp_local_get with "[] [$] [$]"); first apply Hsaved_and_tag.
-          by instantiate (1 := λ f v, (⌜v = [_]⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
-        }
-        iIntros (?fr w) "(-> & ->) Hf Hrun".
-        iSimpl.
-
-        (* compare tag with case number: i *)
-        rewrite separate3.
-        iApply (cwp_seq with "[Hf Hrun]").
-        {
-          iApply (cwp_relop with "[$] [$]"); first done.
-          iSimpl.
-          by instantiate (1 := λ f v, (⌜v = [_]⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
-        }
-        iIntros (?fr w) "(-> & ->) Hf Hrun".
-        iSimpl.
-        iApply (cwp_br_if_zero with "[$] [$]").
-        - rewrite -Hess_pre_τs_pre. rewrite Htag_len. simpl. by rewrite Wasm_int.Int32.eq_true.
-        - instantiate (1 := λ f v, (⌜v = (map default_of_value_type wl_ret)⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
-          unfold fvs_combine.
-          by rewrite app_nil_r.
-      }
-      iIntros (?fr w) "(-> & ->) Hf Hrun".
-
-      (* drop default values *)
-      rewrite (app_assoc (to_consts _)).
-      iApply (cwp_seq with "[Hf Hrun]").
-      {
-        instantiate (1 := λ f vs, (⌜f = fr_saved_and_tag⌝ ∗ ⌜vs = []⌝)%I).
-        eapply cwp_drop_consts in Hdrop_consts_tag as (_ & _ & _ & Hdrop_consts_tag).
-        - iDestruct (Hdrop_consts_tag with "[$] [$] []") as "Hdrop_consts_tag".
-          2: iApply "Hdrop_consts_tag".
-          done.
-        - by do 2 rewrite length_map.
-        - apply is_consts_to_consts.
-      }
-      iIntros (?fr w) "(-> & ->) Hf Hrun".
-      iSimpl.
+      iApply (Hes_case_tag with "[$Hfr] [$Hrun]").
+      { rewrite -Hess_pre_τs_pre -Htag_len. by apply nat_repr_i32repr. }
+      { by rewrite length_map. }
+      { done. }
+      iIntros "Hfr Hrun".
+      clear Hes_case_tag.
 
       (* get locals corresponding to payload of sum *)
       eapply cwp_restore_stack_w in Hget_locals_tag.
       2: {
-        instantiate (1 := (take count (drop off vs_payload))).
+        instantiate (1 := take count (drop off vs_payload)).
         repeat rewrite length_take.
         repeat rewrite length_drop.
         by apply Forall2_length in Hsaved as ->.
@@ -501,7 +435,8 @@ Section case.
       1: iApply "Hget_locals_tag".
       iIntros (?fr w) "(-> & ->) Hf Hrun".
 
-      assert (prelude.translate_types (fc_type_vars F) [τ_res] = Some wl_ret) as Htranslate_types_single.
+      assert (prelude.translate_types (fc_type_vars F) [τ_res] = Some wl_ret) as
+        Htranslate_types_single.
       {
         subst fe.
         unfold fe_of_context, fe_type_vars in Heq_some.
@@ -512,10 +447,7 @@ Section case.
         by rewrite app_nil_r.
       }
 
-      (* Reason about case tag code *)
-      iApply (cwp_wand with "[-]").
-      {
-        iApply ("Hsem_es_tag" with "[//] [] [] [] [$] [Hatoms_interp_payload] [Hvalue_interp_os_tag] [Hframe_saved_and_tag] [$] [$] [$]").
+      iApply ("Hsem_es_tag" with "[//] [] [] [] [$] [Hatoms_interp_payload] [Hvalue_interp_os_tag] [Hframe_saved_and_tag] [$] [$] [$]").
         + by rewrite has_values_iff_to_consts.
         + by iEval (rewrite -app_assoc).
         + subst F'.
@@ -524,38 +456,25 @@ Section case.
               iSimpl. iEval (repeat rewrite -app_assoc).
               iApply labels_interp_cons; try done.
               iIntros "!>" (fr' vs') "(%Hfrel & Hframe & (%os & Hvalues & Hatoms) & [%Θ Hrt] & Hown)".
-              instantiate (1 := λ fr' vs', (
-                ⌜length vs' = length wl_ret⌝ ∗
-                ⌜frame_rel (wlmask fe _) fr_saved_and_tag fr'⌝ ∗
-                frame_interp rti sr se F.(typing.fc_locals) L' _ fr' ∗
-                ∃ (os' : leibnizO (list atom)) (θ : address_map),
-                values_interp rti sr se [τ_res] os' ∗ atoms_interp os' vs' ∗
-                rt_token rti sr lpall θ ∗ na_own logrel_nais ⊤
-              )%I).
-              iDestruct (atoms_interp_length with "Hatoms") as "<-".
-              iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
               by iFrame.
         + instantiate (1 := (take count (drop off os_payload))).
           by iApply atoms_interp_take_drop.
         + by iApply values_interp_one_eq.
         + by iEval (repeat rewrite -app_assoc).
         + done.
-      }
-      iIntros (f vs) "(%Hfrel & Hframe & (%os' & Hvalues & Hatoms) & [%θ' Hrt] & Hown)".
-      iDestruct (atoms_interp_length with "Hatoms") as "<-".
-      iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
-      iFrame.
-      iSplit; first done.
-      iSplit; first done.
-      by iEval (repeat rewrite -app_assoc) in "Hframe".
     }
- 
-    iIntros (f_es_case_tag vs) "(%Hlen_vs & %Hfrel_new & Hframe & %os & %θ' & Hos & Hvs & Hrt & Hown) Hfr Hrun".
+
+    iIntros (??) "(%Hfrel & Hframe & (% & Hos' & Hvs) & [% Hrt] & Hown) Hfr Hrun".
+    iDestruct (atoms_interp_length with "Hvs") as "%Hlen_vs".
+    iDestruct (translate_types_comp_interp_length with "Hos'") as "%Hlen_os'".
+    { done. }
+    { cbn. apply bind_Some. exists [wl_ret]. cbn. rewrite app_nil_r. split; last done.
+      apply bind_Some. by exists wl_ret. }
 
     (* Reason about ess_post *)
     iApply (cwp_wand with "[Hfr Hrun]").
     {
-      iApply (case_blocks_fail with "[$] [$]"); last apply Hcg_post.
+      iApply (cwp_case_blocks_fail with "[$] [$]"); last apply Hcg_post.
       - instantiate (1 := tag). left. rewrite -Hess_pre_τs_pre -Htag_len. lia.
       - done.
       - rewrite length_map. fold (compile_cases mr fe ess_post). rewrite <- compile_cases_length.
@@ -564,8 +483,8 @@ Section case.
         rewrite Nat.add_succ_comm.
         rewrite -Hess_typ_len.
         by rewrite Htyp_rep_len.
-      - done.
-      - rewrite -Hsaved_and_tag. destruct Hfrel_new as [Hmask _]. symmetry. apply Hmask.
+      - by rewrite -Hlen_os' Hlen_vs.
+      - rewrite -Hsaved_and_tag. destruct Hfrel as [Hmask _]. symmetry. apply Hmask.
         subst tag_idx fe. unfold wlmask. repeat rewrite length_app. subst tag_localidx. cbn [localimm].
         split.
         + lia.
@@ -580,7 +499,7 @@ Section case.
     eapply frame_rel_trans.
     + eapply frame_rel_mask_mono; [| exact Hfrel_lmask_saved_and_tag].
       intros i [Hi_lo Hi_hi]. unfold lmask, wlmask. split; exact Hi_lo || exact Hi_hi.
-    + eapply frame_rel_wlmask_mono; [| exact Hfrel_new].
+    + eapply frame_rel_wlmask_mono; [| exact Hfrel].
       rewrite length_app. rewrite length_app. lia.
   Qed.
 

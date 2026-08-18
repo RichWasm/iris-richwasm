@@ -1583,7 +1583,7 @@ Section CodeGen.
       done.
   Qed.
 
-  Lemma case_blocks_fail wt wt' wl wl' start tag tag_idx result cases vs es fr B R :
+  Lemma cwp_case_blocks_fail wt wt' wl wl' start tag tag_idx result cases vs es fr B R :
     tag < start ∨ tag ≥ start + length cases ->
     (tag < Wasm_int.Int32.modulus)%Z ->
     (start + length cases <= Wasm_int.Int32.modulus)%Z ->
@@ -1726,7 +1726,7 @@ Section CodeGen.
         by rewrite Nat2Z.inj_add.
   Qed.
 
-  Lemma case_block_success wt wt' wl wl' idx tag tag_idx result case es_b :
+  Lemma cwp_case_block_success wt wt' wl wl' idx tag tag_idx result case es_b :
     run_codegen (case_block tag_idx result case idx) wt wl = inr ((), wt', wl', es_b) ->
     exists es_c,
       run_codegen (case idx) wt wl = inr ((), wt', wl', es_c) /\
@@ -1736,7 +1736,7 @@ Section CodeGen.
           fr.(f_locs) !! localimm tag_idx = Some (VAL_int32 tag) ->
           ↪[frame] fr -∗
           ↪[RUN] -∗
-          (↪[frame] fr -∗ ↪[RUN] -∗ CWP to_consts vs ++ es_c UNDER (length result, Φ) :: B; R {{ Φ }}) -∗
+          (↪[frame] fr -∗ ↪[RUN] -∗ CWP es_c UNDER (length result, Φ) :: B; R {{ Φ }}) -∗
           CWP to_consts vs ++ es_b UNDER B; R {{ Φ }}.
   Proof.
     intros Hcg.
@@ -1766,8 +1766,7 @@ Section CodeGen.
     rewrite app_assoc.
     iApply (cwp_seq with "[-Hes]").
     {
-      iApply cwp_val_app.
-      { instantiate (1 := vs). apply has_values_to_consts. }
+      iApply cwp_val_app; first apply has_values_to_consts.
       iApply (cwp_local_get with "[] [$Hfr] [$Hrun]").
       { done. }
       by instantiate (1 := fun fr' vs' => (⌜fr = fr'⌝ ∗ ⌜vs' = vs ++ [VAL_int32 tag]⌝)%I).
@@ -1783,9 +1782,42 @@ Section CodeGen.
       iApply cwp_val_app.
       { instantiate (1 := vs). apply has_values_to_consts. }
       iApply (cwp_relop with "[$Hfr] [$Hrun]").
-      { cbn. unfold nat_i32_repr in Hidx_tag. subst idx. cbn. admit. }
-      admit.
+      {
+        cbn. unfold nat_i32_repr in Hidx_tag. subst idx.
+        rewrite Z2Nat.id.
+        rewrite Wasm_int.Int32.repr_unsigned; first done.
+        apply Wasm_int.Int32.unsigned_range.
+      }
+      rewrite Wasm_int.Int32.eq_true.
+      by instantiate (1 := fun f' vs' => (⌜f' = f⌝ ∗ ⌜vs' = vs ++ [VAL_int32 Wasm_int.Int32.zero]⌝)%I).
     }
-  Abort.
+
+    iIntros (??) "[-> ->] Hfr Hrun".
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-Hes]").
+    {
+      unfold to_consts.
+      rewrite map_app -app_assoc.
+      iApply cwp_val_app; first apply has_values_to_consts.
+      iApply (cwp_br_if_zero with "[$Hfr] [$Hrun]"); first done.
+      instantiate (1 := fun f' vs' => (⌜f' = f⌝ ∗ ⌜vs' = vs⌝)%I).
+      unfold fvs_combine.
+      by rewrite app_nil_r.
+    }
+
+    iIntros (??) "[-> ->] Hfr Hrun".
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-Hes]").
+    {
+      rewrite -Hlen_vs_result.
+      unfold to_consts.
+      erewrite <- length_map.
+      iApply (cwp_drops with "[$Hfr] [$Hrun]"); first apply is_consts_to_consts.
+      by instantiate (1 := fun f' vs' => (⌜f' = f⌝ ∗ ⌜vs' = []⌝)%I).
+    }
+
+    iIntros (??) "[-> ->] Hfr Hrun".
+    iApply ("Hes" with "[$Hfr] [$Hrun]").
+  Qed.
 
 End CodeGen.
