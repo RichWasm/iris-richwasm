@@ -1194,6 +1194,49 @@ Proof.
     + apply IHl1; try done.
 Qed.
 
+Lemma flip_foldr2_bool {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (l1 : list In1) (l2: list In2) :
+  foldr2_bool (λ i1 i2, andb (check_ok_output (func i1 i2))) true false l1 l2 = true <->
+    foldr2_bool (λ i2 i1, andb (check_ok_output (func i1 i2))) true false l2 l1 = true.
+Proof.
+  generalize dependent l2.
+  induction l1; intros *; split; intros H; destruct l2 as [|a2 l2]; cbn in H; try by inversion H.
+  - cbn.
+    repeat my_auto.
+    apply andb_true_intro.
+    split; try done.
+    eapply IHl1; try done.
+  - cbn.
+    repeat my_auto.
+    apply andb_true_intro.
+    split; try done.
+    eapply IHl1; try done.
+Qed.
+
+Lemma convert_foldr2_bool_to_Forall2_check_ok_output_right_list
+  {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (Pbool : In1 -> In2 -> Prop)
+  (l1 : list In1) (l2 : list In2) :
+  foldr2_bool (λ i1 i2, andb (check_ok_output (func i1 i2))) true false l1 l2 = true ->
+  Forall (λ i2, ∀ i1, func i1 i2 = ok_term -> Pbool i1 i2) l2 ->
+  Forall2 Pbool l1 l2.
+Proof.
+  generalize dependent l1.
+  induction l2.
+  - intros * Hfoldr Hall.
+    cbn in Hfoldr.
+    destruct l1; cbn in Hfoldr; try by inversion Hfoldr.
+  - intros * Hfoldr Hall.
+    destruct l1 as [|a2 l1]; try by (cbn in Hfoldr; inversion Hfoldr).
+    cbn in Hfoldr.
+    repeat my_auto2.
+    constructor.
+    + inversion Hall; subst.
+      specialize (H3 a2).
+      apply H3; try done.
+      by apply check_ok_output_true_to_prop.
+    + apply IHl2; try done.
+      inversion Hall; subst; done.
+Qed.
+
 Fixpoint all_left {A B : Type} (l: list (A + B)) : bool :=
   match l with
   | [] => true
@@ -2279,7 +2322,10 @@ Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
               let o_τs_toequal := sequence τs_o_toequal in
               match o_τs_toequal with
               | Some τs_toequal =>
-                  if (list_beq type type_beq τs τs_toequal) then ok_term else INR "type not equal"
+                  (* if (list_beq type type_beq τs τs_toequal) then ok_term else INR "type not equal" *)
+                  if foldr2_bool (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true false τs τs_toequal
+                  then ok_term
+                  else INR "types not equal"
               | None => INR "types not equal"
               end
           | _ => INR "types not equal"
@@ -2304,7 +2350,10 @@ Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
               let o_τs_toequal := sequence τs_o_toequal in
               match o_τs_toequal with
               | Some τs_toequal =>
-                  if (list_beq type type_beq τs τs_toequal) then ok_term else INR "type not equal"
+                  (* if (list_beq type type_beq τs τs_toequal) then ok_term else INR "type not equal" *)
+                  if foldr2_bool (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ2 τ1))) true false τs τs_toequal
+                  then ok_term
+                  else INR "types not equal"
               | None => INR "types not equal"
               end
           | _ => INR "types not equal"
@@ -2324,6 +2373,77 @@ Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
   the automation slowing down a Lot without a bit of help.
  *)
 Opaque has_kind_checker.
+
+Lemma forall_unzip_sert :
+  ∀ τs κs_ser, Datatypes.length τs = Datatypes.length κs_ser ->
+  Forall (λ t, ∀ τ2, type_eq_checker t τ2 = ok_term -> type_eq t τ2) (zip_with SerT κs_ser τs) ->
+  Forall (λ t, ∀ τ2, type_eq_checker t τ2 = ok_term -> type_eq t τ2) τs.
+Proof.
+  induction τs.
+  - intros [|a b] Hlen; try inversion Hlen.
+    cbn. done.
+  - intros [|κ κs_ser] Hlen; try inversion Hlen.
+    intros Hzipped.
+    inversion Hzipped; subst.
+    constructor; try by eapply IHτs.
+    intros τ2.
+    intros Hminieq.
+    assert (type_eq_checker (SerT κ a) (SerT κ τ2) = ok_term). {
+      cbn.
+      (* this is true *)
+      assert (kind_beq κ κ = true). {
+        apply kind_eq_convert. done.
+      }
+      rewrite H.
+      done.
+    }
+    apply H2 in H.
+    inversion H; subst; try constructor.
+    done.
+Qed.
+
+Lemma sequence_stupid_some {A:Type} (a:A) l:
+  sequence (Some a :: l) =
+    match sequence l with
+    | Some ll => Some (a::ll)
+    | None => None
+    end.
+Proof.
+  cbn. done.
+Qed.
+
+Lemma sequence_stupid_none {A:Type} (l: list (option A)):
+  sequence (None :: l) = None.
+Proof.
+  cbn. done.
+Qed.
+
+Lemma sequence_map_zip_with :
+  ∀ τs_zipped τs,
+  sequence (map (λ t, match t with |SerT _ τ => Some τ | _ => None end) τs_zipped) = Some τs ->
+  ∃ κs_ser, τs_zipped = zip_with SerT κs_ser τs /\ Datatypes.length κs_ser = Datatypes.length τs.
+Proof.
+  induction τs_zipped.
+  - intros τs Hseq; cbn in *; inversion Hseq; subst.
+    exists []; cbn; split; done.
+  - intros τs Hseq.
+    Opaque sequence.
+    cbn in Hseq.
+    destruct a eqn:Ha; try by (cbn in Hseq; inversion Hseq).
+    rewrite sequence_stupid_some in Hseq.
+    repeat my_auto3.
+    specialize (IHτs_zipped l eq_refl).
+    destruct IHτs_zipped as (κs_ser_small & Hzip & Hlen).
+    exists (k :: κs_ser_small).
+    cbn.
+    subst. split; try done; lia.
+Qed.
+
+Lemma type_eq_refl_forall2 τs : Forall2 type_eq τs τs.
+Proof.
+  induction τs; try done.
+  constructor; try done; constructor.
+Qed.
 
 Lemma type_eq_checker_correct_basic :
   (∀ τ1,
@@ -2379,28 +2499,45 @@ Proof.
   (* struct ser case *)
   (* there's annoying monad stuff in here *)
   1: {
-    (* Opaque sequence. *)
-    (* cbn in H0. *)
-    (* repeat structural_auto. *)
-    (* Search sequence. *)
-    (* About sequence. *)
-    (* repeat boolean_equality_auto. *)
-    (* Transparent sequence. *)
-    (* About sequence. *)
-    (* cbn in HMatch0. *)
-    (* Search List.mapT_list. *)
-    (* unfold List.mapT_list in HMatch0. *)
-    (* cbn. *)
-    admit.
-    (*
-    assert (tosubst: τs = τ2) by admit. subst; clear HMatch.
-    constructor.
-   *)
+    cbn in H0.
+    repeat structural_auto. repeat boolean_equality_auto.
+    rename τs into τs_zipped.
+    rename l into τs'.
+    rename l0 into τs.
+    apply sequence_map_zip_with in HMatch0 as (κs_ser & Hzipped & Hlen).
+    symmetry in Hlen.
+    rewrite Hzipped in H.
+    eapply forall_unzip_sert in Hlen as Hh; last exact H.
+    rewrite Hzipped.
+    constructor; try done.
+    eapply convert_foldr2_bool_to_Forall2_check_ok_output; try done.
+    by apply flip_foldr2_bool.
   }
   (* ser struct case *)
-  1: { admit. }
+  1: {
+    cbn in H0.
+    Opaque type_eq_checker.
+    repeat structural_auto. repeat boolean_equality_auto.
+    Transparent type_eq_checker.
+    rename l into τs_zipped.
+    rename l1 into τs'.
+    rename l0 into τs.
+    apply sequence_map_zip_with in HMatch0 as (κs_ser & Hzipped & Hlen).
+    symmetry in Hlen.
+    rewrite Hzipped.
+    constructor; try done.
+    specialize (H (ProdT k0 τs')).
+    assert (type_eq_checker (ProdT k0 τs) (ProdT k0 τs') = ok_term). {
+      cbn.
+      assert (kind_beq k0 k0 = true) by (rewrite kind_eq_convert; done).
+      rewrite H0; rewrite HMatch1; done.
+    }
+    apply H in H0.
+    inversion H0; subst; try done.
+    apply type_eq_refl_forall2.
+  }
 
-Admitted.
+Qed.
 
 Lemma type_eq_checker_correct :
   ∀ τ1 τ2, type_eq_checker τ1 τ2 = ok_term -> type_eq τ1 τ2.
@@ -5123,53 +5260,6 @@ Qed.
 Ltac convert_foldr Pbool Pprop l H :=
   apply (foldr_to_Forall Pbool Pprop l) in H; [|intros; repeat my_auto5].
 
-Lemma flip_foldr2_bool {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (l1 : list In1) (l2: list In2) :
-  foldr2_bool (λ i1 i2, andb (check_ok_output (func i1 i2))) true false l1 l2 = true <->
-    foldr2_bool (λ i2 i1, andb (check_ok_output (func i1 i2))) true false l2 l1 = true.
-Proof.
-  generalize dependent l2.
-  induction l1; intros *; split; intros H; destruct l2 as [|a2 l2]; cbn in H; try by inversion H.
-  - cbn.
-    repeat my_auto5.
-    apply andb_true_intro.
-    split.
-    + unfold check_ok_output.
-      rewrite H1. cbn. done.
-    + eapply IHl1; try done.
-  - cbn.
-    repeat my_auto5.
-    apply andb_true_intro.
-    split.
-    + unfold check_ok_output.
-      rewrite H1. cbn. done.
-    + eapply IHl1; try done.
-Qed.
-
-Lemma convert_foldr2_bool_to_Forall2_check_ok_output_right_list
-  {In1 In2 : Type} (func: In1 -> In2 -> type_checker_res) (Pbool : In1 -> In2 -> Prop)
-  (l1 : list In1) (l2 : list In2) :
-  foldr2_bool (λ i1 i2, andb (check_ok_output (func i1 i2))) true false l1 l2 = true ->
-  Forall (λ i2, ∀ i1, func i1 i2 = ok_term -> Pbool i1 i2) l2 ->
-  Forall2 Pbool l1 l2.
-Proof.
-  generalize dependent l1.
-  induction l2.
-  - intros * Hfoldr Hall.
-    cbn in Hfoldr.
-    destruct l1; cbn in Hfoldr; try by inversion Hfoldr.
-  - intros * Hfoldr Hall.
-    destruct l1 as [|a2 l1]; try by (cbn in Hfoldr; inversion Hfoldr).
-    cbn in Hfoldr.
-    repeat my_auto2.
-    constructor.
-    + inversion Hall; subst.
-      specialize (H3 a2).
-      apply H3; try done.
-      by apply check_ok_output_true_to_prop.
-    + apply IHl2; try done.
-      inversion Hall; subst; done.
-Qed.
-(* TODO: move the above to the top *)
 
 
 Lemma has_instruction_type_checker_correct :
