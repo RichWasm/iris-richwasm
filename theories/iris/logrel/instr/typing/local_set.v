@@ -84,7 +84,7 @@ Section local_set.
     6: by rewrite Hlen_eq'.
     5: done.
     3: done.
-    2: apply has_values_to_consts.
+    2: apply Is_true_true; apply has_values_to_consts.
     2: {
       unfold fe_wlocal_offset.
       subst fe.

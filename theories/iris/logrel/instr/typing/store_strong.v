@@ -23,9 +23,6 @@ Section store_strong.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-
-
-
   Lemma get_all_kinding_info_store_strong τ κ τval κ' π pr κser:
     let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ; τval]
                [RefT κ' (BaseM MemMM) Mut (pr_replaced pr)] in
@@ -446,7 +443,7 @@ Section store_strong.
 
     (* apply lemma on the codegen. order of goals to help with evars *)
     eapply cwp_save_stack_w in Hsave; auto.
-    4: exact Hevs2.
+    4: apply Is_true_true; exact Hevs2.
     3: {
       rewrite map_comp; done.
     }

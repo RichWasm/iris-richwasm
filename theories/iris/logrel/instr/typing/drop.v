@@ -149,7 +149,7 @@ Section drop.
 
       (* step 2: use the spec *)
       iApply (Hmm with "[$] [$] [$] [//] [$] [$] [$] [-]"); try done.
-      { apply has_values_to_consts. }
+      { apply Is_true_true. apply has_values_to_consts. }
       iIntros "Hrt Hown _".
       iApply ("HΦ" with "[$] [$]").
     - (** ------------- Ptr MemGC ---------------- *)
@@ -608,8 +608,5 @@ Section drop.
       iExists [].
       cbn; done.
   Qed.
-
-
-
 
 End drop.

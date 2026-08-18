@@ -169,6 +169,7 @@ Section case.
     (* save payload *)
     eapply cwp_save_stack_w in Hsave; eauto.
     2: { rewrite Hpayload. by rewrite map_comp. }
+    2: { by apply Is_true_true. }
     destruct Hsave as (Hval_localidxs_seq & -> & Hwl_save & Hsave).
     rewrite (app_assoc (e_tag ++ _)).
     iApply (cwp_seq with "[Hfr Hrun]").

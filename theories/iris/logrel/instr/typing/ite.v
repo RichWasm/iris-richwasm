@@ -78,6 +78,7 @@ Section ite.
       by apply is_consts_to_consts.
     assert (Hlens: length (map BI_const vs1) = length res1)
       by (rewrite length_map -Hlen_res; auto).
+    apply Is_true_true in Hconsts.
     specialize (Hite _ Hconsts Hlens).
     destruct (value_eq_dec (VAL_int32 n) (VAL_int32 (Wasm_int.int_zero i32m))) as [Hvn|Hvn].
     - iApply (Hite with "[$] [$]").

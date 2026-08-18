@@ -103,7 +103,8 @@ Section new.
     iEval (rewrite app_assoc).
     iApply (cwp_seq with "[Hfr Hrun]").
     {
-      iApply (Hsave_stack_spec with "[//] [//] [] [$] [$]").
+      iApply (Hsave_stack_spec with "[] [//] [] [$] [$]").
+      { iPureIntro. by apply Is_true_true. }
       {
         unfold translate_arep in Hres_type_vs.
         rewrite map_comp. done.
@@ -1016,7 +1017,6 @@ Section new.
         cbn.
         iExact "Haroot".
     }
-
   Qed.
 
 End new.

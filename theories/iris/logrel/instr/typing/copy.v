@@ -58,7 +58,7 @@ Section copy.
     clear_nils.
     intuition.
     iIntros (s E fr vs esv Φ L R wlf) "%Hesv %Hwl %Hres Hf Hr".
-    by iApply (Hcg2 with "[$]").
+    by iApply (Hcg2 with "[$]"); first apply Is_true_true.
   Qed.
 
   Lemma compat_copy M F L wt wt' wtf wl wl' wlf τ es' :

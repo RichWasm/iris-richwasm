@@ -23,10 +23,6 @@ Section store_weak.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-
-
-
-
   (* this is a "get me all the kind info please" lemma
      a bit old bc it has some things it doesn't strickly need, but that's
      okay.
@@ -472,7 +468,7 @@ Section store_weak.
 
       (* apply lemma on the codegen. order of goals to help with evars *)
       eapply cwp_save_stack_w in Hsave; auto.
-      4: exact Hevs2.
+      4: apply Is_true_true; exact Hevs2.
       3: {
         unfold translate_arep in Hres_type_vs2.
         rewrite map_comp. done.
@@ -1060,7 +1056,7 @@ Section store_weak.
 
       (* apply lemma on the codegen. order of goals to help with evars *)
       eapply cwp_save_stack_w in Hsave; auto.
-      4: exact Hevs2.
+      4: apply Is_true_true; exact Hevs2.
       3: {
         unfold translate_arep in Hres_type_vs2.
         by rewrite map_comp.
@@ -1845,9 +1841,6 @@ Section store_weak.
           iEval (cbn).
           done.
     }
-
   Qed.
-
-
 
 End store_weak.

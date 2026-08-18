@@ -1,3 +1,7 @@
+From mathcomp Require Import ssreflect eqtype ssrbool.
+
+Require Import RecordUpdate.RecordUpdate.
+
 Require Import iris.proofmode.proofmode.
 
 From stdpp Require Import list.
@@ -57,7 +61,7 @@ Section CodeGen.
 
     iIntros (????? Hlen Hconst) "Hfr Hrun Hes".
     iApply (cwp_block with "[$Hfr] [$Hrun]").
-    - done.
+    - by apply Is_true_true.
     - done.
     - iIntros "!> Hfr Hrun". iApply ("Hes" with "[$Hfr] [$Hrun]").
   Qed.
@@ -180,11 +184,13 @@ Section CodeGen.
     do 4 (split; first done).
     iIntros (evs Hevs Hlen s E B R Φ f i) "Hfr Hrun [[%Hi Hwp]|[%Hi Hwp]]".
     - iApply (cwp_if_nonzero with "[$] [$]").
-      1, 2, 3: done.
+      { by apply Is_true_true. }
+      1, 2: done.
       iIntros "!> Hfr Hrun".
       iApply ("Hwp" with "[$] [$]").
     - iApply (cwp_if_zero with "[$] [$]").
-      1, 2, 3: done.
+      { by apply Is_true_true. }
+      1, 2: done.
       iIntros "!> Hfr Hrun".
       iApply ("Hwp" with "[$] [$]").
   Qed.
@@ -555,7 +561,7 @@ Section CodeGen.
       inversion Hcg.
       simpl.
       iApply (cwp_val with "[$] [$]"); try done.
-      1: by rewrite app_nil_r.
+      { apply Is_true_true. by rewrite app_nil_r. }
       iApply "HΦ".
       done.
     - apply Forall2_length in Hrt as Hlen.
@@ -571,6 +577,7 @@ Section CodeGen.
       apply exists_last in Htysne as [tys' [ty Htys]].
       subst tys.
       (* evs = evs' ++ [ev] *)
+      apply Is_true_true in Hhv.
       apply has_values_app_inv in Hhv as (evs' & ev & Heq & Hhv' & Hhv_v).
       apply has_values_length in Hhv_v as Hev_len.
       destruct ev as [|ev []]; try done.
@@ -642,7 +649,7 @@ Section CodeGen.
         rewrite !app_nil_r in Hcg_rest.
         done.
       }
-      3: iPureIntro; apply has_values_to_consts.
+      3: iPureIntro; apply Is_true_true; apply has_values_to_consts.
       2: {
         iPureIntro.
         simpl.
@@ -769,6 +776,42 @@ Section CodeGen.
     lia.
   Qed.
 
+  Lemma cwp_save_stack1 wt wt' wl wl' fe t i es:
+    run_codegen (save_stack1 fe t) wt wl = inr (i, wt', wl', es) ->
+    forall evs v f B R Φ,
+      ⌜has_values evs [v]⌝ -∗
+      ↪[frame] f -∗
+      ↪[RUN] -∗
+      Φ (f <| f_locs ::= <[ localimm i := v ]> |>) [] -∗
+      CWP evs ++ es UNDER B; R {{ Φ }}.
+  Proof.
+    iIntros (Hcg ??????) "%Hevs Hfr Hrun HΦ".
+    apply all2_Forall2 in Hevs.
+    apply Forall2_cons_inv_r in Hevs as (ev & evs' & Hev & Hevs' & ->).
+    apply Forall2_nil_inv_r in Hevs' as ->.
+    destruct ev; try done.
+    cbn in Hev.
+    move/eqP in Hev.
+    subst v0.
+    eapply wp_save_stack1 with (v := v) (fr := f) in Hcg as (Hi & Hwt' & Hwl' & Hes).
+    {
+      iApply (wp_wand with "[-HΦ]").
+      {
+        unfold to_e_list.
+        change (seq.map AI_basic (app (cons (BI_const v) nil) es)) with
+          (AI_basic (BI_const v) :: to_e_list es).
+        iApply (Hes with "[$Hfr] [$Hrun]").
+        by instantiate (1 := fun v => ⌜v = immV []⌝%I).
+      }
+      iIntros (?) "[[-> Hrun] Hfr]".
+      iExists _.
+      iFrame.
+      cbn.
+      rewrite -fmap_insert_set_nth; first done.
+      rewrite Hi.
+      cbn.
+  Abort.
+
   Lemma cwp_save_stack_w esv tys Φ L R localidxs :
     forall s E fe wt wl idxs wt' wl' wlf es fr vs,
       run_codegen (save_stack_w fe tys) wt wl = inr (localidxs, wt', wl', es) ->
@@ -847,7 +890,6 @@ Section CodeGen.
       - by rewrite -!app_assoc.
       - rewrite !length_app. rewrite !Nat.add_assoc. lia.
   Qed.
-
 
   Lemma cwp_save_stack_w' fe tys localidxs idxs wt wl wt' wl' wlf es :
       run_codegen (save_stack_w fe tys) wt wl = inr (localidxs, wt', wl', es) ->
@@ -937,8 +979,7 @@ Section CodeGen.
       done.
     - destruct vs as [| v vs]; destruct idxs as [| idx idxs]; simpl in *; try congruence.
       apply Forall2_cons; split.
-      + specialize (Hbig 0 idx eq_refl).
-        done.
+      + specialize (Hbig 0 idx). cbn in Hbig. by apply Hbig.
       + apply IHlen; eauto.
         intros k i Hki.
         by apply (Hbig (S k) i).
@@ -1124,7 +1165,7 @@ Section CodeGen.
     do 3 (split; try done).
     iIntros "Hfr Hrun HΦ".
     rewrite -Hlen.
-    by iApply (cwp_drops with "[$] [$] [HΦ]").
+    by iApply (cwp_drops with "[$] [$] [HΦ]"); first apply Is_true_true.
   Qed.
 
   Lemma wp_bind_err {A B} c (f : A -> codegen B) wt wl err :
@@ -1196,7 +1237,6 @@ Section CodeGen.
       congruence.
   Qed.
 
-
   Lemma cwp_setflag i fl wt wl wt' wl' es_setflag ret :
     run_codegen (setflag mr i fl) wt wl = inr (ret, wt', wl', es_setflag) ->
     ret = () /\
@@ -1236,6 +1276,7 @@ Section CodeGen.
     intros ?????????????? Haddr Hrepr_ptr Hlmask Hhv.
     iIntros "Hroot Hframe Hrun %HE Htok Hrt Hsetflag HΦ".
 
+    apply Is_true_true in Hhv.
     apply has_values_iff_to_consts in Hhv; subst.
     simpl.
 
@@ -1368,7 +1409,7 @@ Section CodeGen.
         - done.
         - done.
         - apply Hrepr.
-        - by apply has_values_iff_to_consts.
+        - apply Is_true_true. by apply has_values_iff_to_consts.
         - done.
         - iIntros "Hrt Hown Hinst Hfsnew".
           let Q := open_constr:(_ : iProp Σ) in
@@ -1399,7 +1440,6 @@ Section CodeGen.
         }
         rewrite H; done.
   Qed.
-
 
   Lemma cwp_alloc_mm n wt wl wt' wl' es_alloc ret :
     run_codegen (alloc mr MemMM n) wt wl = inr (ret, wt', wl', es_alloc) ->
@@ -1554,6 +1594,7 @@ Section CodeGen.
     iIntros "Hfr Hrun Hℓ_addr %Hnsfun Htok Hrt Hfree HΦ".
 
     (* step one: evs *)
+    apply Is_true_true in Hevs.
     apply has_values_to_consts_inv in Hevs; subst.
     cbn.
     (* step two: get the spec_free out of Hfree *)
@@ -1760,7 +1801,7 @@ Section CodeGen.
     iIntros (????? Hidx_tag Hlen_vs_result Hfr_tag) "Hfr Hrun Hes".
     iApply (Hes_b with "[$Hfr] [$Hrun]").
     { rewrite -Hlen_vs_result. by rewrite length_map. }
-    { apply is_consts_to_consts. }
+    { apply Is_true_true. apply is_consts_to_consts. }
 
     iIntros "Hfr Hrun".
     rewrite app_assoc.
@@ -1819,5 +1860,41 @@ Section CodeGen.
     iIntros (??) "[-> ->] Hfr Hrun".
     iApply ("Hes" with "[$Hfr] [$Hrun]").
   Qed.
+
+  Lemma cwp_case_switch wt wt' wl wl' fe tf cases case i es_s :
+    run_codegen (case_switch fe tf cases) wt wl = inr (tt, wt', wl', es_s) ->
+    cases !! i = Some case ->
+    exists wt_c wt_c' wl_c wl_c' es_c,
+      run_codegen (case i) wt_c wl_c = inr (tt, wt_c', wl_c', es_c) /\
+        forall fr tag evs B R Φ,
+          ⌜nat_i32_repr i tag⌝ -∗
+          ⌜has_values evs [VAL_int32 tag]⌝ -∗
+          ↪[frame] fr -∗
+          ↪[RUN] -∗
+          (↪[frame] fr -∗ ↪[RUN] -∗ CWP es_c UNDER B; R {{ Φ }}) -∗
+          CWP evs ++ es_s UNDER B; R {{ Φ }}.
+  Proof.
+    iIntros (Hcg Hcase).
+    unfold case_switch in Hcg.
+    inv_cg_bind Hcg ltag ?wt ?wt ?wl ?wl ?es ?es Hcg_save Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_def Hcg.
+    subst wl1 wt1 es0 wl' wt' es_s.
+    apply lookup_lt_Some in Hcase as Hlen.
+    apply list_pluck in Hlen as (cases1 & case' & cases2 & Hcase' & Hi & ->).
+    rewrite Hcase in Hcase'.
+    inversion Hcase'.
+    subst case'.
+    clear Hcase Hcase'.
+    apply run_codegen_case_blocks_app in Hcg as
+        (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcg1 & Hcg & Hcg2 & -> & -> & ->).
+    apply cwp_case_block_success with (tag := Wasm_int.int_of_Z i32m (Z.to_nat i)) in Hcg as
+        (?es & Hcg_case & Hes3).
+    repeat rewrite -app_assoc in Hcg_case.
+    rewrite plus_O_n in Hcg_case.
+    exists (wt ++ wt0 ++ wt2 ++ wt1), wt4, (wl ++ wl0 ++ wl2 ++ wl1), wl4, es2.
+    split; first by rewrite -Hi.
+    iIntros (??????) "%Hi_tag %Hevs Hfr Hrun Hes2".
+    (* TODO: Apply cwp_save_stack1 in Hcg_save. *)
+  Abort.
 
 End CodeGen.

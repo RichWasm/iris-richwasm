@@ -460,7 +460,7 @@ Section swap.
 
       (* apply lemma on the codegen. order of goals to help with evars *)
       eapply cwp_save_stack_w in Hsave; auto.
-      4: exact Hevs2.
+      4: apply Is_true_true; exact Hevs2.
       3: {
         unfold translate_arep in Hres_type_vs2.
         rewrite map_comp. done.
@@ -1159,7 +1159,7 @@ Section swap.
 
       (* apply lemma on the codegen. order of goals to help with evars *)
       eapply cwp_save_stack_w in Hsave; auto.
-      4: exact Hevs2.
+      4: apply Is_true_true; exact Hevs2.
       3: {
         unfold translate_arep in Hres_type_vs2.
         rewrite map_comp. done.
@@ -1938,7 +1938,6 @@ Section swap.
           cbn.
           done.
     }
-
   Qed.
 
 End swap.
