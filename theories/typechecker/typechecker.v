@@ -5638,68 +5638,36 @@ Definition body_has_mono_type_checker
       let tempF := Build_function_ctx [] [] [] K κs in
       match mapM (grab_rep tempF) τs1 with
       | Some ρs_P =>
-          match mapM (eval_rep_prim EmptyEnv) ρs_P with
-          | Some ηss_P =>
-              let tempF2 := Build_function_ctx τs2 (ηss_P ++ ηss_L) [] K κs in
-              let L := τs1 ++ map type_plug_prim ηss_L in
-              let ψ := InstrT [] τs2 in
-              match synth_possible_resulting_local_ctx_insts tempF2 body L with
-              | inl (Some L') =>
-                  let F := tempF2 <| fc_labels := [(τs2, L')] |> in
-                  let res := map (λ t, has_ref_flag_checker F t NoRefs) L' in
-                  let folded := foldr (λ r, andb (check_ok_output r)) true res in
-                  if folded
-                  then have_instruction_type_checker M F L body ψ L'
-                  else
-                    inr ([LocalCtxSynthError "your resulting locals aren't all nonrefs"
-                            L L' (combine_error_messages res)])
-                    (* inr ([NormalError "your resulting locals aren't all nonrefs"] ++ combine_error_messages res) *)
-                    (* INR ("your resulting locals aren't all norefs (" ++ *)
-                    (*           (combine_error_messages res) ++ ")"%string) *)
-              | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
-              | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
-              end
-          | None => INR "AAAAAAAAAAAAA"
-          end
+          if foldr2_bool (λ t, λ r, andb (check_ok_output (has_rep_checker tempF t r))) true false τs1 ρs_P
+          then
+            match mapM (eval_rep_prim EmptyEnv) ρs_P with
+            | Some ηss_P =>
+                let tempF2 := Build_function_ctx τs2 (ηss_P ++ ηss_L) [] K κs in
+                let L := τs1 ++ map type_plug_prim ηss_L in
+                let ψ := InstrT [] τs2 in
+                match synth_possible_resulting_local_ctx_insts tempF2 body L with
+                | inl (Some L') =>
+                    let F := tempF2 <| fc_labels := [(τs2, L')] |> in
+                    let res := map (λ t, has_ref_flag_checker F t NoRefs) L' in (* used for errors *)
+                    let folded := foldr (λ r, andb (check_ok (λ t, has_ref_flag_checker F t NoRefs) r)) true L' in
+                    if folded
+                    then have_instruction_type_checker M F L body ψ L'
+                    else
+                      inr ([LocalCtxSynthError "your resulting locals aren't all nonrefs"
+                              L L' (combine_error_messages res)])
+                (* inr ([NormalError "your resulting locals aren't all nonrefs"] ++ combine_error_messages res) *)
+                (* INR ("your resulting locals aren't all norefs (" ++ *)
+                (*           (combine_error_messages res) ++ ")"%string) *)
+                | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
+                | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
+                end
+            | None => INR "AAAAAAAAAAAAA"
+            end
+          else INR "nnnnnn"
       | None => INR "aaaaaa"
       end
   | None => INR "can't give function type"
   end.
-
-Fixpoint body_has_ifun_type_checker
-  (M : module_ctx)
-  (K : kind_ctx)
-  (mf_locs : list representation)
-  (body : list instruction)
-  (κs : list kind) (ϕ : inner_function_type)
-  : type_checker_res :=
-  match ϕ with
-  | MonoFunT τs1 τs2 => body_has_mono_type_checker M K mf_locs body κs τs1 τs2
-  | ForallTypeT κ ϕ => body_has_ifun_type_checker M K mf_locs body (κ :: κs) ϕ
-  end.
-
-Fixpoint body_has_fun_type_checker
-  (M : module_ctx)
-  (mf_locs : list representation)
-  (body : list instruction)
-  (K : kind_ctx)
-  (ϕ : function_type)
-  : type_checker_res :=
-  match ϕ with
-  | InnerFunT ϕ =>
-    body_has_ifun_type_checker M K mf_locs body [] ϕ
-  | ForallMemT ϕ =>
-    body_has_fun_type_checker M mf_locs body (K <| kc_mem_vars ::= S |>) ϕ
-  | ForallRepT ϕ =>
-    body_has_fun_type_checker M mf_locs body (K <| kc_rep_vars ::= S |>) ϕ
-  | ForallSizeT ϕ =>
-    body_has_fun_type_checker M mf_locs body (K <| kc_size_vars ::= S |>) ϕ
-  end.
-
-Definition has_function_type_checker
-    (M:module_ctx) (mf:module_function) : type_checker_res :=
-  body_has_fun_type_checker M mf.(mf_locals) mf.(mf_body) kc_empty mf.(mf_type).
-
 
 Lemma grab_rep_in_messed_up_F :
   ∀ ϕ_out ηss_P ηss_L K ϕ_type_vars ϕ_in ρs_P,
@@ -5724,15 +5692,99 @@ Proof.
   all: done.
 Qed.
 
+Lemma body_has_mono_type_checker_correct :
+  ∀ M K mf_locs body κs τs1 τs2,
+    body_has_mono_type_checker M K mf_locs body κs τs1 τs2 = ok_term ->
+    body_has_ifun_type M K mf_locs body κs (MonoFunT τs1 τs2).
+Proof.
+  intros * H.
+  unfold body_has_mono_type_checker in H.
+  repeat my_auto5; subst.
+  rename l2 into L'.
+  rename l into ηss_L.
+  rename l0 into ρs_P.
+  rename l1 into ηss_P.
+  (* let's slowly get everything that's necessary *)
+  eapply TMono.
+  5: by apply have_instruction_type_checker_correct.
+  all: try done.
+  - pose proof (has_rep_checker_correct (Build_function_ctx [] [] [] K κs)).
+    eapply convert_foldr2_bool_to_Forall2_check_ok_output_pure_forall; try done.
+  - set (F := (Build_function_ctx τs2 (ηss_P ++ ηss_L) [(τs2, L')] K κs)) in *.
+    pose proof (has_ref_flag_checker_correct F).
+    specialize H with (ξ:=NoRefs).
+    eapply convert_foldr_to_Forall_check_ok; try done.
+Qed.
+
+Fixpoint body_has_ifun_type_checker
+  (M : module_ctx)
+  (K : kind_ctx)
+  (mf_locs : list representation)
+  (body : list instruction)
+  (κs : list kind) (ϕ : inner_function_type)
+  : type_checker_res :=
+  match ϕ with
+  | MonoFunT τs1 τs2 => body_has_mono_type_checker M K mf_locs body κs τs1 τs2
+  | ForallTypeT κ ϕ => body_has_ifun_type_checker M K mf_locs body (κ :: κs) ϕ
+  end.
+
+Lemma body_has_ifun_type_checker_correct :
+  ∀ ϕ M K mf_locs body κs,
+    body_has_ifun_type_checker M K mf_locs body κs ϕ = ok_term ->
+    body_has_ifun_type M K mf_locs body κs ϕ.
+Proof.
+  induction ϕ.
+  - intros * H.
+    by apply body_has_mono_type_checker_correct.
+  - intros * H.
+    cbn in H.
+    apply IHϕ in H.
+    by constructor.
+Qed.
+
+
+Fixpoint body_has_fun_type_checker
+  (M : module_ctx)
+  (mf_locs : list representation)
+  (body : list instruction)
+  (K : kind_ctx)
+  (ϕ : function_type)
+  : type_checker_res :=
+  match ϕ with
+  | InnerFunT ϕ =>
+    body_has_ifun_type_checker M K mf_locs body [] ϕ
+  | ForallMemT ϕ =>
+    body_has_fun_type_checker M mf_locs body (K <| kc_mem_vars ::= S |>) ϕ
+  | ForallRepT ϕ =>
+    body_has_fun_type_checker M mf_locs body (K <| kc_rep_vars ::= S |>) ϕ
+  | ForallSizeT ϕ =>
+    body_has_fun_type_checker M mf_locs body (K <| kc_size_vars ::= S |>) ϕ
+  end.
+
+Lemma body_has_fun_type_checker_correct :
+  ∀ ϕ M K mf_locs body,
+    body_has_fun_type_checker M mf_locs body K ϕ = ok_term ->
+    body_has_fun_type M mf_locs body K ϕ.
+Proof.
+  induction ϕ.
+  all: intros * H; constructor.
+  all: cbn in H.
+  all: try by apply body_has_ifun_type_checker_correct.
+  all: by apply IHϕ in H.
+Qed.
+
+Definition has_function_type_checker
+    (M:module_ctx) (mf:module_function) : type_checker_res :=
+  body_has_fun_type_checker M mf.(mf_locals) mf.(mf_body) kc_empty mf.(mf_type).
+
+
 Lemma has_function_type_checker_correct :
   ∀ M mf, has_function_type_checker M mf = ok_term ->
           has_function_type M mf.
 Proof.
-  intros M mf H. destruct mf.
-  unfold has_function_type_checker in H.
-  unfold body_has_fun_type_checker in H. cbn in H.
-  induction mf_type.
-Admitted.
+  intros.
+  by apply body_has_fun_type_checker_correct.
+Qed.
 
 
 Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_res :=
@@ -5745,7 +5797,7 @@ Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_re
           then
             let M := Build_module_ctx ϕs table in
             let res := map (λ mf, has_function_type_checker M mf) m.(m_functions) in
-            let folded := foldr (λ r, andb (check_ok_output r)) true res in
+            let folded := foldr (λ r, andb (check_ok (λ mf, has_function_type_checker M mf) r)) true (m.(m_functions)) in
             if folded
             then ok_term
             else
@@ -5767,9 +5819,10 @@ Proof.
   rename l into table.
   rename l0 into exports.
   apply (TModule m table exports); auto.
-  (* and this is just a foldr lemma *)
-
-Admitted.
+  pose proof (has_function_type_checker_correct
+                (Build_module_ctx (m_imports m ++ map mf_type (m_functions m)) (table))).
+  eapply convert_foldr_to_Forall_check_ok; try done.
+Qed.
 
 Definition synth_module_type (m:module) : option module_type :=
   let ϕs := m.(m_imports) ++ map mf_type m.(m_functions) in
