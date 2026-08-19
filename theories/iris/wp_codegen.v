@@ -778,14 +778,27 @@ Section CodeGen.
 
   Lemma cwp_save_stack1 wt wt' wl wl' fe t i es:
     run_codegen (save_stack1 fe t) wt wl = inr (i, wt', wl', es) ->
-    forall evs v f B R Φ,
-      ⌜has_values evs [v]⌝ -∗
-      ↪[frame] f -∗
-      ↪[RUN] -∗
-      Φ (f <| f_locs ::= <[ localimm i := v ]> |>) [] -∗
-      CWP evs ++ es UNDER B; R {{ Φ }}.
+    i = W.Mk_localidx (fe_wlocal_offset fe + length wl) /\
+      forall evs v f B R Φ,
+        wl_interp (fe_wlocal_offset fe) (wl ++ wl') f ->
+        has_values evs [v] ->
+        ↪[frame] f -∗
+        ↪[RUN] -∗
+        Φ (f <| f_locs ::= <[ localimm i := v ]> |>) [] -∗
+        CWP evs ++ es UNDER B; R {{ Φ }}.
   Proof.
-    iIntros (Hcg ??????) "%Hevs Hfr Hrun HΦ".
+    intros Hcg.
+    inv_cg_bind Hcg i' ?wt ?wt ?wl ?wl ?es ?es Hcg_alloc Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_emit Hcg_ret.
+    inv_cg_emit Hcg_emit.
+    inv_cg_ret Hcg_ret.
+    clear Hretval.
+    subst wt2 wl2 es2 i' wt3 wl3 es3 wt1 wl1 es1 wt' wl' es.
+    apply wp_wlalloc in Hcg_alloc as (-> & -> & -> & ->).
+    clear_nils.
+    split; first done.
+
+    iIntros (?????? Hwl Hevs) "Hfr Hrun HΦ".
     apply all2_Forall2 in Hevs.
     apply Forall2_cons_inv_r in Hevs as (ev & evs' & Hev & Hevs' & ->).
     apply Forall2_nil_inv_r in Hevs' as ->.
@@ -793,24 +806,16 @@ Section CodeGen.
     cbn in Hev.
     move/eqP in Hev.
     subst v0.
-    eapply wp_save_stack1 with (v := v) (fr := f) in Hcg as (Hi & Hwt' & Hwl' & Hes).
-    {
-      iApply (wp_wand with "[-HΦ]").
-      {
-        unfold to_e_list.
-        change (seq.map AI_basic (app (cons (BI_const v) nil) es)) with
-          (AI_basic (BI_const v) :: to_e_list es).
-        iApply (Hes with "[$Hfr] [$Hrun]").
-        by instantiate (1 := fun v => ⌜v = immV []⌝%I).
-      }
-      iIntros (?) "[[-> Hrun] Hfr]".
-      iExists _.
-      iFrame.
-      cbn.
-      rewrite -fmap_insert_set_nth; first done.
-      rewrite Hi.
-      cbn.
-  Abort.
+
+    iApply (cwp_local_set with "[HΦ] [$Hfr] [$Hrun]"); last done.
+    destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
+    rewrite -Hlen Hlocs.
+    apply Forall2_length in Hvs__wl.
+    rewrite length_app in Hvs__wl.
+    rewrite length_app length_app.
+    cbn in *.
+    lia.
+  Qed.
 
   Lemma cwp_save_stack_w esv tys Φ L R localidxs :
     forall s E fe wt wl idxs wt' wl' wlf es fr vs,
@@ -1861,9 +1866,9 @@ Section CodeGen.
     iApply ("Hes" with "[$Hfr] [$Hrun]").
   Qed.
 
-  Lemma cwp_case_switch wt wt' wl wl' fe tf cases case i es_s :
-    run_codegen (case_switch fe tf cases) wt wl = inr (tt, wt', wl', es_s) ->
+  Lemma cwp_case_switch wt wt' wl wl' fe ts cases case i es_s :
     cases !! i = Some case ->
+    run_codegen (case_switch fe ts cases) wt wl = inr (tt, wt', wl', es_s) ->
     exists wt_c wt_c' wl_c wl_c' es_c,
       run_codegen (case i) wt_c wl_c = inr (tt, wt_c', wl_c', es_c) /\
         forall fr tag evs B R Φ,
@@ -1871,11 +1876,11 @@ Section CodeGen.
           ⌜has_values evs [VAL_int32 tag]⌝ -∗
           ↪[frame] fr -∗
           ↪[RUN] -∗
-          (↪[frame] fr -∗ ↪[RUN] -∗ CWP es_c UNDER B; R {{ Φ }}) -∗
+          (let fr' := fr <| f_locs ::= <[ fe_wlocal_offset fe + length wl := VAL_int32 tag ]> |> in
+           ↪[frame] fr' -∗ ↪[RUN] -∗ CWP es_c UNDER (length ts, Φ) :: B; R {{ Φ }}) -∗
           CWP evs ++ es_s UNDER B; R {{ Φ }}.
   Proof.
-    iIntros (Hcg Hcase).
-    unfold case_switch in Hcg.
+    intros Hcase Hcg.
     inv_cg_bind Hcg ltag ?wt ?wt ?wl ?wl ?es ?es Hcg_save Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_def Hcg.
     subst wl1 wt1 es0 wl' wt' es_s.
@@ -1893,8 +1898,79 @@ Section CodeGen.
     rewrite plus_O_n in Hcg_case.
     exists (wt ++ wt0 ++ wt2 ++ wt1), wt4, (wl ++ wl0 ++ wl2 ++ wl1), wl4, es2.
     split; first by rewrite -Hi.
+
     iIntros (??????) "%Hi_tag %Hevs Hfr Hrun Hes2".
-    (* TODO: Apply cwp_save_stack1 in Hcg_save. *)
+    apply cwp_save_stack1 in Hcg_save as [-> Hes].
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-Hes2]").
+    {
+      iApply (Hes with "[$Hfr] [$Hrun]").
+      - admit.
+      - done.
+      - by instantiate (1 := fun fr' vs' => (⌜fr' = fr <| f_locs ::= <[ (fe_wlocal_offset fe + length wl)%nat := VAL_int32 tag ]> |>⌝ ∗ ⌜vs' = []⌝)%I).
+    }
+
+    iIntros (??) "[-> ->] Hfr Hrun".
+    clear Hes.
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-Hes2]").
+    {
+      eapply cwp_create_defaults in Hcg_def as (_ & Hwt2 & Hwl2 & Hes1).
+      iApply (Hes1 with "[$Hfr] [$Hrun]").
+      by instantiate (1 := fun fr' vs' => (⌜fr' = fr <| f_locs ::= <[ (fe_wlocal_offset fe + length wl)%nat := VAL_int32 tag ]> |>⌝ ∗ ⌜vs' = map default_of_value_type ts⌝)%I).
+    }
+
+    iIntros (??) "[-> ->] Hfr Hrun".
+    clear Hcg_def.
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-Hes2]").
+    {
+      eapply cwp_case_blocks_fail in Hcg1.
+      - iApply (Hcg1 with "[$Hfr] [$Hrun]").
+      - right. instantiate (1 := i). lia.
+      - admit.
+      - admit.
+      - by rewrite length_map.
+      - unfold set. cbn. rewrite Hi_tag.
+        rewrite Wasm_int.Int32.nat_of_uint_Z_of_uint. cbn. rewrite Wasm_int.Int32.repr_unsigned.
+        apply list_lookup_insert_eq.
+        admit.
+    }
+
+    iIntros (??) "[-> ->] Hfr Hrun".
+    clear Hcg1.
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-]").
+    {
+      iApply (Hes3 with "[$Hfr] [$Hrun]").
+      - rewrite Hi Hi_tag.
+        cbn.
+        unfold nat_i32_repr.
+        rewrite Z2Nat.id Z2Nat.id; first by rewrite Wasm_int.Int32.repr_unsigned.
+        all: apply Wasm_int.Int32.unsigned_range.
+      - by rewrite length_map.
+      - unfold set. rewrite Hi_tag. cbn.
+        rewrite Nat2Z.id Z2Nat.id; last apply Wasm_int.Int32.unsigned_range.
+        rewrite Wasm_int.Int32.repr_unsigned.
+        apply list_lookup_insert_eq.
+        admit.
+      - iIntros "Hfr Hrun". iApply ("Hes2" with "[$Hfr] [$Hrun]").
+    }
+
+    iIntros (??) "HΦ Hfr Hrun".
+    clear Hes3.
+    iApply (cwp_wand with "[-HΦ]").
+    {
+      eapply cwp_case_blocks_fail in Hcg2.
+      - iApply (Hcg2 with "[$Hfr] [$Hrun]").
+      - left. instantiate (1 := i). rewrite -Hi. lia.
+      - admit.
+      - admit.
+      - admit.
+      - admit. (* frame relation *)
+    }
+
+    by iIntros (??) "[-> ->]".
   Abort.
 
 End CodeGen.
