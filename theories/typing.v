@@ -791,6 +791,205 @@ End TypeEqInd.
 
 (* NOTE: structural equality up to cached kind annotations, which [subst] can't refresh --
    a strict-subkind instantiation leaves them stale (ref-flags are literals, not vars). *)
+Inductive type_eq_mod_kinds_rel : type → type → Prop :=
+| TEqVar : ∀ i, type_eq_mod_kinds_rel (VarT i) (VarT i)
+| TEqI31 : ∀ κ1 κ2, type_eq_mod_kinds_rel (I31T κ1) (I31T κ2)
+| TEqNumT : ∀ κ1 κ2 nt, type_eq_mod_kinds_rel (NumT κ1 nt) (NumT κ2 nt)
+| TEqSumT : ∀ κ1 κ2 τs1 τs2,
+    Forall2 type_eq_mod_kinds_rel τs1 τs2 →
+    type_eq_mod_kinds_rel (SumT κ1 τs1) (SumT κ2 τs2)
+| TEqVariantT : ∀ κ1 κ2 τs1 τs2,
+    Forall2 type_eq_mod_kinds_rel τs1 τs2 →
+    type_eq_mod_kinds_rel (VariantT κ1 τs1) (VariantT κ2 τs2)
+| TEqProdT : ∀ κ1 κ2 τs1 τs2,
+    Forall2 type_eq_mod_kinds_rel τs1 τs2 →
+    type_eq_mod_kinds_rel (ProdT κ1 τs1) (ProdT κ2 τs2)
+| TEqStructT : ∀ κ1 κ2 τs1 τs2,
+    Forall2 type_eq_mod_kinds_rel τs1 τs2 →
+    type_eq_mod_kinds_rel (StructT κ1 τs1) (StructT κ2 τs2)
+| TEqRefT : ∀ κ1 κ2 μ β τ1 τ2,
+    type_eq_mod_kinds_rel τ1 τ2 →
+    type_eq_mod_kinds_rel (RefT κ1 μ β τ1) (RefT κ2 μ β τ2)
+| TEqCodeRefT : ∀ κ1 κ2 ϕ1 ϕ2,
+    function_type_eq_mod_kinds_rel ϕ1 ϕ2 →
+    type_eq_mod_kinds_rel (CodeRefT κ1 ϕ1) (CodeRefT κ2 ϕ2)
+| TEqSerT : ∀ κ1 κ2 τ1 τ2,
+    type_eq_mod_kinds_rel τ1 τ2 →
+    type_eq_mod_kinds_rel (SerT κ1 τ1) (SerT κ2 τ2)
+| TEqPlugT : ∀ κ1 κ2 ρ,
+    type_eq_mod_kinds_rel (PlugT κ1 ρ) (PlugT κ2 ρ)
+| TEqSpanT : ∀ κ1 κ2 σ,
+    type_eq_mod_kinds_rel (SpanT κ1 σ) (SpanT κ2 σ)
+| TEqRecT : ∀ κ1 κ2 τ1 τ2,
+    type_eq_mod_kinds_rel τ1 τ2 →
+    type_eq_mod_kinds_rel (RecT κ1 τ1) (RecT κ2 τ2)
+| TEqExistsMemT : ∀ κ1 κ2 τ1 τ2,
+    type_eq_mod_kinds_rel τ1 τ2 →
+    type_eq_mod_kinds_rel (ExistsMemT κ1 τ1) (ExistsMemT κ2 τ2)
+| TEqExistsRepT : ∀ κ1 κ2 τ1 τ2,
+    type_eq_mod_kinds_rel τ1 τ2 →
+    type_eq_mod_kinds_rel (ExistsRepT κ1 τ1) (ExistsRepT κ2 τ2)
+| TEqExistsSizeT : ∀ κ1 κ2 τ1 τ2,
+    type_eq_mod_kinds_rel τ1 τ2 →
+    type_eq_mod_kinds_rel (ExistsSizeT κ1 τ1) (ExistsSizeT κ2 τ2)
+| TEqExistsTypeT : ∀ κ κ1 κ2 τ1 τ2,
+    type_eq_mod_kinds_rel τ1 τ2 →
+    type_eq_mod_kinds_rel (ExistsTypeT κ1 κ τ1) (ExistsTypeT κ2 κ τ2)
+
+with function_type_eq_mod_kinds_rel : function_type → function_type → Prop :=
+| TEqInnerFunT : ∀ ift1 ift2,
+    inner_function_type_eq_mod_kinds_rel ift1 ift2 →
+    function_type_eq_mod_kinds_rel (InnerFunT ift1) (InnerFunT ift2)
+| TEqForallMemT :
+    ∀ ft1 ft2,
+      function_type_eq_mod_kinds_rel ft1 ft2 →
+      function_type_eq_mod_kinds_rel (ForallMemT ft1) (ForallMemT ft2)
+| TEqForallRepT :
+    ∀ ft1 ft2,
+      function_type_eq_mod_kinds_rel ft1 ft2 →
+      function_type_eq_mod_kinds_rel (ForallRepT ft1) (ForallRepT ft2)
+| TEqForallSizeT :
+    ∀ ft1 ft2,
+      function_type_eq_mod_kinds_rel ft1 ft2 →
+      function_type_eq_mod_kinds_rel (ForallSizeT ft1) (ForallSizeT ft2)
+
+with inner_function_type_eq_mod_kinds_rel : inner_function_type → inner_function_type → Prop :=
+| TEqMonoFunT : ∀ τs1 τs2 τs1' τs2',
+    Forall2 type_eq_mod_kinds_rel τs1 τs2 →
+    Forall2 type_eq_mod_kinds_rel τs1' τs2' →
+    inner_function_type_eq_mod_kinds_rel (MonoFunT τs1 τs1') (MonoFunT τs2 τs2')
+| TEqForallTypeT :
+    ∀ ift1 ift2 κ,
+      inner_function_type_eq_mod_kinds_rel ift1 ift2 →
+      inner_function_type_eq_mod_kinds_rel (ForallTypeT κ ift1) (ForallTypeT κ ift2)
+.
+
+Section TypeEqInd.
+  Variable P : type → type → Prop.
+  Variable Pf : function_type → function_type → Prop.
+  Variable Pi : inner_function_type → inner_function_type → Prop.
+
+  Hypotheses
+    (HVar : ∀ i, P (VarT i) (VarT i))
+    (HI31 : ∀ κ1 κ2, P (I31T κ1) (I31T κ2))
+    (HNumT : ∀ κ1 κ2 nt, P (NumT κ1 nt) (NumT κ2 nt))
+    (HSumT : ∀ κ1 κ2 τs1 τs2,
+      Forall2 P τs1 τs2 →
+      P (SumT κ1 τs1) (SumT κ2 τs2))
+    (HVariantT : ∀ κ1 κ2 τs1 τs2,
+      Forall2 P τs1 τs2 →
+      P (VariantT κ1 τs1) (VariantT κ2 τs2))
+    (HProdT : ∀ κ1 κ2 τs1 τs2,
+      Forall2 P τs1 τs2 →
+      P (ProdT κ1 τs1) (ProdT κ2 τs2))
+    (HStructT : ∀ κ1 κ2 τs1 τs2,
+      Forall2 P τs1 τs2 →
+      P (StructT κ1 τs1) (StructT κ2 τs2))
+    (HRefT : ∀ κ1 κ2 μ β τ1 τ2,
+    P τ1 τ2 →
+    P (RefT κ1 μ β τ1) (RefT κ2 μ β τ2))
+    (HCodeRefT : ∀ κ1 κ2 ϕ1 ϕ2,
+    Pf ϕ1 ϕ2 →
+    P (CodeRefT κ1 ϕ1) (CodeRefT κ2 ϕ2))
+    (HSerT : ∀ κ1 κ2 τ1 τ2,
+    P τ1 τ2 →
+    P (SerT κ1 τ1) (SerT κ2 τ2))
+    (HPlugT : ∀ κ1 κ2 ρ,
+    P (PlugT κ1 ρ) (PlugT κ2 ρ))
+    (HSpanT : ∀ κ1 κ2 σ,
+    P (SpanT κ1 σ) (SpanT κ2 σ))
+    (HRecT : ∀ κ1 κ2 τ1 τ2,
+    P τ1 τ2 →
+    P (RecT κ1 τ1) (RecT κ2 τ2))
+    (HExistsMemT : ∀ κ1 κ2 τ1 τ2,
+    P τ1 τ2 →
+    P (ExistsMemT κ1 τ1) (ExistsMemT κ2 τ2))
+    (HExistsRepT : ∀ κ1 κ2 τ1 τ2,
+    P τ1 τ2 →
+    P (ExistsRepT κ1 τ1) (ExistsRepT κ2 τ2))
+    (HExistsSizeT : ∀ κ1 κ2 τ1 τ2,
+    P τ1 τ2 →
+    P (ExistsSizeT κ1 τ1) (ExistsSizeT κ2 τ2))
+    (HExistsTypeT : ∀ κ κ1 κ2 τ1 τ2,
+    P τ1 τ2 →
+    P (ExistsTypeT κ1 κ τ1) (ExistsTypeT κ2 κ τ2)).
+
+  Hypotheses
+    (HInnerFunT : ∀ ift1 ift2,
+    Pi ift1 ift2 →
+    Pf (InnerFunT ift1) (InnerFunT ift2))
+    (HForallMemT :
+    ∀ ft1 ft2,
+      Pf ft1 ft2 →
+      Pf (ForallMemT ft1) (ForallMemT ft2))
+    (HForallRepT :
+    ∀ ft1 ft2,
+      Pf ft1 ft2 →
+      Pf (ForallRepT ft1) (ForallRepT ft2))
+    (HForallSizeT :
+    ∀ ft1 ft2,
+      Pf ft1 ft2 →
+      Pf (ForallSizeT ft1) (ForallSizeT ft2)).
+
+  Hypotheses
+    (HMonoFunT : ∀ τs1 τs2 τs1' τs2',
+    Forall2 P τs1 τs2 →
+    Forall2 P τs1' τs2' →
+    Pi (MonoFunT τs1 τs1') (MonoFunT τs2 τs2'))
+    (HForallTypeT :
+    ∀ ift1 ift2 κ,
+      Pi ift1 ift2 →
+      Pi (ForallTypeT κ ift1) (ForallTypeT κ ift2)).
+
+
+  Fixpoint type_eq_mod_kinds_rel_ind' {τ1 τ2} (H : type_eq_mod_kinds_rel τ1 τ2) : P τ1 τ2 :=
+    let fix types_eq_mod_kinds_rel_ind' {τs1 τs2} (H : Forall2 type_eq_mod_kinds_rel τs1 τs2) : Forall2 P τs1 τs2 :=
+      match H with
+      | List.Forall2_nil => List.Forall2_nil _
+      | List.Forall2_cons τ1 τ2 _ _ H' Hs =>
+          List.Forall2_cons τ1 τ2 (type_eq_mod_kinds_rel_ind' H') (types_eq_mod_kinds_rel_ind' Hs)
+      end in
+    match H with
+    | TEqVar i => HVar i
+    | TEqI31 κ1 κ2 => HI31 κ1 κ2
+    | TEqNumT κ1 κ2 nt => HNumT κ1 κ2 nt
+    | TEqSumT κ1 κ2 τs1 τs2 H => HSumT κ1 κ2 τs1 τs2 (types_eq_mod_kinds_rel_ind' H)
+    | TEqVariantT κ1 κ2 τs1 τs2 H => HVariantT κ1 κ2 τs1 τs2 (types_eq_mod_kinds_rel_ind' H)
+    | TEqProdT κ1 κ2 τs1 τs2 H => HProdT κ1 κ2 τs1 τs2 (types_eq_mod_kinds_rel_ind' H)
+    | TEqStructT κ1 κ2 τs1 τs2 H => HStructT κ1 κ2 τs1 τs2 (types_eq_mod_kinds_rel_ind' H)
+    | TEqRefT κ1 κ2 μ β τ1 τ2 H => HRefT κ1 κ2 μ β τ1 τ2 (type_eq_mod_kinds_rel_ind' H)
+    | TEqCodeRefT κ1 κ2 ϕ1 ϕ2 H => HCodeRefT κ1 κ2 ϕ1 ϕ2 (function_type_eq_mod_kinds_ind' H)
+    | TEqSerT κ1 κ2 τ1 τ2 H => HSerT κ1 κ2 τ1 τ2 (type_eq_mod_kinds_rel_ind' H)
+    | TEqPlugT κ1 κ2 ρ => HPlugT κ1 κ2 ρ
+    | TEqSpanT κ1 κ2 σ => HSpanT κ1 κ2 σ
+    | TEqRecT κ1 κ2 τ1 τ2 H => HRecT κ1 κ2 τ1 τ2 (type_eq_mod_kinds_rel_ind' H)
+    | TEqExistsMemT κ1 κ2 τ1 τ2 H => HExistsMemT κ1 κ2 τ1 τ2 (type_eq_mod_kinds_rel_ind' H)
+    | TEqExistsRepT κ1 κ2 τ1 τ2 H => HExistsRepT κ1 κ2 τ1 τ2 (type_eq_mod_kinds_rel_ind' H)
+    | TEqExistsSizeT κ1 κ2 τ1 τ2 H => HExistsSizeT κ1 κ2 τ1 τ2 (type_eq_mod_kinds_rel_ind' H)
+    | TEqExistsTypeT κ κ1 κ2 τ1 τ2 H => HExistsTypeT κ κ1 κ2 τ1 τ2 (type_eq_mod_kinds_rel_ind' H)
+    end
+  with function_type_eq_mod_kinds_ind' {ft1 ft2} (H : function_type_eq_mod_kinds_rel ft1 ft2) : Pf ft1 ft2 :=
+         match H with
+         | TEqInnerFunT ift1 ift2 H => HInnerFunT ift1 ift2 (inner_function_type_eq_mod_kinds_ind' H)
+         | TEqForallMemT ft1 ft2 H => HForallMemT ft1 ft2 (function_type_eq_mod_kinds_ind' H)
+         | TEqForallRepT ft1 ft2 H => HForallRepT ft1 ft2 (function_type_eq_mod_kinds_ind' H)
+         | TEqForallSizeT ft1 ft2 H => HForallSizeT ft1 ft2 (function_type_eq_mod_kinds_ind' H)
+         end
+  with inner_function_type_eq_mod_kinds_ind' {ift1 ift2}
+         (H : inner_function_type_eq_mod_kinds_rel ift1 ift2) : Pi ift1 ift2 :=
+    let fix types_eq_mod_kinds_rel_ind' {τs1 τs2} (H : Forall2 type_eq_mod_kinds_rel τs1 τs2) : Forall2 P τs1 τs2 :=
+      match H with
+      | List.Forall2_nil => List.Forall2_nil _
+      | List.Forall2_cons τ1 τ2 _ _ H' Hs =>
+          List.Forall2_cons τ1 τ2 (type_eq_mod_kinds_rel_ind' H') (types_eq_mod_kinds_rel_ind' Hs)
+      end in
+         match H with
+         | TEqMonoFunT τs1 τs2 τs1' τs2' H1 H2 => HMonoFunT τs1 τs2 τs1' τs2' (types_eq_mod_kinds_rel_ind' H1) (types_eq_mod_kinds_rel_ind' H2)
+         | TEqForallTypeT ift1 ift2 κ H => HForallTypeT ift1 ift2 κ (inner_function_type_eq_mod_kinds_ind' H)
+         end.
+
+End TypeEqInd.
+
 Fixpoint type_eq_mod_kinds (τ1 τ2 : type) {struct τ1} : Prop :=
   let fix types_eq (τs1 τs2 : list type) {struct τs1} : Prop :=
     match τs1, τs2 with
@@ -847,6 +1046,21 @@ with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
   | ForallSizeT ϕ1, ForallSizeT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
   | _, _ => False
   end.
+
+Lemma type_eq_mod_equiv τ1 τ2 :
+  type_eq_mod_kinds τ1 τ2 ↔ type_eq_mod_kinds_rel τ1 τ2.
+Proof.
+Admitted.
+
+Lemma function_type_eq_mod_equiv τ1 τ2 :
+  function_type_eq_mod_kinds τ1 τ2 ↔ function_type_eq_mod_kinds_rel τ1 τ2.
+Proof.
+Admitted.
+
+Lemma inner_function_type_eq_mod_equiv τ1 τ2 :
+  inner_function_type_eq_mod_kinds τ1 τ2 ↔ inner_function_type_eq_mod_kinds_rel τ1 τ2.
+Proof.
+Admitted.
 
 Inductive inner_function_type_inst : function_ctx -> index -> inner_function_type -> inner_function_type -> Prop :=
 | FTInstType F ϕ τ κ κ' ϕ' :

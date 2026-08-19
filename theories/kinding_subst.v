@@ -4,6 +4,8 @@ From RichWasm Require Import syntax typing util.
 Require RichWasm.iris.logrel.
 Require Import RecordUpdate.RecordUpdate.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Ltac fold_subst :=
   fold subst_type subst_size subst_representation subst_function_type.
 
@@ -16,13 +18,53 @@ Proof.
   by destruct Hle; constructor.
 Qed.
 
+Lemma needs_name ϕ : ∀ F ϕ' τ κ,
+  let ϕsub := subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
+  inner_function_type_eq_mod_kinds ϕ' ϕsub  →
+  has_kind_ift (F <| fc_type_vars ::= cons κ |>) ϕ ↔ has_kind_ift F ϕ'.
+Proof.
+  induction ϕ; intros * Heq.
+  - subst ϕsub; cbn in Heq.
+    rewrite inner_function_type_eq_mod_equiv in Heq.
+    inversion Heq; subst.
+    admit.
+  - admit.
+Admitted.
+
+Lemma has_kind_ift_through_inst_iff F ϕ ϕ' ix :
+  inner_function_type_inst F ix ϕ ϕ' ->
+  (has_kind_ift F ϕ <->
+     has_kind_ift F ϕ').
+Proof.
+  intros Hty.
+  induction Hty.
+  split.
+  - intros Hk.
+    inversion Hk; subst.
+    eapply needs_name; eauto.
+  - intros Hk.
+    constructor.
+    + eapply kind_ok_subkind_of; eauto.
+      eapply has_kind_inv in H.
+      inversion H; eauto.
+    + eapply needs_name; eauto.
+Qed.
 
 (* a deeply critical lemma that should almost certainly be true *)
 Lemma has_kind_ft_through_inst_iff F ϕ ϕ' ix :
   function_type_inst F ix ϕ ϕ' ->
-  (has_kind_ft F ϕ <->
-     has_kind_ft F ϕ').
+  (has_kind_ft F ϕ <-> has_kind_ft F ϕ').
 Proof.
+  intros Hty.
+  induction Hty.
+  - split; intros Hif.
+    + inversion Hif; subst.
+      constructor.
+      rewrite <- has_kind_ift_through_inst_iff; eauto.
+    + inversion Hif; subst.
+      constructor.
+      rewrite -> has_kind_ift_through_inst_iff; eauto.
+  -
 Admitted.
 
 Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
