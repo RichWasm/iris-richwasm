@@ -33,21 +33,10 @@ Proof.
     + by rewrite fc_kind_ctx_ty_update.
 Qed.
 
-Lemma has_kind_wk_ty F n τ κ κv :
-  has_kind F τ κ →
-  has_kind (F <| fc_type_vars ::= cons κv |>) (ren_type id id id S τ) κ ↔
+Lemma has_kind_wk_ty F τ κ κv :
+  has_kind F τ κ ↔ has_kind (F <| fc_type_vars ::= cons κv |>) (ren_type id id id S τ) κ.
 Proof.
-  split; intros Hk.
-  - inversion Hk; subst.
-    constructor.
-    + destruct F; cbn in *; auto.
-    + by rewrite fc_kind_ctx_ty_update in H2.
-  - inversion Hk; subst.
-    constructor.
-    + by rewrite fc_type_vars_get_upd.
-    + by rewrite fc_kind_ctx_ty_update.
-Qed.
-
+Admitted.
 
 (* End weakening lemmas *)
 Ltac fold_subst :=
@@ -62,26 +51,19 @@ Proof.
   by destruct Hle; constructor.
 Qed.
 
-Lemma needs_name0 τ : ∀ τsub F τv κ κv τ',
-  τsub = subst_type VarM VarR VarS (unscoped.scons τv VarT) τ →
+Lemma needs_name0 τ : ∀ F τv κ κv τ',
+  let τsub := subst_type VarM VarR VarS (unscoped.scons τv VarT) τ in
   type_eq_mod_kinds τ' τsub  →
-  has_kind (F <| fc_type_vars ::= cons κv |>) τ κ  ↔ has_kind F τ' κ.
+  has_kind (F <| fc_type_vars ::= cons κv |>) τ κ ↔ has_kind F τ' κ.
 Proof.
-  setoid_rewrite type_eq_mod_equiv.
-  induction τ; intros * -> Heq.
+  induction τ; intros * Heq; rewrite type_eq_mod_equiv in Heq.
   - destruct n.
     + cbn in Heq.
       split; intros Hk.
-      * inversion Hk; subst.
+      * inversion Hk; subst; clear Hk.
         rewrite fc_type_vars_get_upd in H0; cbn in H0; inversion H0; subst.
-
-        cbn in Hk.
-      admit.
-    + cbn in Heq.
-      inversion Heq; subst.
-      apply has_kind_var_wk_ty.
-  - admit.
-Admitted.
+        rewrite fc_kind_ctx_ty_update in H2.
+Abort.
 
 Lemma needs_name ϕ : ∀ ϕsub F τ κ ϕ',
   ϕsub = subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ →
@@ -94,8 +76,6 @@ Proof.
     inversion Heq; subst.
     split; intros Hk.
     + inversion Hk; subst.
-    admit.
-  - admit.
 Admitted.
 
 Lemma has_kind_ift_through_inst_iff F ϕ ϕ' ix :
@@ -133,6 +113,55 @@ Proof.
       rewrite -> has_kind_ift_through_inst_iff; eauto.
   -
 Admitted.
+Lemma not_has_kind_ft_through_inst_iff : ∃ F ϕ ϕ' ix,
+  function_type_inst F ix ϕ ϕ' ∧ ¬ (has_kind_ft F ϕ <-> has_kind_ft F ϕ').
+Proof.
+  exists fc_empty.
+  set (κ0 := VALTYPE (AtomR PtrR) AnyRefs).
+  set (κ := VALTYPE (ProdR [AtomR PtrR; AtomR PtrR]) AnyRefs).
+  set (τ := I31T (VALTYPE (AtomR PtrR) NoRefs)).
+  exists (InnerFunT (ForallTypeT κ0 (MonoFunT [ProdT κ [VarT 0; τ]] []))).
+  exists (InnerFunT (MonoFunT [ProdT κ [τ; τ]] [])).
+  exists (TypeI τ).
+  split.
+  {
+    constructor.
+    econstructor; eauto.
+    - constructor.
+    - by constructor.
+    - done.
+  }
+  intros [fwd bwd].
+  set (F := fc_empty <| fc_type_vars ::= cons κ0 |>).
+  pose proof (KProd F [VarT 0; τ] [AtomR PtrR; AtomR PtrR] [AnyRefs; NoRefs]) as Hprod.
+  cbn in Hprod.
+  assert (Hopen : has_kind_ft fc_empty (InnerFunT (ForallTypeT κ0 (MonoFunT [ProdT κ [VarT 0; τ]] [])))).
+  {
+    constructor.
+    constructor.
+    - constructor.
+      constructor.
+    - econstructor.
+      instantiate (1:= [κ]).
+      + repeat constructor.
+        apply Hprod.
+        repeat constructor; eauto.
+      + repeat constructor; eauto.
+  }
+  apply fwd in Hopen.
+  inversion Hopen.
+  inversion H1.
+  inversion H5.
+  inversion H9; subst.
+  inversion H17; subst.
+  inversion H8; subst.
+  inversion H12; subst.
+  inversion H7.
+  inversion H10.
+  subst.
+  cbn in H15.
+  discriminate H15.
+Qed.
 
 Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
   function_type_inst F ix ϕ ϕ' ->
