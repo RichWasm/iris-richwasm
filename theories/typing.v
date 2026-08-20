@@ -59,12 +59,14 @@ Definition subst_function_ctx
      fc_type_vars := map (subst_kind s__rep s__size) F.(fc_type_vars) |}.
 
 
-Definition add_size_var (F :function_ctx) :=
+Definition add_size_var (F : function_ctx) :=
   (F <| fc_kind_ctx ::= set kc_size_vars S |>)
      <| fc_type_vars ::= map (ren_kind unscoped.id unscoped.shift) |>.
-Definition add_rep_var (F :function_ctx) :=
+Definition add_rep_var (F : function_ctx) :=
   (F <| fc_kind_ctx ::= set kc_rep_vars S |>)
      <| fc_type_vars ::= map (ren_kind unscoped.shift unscoped.id) |>.
+Definition add_mem_var (F : function_ctx) :=
+  (F <| fc_kind_ctx ::= set kc_mem_vars S |>).
 
 Inductive mem_ok : kind_ctx -> memory -> Prop :=
 | OKVarM K m :
@@ -1062,6 +1064,105 @@ Lemma inner_function_type_eq_mod_equiv τ1 τ2 :
 Proof.
 Admitted.
 
+Definition kind_of_num (nt : num_type) : kind :=
+  match nt with
+  | IntT I32T => VALTYPE (AtomR I32R) NoRefs
+  | IntT I64T => VALTYPE (AtomR I64R) NoRefs
+  | FloatT F32T => VALTYPE (AtomR F32R) NoRefs
+  | FloatT F64T => VALTYPE (AtomR F64R) NoRefs
+  end.
+
+Definition flag_of_mem (μ : memory) : ref_flag :=
+  match μ with
+  | BaseM MemGC => GCRefs
+  | _ => AnyRefs
+  end.
+
+Definition mk_ser_kind (κ : kind) : kind :=
+  match κ with
+  | VALTYPE ρ ξ => MEMTYPE (RepS ρ) ξ
+  | MEMTYPE σ ξ => MEMTYPE σ ξ
+  end.
+
+Inductive refreshed_kinds : function_ctx → type → type → Prop :=
+| RKVar F t : refreshed_kinds F (VarT t) (VarT t)
+| RKI31 F κ : refreshed_kinds F (I31T κ) (I31T (VALTYPE (AtomR PtrR) NoRefs))
+| RKNum F κ nt : refreshed_kinds F (NumT κ nt) (NumT (kind_of_num nt) nt)
+| RKSum F κ τs τs' κs' ρs ξs :
+  Forall2 (refreshed_kinds F) τs τs' →
+  mapM (type_kind (fc_type_vars F)) τs' = Some κs' →
+  Forall3 (λ κ ρ ξ, κ = VALTYPE ρ ξ) κs' ρs ξs →
+  refreshed_kinds F (SumT κ τs) (SumT (VALTYPE (SumR ρs) (ref_flag_lub ξs)) τs')
+| RKVariant F κ τs τs' κs' σs ξs :
+  Forall2 (refreshed_kinds F) τs τs' →
+  mapM (type_kind (fc_type_vars F)) τs' = Some κs' →
+  Forall3 (λ κ σ ξ, κ = MEMTYPE σ ξ) κs' σs ξs →
+  refreshed_kinds F (VariantT κ τs) (VariantT (MEMTYPE (SumS σs) (ref_flag_lub ξs)) τs')
+| RKProd F κ τs τs' κs' ρs ξs :
+  Forall2 (refreshed_kinds F) τs τs' →
+  mapM (type_kind (fc_type_vars F)) τs' = Some κs' →
+  Forall3 (λ κ ρ ξ, κ = VALTYPE ρ ξ) κs' ρs ξs →
+  refreshed_kinds F (ProdT κ τs) (ProdT (VALTYPE (ProdR ρs) (ref_flag_lub ξs)) τs')
+| RKStruct F κ τs τs' κs' σs ξs :
+  Forall2 (refreshed_kinds F) τs τs' →
+  mapM (type_kind (fc_type_vars F)) τs' = Some κs' →
+  Forall3 (λ κ σ ξ, κ = MEMTYPE σ ξ) κs' σs ξs →
+  refreshed_kinds F (StructT κ τs) (StructT (MEMTYPE (SumS σs) (ref_flag_lub ξs)) τs')
+| RKRef F κ τ τ' μ β :
+  refreshed_kinds F τ τ' →
+  refreshed_kinds F (RefT κ μ β τ) (RefT (VALTYPE (AtomR PtrR) (flag_of_mem μ)) μ β τ')
+| RKCodeRef F κ ϕ ϕ' :
+  refreshed_kinds_ft F ϕ ϕ' →
+  refreshed_kinds F (CodeRefT κ ϕ) (CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ')
+| RKSer F τ τ' κ κ' :
+  refreshed_kinds F τ τ' →
+  type_kind (fc_type_vars F) τ' = Some κ' →
+  refreshed_kinds F (SerT κ τ) (SerT (mk_ser_kind κ') τ')
+| RKPlug F κ ρ :
+  refreshed_kinds F (PlugT κ ρ) (PlugT (VALTYPE ρ NoRefs) ρ)
+| RKSpan F κ σ :
+  refreshed_kinds F (SpanT κ σ) (SpanT (MEMTYPE σ NoRefs) σ)
+| RKRec F κ τ τ' :
+  refreshed_kinds (F <| fc_type_vars ::= cons κ |>) τ τ' →
+  refreshed_kinds F (RecT κ τ) (RecT κ τ') (* does the κ here need to be adjusted..? *)
+| RKExistsMem F κ τ τ' :
+  refreshed_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ τ' →
+  refreshed_kinds F (ExistsMemT κ τ) (ExistsMemT κ τ')
+| RKExistsRep F κ τ τ' :
+  refreshed_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ τ' →
+  refreshed_kinds F (ExistsRepT κ τ) (ExistsRepT κ τ')
+| RKExistsSize F κ τ τ' :
+  refreshed_kinds (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ τ' →
+  refreshed_kinds F (ExistsSizeT κ τ) (ExistsSizeT κ τ')
+| RKExistsType F κ κv τ τ' :
+  refreshed_kinds (F <| fc_type_vars ::= cons κv |>) τ τ' →
+  refreshed_kinds F (ExistsTypeT κ κv τ) (ExistsTypeT κ κv τ')
+
+with refreshed_kinds_ft : function_ctx → function_type → function_type → Prop :=
+| RKInnerFun F ϕ ϕ' :
+  refreshed_kinds_ift F ϕ ϕ' →
+  refreshed_kinds_ft F (InnerFunT ϕ) (InnerFunT ϕ')
+| RKForallMem F ϕ ϕ' :
+  refreshed_kinds_ft (add_mem_var F) ϕ ϕ' →
+  refreshed_kinds_ft F (ForallMemT ϕ) (ForallMemT ϕ')
+| RKForallRep F ϕ ϕ' :
+  refreshed_kinds_ft (add_rep_var F) ϕ ϕ' →
+  refreshed_kinds_ft F (ForallRepT ϕ) (ForallRepT ϕ')
+| RKForallSize F ϕ ϕ' :
+  refreshed_kinds_ft (add_size_var F) ϕ ϕ' →
+  refreshed_kinds_ft F (ForallSizeT ϕ) (ForallSizeT ϕ')
+
+with refreshed_kinds_ift : function_ctx → inner_function_type → inner_function_type → Prop :=
+| RKMonoFun F τs1 τs2 τs1' τs2' :
+  Forall2 (refreshed_kinds F) τs1 τs1' →
+  Forall2 (refreshed_kinds F) τs2 τs2' →
+  refreshed_kinds_ift F (MonoFunT τs1 τs2) (MonoFunT τs1' τs2')
+| RKForallType F κ ϕ ϕ' :
+  refreshed_kinds_ift (F <| fc_type_vars ::= cons κ |>) ϕ ϕ' →
+  refreshed_kinds_ift F (ForallTypeT κ ϕ) (ForallTypeT κ ϕ')
+.
+
+
 Inductive inner_function_type_inst : function_ctx -> index -> inner_function_type -> inner_function_type -> Prop :=
 | FTInstType F ϕ τ κ κ' ϕ' :
   has_kind F τ κ' ->
@@ -1072,20 +1173,24 @@ Inductive inner_function_type_inst : function_ctx -> index -> inner_function_typ
   inner_function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
-| FTInstInner F ϕ idx ϕ' :
-  inner_function_type_inst F idx ϕ ϕ' ->
-  function_type_inst F idx (InnerFunT ϕ) (InnerFunT ϕ')
-| FTInstMem F ϕ μ :
+| FTInstInner F ϕ idx ϕ' ϕ'' :
+  inner_function_type_inst F idx ϕ ϕ' →
+  refreshed_kinds_ift F ϕ' ϕ'' →
+  function_type_inst F idx (InnerFunT ϕ) (InnerFunT ϕ'')
+| FTInstMem F ϕ μ ϕ'' :
   mem_ok F.(fc_kind_ctx) μ ->
   let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
-  function_type_inst F (MemI μ) (ForallMemT ϕ) ϕ'
-| FTInstRep F ϕ ρ :
+  refreshed_kinds_ft F ϕ' ϕ'' →
+  function_type_inst F (MemI μ) (ForallMemT ϕ) ϕ''
+| FTInstRep F ϕ ρ ϕ'' :
   rep_ok F.(fc_kind_ctx) ρ ->
   let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
+  refreshed_kinds_ft F ϕ' ϕ'' →
   function_type_inst F (RepI ρ) (ForallRepT ϕ) ϕ'
-| FTInstSize F ϕ σ :
+| FTInstSize F ϕ σ ϕ'' :
   size_ok F.(fc_kind_ctx) σ ->
   let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
+  refreshed_kinds_ft F ϕ' ϕ'' →
   function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'.
 
 Inductive function_type_insts : function_ctx -> list index -> function_type -> function_type -> Prop :=
