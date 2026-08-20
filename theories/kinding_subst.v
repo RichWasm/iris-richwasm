@@ -6,6 +6,50 @@ Require Import RecordUpdate.RecordUpdate.
 
 Set Bullet Behavior "Strict Subproofs".
 
+(* Begin weakening lemmas *)
+Lemma fc_kind_ctx_ty_update F upd :
+  fc_kind_ctx (F <| fc_type_vars ::= upd |>) = fc_kind_ctx F.
+Proof.
+  by destruct F.
+Qed.
+
+Lemma fc_type_vars_get_upd F upd :
+  fc_type_vars (F <| fc_type_vars ::= upd |>) = upd (fc_type_vars F).
+Proof.
+  done.
+Qed.
+
+Lemma has_kind_var_wk_ty F n κ κv :
+  has_kind (F <| fc_type_vars ::= cons κv |>) (VarT (S n)) κ ↔ has_kind F (VarT n) κ.
+Proof.
+  split; intros Hk.
+  - inversion Hk; subst.
+    constructor.
+    + destruct F; cbn in *; auto.
+    + by rewrite fc_kind_ctx_ty_update in H2.
+  - inversion Hk; subst.
+    constructor.
+    + by rewrite fc_type_vars_get_upd.
+    + by rewrite fc_kind_ctx_ty_update.
+Qed.
+
+Lemma has_kind_wk_ty F n τ κ κv :
+  has_kind F τ κ →
+  has_kind (F <| fc_type_vars ::= cons κv |>) (ren_type id id id S τ) κ ↔
+Proof.
+  split; intros Hk.
+  - inversion Hk; subst.
+    constructor.
+    + destruct F; cbn in *; auto.
+    + by rewrite fc_kind_ctx_ty_update in H2.
+  - inversion Hk; subst.
+    constructor.
+    + by rewrite fc_type_vars_get_upd.
+    + by rewrite fc_kind_ctx_ty_update.
+Qed.
+
+
+(* End weakening lemmas *)
 Ltac fold_subst :=
   fold subst_type subst_size subst_representation subst_function_type.
 
@@ -18,15 +62,38 @@ Proof.
   by destruct Hle; constructor.
 Qed.
 
-Lemma needs_name ϕ : ∀ F ϕ' τ κ,
-  let ϕsub := subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
+Lemma needs_name0 τ : ∀ τsub F τv κ κv τ',
+  τsub = subst_type VarM VarR VarS (unscoped.scons τv VarT) τ →
+  type_eq_mod_kinds τ' τsub  →
+  has_kind (F <| fc_type_vars ::= cons κv |>) τ κ  ↔ has_kind F τ' κ.
+Proof.
+  setoid_rewrite type_eq_mod_equiv.
+  induction τ; intros * -> Heq.
+  - destruct n.
+    + cbn in Heq.
+      split; intros Hk.
+      * inversion Hk; subst.
+        rewrite fc_type_vars_get_upd in H0; cbn in H0; inversion H0; subst.
+
+        cbn in Hk.
+      admit.
+    + cbn in Heq.
+      inversion Heq; subst.
+      apply has_kind_var_wk_ty.
+  - admit.
+Admitted.
+
+Lemma needs_name ϕ : ∀ ϕsub F τ κ ϕ',
+  ϕsub = subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ →
   inner_function_type_eq_mod_kinds ϕ' ϕsub  →
   has_kind_ift (F <| fc_type_vars ::= cons κ |>) ϕ ↔ has_kind_ift F ϕ'.
 Proof.
-  induction ϕ; intros * Heq.
+  setoid_rewrite inner_function_type_eq_mod_equiv.
+  induction ϕ; intros * Hsub Heq.
   - subst ϕsub; cbn in Heq.
-    rewrite inner_function_type_eq_mod_equiv in Heq.
     inversion Heq; subst.
+    split; intros Hk.
+    + inversion Hk; subst.
     admit.
   - admit.
 Admitted.
