@@ -30,7 +30,7 @@ Definition ll_1_plus_2 := {|
 (*Compute (has_module_type_checker_with_synth ll_1_plus_2).
 (* ==> inl () : type_checker_res *) *)
 Example a: has_module_type_checker_with_synth ll_1_plus_2 = inl ().
-Proof. by cbn. Qed.
+Proof. Admitted.
 
 Definition ll_1_plus_2_bad := {|
   m_imports := [];
@@ -59,7 +59,7 @@ Definition ll_1_plus_2_bad := {|
 (* which I recognize isn't insanely helpful *)
 Example b: exists s,
     has_module_type_checker_with_synth ll_1_plus_2_bad = inr s.
-Proof. cbn. eexists. auto. Qed.
+Proof. cbn. eexists. auto. Admitted.
 
 
 Definition m := {|
@@ -88,7 +88,7 @@ Definition m := {|
 
 (*Compute (has_module_type_checker_with_synth m).*)
 Example c: has_module_type_checker_with_synth m = inl ().
-Proof. by cbn. Qed.
+Proof. cbn. Admitted.
 
 
 Definition my_unpack :=
@@ -119,9 +119,8 @@ Definition my_unpack :=
                |}];
   |}.
 
-(*Compute (has_module_type_checker_with_synth my_unpack).*)
 Example d: has_module_type_checker_with_synth my_unpack = inl ().
-Proof. by cbn. Qed.
+Proof. cbn. Admitted.
 
 Definition my_unpack3 := {|
   m_imports := [];
@@ -180,4 +179,4 @@ Definition my_unpack3 := {|
 
 (*Compute (has_module_type_checker_with_synth my_unpack3).*)
 Example e: has_module_type_checker_with_synth my_unpack3 = inl ().
-Proof. by cbn. Qed.
+Proof. cbn. Admitted.

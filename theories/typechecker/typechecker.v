@@ -3,6 +3,9 @@ From stdpp Require Import base list.
 From ExtLib Require Import Traversable.
 From Stdlib.Strings Require Import String.
 
+From mathcomp Require Import ssrfun ssrbool eqtype.
+Require Import RichWasm.wasm.common.
+
 From RichWasm Require Import layout syntax typing util.
 Set Bullet Behavior "Strict Subproofs".
 
@@ -160,7 +163,11 @@ Proof.
 Qed.
 *)
 Lemma num_instruction_eq_convert :
-  ∀ n1 n2, num_instruction_beq n1 n2 = true <-> n1 = n2. Proof. Admitted.
+  ∀ n1 n2, num_instruction_beq n1 n2 = true <-> n1 = n2.
+Proof.
+  split; intros;
+    [by apply internal_num_instruction_dec_bl in H | by apply internal_num_instruction_dec_lb in H].
+Qed.
 
 Lemma ref_flag_eq_convert :
   ∀ ξ1 ξ2, ref_flag_beq ξ1 ξ2 = true <-> ξ1 = ξ2.
@@ -169,61 +176,87 @@ Proof.
     [by apply internal_ref_flag_dec_bl in H | by apply internal_ref_flag_dec_lb in H].
 Qed.
 
-Fixpoint representation_beq (r1:representation) (r2:representation) : bool :=
+
+Ltac inner_solve Thing :=
+  destruct Thing; [left; by f_equal | right; intros contra; by inversion contra].
+Ltac list_solve Thing ListThing :=
+  destruct Thing, ListThing;
+  [(left; f_equal; done) | | | ];
+  (right; intros contra; inversion contra; done).
+Ltac double_thing Thing ListThing :=
+  destruct Thing, ListThing;
+  [(left; f_equal; done) | | | ];
+  (right; intros contra; inversion contra; done).
+Ltac triple_thing Thing Thing2 Thing3 :=
+  destruct Thing, Thing2, Thing3;
+  [(left; f_equal; done) | | | | | | | ];
+  (right; intros contra; inversion contra; done).
+Ltac quad_thing Thing Thing2 Thing3 Thing4 :=
+  destruct Thing, Thing2, Thing3, Thing4;
+  [(left; f_equal; done) | | | | | | | | | | | | | | | ];
+  (right; intros contra; inversion contra; done).
+
+Fixpoint rep_eq_dec (r1 r2 : representation) {struct r1} : {r1 = r2} + {r1 <> r2} :=
+  let fix rep_eq_dec_list (lr1 lr2 : list representation) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (rep_eq_dec r1 r2) (rep_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
   match r1, r2 with
-  | VarR i1, VarR i2 => (i1 =? i2)
-  | SumR r1s, SumR r2s => list_beq representation representation_beq r1s r2s
-  | ProdR r1s, ProdR r2s => list_beq representation representation_beq r1s r2s
-  | AtomR a1, AtomR a2 => atomic_rep_beq a1 a2
-  | _, _ => false
+  | VarR i1, VarR i2 => ltac:(inner_solve (Nat.eq_dec i1 i2))
+  | SumR rs1, SumR rs2 => ltac:(inner_solve (rep_eq_dec_list rs1 rs2))
+  | ProdR rs1, ProdR rs2 => ltac:(inner_solve (rep_eq_dec_list rs1 rs2))
+  | AtomR o1, AtomR o2 => ltac:(inner_solve (atomic_rep_eq_dec o1 o2))
+  | _, _ => ltac:(right; done)
   end.
 
-Lemma representation_eq_convert_forward :
-  ∀ r1, (∀ r2, representation_beq r1 r2 = true -> r1 = r2).
-Proof.
-  induction r1 using rep_ind.
-  * intros; destruct r2; simpl in H; try inversion H. apply Nat.eqb_eq in H; by subst.
-  * intros. destruct r2; simpl in H0; try inversion H0. clear H2.
-    pose proof internal_list_dec_bl as ToUse.
-    specialize (ToUse representation representation_beq).
+Definition representation_eqb r1 r2 : bool := rep_eq_dec r1 r2.
+Definition eqrepresentation_typeP : Equality.axiom representation_eqb :=
+  eq_dec_Equality_axiom rep_eq_dec.
 
-    (* I'm confused actually. To use internal_list_dec_bl, I need to
-       have a proof of representation_beq r1 r2 = true -> r1 = r2, but the
-       IH is specific to ρs.
-       TODO *)
-Admitted.
-
-Lemma representation_eq_convert_backward :
-  ∀ r1 r2, r1 = r2 -> representation_beq r1 r2 = true.
-Proof.
-  intros; subst.
-  induction r2 using rep_ind.
-  * simpl. apply Nat.eqb_refl.
-  * simpl.
-    (* Hm once again a similar issue. *)
-Admitted.
+Definition representation_beq (r1:representation) (r2:representation) :=
+  representation_eqb r1 r2.
 
 Lemma representation_eq_convert :
   ∀ r1 r2, representation_beq r1 r2 = true <-> r1 = r2.
 Proof.
-  split; [apply representation_eq_convert_forward | apply representation_eq_convert_backward].
+  pose proof eqrepresentation_typeP.
+  intros r1 r2.
+  specialize (X r1 r2).
+  symmetry.
+  by apply reflect_iff.
 Qed.
 
-Fixpoint size_beq (s1:size) (s2:size) : bool :=
+Fixpoint size_eq_dec (s1 s2 : size) {struct s1} : {s1 = s2} + {s1 <> s2} :=
+  let fix size_eq_dec_list (lr1 lr2 : list size) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (size_eq_dec r1 r2) (size_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
   match s1, s2 with
-  | VarS i1, VarS i2 => (i1 =? i2)
-  | SumS s1s, SumS s2s => list_beq size size_beq s1s s2s
-  | ProdS s1s, ProdS s2s => list_beq size size_beq s1s s2s
-  | RepS r1, RepS r2 => representation_beq r1 r2
-  | ConstS n1, ConstS n2 => (n1 =? n2)
-  | _, _ => false
+  | VarS i1, VarS i2 => ltac:(inner_solve (Nat.eq_dec i1 i2))
+  | SumS rs1, SumS rs2 => ltac:(inner_solve (size_eq_dec_list rs1 rs2))
+  | ProdS rs1, ProdS rs2 => ltac:(inner_solve (size_eq_dec_list rs1 rs2))
+  | RepS rs1, RepS rs2 => ltac:(inner_solve (rep_eq_dec rs1 rs2))
+  | ConstS i1, ConstS i2 => ltac:(inner_solve (Nat.eq_dec i1 i2))
+  | _, _ => ltac:(right; done)
   end.
+
+Definition size_beq (s1:size) (s2:size) : bool := size_eq_dec s1 s2.
+Definition eqsize_typeP : Equality.axiom size_beq :=
+  eq_dec_Equality_axiom size_eq_dec.
 
 Lemma size_eq_convert :
   ∀ s1 s2, size_beq s1 s2 = true <-> s1 = s2.
 Proof.
-  (* Same issue happens here *)
-Admitted.
+  pose proof eqsize_typeP.
+  intros r1 r2.
+  specialize (X r1 r2).
+  symmetry.
+  by apply reflect_iff.
+Qed.
 
 Fixpoint kind_beq (k1:kind) (k2:kind) : bool :=
   match k1, k2 with
@@ -238,30 +271,42 @@ Lemma kind_eq_convert :
   ∀ k1 k2, kind_beq k1 k2 = true <-> k1 = k2.
 Proof.
   split.
-  (* fix to deal with ref flag
   - intros. destruct k1, k2; simpl in H; try inversion H; clear H1; repeat structural_auto.
     * apply representation_eq_convert in H1.
-      apply copyability_eq_convert in H0.
-      apply internal_dropability_dec_bl in H2. subst; auto.
+      apply ref_flag_eq_convert in H2.
+      subst; auto.
     * apply size_eq_convert in H1.
-      apply internal_dropability_dec_bl in H2. subst; auto.
+      apply ref_flag_eq_convert in H2.
+      subst; auto.
   - intros; subst. destruct k2; simpl.
-    * apply andb_true_intro; split; [|apply andb_true_intro; split].
+    * apply andb_true_intro; split; [|].
       + assert (H:r=r) by auto. apply representation_eq_convert in H. auto.
-      + assert (H:c=c) by auto. apply copyability_eq_convert in H; auto.
-      + assert (H:d=d) by auto. apply internal_dropability_dec_lb in H. auto.
+      + assert (H:r0=r0) by auto. apply internal_ref_flag_dec_lb in H. auto.
     * apply andb_true_intro; split.
       + assert (H:s=s) by auto. apply size_eq_convert in H; auto.
-      + assert (H:d=d) by auto. apply internal_dropability_dec_lb in H; auto.
-*)
-Admitted.
+      + assert (H:r=r) by auto. apply internal_ref_flag_dec_lb in H; auto.
+Qed.
 
 Lemma kind_neq_convert :
   ∀ k1 k2, kind_beq k1 k2 = false <-> k1 <> k2.
 Proof.
+  pose proof kind_eq_convert.
+  intros k1 k2; specialize (H k1 k2).
   split; intros.
+  - intros contra; apply H in contra. rewrite H0 in contra; done.
+  - apply Is_true_false_1.
+    intros contra.
+    rewrite Is_true_true in contra.
+    apply H in contra; rewrite contra in H0; done.
   (* there's some decidability lemmas that would need to be done. This is fine to leave. *)
-Admitted.
+Qed.
+
+Lemma kind_eq_dec (k1 k2 : kind) : {k1 = k2} + {k1 <> k2}.
+Proof.
+  destruct (kind_beq k1 k2) eqn:H.
+  - apply kind_eq_convert in H; left; done.
+  - apply kind_neq_convert in H; right; done.
+Qed.
 
 
 Lemma num_type_eq_convert :
@@ -269,76 +314,118 @@ Lemma num_type_eq_convert :
 Proof.
   split; intros;
     [by apply internal_num_type_dec_bl in H | by apply internal_num_type_dec_lb in H].
-Admitted.
+Qed.
 
-(* type beq. Oh boy. Let's go. *)
-Fixpoint type_beq (τ1:type) (τ2:type) : bool :=
+Fixpoint type_eq_dec (τ1 τ2 : type) {struct τ1} : {τ1 = τ2} + {τ1 <> τ2} :=
+  let fix type_eq_dec_list (lr1 lr2 : list type) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (type_eq_dec r1 r2) (type_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
   match τ1, τ2 with
-  | VarT i1, VarT i2 => i1 =? i2
-  | I31T κ1, I31T κ2 => kind_beq κ1 κ2
-  | NumT κ1 nt1, NumT κ2 nt2 => andb (kind_beq κ1 κ2) (num_type_beq nt1 nt2)
+  | VarT i1, VarT i2 => ltac:(inner_solve (Nat.eq_dec i1 i2))
+  | I31T κ1, I31T κ2 => ltac:(inner_solve (kind_eq_dec κ1 κ2))
+  | NumT κ1 nt1, NumT κ2 nt2 =>
+      ltac:(double_thing (kind_eq_dec κ1 κ2) (num_type_eq_dec nt1 nt2))
   | SumT κ1 τs1, SumT κ2 τs2
   | VariantT κ1 τs1, VariantT κ2 τs2
   | ProdT κ1 τs1, ProdT κ2 τs2
   | StructT κ1 τs1, StructT κ2 τs2 =>
-      andb (kind_beq κ1 κ2) (list_beq type type_beq τs1 τs2)
+      ltac:(double_thing (kind_eq_dec κ1 κ2) (type_eq_dec_list τs1 τs2))
   | RefT κ1 μ1 β1 τ1, RefT κ2 μ2 β2 τ2 =>
-      andb (andb (andb (kind_beq κ1 κ2) (memory_beq μ1 μ2)) (mutability_beq β1 β2)) (type_beq τ1 τ2)
+      ltac:(quad_thing (kind_eq_dec κ1 κ2) (memory_eq_dec μ1 μ2) (mutability_eq_dec β1 β2) (type_eq_dec τ1 τ2))
   | CodeRefT κ1 ft1, CodeRefT κ2 ft2 =>
-      andb (kind_beq κ1 κ2) (function_type_beq ft1 ft2)
-  | SerT κ1 t1, SerT κ2 t2 => andb (kind_beq κ1 κ2) (type_beq t1 t2)
-  | PlugT κ1 ρ1, PlugT κ2 ρ2 => andb (kind_beq κ1 κ2) (representation_beq ρ1 ρ2)
-  | SpanT κ1 σ1, SpanT κ2 σ2 => andb (kind_beq κ1 κ2) (size_beq σ1 σ2)
+      ltac:(double_thing (kind_eq_dec κ1 κ2) (function_type_eq_dec ft1 ft2))
+  | SerT κ1 t1, SerT κ2 t2 =>
+      ltac:(double_thing (kind_eq_dec κ1 κ2) (type_eq_dec t1 t2))
+  | PlugT κ1 ρ1, PlugT κ2 ρ2 =>
+      ltac:(double_thing (kind_eq_dec κ1 κ2) (rep_eq_dec ρ1 ρ2))
+  | SpanT κ1 σ1, SpanT κ2 σ2 =>
+      ltac:(double_thing (kind_eq_dec κ1 κ2) (size_eq_dec σ1 σ2))
   | RecT κ1 t1, RecT κ2 t2
   | ExistsMemT κ1 t1, ExistsMemT κ2 t2
   | ExistsRepT κ1 t1, ExistsRepT κ2 t2
   | ExistsSizeT κ1 t1, ExistsSizeT κ2 t2 =>
-      andb (kind_beq κ1 κ2) (type_beq t1 t2)
+      ltac:(double_thing (kind_eq_dec κ1 κ2) (type_eq_dec t1 t2))
   | ExistsTypeT κ11 κ12 t1, ExistsTypeT κ21 κ22 t2 =>
-      andb (andb (kind_beq κ11 κ21) (kind_beq κ12 κ22)) (type_beq t1 t2)
-  | _, _ => false
+      ltac:(triple_thing (kind_eq_dec κ11 κ21) (kind_eq_dec κ12 κ22) (type_eq_dec t1 t2))
+  | _, _ => ltac:(right; done)
   end
-with inner_function_type_beq (fτ1:inner_function_type) (fτ2:inner_function_type) : bool :=
+with inner_function_type_eq_dec (fτ1:inner_function_type) (fτ2:inner_function_type) : {fτ1 = fτ2} + {fτ1 <> fτ2} :=
+  let fix type_eq_dec_list (lr1 lr2 : list type) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (type_eq_dec r1 r2) (type_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
   match fτ1, fτ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
-      andb (list_beq type type_beq τs11 τs21) (list_beq type type_beq τs12 τs22)
+      ltac:(double_thing (type_eq_dec_list τs11 τs21) (type_eq_dec_list τs12 τs22))
   | ForallTypeT κ1 ft1, ForallTypeT κ2 ft2 =>
-      andb (kind_beq κ1 κ2) (inner_function_type_beq ft1 ft2)
-  | _, _ => false
+      ltac:(double_thing (kind_eq_dec κ1 κ2) (inner_function_type_eq_dec ft1 ft2))
+  | _, _ => ltac:(right; done)
   end
-with function_type_beq (fτ1:function_type) (fτ2:function_type) : bool :=
+with function_type_eq_dec (fτ1:function_type) (fτ2:function_type) : {fτ1 = fτ2} + {fτ1 <> fτ2} :=
   match fτ1, fτ2 with
-  | InnerFunT ft1', InnerFunT ft2' => inner_function_type_beq ft1' ft2'
+  | InnerFunT ft1', InnerFunT ft2' =>
+      ltac:(inner_solve (inner_function_type_eq_dec ft1' ft2'))
   | ForallMemT ft1, ForallMemT ft2
   | ForallRepT ft1, ForallRepT ft2
-  | ForallSizeT ft1, ForallSizeT ft2 => function_type_beq ft1 ft2
-  | _, _ => false
+  | ForallSizeT ft1, ForallSizeT ft2 => ltac:(inner_solve (function_type_eq_dec ft1 ft2))
+  | _, _ => ltac:(right; done)
   end.
 
 
+Definition type_beq (s1:type) (s2:type) : bool := type_eq_dec s1 s2.
+Definition eqtype_typeP : Equality.axiom type_beq :=
+  eq_dec_Equality_axiom type_eq_dec.
 
+Definition inner_function_type_beq (s1:inner_function_type) (s2:inner_function_type) : bool := inner_function_type_eq_dec s1 s2.
+Definition eqinner_function_type_typeP : Equality.axiom inner_function_type_beq :=
+  eq_dec_Equality_axiom inner_function_type_eq_dec.
 
+Definition function_type_beq (s1:function_type) (s2:function_type) : bool := function_type_eq_dec s1 s2.
+Definition eqfunction_type_typeP : Equality.axiom function_type_beq :=
+  eq_dec_Equality_axiom function_type_eq_dec.
 
-(* I should prove these eventually. Mainly to convince myself that
-list_beq will do what I want it to do. Although I think it's just fine.
-
- TODO *)
 Lemma type_eq_convert :
   ∀ τ1 τ2, type_beq τ1 τ2 = true <-> τ1 = τ2.
-Proof. Admitted.
+Proof.
+  pose proof eqtype_typeP.
+  intros r1 r2.
+  specialize (X r1 r2).
+  symmetry.
+  by apply reflect_iff.
+Qed.
 
 Lemma function_type_eq_convert :
   ∀ ft1 ft2, function_type_beq ft1 ft2 = true <-> ft1 = ft2.
-Proof. Admitted.
+Proof.
+  pose proof eqfunction_type_typeP.
+  intros r1 r2.
+  specialize (X r1 r2).
+  symmetry.
+  by apply reflect_iff.
+Qed.
 
 Lemma inner_function_type_eq_convert :
   ∀ ft1 ft2, inner_function_type_beq ft1 ft2 = true <-> ft1 = ft2.
-Proof. Admitted.
+Proof.
+  pose proof eqinner_function_type_typeP.
+  intros r1 r2.
+  specialize (X r1 r2).
+  symmetry.
+  by apply reflect_iff.
+Qed.
 
 
 Lemma mutability_eq_convert :
   ∀ τ1 τ2, mutability_beq τ1 τ2 = true <-> τ1 = τ2.
-Proof. Admitted.
+Proof.
+  split; intros;
+    [by apply internal_mutability_dec_bl in H | by apply internal_mutability_dec_lb in H].
+Qed.
 
 Lemma memory_eq_convert :
   ∀ m1 m2, memory_beq m1 m2 = true <-> m1 = m2.
@@ -350,16 +437,86 @@ Qed.
 (* I'm bad at everything so monomorphic *)
 Lemma list_eq_convert_type :
   ∀ τs1 τs2, list_beq type type_beq τs1 τs2 = true <-> τs1 = τs2.
-Proof. Admitted.
+Proof.
+  pose proof type_eq_convert.
+  assert (∀ τ1 τ2, type_beq τ1 τ2 = true -> τ1 = τ2) by apply H.
+  assert (∀ τ1 τ2, τ1 = τ2 -> type_beq τ1 τ2 = true) by apply H. clear H.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl type type_beq H0 τs1 τs2).
+    auto.
+  - pose proof (internal_list_dec_lb type type_beq H1 τs1 τs2).
+    auto.
+Qed.
+Lemma list_eq_convert_function_type :
+  ∀ τs1 τs2, list_beq function_type function_type_beq τs1 τs2 = true <-> τs1 = τs2.
+Proof.
+  pose proof function_type_eq_convert.
+  assert (∀ τ1 τ2, function_type_beq τ1 τ2 = true -> τ1 = τ2) by apply H.
+  assert (∀ τ1 τ2, τ1 = τ2 -> function_type_beq τ1 τ2 = true) by apply H. clear H.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl function_type function_type_beq H0 τs1 τs2).
+    auto.
+  - pose proof (internal_list_dec_lb function_type function_type_beq H1 τs1 τs2).
+    auto.
+Qed.
+Lemma list_eq_convert_kind :
+  ∀ τs1 τs2, list_beq kind kind_beq τs1 τs2 = true <-> τs1 = τs2.
+Proof.
+  pose proof kind_eq_convert.
+  assert (∀ τ1 τ2, kind_beq τ1 τ2 = true -> τ1 = τ2) by apply H.
+  assert (∀ τ1 τ2, τ1 = τ2 -> kind_beq τ1 τ2 = true) by apply H. clear H.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl kind kind_beq H0 τs1 τs2).
+    auto.
+  - pose proof (internal_list_dec_lb kind kind_beq H1 τs1 τs2).
+    auto.
+Qed.
 Lemma list_eq_convert_primitive :
   ∀ τs1 τs2, list_beq primitive primitive_beq τs1 τs2 = true <-> τs1 = τs2.
-Proof. Admitted.
+Proof.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl primitive primitive_beq internal_primitive_dec_bl τs1 τs2).
+    auto.
+  - pose proof (internal_list_dec_lb primitive primitive_beq internal_primitive_dec_lb τs1 τs2).
+    auto.
+Qed.
 Lemma list_eq_convert_representation :
   ∀ τs1 τs2, list_beq representation representation_beq τs1 τs2 = true <-> τs1 = τs2.
-Proof. Admitted.
+Proof.
+  pose proof representation_eq_convert.
+  assert (∀ τ1 τ2, representation_beq τ1 τ2 = true -> τ1 = τ2) by apply H.
+  assert (∀ τ1 τ2, τ1 = τ2 -> representation_beq τ1 τ2 = true) by apply H. clear H.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl representation representation_beq H0 τs1 τs2).
+    auto.
+  - pose proof (internal_list_dec_lb representation representation_beq H1 τs1 τs2).
+    auto.
+Qed.
 Lemma list_eq_convert_size :
   ∀ τs1 τs2, list_beq size size_beq τs1 τs2 = true <-> τs1 = τs2.
-Proof. Admitted.
+Proof.
+  pose proof size_eq_convert.
+  assert (∀ τ1 τ2, size_beq τ1 τ2 = true -> τ1 = τ2) by apply H.
+  assert (∀ τ1 τ2, τ1 = τ2 -> size_beq τ1 τ2 = true) by apply H. clear H.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl size size_beq H0 τs1 τs2).
+    auto.
+  - pose proof (internal_list_dec_lb size size_beq H1 τs1 τs2).
+    auto.
+Qed.
+Lemma list_eq_convert_list_primitive :
+  ∀ l1 l2, list_beq (list primitive) (list_beq primitive primitive_beq) l1 l2 = true <-> l1 = l2.
+Proof.
+  pose proof list_eq_convert_primitive.
+  assert (∀ τ1 τ2, list_beq primitive primitive_beq τ1 τ2 = true -> τ1 = τ2) by apply H.
+  assert (∀ τ1 τ2, τ1 = τ2 -> list_beq primitive primitive_beq τ1 τ2 = true) by apply H. clear H.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl (list primitive) (list_beq primitive primitive_beq) H0 l1 l2).
+    auto.
+  - pose proof (internal_list_dec_lb (list primitive) (list_beq primitive primitive_beq) H1 l1 l2).
+    auto.
+Qed.
+
 Definition local_ctx_beq (L L':local_ctx) : bool := list_beq type type_beq L L'.
 Lemma local_ctx_eq_convert :
   ∀ L L', local_ctx_beq L L' = true <-> L = L'.
@@ -374,18 +531,22 @@ Definition module_type_beq (m1:module_type) (m2:module_type) : bool :=
 Lemma module_type_eq_convert :
   ∀ m1 m2, module_type_beq m1 m2 = true <-> m1 = m2.
 Proof.
+  pose proof list_eq_convert_function_type as HH.
   split; intros.
   - destruct m1, m2.
-    unfold module_type_beq in H.
-    (* yup the things that are equal are equal *)
-    admit.
+    unfold module_type_beq in H; cbn in H.
+    repeat structural_auto.
+    apply HH in H1; apply HH in H2. subst.
+    done.
   - subst.
     destruct m2.
     unfold module_type_beq. cbn.
-    (* yup it's equal *)
-    admit.
-    (* to complete this, it's a list_beq thing *)
-Admitted.
+    assert (mt_imports = mt_imports) by done.
+    assert (mt_exports = mt_exports) by done.
+    apply HH in H; apply HH in H0.
+    apply andb_true_intro. split; done.
+Qed.
+
 Definition instruction_type_beq (inst1 inst2:instruction_type) : bool :=
   match inst1, inst2 with
   | InstrT τs11 τs12, InstrT τs21 τs22 =>
@@ -399,6 +560,13 @@ Proof.
   - inversion H; subst.
     apply andb_true_intro; split; apply list_eq_convert_type; auto.
 Qed.
+Lemma instruction_type_eq_dec (ϕ1 ϕ2 : instruction_type) : {ϕ1 = ϕ2} + {ϕ1 <> ϕ2}.
+Proof.
+  destruct (instruction_type_beq ϕ1 ϕ2) eqn:H.
+  - apply instruction_type_eq_convert in H. left; done.
+  - right. intros contra. apply instruction_type_eq_convert in contra. rewrite H in contra; done.
+Qed.
+
 Definition path_result_beq (pres1 pres2:path_result) : bool :=
   andb (andb (list_beq type type_beq pres1.(pr_prefix) pres2.(pr_prefix))
              (type_beq pres1.(pr_target) pres2.(pr_target)))
@@ -428,31 +596,120 @@ Definition kind_ctx_beq ah1 ah2 : bool :=
   (ah1.(kc_mem_vars) =? ah2.(kc_mem_vars)) &&
   (ah1.(kc_rep_vars) =? ah2.(kc_rep_vars)) &&
   (ah1.(kc_size_vars) =? ah2.(kc_size_vars)).
+Lemma kind_ctx_eq_convert : ∀ ah1 ah2, kind_ctx_beq ah1 ah2 = true <-> ah1 = ah2.
+Proof.
+  intros ah1 ah2. destruct ah1, ah2. unfold kind_ctx_beq; cbn.
+  split.
+  - intros H.
+    repeat structural_auto.
+    apply Nat.eqb_eq in H1, H0, H2. subst. done.
+  - intros H; inversion H; subst.
+    apply andb_true_intro. split; [apply andb_true_intro; split|].
+    all: by apply Nat.eqb_eq.
+Qed.
+
+Definition list_type_prod_local_ctx_beq (p1 p2 : (list type * local_ctx)) : bool :=
+  let (lt1, L1):=p1 in let (lt2, L2):=p2 in (list_beq type type_beq lt1 lt2) && (local_ctx_beq L1 L2).
+Lemma list_type_prod_local_ctx_eq_convert :
+  ∀ p1 p2, list_type_prod_local_ctx_beq p1 p2 = true <-> p1 = p2.
+Proof.
+  intros p1 p2; destruct p1, p2; unfold list_type_prod_local_ctx_beq; cbn.
+  split.
+  - intros H; repeat structural_auto.
+    apply list_eq_convert_type in H1; apply local_ctx_eq_convert in H2; subst; done.
+  - intros H; inversion H; subst.
+    apply andb_true_intro; split.
+    + by apply list_eq_convert_type.
+    + by apply local_ctx_eq_convert.
+Qed.
+Lemma list_eq_convert_list_type_prod_local_ctx :
+  ∀ l1 l2, list_beq (list type * local_ctx) list_type_prod_local_ctx_beq l1 l2 = true <-> l1 = l2.
+Proof.
+  pose proof list_type_prod_local_ctx_eq_convert.
+  assert (∀ τ1 τ2, list_type_prod_local_ctx_beq τ1 τ2 = true -> τ1 = τ2) by apply H.
+  assert (∀ τ1 τ2, τ1 = τ2 -> list_type_prod_local_ctx_beq τ1 τ2 = true) by apply H. clear H.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl (list type * local_ctx) list_type_prod_local_ctx_beq H0 l1 l2).
+    auto.
+  - pose proof (internal_list_dec_lb (list type * local_ctx) list_type_prod_local_ctx_beq H1 l1 l2).
+    auto.
+Qed.
 
 Definition function_ctx_beq F1 F2 : bool :=
   (list_beq type type_beq F1.(fc_return) F2.(fc_return)) &&
   (list_beq (list primitive) (list_beq primitive primitive_beq) F1.(fc_locals) F2.(fc_locals)) &&
-  (list_beq (list type * local_ctx)
-     (λ p1, λ p2, let (lt1, L1):=p1 in let (lt2, L2):=p2 in
-        (list_beq type type_beq lt1 lt2) && (local_ctx_beq L1 L2))
+  (list_beq (list type * local_ctx) list_type_prod_local_ctx_beq
      F1.(fc_labels) F2.(fc_labels)) &&
   (kind_ctx_beq F1.(fc_kind_ctx) F2.(fc_kind_ctx)) &&
   (list_beq kind kind_beq F1.(fc_type_vars) F2.(fc_type_vars)).
 
 Lemma function_ctx_eq_convert :
   ∀ F1 F2, function_ctx_beq F1 F2 = true <-> F1 = F2.
-Proof. Admitted.
+Proof.
+  intros F1 F2; destruct F1, F2; unfold function_ctx_beq; cbn.
+  split.
+  - intros H; repeat structural_auto.
+    apply list_eq_convert_type in H1.
+    apply kind_ctx_eq_convert in H0.
+    apply list_eq_convert_kind in H2.
+    apply list_eq_convert_list_primitive in H4.
+    apply list_eq_convert_list_type_prod_local_ctx in H3.
+    subst; done.
+  - intros H; inversion H; subst. clear H.
+    Opaque kind_ctx_beq.
+    repeat (apply andb_true_intro; split).
+    + by apply list_eq_convert_type.
+    + by apply list_eq_convert_list_primitive.
+    + by apply list_eq_convert_list_type_prod_local_ctx.
+    + by apply kind_ctx_eq_convert.
+    + by apply list_eq_convert_kind.
+    Transparent kind_ctx_beq.
+Qed.
 
-Definition index_beq ix1 ix2 :=
+Definition index_eq_dec (ix1 ix2 : index) : {ix1 = ix2} + {ix1 <> ix2} :=
   match ix1, ix2 with
-  | MemI m1, MemI m2 => memory_beq m1 m2
-  | RepI r1, RepI r2 => representation_beq r1 r2
-  | SizeI s1, SizeI s2 => size_beq s1 s2
-  | TypeI t1, TypeI t2 => type_beq t1 t2
-  | _, _ => false
+  | MemI m1, MemI m2 => ltac:(inner_solve (memory_eq_dec m1 m2))
+  | RepI r1, RepI r2 => ltac:(inner_solve (rep_eq_dec r1 r2))
+  | SizeI s1, SizeI s2 => ltac:(inner_solve (size_eq_dec s1 s2))
+  | TypeI t1, TypeI t2 => ltac:(inner_solve (type_eq_dec t1 t2))
+  | _, _ => ltac:(right; done)
   end.
 
-Fixpoint instruction_beq e1 e2 : bool :=
+Definition index_beq (ix1 ix2 : index) : bool := index_eq_dec ix1 ix2.
+Definition eqindex_typeP : Equality.axiom index_beq :=
+  eq_dec_Equality_axiom index_eq_dec.
+
+Fixpoint instruction_eq_dec (e1 e2 : instruction) : {e1 = e2} + {e1 <> e2} :=
+  let fix nat_eq_dec_list (lr1 lr2 : list nat) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (Nat.eq_dec r1 r2) (nat_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
+  let fix index_eq_dec_list (lr1 lr2 : list index) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (index_eq_dec r1 r2) (index_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
+  let fix type_eq_dec_list (lr1 lr2 : list type) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (type_eq_dec r1 r2) (type_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
+  let fix instruction_eq_dec_list (lr1 lr2 : list instruction) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (instruction_eq_dec r1 r2) (instruction_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
+  let fix instruction_list_eq_dec_list (lr1 lr2 : list (list instruction)) : {lr1 = lr2} + {lr1 <> lr2} :=
+    match lr1, lr2 with
+    | r1::lr1, r2::lr2 => ltac:(list_solve (instruction_eq_dec_list r1 r2) (instruction_list_eq_dec_list lr1 lr2))
+    | [], [] => ltac:(left; done)
+    | _, _ => ltac:(right; done)
+    end in
  match e1, e2 with
  | INop ϕ1, INop ϕ2
  | IUnreachable ϕ1, IUnreachable ϕ2
@@ -469,50 +726,73 @@ Fixpoint instruction_beq e1 e2 : bool :=
  | IUntag ϕ1, IUntag ϕ2
  | ICast ϕ1, ICast ϕ2
  | INew ϕ1, INew ϕ2
-   => instruction_type_beq ϕ1 ϕ2
- | INum ϕ1 n1, INum ϕ2 n2 => instruction_type_beq ϕ1 ϕ2 && num_instruction_beq n1 n2
- | INumConst ϕ1 n1, INumConst ϕ2 n2
-   => instruction_type_beq ϕ1 ϕ2 && Z.eqb n1 n2
- | IBr ϕ1 n1, IBr ϕ2 n2
-   => instruction_type_beq ϕ1 ϕ2 && (n1 =? n2)
- | ILocalGet ϕ1 cm1 n1, ILocalGet ϕ2 cm2 n2
-   => instruction_type_beq ϕ1 ϕ2 && consumption_beq cm1 cm2 && (n1 =? n2)
+   => ltac:(inner_solve (instruction_type_eq_dec ϕ1 ϕ2))
+ | INum ϕ1 n1, INum ϕ2 n2 =>
+     ltac:(double_thing (instruction_type_eq_dec ϕ1 ϕ2) (num_instruction_eq_dec n1 n2))
+ | INumConst ϕ1 n1, INumConst ϕ2 n2 =>
+     ltac:(double_thing (instruction_type_eq_dec ϕ1 ϕ2) (Int.Z_as_Int.eq_dec n1 n2))
+ | IBr ϕ1 n1, IBr ϕ2 n2 =>
+     ltac:(double_thing (instruction_type_eq_dec ϕ1 ϕ2) (Nat.eq_dec n1 n2))
+ | ILocalGet ϕ1 cm1 n1, ILocalGet ϕ2 cm2 n2 =>
+     ltac:(triple_thing (instruction_type_eq_dec ϕ1 ϕ2) (consumption_eq_dec cm1 cm2) (Nat.eq_dec n1 n2))
  | ILocalSet ϕ1 n1, ILocalSet ϕ2 n2
  | ICodeRef ϕ1 n1, ICodeRef ϕ2 n2
  | IInject ϕ1 n1, IInject ϕ2 n2
- | IInjectNew ϕ1 n1, IInjectNew ϕ2 n2
-   => instruction_type_beq ϕ1 ϕ2 && (n1 =? n2)
+ | IInjectNew ϕ1 n1, IInjectNew ϕ2 n2 =>
+     ltac:(double_thing (instruction_type_eq_dec ϕ1 ϕ2) (Nat.eq_dec n1 n2))
  | IUnpack ϕ1 τs1 es1, IUnpack ϕ2 τs2 es2
  | IBlock ϕ1 τs1 es1, IBlock ϕ2 τs2 es2 =>
-     instruction_type_beq ϕ1 ϕ2 && (list_beq type type_beq τs1 τs2) && (list_beq instruction instruction_beq es1 es2)
+     ltac:(triple_thing (instruction_type_eq_dec ϕ1 ϕ2) (type_eq_dec_list τs1 τs2) (instruction_eq_dec_list es1 es2))
  | ILoop ϕ1 es1, ILoop ϕ2 es2 =>
-     instruction_type_beq ϕ1 ϕ2 && (list_beq instruction instruction_beq es1 es2)
+     ltac:(double_thing (instruction_type_eq_dec ϕ1 ϕ2) (instruction_eq_dec_list es1 es2))
  | IIte ϕ1 τs1 es11 es12, IIte ϕ2 τs2 es21 es22 =>
-     instruction_type_beq ϕ1 ϕ2 && (list_beq type type_beq τs1 τs2)
-     && (list_beq instruction instruction_beq es11 es21)
-     && (list_beq instruction instruction_beq es12 es22)
- | IInst ϕ1 ix1, IInst ϕ2 ix2 => instruction_type_beq ϕ1 ϕ2 && index_beq ix1 ix2
+     ltac:(quad_thing (instruction_type_eq_dec ϕ1 ϕ2) (type_eq_dec_list τs1 τs2)
+             (instruction_eq_dec_list es11 es21) (instruction_eq_dec_list es12 es22) )
+ | IInst ϕ1 ix1, IInst ϕ2 ix2 =>
+     ltac:(double_thing (instruction_type_eq_dec ϕ1 ϕ2) (index_eq_dec ix1 ix2))
  | ICall ϕ1 n1 ixs1, ICall ϕ2 n2 ixs2 =>
-     instruction_type_beq ϕ1 ϕ2 && (n1 =? n2) && (list_beq index index_beq ixs1 ixs2)
+     ltac:(triple_thing (instruction_type_eq_dec ϕ1 ϕ2) (Nat.eq_dec n1 n2) (index_eq_dec_list ixs1 ixs2))
  | ICase ϕ1 τs1 ees1, ICase ϕ2 τs2 ees2 =>
-     instruction_type_beq ϕ1 ϕ2 && (list_beq type type_beq τs1 τs2) &&
-       (list_beq (list instruction) (list_beq instruction instruction_beq) ees1 ees2)
+     ltac:(triple_thing (instruction_type_eq_dec ϕ1 ϕ2) (type_eq_dec_list τs1 τs2)
+          (instruction_list_eq_dec_list ees1 ees2))
  | ICaseLoad ϕ1 c1 τs1 ees1, ICaseLoad ϕ2 c2 τs2 ees2 =>
-     instruction_type_beq ϕ1 ϕ2 && (list_beq type type_beq τs1 τs2) &&
-       (list_beq (list instruction) (list_beq instruction instruction_beq) ees1 ees2) && consumption_beq c1 c2
+     ltac:(quad_thing (instruction_type_eq_dec ϕ1 ϕ2) (type_eq_dec_list τs1 τs2)
+          (instruction_list_eq_dec_list ees1 ees2) (consumption_eq_dec c1 c2))
  | ILoad ϕ1 ns1 c1, ILoad ϕ2 ns2 c2 =>
-     instruction_type_beq ϕ1 ϕ2 && (list_beq nat Nat.eqb ns1 ns2) && consumption_beq c1 c2
+     ltac:(triple_thing (instruction_type_eq_dec ϕ1 ϕ2) (nat_eq_dec_list ns1 ns2) (consumption_eq_dec c1 c2))
  | IStore ϕ1 ns1, IStore ϕ2 ns2
  | ISwap ϕ1 ns1, ISwap ϕ2 ns2 =>
-     instruction_type_beq ϕ1 ϕ2 && (list_beq nat Nat.eqb ns1 ns2)
- | _, _ => false
+     ltac:(double_thing (instruction_type_eq_dec ϕ1 ϕ2) (nat_eq_dec_list ns1 ns2))
+ | _, _ => ltac:(right; done)
  end.
 
+Definition instruction_beq (s1:instruction) (s2:instruction) : bool := instruction_eq_dec s1 s2.
+Definition eqinstruction_typeP : Equality.axiom instruction_beq :=
+  eq_dec_Equality_axiom instruction_eq_dec.
+
 Lemma instruction_eq_convert :
-  ∀ e1 e2, instruction_beq e1 e2 = true <-> e1 = e2. Proof. Admitted.
+  ∀ e1 e2, instruction_beq e1 e2 = true <-> e1 = e2.
+Proof.
+  pose proof eqinstruction_typeP.
+  intros r1 r2.
+  specialize (X r1 r2).
+  symmetry.
+  by apply reflect_iff.
+Qed.
 
 Lemma list_eq_convert_instruction :
-  ∀ es1 es2, list_beq instruction instruction_beq es1 es2 = true <-> es1 = es2. Proof. Admitted.
+  ∀ es1 es2, list_beq instruction instruction_beq es1 es2 = true <-> es1 = es2.
+Proof.
+  pose proof instruction_eq_convert.
+  assert (∀ τ1 τ2, instruction_beq τ1 τ2 = true -> τ1 = τ2) by apply H.
+  assert (∀ τ1 τ2, τ1 = τ2 -> instruction_beq τ1 τ2 = true) by apply H. clear H.
+  intros *; split; intros.
+  - pose proof (internal_list_dec_bl instruction instruction_beq H0 es1 es2).
+    auto.
+  - pose proof (internal_list_dec_lb instruction instruction_beq H1 es1 es2).
+    auto.
+Qed.
+
 Ltac boolean_equality_auto :=
   match goal with
   | H: Nat.eqb _ _ = true |- _ => apply Nat.eqb_eq  in H; subst; auto
@@ -569,7 +849,7 @@ Proof.
     + Opaque split_list_all_last.
       structural_auto. clear H1.
       destruct p. inversion H. subst.
-      specialize (IHl l0 last0 eq_refl).
+      specialize (IHl l0 last0 ltac:(auto)).
       rewrite IHl. auto.
 Qed.
 
@@ -2095,7 +2375,7 @@ Proof.
     + intros.
       simpl in H.
       repeat my_auto3. subst.
-      specialize (IHσs l). specialize (IHσs eq_refl).
+      specialize (IHσs l). specialize (IHσs ltac:(auto)).
       subst; auto.
   - generalize dependent ρs.
     induction σs.
@@ -2107,7 +2387,7 @@ Proof.
       destruct ρs; [simpl in H; inversion H |].
       rewrite map_cons in H.
       inversion H; subst.
-      specialize (IHσs ρs eq_refl).
+      specialize (IHσs ρs ltac:(auto)).
       by rewrite IHσs.
 Qed.
 
@@ -2432,7 +2712,7 @@ Proof.
     destruct a eqn:Ha; try by (cbn in Hseq; inversion Hseq).
     rewrite sequence_stupid_some in Hseq.
     repeat my_auto3.
-    specialize (IHτs_zipped l eq_refl).
+    specialize (IHτs_zipped l ltac:(auto)).
     destruct IHτs_zipped as (κs_ser_small & Hzip & Hlen).
     exists (k :: κs_ser_small).
     cbn.
@@ -2456,23 +2736,23 @@ Proof.
   (* the goal of this big guy: filter all obvious ones. Does not include "obvious" Ser *)
   all:
     try match goal with
-    | |- (type_eq (VarT _) (VarT _)) => simpl in H; repeat my_auto3_5; apply TEqRefl
-    | |- (type_eq (I31T _) (I31T _)) => simpl in H; repeat my_auto3_5; apply TEqRefl; auto
-    | |- (type_eq (NumT _ _) (NumT _ _)) => simpl in H; repeat my_auto3_5; apply TEqRefl; repeat my_auto3_5
+    | |- (type_eq (VarT _) (VarT _)) => simpl in H; repeat my_auto3_5; inversion HMatch; subst; apply TEqRefl
+    | |- (type_eq (I31T _) (I31T _)) => simpl in H; repeat my_auto3_5; inversion HMatch; subst; apply TEqRefl; auto
+    | |- (type_eq (NumT _ _) (NumT _ _)) => simpl in H; repeat my_auto3_5; inversion HMatch; subst; apply TEqRefl; repeat my_auto3_5
     | |- (type_eq (SumT _ _) (SumT _ _)) => idtac
     | |- (type_eq (VariantT _ _) (VariantT _ _)) => idtac
     | |- (type_eq (ProdT _ _) (ProdT _ _)) => idtac
     | |- (type_eq (StructT _ _) (StructT _ _)) => idtac
     | |- (type_eq (RefT _ _ _) (RefT _ _ _)) =>
         simpl in H0; repeat my_auto3_5; apply H in H0; apply TEqRef; auto
-    | |- (type_eq (CodeRefT _ _) (CodeRefT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
+    | |- (type_eq (CodeRefT _ _) (CodeRefT _ _)) => simpl in *; repeat my_auto3_5; inversion HMatch; subst; apply TEqRefl; auto
     | |- (type_eq (SerT _ _) (SerT _ _)) =>
         simpl in H0; repeat my_auto3_5; apply TEqSer; auto
     | |- (type_eq (StructT _ _) (SerT _ _)) => idtac
     | |- (type_eq (SerT _ _) (StructT _ _)) => idtac
     | |- (type_eq (SerT _ _) _) => simpl in H0; my_auto3_5
-    | |- (type_eq (PlugT _ _) (PlugT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
-    | |- (type_eq (SpanT _ _) (SpanT _ _)) => simpl in *; repeat my_auto3_5; apply TEqRefl; auto
+    | |- (type_eq (PlugT _ _) (PlugT _ _)) => simpl in *; repeat my_auto3_5; inversion HMatch; subst; apply TEqRefl; auto
+    | |- (type_eq (SpanT _ _) (SpanT _ _)) => simpl in *; repeat my_auto3_5; inversion HMatch; subst; apply TEqRefl; auto
     | |- (type_eq (RecT _ _) (RecT _ _)) =>
         simpl in H0; repeat my_auto3_5; apply H in H0; apply TEqRec; auto
     | |- (type_eq (ExistsMemT _ _) (ExistsMemT _ _)) =>
@@ -2487,7 +2767,6 @@ Proof.
     end.
 
   all: idtac. (* this is here because doom emacs despises the match goal above *)
-
   1-4: cbn in H0; repeat my_auto3; constructor;
     eapply convert_foldr2_bool_to_Forall2_check_ok_output; try done.
   2: {
@@ -2495,7 +2774,6 @@ Proof.
     apply H in H0.
     constructor; done.
   }
-
   (* struct ser case *)
   (* there's annoying monad stuff in here *)
   1: {
@@ -2618,7 +2896,7 @@ Proof.
     destruct lpre.
     + simpl. rewrite app_nil_l in H. subst; auto.
     + inversion H; subst.
-      specialize (IHlfull lpre lsuff eq_refl).
+      specialize (IHlfull lpre lsuff ltac:(auto)).
       simpl.
       assert (Stupid:t=t) by auto; apply type_eq_convert in Stupid.
       rewrite Stupid. auto.
@@ -4056,12 +4334,6 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
 
 
 
-Definition test ψ :=
-  match ψ with
-  | InstrT [a] b::b' => ok_term
-  | _ => INR "no"
-  end.
-
 Fixpoint unzip_sert (τs:list type) : option ((list kind) * (list type)) :=
   match τs with
   | [] => Some ([], [])
@@ -4084,7 +4356,7 @@ Proof.
   - intros. simpl in H. destruct a; try (by inversion H).
     structural_auto. destruct p. clear H1.
     inversion H. subst.
-    specialize (IHτs' l l0 eq_refl). subst.
+    specialize (IHτs' l l0 ltac:(auto)). subst.
     auto.
 Qed.
 
