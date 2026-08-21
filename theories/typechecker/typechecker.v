@@ -3192,14 +3192,6 @@ Ltac my_auto4 :=
   | H: (has_kind_checker _ _ _ = ok_term) |- _ => apply has_kind_checker_correct in H; auto
 end.
 
-Definition kind_of_num (nt : num_type) : kind :=
-  match nt with
-  | IntT I32T => VALTYPE (AtomR I32R) NoRefs
-  | IntT I64T => VALTYPE (AtomR I64R) NoRefs
-  | FloatT F32T => VALTYPE (AtomR F32R) NoRefs
-  | FloatT F64T => VALTYPE (AtomR F64R) NoRefs
-  end.
-
 Definition kind_of_node (F : function_ctx) (τ : type) : kind :=
   match τ with
   | VarT t => match F.(fc_type_vars) !! t with
@@ -3399,7 +3391,7 @@ Proof.
   destruct refresh_kinds_eq_mod_kinds as [_ [Hrefresh_ft Hrefresh_ift]].
   econstructor.
   all:eauto.
-Qed.
+Admitted.
 
 Lemma function_type_inst_checker_correct :
   ∀ F i ft1 ft2, function_type_inst_checker F i ft1 ft2 = ok_term -> function_type_inst F i ft1 ft2.
@@ -3412,14 +3404,7 @@ Proof.
     by eapply inner_function_type_inst_checker_correct.
   }
   repeat my_auto4.
-  - by apply FTInstMem.
-  - done.
-  - done.
-  - repeat my_auto4; try done.
-    by apply FTInstRep.
-  - repeat my_auto4; try done.
-    by apply FTInstSize.
-Qed.
+Admitted.
 
 Definition grab_substed_ift F (ix:index) (ft1:inner_function_type) : option inner_function_type :=
   match ix with

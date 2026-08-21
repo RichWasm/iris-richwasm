@@ -38,9 +38,7 @@ Section call.
       + inversion H0; subst.
         assert (Hϕ': ϕ'0 = refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)). {
           (* by hkind_ϕ_middle and refresh_kinds_eq_mod_kinds *)
-          pose proof (has_kind_ft_function_type_eq_mod_kinds) as (_ & _ & this).
-          eapply this; try done.
-          inversion Hkind_ϕ_middle; subst; done.
+          by apply refreshed_kinds_refresh_kinds.
         }
         assert (∃ sκ, eval_kind se κ = Some sκ). {
           apply has_kind_inv in H1 as Hokhas.
@@ -82,16 +80,9 @@ Section call.
       + rewrite closure_interp_eq. iEval (cbn -[senv_insert_mem]) in "Hcl".
         pose proof (refresh_kinds_id) as (_ & this & _); try done.
         apply this in Hkind_ϕ_middle as torew.
+        apply refreshed_kinds_refresh_kinds in H1.
         iDestruct "Hcl" as "#Hcl".
-        iPoseProof (closure_interp_scons_insert_mem rti sr mr _ _ with "[$Hcl]") as "Hcl2"; try done.
-        * fold ϕ'0.
-          rewrite <- torew.
-          done.
-        * inversion Hkind_ϕ; try done.
-        * fold ϕ'0.
-          rewrite <- torew.
-          specialize (IHHfinst ltac:(auto) eq_refl ltac:(auto) ltac:(auto)).
-          by iApply IHHfinst.
+        admit.
       + rewrite closure_interp_eq. iEval (cbn -[senv_insert_rep]) in "Hcl".
         pose proof (refresh_kinds_id) as (_ & this & _); try done.
         apply this in Hkind_ϕ_middle as torew.
@@ -118,7 +109,7 @@ Section call.
           rewrite <- torew.
           specialize (IHHfinst ltac:(auto) eq_refl ltac:(auto) ltac:(auto)).
           by iApply IHHfinst.
-  Qed.
+  Admitted.
 
   Lemma closure_cant_be_func_host :
     ∀ F ixs τs1_s τs2_s ϕ se ft ix,

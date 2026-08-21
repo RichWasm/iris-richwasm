@@ -1168,29 +1168,26 @@ Inductive inner_function_type_inst : function_ctx -> index -> inner_function_typ
   has_kind F τ κ' ->
   subkind_of κ' κ ->
   (* has_kind_ift F ϕ' -> *)
-  inner_function_type_eq_mod_kinds ϕ'
-    (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
+  refreshed_kinds_ift
+    F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ϕ' →
   inner_function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
-| FTInstInner F ϕ idx ϕ' ϕ'' :
+| FTInstInner F ϕ idx ϕ' :
   inner_function_type_inst F idx ϕ ϕ' →
-  refreshed_kinds_ift F ϕ' ϕ'' →
-  function_type_inst F idx (InnerFunT ϕ) (InnerFunT ϕ'')
+  function_type_inst F idx (InnerFunT ϕ) (InnerFunT ϕ')
 | FTInstMem F ϕ μ ϕ'' :
   mem_ok F.(fc_kind_ctx) μ ->
   let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
   refreshed_kinds_ft F ϕ' ϕ'' →
   function_type_inst F (MemI μ) (ForallMemT ϕ) ϕ''
-| FTInstRep F ϕ ρ ϕ'' :
+| FTInstRep F ϕ ρ :
   rep_ok F.(fc_kind_ctx) ρ ->
   let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
-  refreshed_kinds_ft F ϕ' ϕ'' →
   function_type_inst F (RepI ρ) (ForallRepT ϕ) ϕ'
-| FTInstSize F ϕ σ ϕ'' :
+| FTInstSize F ϕ σ :
   size_ok F.(fc_kind_ctx) σ ->
   let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
-  refreshed_kinds_ft F ϕ' ϕ'' →
   function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'.
 
 Inductive function_type_insts : function_ctx -> list index -> function_type -> function_type -> Prop :=
