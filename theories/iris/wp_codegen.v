@@ -779,8 +779,9 @@ Section CodeGen.
   Lemma cwp_save_stack1 wt wt' wl wl' fe t i es:
     run_codegen (save_stack1 fe t) wt wl = inr (i, wt', wl', es) ->
     i = W.Mk_localidx (fe_wlocal_offset fe + length wl) /\
+      wl' = [t] /\
       forall evs v f B R Φ,
-        wl_interp (fe_wlocal_offset fe) (wl ++ wl') f ->
+        fe_wlocal_offset fe + length wl < length f.(f_locs) ->
         has_values evs [v] ->
         ↪[frame] f -∗
         ↪[RUN] -∗
@@ -796,7 +797,7 @@ Section CodeGen.
     subst wt2 wl2 es2 i' wt3 wl3 es3 wt1 wl1 es1 wt' wl' es.
     apply wp_wlalloc in Hcg_alloc as (-> & -> & -> & ->).
     clear_nils.
-    split; first done.
+    do 2 (split; first done).
 
     iIntros (?????? Hwl Hevs) "Hfr Hrun HΦ".
     apply all2_Forall2 in Hevs.
@@ -807,14 +808,7 @@ Section CodeGen.
     move/eqP in Hev.
     subst v0.
 
-    iApply (cwp_local_set with "[HΦ] [$Hfr] [$Hrun]"); last done.
-    destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
-    rewrite -Hlen Hlocs.
-    apply Forall2_length in Hvs__wl.
-    rewrite length_app in Hvs__wl.
-    rewrite length_app length_app.
-    cbn in *.
-    lia.
+    by iApply (cwp_local_set with "[HΦ] [$Hfr] [$Hrun]").
   Qed.
 
   Lemma cwp_save_stack_w esv tys Φ L R localidxs :
@@ -1867,11 +1861,13 @@ Section CodeGen.
   Qed.
 
   Lemma cwp_case_switch wt wt' wl wl' fe ts cases case i es_s :
+    (length cases < Wasm_int.Int32.modulus)%Z ->
     cases !! i = Some case ->
     run_codegen (case_switch fe ts cases) wt wl = inr (tt, wt', wl', es_s) ->
     exists wt_c wt_c' wl_c wl_c' es_c,
       run_codegen (case i) wt_c wl_c = inr (tt, wt_c', wl_c', es_c) /\
-        forall fr tag evs B R Φ,
+        forall wlf fr tag evs B R Φ,
+          ⌜wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr⌝ -∗
           ⌜nat_i32_repr i tag⌝ -∗
           ⌜has_values evs [VAL_int32 tag]⌝ -∗
           ↪[frame] fr -∗
@@ -1880,7 +1876,7 @@ Section CodeGen.
            ↪[frame] fr' -∗ ↪[RUN] -∗ CWP es_c UNDER (length ts, Φ) :: B; R {{ Φ }}) -∗
           CWP evs ++ es_s UNDER B; R {{ Φ }}.
   Proof.
-    intros Hcase Hcg.
+    intros Hlen_cases Hcase Hcg.
     inv_cg_bind Hcg ltag ?wt ?wt ?wl ?wl ?es ?es Hcg_save Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_def Hcg.
     subst wl1 wt1 es0 wl' wt' es_s.
@@ -1899,13 +1895,20 @@ Section CodeGen.
     exists (wt ++ wt0 ++ wt2 ++ wt1), wt4, (wl ++ wl0 ++ wl2 ++ wl1), wl4, es2.
     split; first by rewrite -Hi.
 
-    iIntros (??????) "%Hi_tag %Hevs Hfr Hrun Hes2".
-    apply cwp_save_stack1 in Hcg_save as [-> Hes].
+    iIntros (???????) "%Hwl %Hi_tag %Hevs Hfr Hrun Hes2".
+    apply cwp_save_stack1 in Hcg_save as (-> & -> & Hes).
     rewrite app_assoc.
     iApply (cwp_seq with "[-Hes2]").
     {
       iApply (Hes with "[$Hfr] [$Hrun]").
-      - admit.
+      - destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
+        rewrite -Hlen Hlocs.
+        apply Forall2_length in Hvs__wl.
+        rewrite length_app in Hvs__wl.
+        rewrite length_app length_app.
+        rewrite -Hvs__wl.
+        cbn.
+        lia.
       - done.
       - by instantiate (1 := fun fr' vs' => (⌜fr' = fr <| f_locs ::= <[ (fe_wlocal_offset fe + length wl)%nat := VAL_int32 tag ]> |>⌝ ∗ ⌜vs' = []⌝)%I).
     }
@@ -1928,13 +1931,23 @@ Section CodeGen.
       eapply cwp_case_blocks_fail in Hcg1.
       - iApply (Hcg1 with "[$Hfr] [$Hrun]").
       - right. instantiate (1 := i). lia.
-      - admit.
-      - admit.
+      - rewrite Hi_tag Z2Nat.id.
+        apply Wasm_int.Int32.unsigned_range. apply Wasm_int.Int32.unsigned_range.
+      - rewrite Hi Hi_tag Z2Nat.id. rewrite Nat2Z.inj_0 Z.add_0_l.
+        apply Z.lt_le_incl.
+        apply Wasm_int.Int32.unsigned_range. apply Wasm_int.Int32.unsigned_range.
       - by rewrite length_map.
       - unfold set. cbn. rewrite Hi_tag.
         rewrite Wasm_int.Int32.nat_of_uint_Z_of_uint. cbn. rewrite Wasm_int.Int32.repr_unsigned.
         apply list_lookup_insert_eq.
-        admit.
+        destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
+        rewrite -Hlen Hlocs.
+        apply Forall2_length in Hvs__wl.
+        rewrite length_app in Hvs__wl.
+        rewrite length_app length_app.
+        rewrite -Hvs__wl.
+        cbn.
+        lia.
     }
 
     iIntros (??) "[-> ->] Hfr Hrun".
@@ -1953,7 +1966,14 @@ Section CodeGen.
         rewrite Nat2Z.id Z2Nat.id; last apply Wasm_int.Int32.unsigned_range.
         rewrite Wasm_int.Int32.repr_unsigned.
         apply list_lookup_insert_eq.
-        admit.
+        destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
+        rewrite -Hlen Hlocs.
+        apply Forall2_length in Hvs__wl.
+        rewrite length_app in Hvs__wl.
+        rewrite length_app length_app.
+        rewrite -Hvs__wl.
+        cbn.
+        lia.
       - iIntros "Hfr Hrun". iApply ("Hes2" with "[$Hfr] [$Hrun]").
     }
 
@@ -1964,8 +1984,10 @@ Section CodeGen.
       eapply cwp_case_blocks_fail in Hcg2.
       - iApply (Hcg2 with "[$Hfr] [$Hrun]").
       - left. instantiate (1 := i). rewrite -Hi. lia.
-      - admit.
-      - admit.
+      - rewrite Hi_tag Z2Nat.id. all: apply Wasm_int.Int32.unsigned_range.
+      - rewrite length_app in Hlen_cases. cbn in *.
+        rewrite -Nat2Z.inj_add Nat.add_succ_comm.
+        by apply Z.lt_le_incl.
       - admit.
       - admit. (* frame relation *)
     }
