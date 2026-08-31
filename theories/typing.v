@@ -1107,7 +1107,7 @@ Inductive refreshed_kinds : function_ctx → type → type → Prop :=
   Forall2 (refreshed_kinds F) τs τs' →
   mapM (type_kind (fc_type_vars F)) τs' = Some κs' →
   Forall3 (λ κ σ ξ, κ = MEMTYPE σ ξ) κs' σs ξs →
-  refreshed_kinds F (StructT κ τs) (StructT (MEMTYPE (SumS σs) (ref_flag_lub ξs)) τs')
+  refreshed_kinds F (StructT κ τs) (StructT (MEMTYPE (ProdS σs) (ref_flag_lub ξs)) τs')
 | RKRef F κ τ τ' μ β :
   refreshed_kinds F τ τ' →
   refreshed_kinds F (RefT κ μ β τ) (RefT (VALTYPE (AtomR PtrR) (flag_of_mem μ)) μ β τ')
@@ -1129,10 +1129,10 @@ Inductive refreshed_kinds : function_ctx → type → type → Prop :=
   refreshed_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ τ' →
   refreshed_kinds F (ExistsMemT κ τ) (ExistsMemT κ τ')
 | RKExistsRep F κ τ τ' :
-  refreshed_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ τ' →
+  refreshed_kinds (add_rep_var F) τ τ' →
   refreshed_kinds F (ExistsRepT κ τ) (ExistsRepT κ τ')
 | RKExistsSize F κ τ τ' :
-  refreshed_kinds (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ τ' →
+  refreshed_kinds (add_size_var F) τ τ' →
   refreshed_kinds F (ExistsSizeT κ τ) (ExistsSizeT κ τ')
 | RKExistsType F κ κv τ τ' :
   refreshed_kinds (F <| fc_type_vars ::= cons κv |>) τ τ' →
