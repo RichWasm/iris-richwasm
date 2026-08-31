@@ -7,6 +7,7 @@ From mathcomp Require Import ssrfun ssrbool eqtype.
 Require Import RichWasm.wasm.common.
 
 From RichWasm Require Import layout syntax typing util.
+From RichWasm.iris.logrel.instr Require Import kinding.
 Set Bullet Behavior "Strict Subproofs".
 
 
@@ -3379,12 +3380,366 @@ Definition function_type_inst_checker
     end
  end.
 
+
+Lemma kind_of_node_good F τ κ:
+  has_kind F τ κ -> κ = kind_of_node F τ.
+Proof.
+  intros Hkind.
+  induction Hkind using has_kind_ind' with (P0 := const (const True)) (Pi := const (const True));
+    intros; cbn; try done; try (rewrite <- IHHkind; done).
+  rewrite H. done.
+Qed.
+
+Lemma Forall3_by_lookup {A B C : Type} (P: A -> B -> C -> Prop) : ∀ l m r,
+  Datatypes.length l = Datatypes.length m -> Datatypes.length m = Datatypes.length r ->
+  (∀ i li mi ri, l !! i = Some li -> m !! i = Some mi -> r !! i = Some ri -> P li mi ri) ->
+  Forall3 P l m r.
+Proof.
+  induction l as [|l1 l]; intros m r HLlm HLmr HP.
+  - destruct m; try by inversion HLlm. destruct r; try by inversion HLmr.
+    constructor.
+  - destruct m as [|m1 m]; try by inversion HLlm.
+    destruct r as [|r1 r]; try by inversion HLmr.
+    cbn in HLlm; cbn in HLmr. inversion HLlm; inversion HLmr.
+    specialize (IHl _ _ H0 H1); clear H0 H1 HLlm HLmr.
+    constructor.
+    + by specialize (HP 0 l1 m1 r1 ltac:(auto) ltac:(auto) ltac:(auto)).
+    + apply IHl.
+      intros i li mi ri Hli Hmi Hri.
+      specialize (HP (S i) li mi ri).
+      apply HP; cbn; auto.
+Qed.
+
+Lemma has_kind_type_kind :
+  ∀ F τ κ, has_kind F τ κ -> type_kind (fc_type_vars F) τ = Some κ.
+Proof.
+    intros * Hkk.
+    apply type_kind_has_kind_is_Some in Hkk as IsSome.
+    inversion IsSome; subst.
+    rewrite H. f_equal. symmetry.
+    eapply type_kind_has_kind_agree; done.
+Qed.
+
+
 Lemma refresh_kinds_connect_has_kind_maybe :
   (∀ τ F κ, has_kind F (refresh_kinds F τ) κ -> refreshed_kinds F τ (refresh_kinds F τ)) /\
   (∀ ϕ F, has_kind_ft F (refresh_kinds_ft F ϕ) -> refreshed_kinds_ft F ϕ (refresh_kinds_ft F ϕ)) /\
     (∀ ϕ F, has_kind_ift F (refresh_kinds_ift F ϕ) -> refreshed_kinds_ift F ϕ (refresh_kinds_ift F ϕ)).
 Proof.
-Admitted.
+  apply type_and_function_ind; intros *.
+  - intros Hk; cbn in *; inversion Hk; subst. constructor.
+  - intros Hk; cbn in *; inversion Hk; subst. constructor.
+  - intros Hk; cbn in *; inversion Hk; subst; constructor.
+  - intros IH * Hk. cbn in *. inversion Hk; subst.
+    set (ρs' := (get_all_lefts
+                   (map get_rep_or_size (map (kind_of_node F) (map (refresh_kinds F) τs))))) in *.
+    set (κs' := zip_with VALTYPE ρs' ξs).
+    apply RKSum with (κs':=κs').
+    + apply Forall2_same_length_lookup_2.
+      { symmetry; apply length_map. }
+      intros i t rt Ht Hrt.
+      pose proof (Forall_lookup_1 _ _ _ _ IH Ht).
+      specialize (H F).
+      apply map_lookup_helper_backwards in Hrt as Hrt'.
+      destruct Hrt' as (tosub & torewr & Hrt').
+      rewrite Ht in torewr; inversion torewr; subst tosub; clear torewr. subst.
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H4 Hrt).
+      repeat destruct H0. destruct H1.
+      specialize (H _ H1).
+      done.
+    + apply mapM_Some_2.
+      apply Forall2_same_length_lookup_2.
+      {
+        subst κs'.
+        rewrite length_zip_with.
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        lia.
+      }
+      intros i rt rk Hrt Hrk.
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H4 Hrt).
+      destruct H as (ρ & ξ & Hρ & Hξ & Htkind).
+      apply has_kind_type_kind.
+      assert (rk = VALTYPE ρ ξ). {
+        subst κs'.
+        rewrite lookup_zip_with in Hrk.
+        rewrite Hρ in Hrk; rewrite Hξ in Hrk. cbn in Hrk.
+        inversion Hrk; done.
+      }
+      subst. done.
+    + apply Forall3_by_lookup.
+      {
+        subst κs'. rewrite length_zip_with.
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        lia.
+      }
+      {
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        lia.
+      }
+      intros i kk rr xx Hrk Hρ Hξ.
+      subst κs'.
+      rewrite lookup_zip_with in Hrk.
+      rewrite Hρ in Hrk; rewrite Hξ in Hrk. cbn in Hrk.
+      inversion Hrk; done.
+  - intros IH * Hk. cbn in *. inversion Hk; subst.
+    set (σs' := (get_all_rights
+                   (map get_rep_or_size (map (kind_of_node F) (map (refresh_kinds F) τs))))) in *.
+    set (κs' := zip_with MEMTYPE σs' ξs).
+    apply RKVariant with (κs':=κs').
+    + apply Forall2_same_length_lookup_2.
+      { symmetry; apply length_map. }
+      intros i t rt Ht Hrt.
+      pose proof (Forall_lookup_1 _ _ _ _ IH Ht).
+      specialize (H F).
+      apply map_lookup_helper_backwards in Hrt as Hrt'.
+      destruct Hrt' as (tosub & torewr & Hrt').
+      rewrite Ht in torewr; inversion torewr; subst tosub; clear torewr. subst.
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H4 Hrt).
+      repeat destruct H0. destruct H1.
+      specialize (H _ H1).
+      done.
+    + apply mapM_Some_2.
+      apply Forall2_same_length_lookup_2.
+      {
+        subst κs'.
+        rewrite length_zip_with.
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        lia.
+      }
+      intros i rt rk Hrt Hrk.
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H4 Hrt).
+      destruct H as (ρ & ξ & Hρ & Hξ & Htkind).
+      apply has_kind_type_kind.
+      assert (rk = MEMTYPE ρ ξ). {
+        subst κs'.
+        rewrite lookup_zip_with in Hrk.
+        rewrite Hρ in Hrk; rewrite Hξ in Hrk. cbn in Hrk.
+        inversion Hrk; done.
+      }
+      subst. done.
+    + apply Forall3_by_lookup.
+      {
+        subst κs'. rewrite length_zip_with.
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        lia.
+      }
+      {
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        lia.
+      }
+      intros i kk rr xx Hrk Hρ Hξ.
+      subst κs'.
+      rewrite lookup_zip_with in Hrk.
+      rewrite Hρ in Hrk; rewrite Hξ in Hrk. cbn in Hrk.
+      inversion Hrk; done.
+  - intros IH * Hk. cbn in *. inversion Hk; subst.
+    set (ρs' := (get_all_lefts
+                   (map get_rep_or_size (map (kind_of_node F) (map (refresh_kinds F) τs))))) in *.
+    set (κs' := zip_with VALTYPE ρs' ξs).
+    apply RKProd with (κs':=κs').
+    + apply Forall2_same_length_lookup_2.
+      { symmetry; apply length_map. }
+      intros i t rt Ht Hrt.
+      pose proof (Forall_lookup_1 _ _ _ _ IH Ht).
+      specialize (H F).
+      apply map_lookup_helper_backwards in Hrt as Hrt'.
+      destruct Hrt' as (tosub & torewr & Hrt').
+      rewrite Ht in torewr; inversion torewr; subst tosub; clear torewr. subst.
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H4 Hrt).
+      repeat destruct H0. destruct H1.
+      specialize (H _ H1).
+      done.
+    + apply mapM_Some_2.
+      apply Forall2_same_length_lookup_2.
+      {
+        subst κs'.
+        rewrite length_zip_with.
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        lia.
+      }
+      intros i rt rk Hrt Hrk.
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H4 Hrt).
+      destruct H as (ρ & ξ & Hρ & Hξ & Htkind).
+      apply has_kind_type_kind.
+      assert (rk = VALTYPE ρ ξ). {
+        subst κs'.
+        rewrite lookup_zip_with in Hrk.
+        rewrite Hρ in Hrk; rewrite Hξ in Hrk. cbn in Hrk.
+        inversion Hrk; done.
+      }
+      subst. done.
+    + apply Forall3_by_lookup.
+      {
+        subst κs'. rewrite length_zip_with.
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        lia.
+      }
+      {
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        lia.
+      }
+      intros i kk rr xx Hrk Hρ Hξ.
+      subst κs'.
+      rewrite lookup_zip_with in Hrk.
+      rewrite Hρ in Hrk; rewrite Hξ in Hrk. cbn in Hrk.
+      inversion Hrk; done.
+  - intros IH * Hk. cbn in *. inversion Hk; subst.
+    set (σs' := (get_all_rights
+                   (map get_rep_or_size (map (kind_of_node F) (map (refresh_kinds F) τs))))) in *.
+    set (κs' := zip_with MEMTYPE σs' ξs).
+    apply RKStruct with (κs':=κs').
+    + apply Forall2_same_length_lookup_2.
+      { symmetry; apply length_map. }
+      intros i t rt Ht Hrt.
+      pose proof (Forall_lookup_1 _ _ _ _ IH Ht).
+      specialize (H F).
+      apply map_lookup_helper_backwards in Hrt as Hrt'.
+      destruct Hrt' as (tosub & torewr & Hrt').
+      rewrite Ht in torewr; inversion torewr; subst tosub; clear torewr. subst.
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H4 Hrt).
+      repeat destruct H0. destruct H1.
+      specialize (H _ H1).
+      done.
+    + apply mapM_Some_2.
+      apply Forall2_same_length_lookup_2.
+      {
+        subst κs'.
+        rewrite length_zip_with.
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        lia.
+      }
+      intros i rt rk Hrt Hrk.
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H4 Hrt).
+      destruct H as (ρ & ξ & Hρ & Hξ & Htkind).
+      apply has_kind_type_kind.
+      assert (rk = MEMTYPE ρ ξ). {
+        subst κs'.
+        rewrite lookup_zip_with in Hrk.
+        rewrite Hρ in Hrk; rewrite Hξ in Hrk. cbn in Hrk.
+        inversion Hrk; done.
+      }
+      subst. done.
+    + apply Forall3_by_lookup.
+      {
+        subst κs'. rewrite length_zip_with.
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        lia.
+      }
+      {
+        rewrite <- (Forall3_length_lm _ _ _ _ H4).
+        rewrite <- (Forall3_length_lr _ _ _ _ H4).
+        lia.
+      }
+      intros i kk rr xx Hrk Hρ Hξ.
+      subst κs'.
+      rewrite lookup_zip_with in Hrk.
+      rewrite Hρ in Hrk; rewrite Hξ in Hrk. cbn in Hrk.
+      inversion Hrk; done.
+  - intros IH * Hk.
+    destruct μ; try destruct b.
+    all: cbn in *.
+    all: inversion Hk; subst.
+    all: constructor.
+    all: eapply IH; try done.
+  - intros IH * Hk.
+    cbn in *; inversion Hk; subst.
+    constructor.
+    eapply IH; try done.
+  - intros IH * Hk.
+    inversion Hk; subst.
+    cbn in *.
+    apply kind_of_node_good in H3 as Hnode.
+    rewrite <- Hnode in Hk.
+    rewrite <- Hnode in H.
+    eapply RKSer.
+    + eapply IH; try done.
+    + rewrite <- Hnode.
+      by apply has_kind_type_kind.
+  - intros Hk; inversion Hk; subst; constructor.
+  - intros Hk; inversion Hk; subst; constructor.
+  - intros IH * Hk.
+    inversion Hk; subst.
+    apply IH in H3.
+    by eapply RKRec.
+  - intros IH * Hk.
+    inversion Hk; subst.
+    apply IH in H4.
+    constructor; done.
+  - intros IH * Hk.
+    inversion Hk; subst.
+    apply IH in H4.
+    constructor; done.
+  - intros IH * Hk.
+    inversion Hk; subst.
+    apply IH in H4.
+    constructor; done.
+  - intros IH * Hk.
+    inversion Hk; subst.
+    apply IH in H6.
+    constructor; done.
+  - intros IH1 IH2 F Hk.
+    inversion Hk; subst.
+    cbn.
+    rename H2 into H1. rename H3 into H2.
+    constructor.
+    + apply Forall2_same_length_lookup_2.
+      { symmetry. apply length_map. }
+      intros i t rt Ht Hrt.
+      pose proof (Forall_lookup_1 _ _ _ _ IH1 Ht).
+      specialize (H F).
+      apply map_lookup_helper_backwards in Hrt as Hrt'.
+      destruct Hrt' as (tosub & torewr & Hrt').
+      rewrite Ht in torewr; inversion torewr; subst tosub; clear torewr. subst.
+      pose proof (Forall2_lookup_l _ _ _ _ _ H1 Hrt).
+      repeat destruct H0.
+      specialize (H _ H3).
+      done.
+    + apply Forall2_same_length_lookup_2.
+      { symmetry. apply length_map. }
+      intros i t rt Ht Hrt.
+      pose proof (Forall_lookup_1 _ _ _ _ IH2 Ht).
+      specialize (H F).
+      apply map_lookup_helper_backwards in Hrt as Hrt'.
+      destruct Hrt' as (tosub & torewr & Hrt').
+      rewrite Ht in torewr; inversion torewr; subst tosub; clear torewr. subst.
+      pose proof (Forall2_lookup_l _ _ _ _ _ H2 Hrt).
+      repeat destruct H0.
+      specialize (H _ H3).
+      done.
+  - intros IH F Hk.
+    cbn in *.
+    inversion Hk; subst.
+    apply IH in H3.
+    constructor; done.
+  - intros IH F Hk.
+    cbn in *.
+    inversion Hk; subst.
+    apply IH in H1.
+    constructor; done.
+  - intros IH F Hk.
+    inversion Hk; subst.
+    apply IH in H1.
+    constructor; done.
+  - intros IH F Hk.
+    inversion Hk; subst.
+    apply IH in H1.
+    constructor; done.
+  - intros IH F Hk.
+    inversion Hk; subst.
+    apply IH in H1.
+    constructor; done.
+Qed.
 
 Lemma inner_function_type_inst_checker_correct :
   ∀ F i ft1 ft2,
@@ -6097,6 +6452,7 @@ Proof.
                 (Build_module_ctx (m_imports m ++ map mf_type (m_functions m)) (table))).
   eapply convert_foldr_to_Forall_check_ok; try done.
 Qed.
+Print Assumptions has_module_type_checker_correct.
 
 Definition synth_module_type (m:module) : option module_type :=
   let ϕs := m.(m_imports) ++ map mf_type m.(m_functions) in
