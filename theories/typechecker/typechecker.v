@@ -3344,8 +3344,8 @@ Definition function_type_inst_checker
         | inl () =>
             match ft1 with
             | ForallMemT ϕ =>
-                if function_type_beq ft2 (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ)
-                then ok_term
+                if function_type_beq ft2 (refresh_kinds_ft F (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ))
+                then has_kind_ft_checker F ft2 (* note this isn't technically necessary, but helps *)
                 else INR "something not matching in function type inst checker"
             | _ => INR "bad function type inst"
             end
@@ -3379,6 +3379,13 @@ Definition function_type_inst_checker
     end
  end.
 
+Lemma refresh_kinds_connect_has_kind_maybe :
+  (∀ τ F κ, has_kind F (refresh_kinds F τ) κ -> refreshed_kinds F τ (refresh_kinds F τ)) /\
+  (∀ ϕ F, has_kind_ft F (refresh_kinds_ft F ϕ) -> refreshed_kinds_ft F ϕ (refresh_kinds_ft F ϕ)) /\
+    (∀ ϕ F, has_kind_ift F (refresh_kinds_ift F ϕ) -> refreshed_kinds_ift F ϕ (refresh_kinds_ift F ϕ)).
+Proof.
+Admitted.
+
 Lemma inner_function_type_inst_checker_correct :
   ∀ F i ft1 ft2,
     inner_function_type_inst_checker F i ft1 ft2 = ok_term ->
@@ -3386,12 +3393,14 @@ Lemma inner_function_type_inst_checker_correct :
 Proof.
   unfold inner_function_type_inst_checker; intros.
   repeat my_auto4.
+  clear H1 H2 H3 H4 H5.
   apply subkind_of_checker_correct in HMatch2.
   apply has_kind_synther_correct in HMatch1.
   destruct refresh_kinds_eq_mod_kinds as [_ [Hrefresh_ft Hrefresh_ift]].
   econstructor.
   all:eauto.
-Admitted.
+  apply refresh_kinds_connect_has_kind_maybe. done.
+Qed.
 
 Lemma function_type_inst_checker_correct :
   ∀ F i ft1 ft2, function_type_inst_checker F i ft1 ft2 = ok_term -> function_type_inst F i ft1 ft2.
@@ -3403,8 +3412,16 @@ Proof.
     constructor.
     by eapply inner_function_type_inst_checker_correct.
   }
-  repeat my_auto4.
-Admitted.
+  - repeat my_auto4; subst; try by inversion H.
+    clear H1 H2 H3.
+    (* todo, add refreshing into mem stuff *)
+    constructor; auto.
+    by apply refresh_kinds_connect_has_kind_maybe.
+  - repeat my_auto4; try inversion H.
+    constructor; auto.
+  - repeat my_auto4; try inversion H.
+    constructor; auto.
+Qed.
 
 Definition grab_substed_ift F (ix:index) (ft1:inner_function_type) : option inner_function_type :=
   match ix with
