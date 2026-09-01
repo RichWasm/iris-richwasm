@@ -1867,13 +1867,16 @@ Section CodeGen.
     exists wt_c wt_c' wl_c wl_c' es_c,
       run_codegen (case i) wt_c wl_c = inr (tt, wt_c', wl_c', es_c) /\
         forall wlf fr tag evs B R Φ,
-          ⌜wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr⌝ -∗
-          ⌜nat_i32_repr i tag⌝ -∗
-          ⌜has_values evs [VAL_int32 tag]⌝ -∗
+          wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+          nat_i32_repr i tag ->
+          has_values evs [VAL_int32 tag] ->
+          let itag := fe_wlocal_offset fe + length wl in
+          (forall fr vs, Φ fr vs ⊢ ⌜fr.(f_locs) !! itag = Some (VAL_int32 tag)⌝ ∗ ⌜length vs = length ts⌝) ->
           ↪[frame] fr -∗
           ↪[RUN] -∗
-          (let fr' := fr <| f_locs ::= <[ fe_wlocal_offset fe + length wl := VAL_int32 tag ]> |> in
-           ↪[frame] fr' -∗ ↪[RUN] -∗ CWP es_c UNDER (length ts, Φ) :: B; R {{ Φ }}) -∗
+          (↪[frame] fr <| f_locs ::= <[ itag := VAL_int32 tag ]> |> -∗
+           ↪[RUN] -∗
+           CWP es_c UNDER (length ts, Φ) :: B; R {{ Φ }}) -∗
           CWP evs ++ es_s UNDER B; R {{ Φ }}.
   Proof.
     intros Hlen_cases Hcase Hcg.
@@ -1895,7 +1898,7 @@ Section CodeGen.
     exists (wt ++ wt0 ++ wt2 ++ wt1), wt4, (wl ++ wl0 ++ wl2 ++ wl1), wl4, es2.
     split; first by rewrite -Hi.
 
-    iIntros (???????) "%Hwl %Hi_tag %Hevs Hfr Hrun Hes2".
+    iIntros (??????? Hwl Hi_tag Hevs ? HΦ_props) "Hfr Hrun Hes2".
     apply cwp_save_stack1 in Hcg_save as (-> & -> & Hes).
     rewrite app_assoc.
     iApply (cwp_seq with "[-Hes2]").
@@ -1910,7 +1913,9 @@ Section CodeGen.
         cbn.
         lia.
       - done.
-      - by instantiate (1 := fun fr' vs' => (⌜fr' = fr <| f_locs ::= <[ (fe_wlocal_offset fe + length wl)%nat := VAL_int32 tag ]> |>⌝ ∗ ⌜vs' = []⌝)%I).
+      - by instantiate
+             (1 := fun fr' vs' =>
+                     (⌜fr' = fr <| f_locs ::= <[ itag := VAL_int32 tag ]> |>⌝ ∗ ⌜vs' = []⌝)%I).
     }
 
     iIntros (??) "[-> ->] Hfr Hrun".
@@ -1920,7 +1925,10 @@ Section CodeGen.
     {
       eapply cwp_create_defaults in Hcg_def as (_ & Hwt2 & Hwl2 & Hes1).
       iApply (Hes1 with "[$Hfr] [$Hrun]").
-      by instantiate (1 := fun fr' vs' => (⌜fr' = fr <| f_locs ::= <[ (fe_wlocal_offset fe + length wl)%nat := VAL_int32 tag ]> |>⌝ ∗ ⌜vs' = map default_of_value_type ts⌝)%I).
+      by instantiate
+           (1 := fun fr' vs' =>
+                   (⌜fr' = fr <| f_locs ::= <[ itag := VAL_int32 tag ]> |>⌝ ∗
+                      ⌜vs' = map default_of_value_type ts⌝)%I).
     }
 
     iIntros (??) "[-> ->] Hfr Hrun".
@@ -1941,6 +1949,7 @@ Section CodeGen.
         rewrite Wasm_int.Int32.nat_of_uint_Z_of_uint. cbn. rewrite Wasm_int.Int32.repr_unsigned.
         apply list_lookup_insert_eq.
         destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
+        subst itag.
         rewrite -Hlen Hlocs.
         apply Forall2_length in Hvs__wl.
         rewrite length_app in Hvs__wl.
@@ -1967,6 +1976,7 @@ Section CodeGen.
         rewrite Wasm_int.Int32.repr_unsigned.
         apply list_lookup_insert_eq.
         destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
+        subst itag.
         rewrite -Hlen Hlocs.
         apply Forall2_length in Hvs__wl.
         rewrite length_app in Hvs__wl.
@@ -1979,6 +1989,7 @@ Section CodeGen.
 
     iIntros (??) "HΦ Hfr Hrun".
     clear Hes3.
+    iDestruct (HΦ_props with "HΦ") as "[%Hf_tag %Hvs_len]".
     iApply (cwp_wand with "[-HΦ]").
     {
       eapply cwp_case_blocks_fail in Hcg2.
@@ -1988,11 +1999,12 @@ Section CodeGen.
       - rewrite length_app in Hlen_cases. cbn in *.
         rewrite -Nat2Z.inj_add Nat.add_succ_comm.
         by apply Z.lt_le_incl.
-      - admit.
-      - admit. (* frame relation *)
+      - done.
+      - rewrite Hi_tag Hf_tag Z2Nat.id; last apply Wasm_int.Int32.unsigned_range.
+        by rewrite Wasm_int.Int32.repr_unsigned.
     }
 
     by iIntros (??) "[-> ->]".
-  Abort.
+  Qed.
 
 End CodeGen.
