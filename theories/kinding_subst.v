@@ -51,31 +51,87 @@ Proof.
   by destruct Hle; constructor.
 Qed.
 
-Lemma needs_name0 τ : ∀ F τv κ κv τ',
-  let τsub := subst_type VarM VarR VarS (unscoped.scons τv VarT) τ in
-  type_eq_mod_kinds τ' τsub  →
-  has_kind (F <| fc_type_vars ::= cons κv |>) τ κ ↔ has_kind F τ' κ.
+Lemma refreshed_kinds_has_kind F τ κ τ' :
+  has_kind F τ κ →
+  refreshed_kinds F τ τ' →
+  τ = τ'.
 Proof.
-  induction τ; intros * Heq; rewrite type_eq_mod_equiv in Heq.
+  intros Hkind Hrefresh.
+  induction Hkind; try by (inversion Hrefresh; subst).
+Admitted.
+
+Lemma has_kind_env_to_has_kind_subst τ : ∀ F τv κv κ τ',
+  refreshed_kinds F (subst_type VarM VarR VarS (unscoped.scons τv VarT) τ) τ' →
+  has_kind F τv κv →
+  has_kind (F <| fc_type_vars ::= cons κv |>) τ κ →
+  has_kind F τ' κ.
+Proof.
+  induction τ; intros * Hrefresh Hv Hkind.
   - destruct n.
-    + cbn in Heq.
-      split; intros Hk.
-      * inversion Hk; subst; clear Hk.
-        rewrite fc_type_vars_get_upd in H0; cbn in H0; inversion H0; subst.
-        rewrite fc_kind_ctx_ty_update in H2.
-Abort.
+    + cbn in *.
+      inversion Hkind; cbn in *; subst.
+      rewrite fc_type_vars_get_upd in H0; cbn in H0; inversion H0; subst.
+      rewrite fc_kind_ctx_ty_update in H2.
+      eapply refreshed_kinds_has_kind in Hrefresh; last done.
+      subst τv.
+      done.
+    + cbn in *.
+      inversion Hkind; cbn in *; subst.
+      rewrite fc_type_vars_get_upd in H0; cbn in H0; inversion H0; subst.
+      inversion Hrefresh; subst.
+      constructor; eauto.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
+Lemma has_kinds_env_to_has_kinds_subst τs : ∀ F τv κv κs τs',
+  Forall2 (refreshed_kinds F) (map (subst_type VarM VarR VarS (unscoped.scons τv VarT)) τs) τs' →
+  has_kind F τv κv →
+  Forall2 (has_kind (F <| fc_type_vars ::= cons κv |>)) τs κs →
+  Forall2 (has_kind F) τs' κs.
+Proof.
+Admitted.
+
+Lemma has_kinds_subst_to_has_kinds_env τs : ∀ F τv κv κs τs',
+  Forall2 (refreshed_kinds F) (map (subst_type VarM VarR VarS (unscoped.scons τv VarT)) τs) τs' →
+  has_kind F τv κv →
+  Forall2 (has_kind F) τs' κs →
+  Forall2 (has_kind (F <| fc_type_vars ::= cons κv |>)) τs κs.
+Proof.
+Admitted.
 
 Lemma needs_name ϕ : ∀ ϕsub F τ κ ϕ',
+  has_kind F τ κ →
   ϕsub = subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ →
-  inner_function_type_eq_mod_kinds ϕ' ϕsub  →
+  refreshed_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ϕ' →
   has_kind_ift (F <| fc_type_vars ::= cons κ |>) ϕ ↔ has_kind_ift F ϕ'.
 Proof.
-  setoid_rewrite inner_function_type_eq_mod_equiv.
-  induction ϕ; intros * Hsub Heq.
+  induction ϕ; intros * Ht Hsub Heq.
   - subst ϕsub; cbn in Heq.
     inversion Heq; subst.
     split; intros Hk.
     + inversion Hk; subst.
+      econstructor.
+      * eapply has_kinds_env_to_has_kinds_subst; eauto.
+      * eapply has_kinds_env_to_has_kinds_subst; eauto.
+    + inversion Hk; subst.
+      econstructor;
+        eapply has_kinds_subst_to_has_kinds_env; eauto.
+  - admit.
 Admitted.
 
 Lemma has_kind_ift_through_inst_iff F ϕ ϕ' ix :
