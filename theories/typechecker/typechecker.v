@@ -4706,15 +4706,19 @@ Fixpoint unzip_sert (τs:list type) : option ((list kind) * (list type)) :=
   end.
 
 Lemma unzip_sert_correct :
-  ∀ τs' κs τs, unzip_sert τs' = Some (κs, τs) -> τs' = zip_with SerT κs τs.
+  ∀ τs' κs τs, unzip_sert τs' = Some (κs, τs) ->
+               τs' = zip_with SerT κs τs /\ Datatypes.length κs = Datatypes.length τs.
 Proof.
   induction τs'.
   - simpl. intros; inversion H. auto.
   - intros. simpl in H. destruct a; try (by inversion H).
     structural_auto. destruct p. clear H1.
     inversion H. subst.
-    specialize (IHτs' l l0 ltac:(auto)). subst.
-    auto.
+    specialize (IHτs' l l0 ltac:(auto)).
+    destruct IHτs' as (h11 & h122).
+    subst.
+    split; auto.
+    cbn; lia.
 Qed.
 
 (* Will need a mutually recursive have_instruction_type too *)
@@ -5794,7 +5798,7 @@ Ltac my_auto5 :=
   | H: (list_suffix ?x _ = Some _) |- _ => apply list_suffix_correct_r in H; subst x
   | H: (split_into_three ?τ _ = Some (_, _, _)) |- _ => apply split_into_three_correct in H; destruct H as [H1 H2]; subst τ
   | H: (split_list_all_last ?l = Some (_, _)) |- _ => apply split_list_all_last_correct in H; subst l
-  | H: (unzip_sert ?l = Some (_, _)) |- _ => apply unzip_sert_correct in H; subst l
+  | H: (unzip_sert ?l = Some (_, _)) |- _ => apply unzip_sert_correct in H; destruct H as [H ?Hlengood]; subst l
   | H: (mono_mem_checker _ = ok_term) |- _ => apply mono_mem_checker_correct in H; auto
   | H: (mono_mem_checker _ = inl ()) |- _ => apply mono_mem_checker_correct in H; auto
   | H: (type_eq_checker _ _ = inl ()) |- _ => apply type_eq_checker_correct in H; auto
@@ -6074,13 +6078,12 @@ Proof.
   [CaseLoad]: {
     half_shred.
     - (* case load copy *)
+      fold hitc in HMatch12.
       convert_foldr
         (λ t:type, check_ok_output (has_ref_flag_checker F t GCRefs))
         (fun t => has_ref_flag F t GCRefs) l5 HMatch10.
-      fold hitc in HMatch12.
       subst.
       constructor; try done.
-      { admit. } (* TODO: equal lengths *)
       apply flip_foldr2_bool in HMatch12.
       eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch12.
       (* I'm sure there's a way to make the following less jank but it's okay for now *)
@@ -6090,7 +6093,6 @@ Proof.
       subst.
       fold hitc in HMatch8.
       constructor; try done.
-      { admit. } (* TODO: equal lengths *)
       apply flip_foldr2_bool in HMatch8.
       eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch8.
       (* I'm sure there's a way to make the following less jank but it's okay for now *)
@@ -6195,7 +6197,7 @@ Proof.
       (fun t => has_mono_size F t) (pr_prefix p) HMatch7.
     by econstructor.
   }
-Admitted.
+Qed.
 
 Lemma have_instruction_type_checker_correct :
   ∀ insts M F L ψ L',
