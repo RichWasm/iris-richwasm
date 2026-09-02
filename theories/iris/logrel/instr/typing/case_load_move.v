@@ -22,6 +22,7 @@ Section case_load_move.
     let F' := F <| fc_labels ::= cons (τs', L') |> in
     let τs_ser := zip_with SerT κs τs in
     let ψ := InstrT [RefT κr (BaseM MemMM) Imm (VariantT κv τs_ser)] τs' in
+    length κs = length τs ->
     Forall2
       (fun τ es =>
          (forall wt wt' wtf wl wl' wlf es',
@@ -36,7 +37,7 @@ Section case_load_move.
     run_codegen (compile_instr mr fe (ICaseLoad ψ Move L' ess)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    iIntros (??????? IH Hok Hcg ????????) "@@@@@@@@@@@@".
+    iIntros (??????? Hlen_κs_τs IH Hok Hcg ????????) "@@@@@@@@@@@@".
     destruct κv.
     { admit. } (* contradiction *)
     destruct τs'.
@@ -181,23 +182,22 @@ Section case_load_move.
         by iFrame.
     }
 
+    apply Forall2_length in IH as Hlen_τs_ess.
+    assert (length τs = length τs_ser) as Hlen_τs_ser.
+    { by rewrite length_zip_with Hlen_κs_τs Nat.min_id. }
+
     iIntros (??) "(-> & Haddr & Hrt & Hown) Hf Hrun".
     clear Hcg_tag.
     iApply fupd_cwp.
     iMod "Hown".
     iModIntro.
     rewrite app_assoc.
-    apply Forall2_length in IH as Hlen_τs_ess.
     iApply (cwp_seq with "[-]").
     {
       eapply cwp_case_switch in Hcg_case as (wt_c & wt_c' & wl_c & wl_c' & es_c & Hcg_case & Hes3);
         first last.
-      { admit. }
-      {
-        rewrite length_map -compile_cases_length -Hlen_τs_ess.
-        (* TODO: Relate lengths of τs and τs_ser. *)
-        admit.
-      }
+      { apply map_lookup_helper_forwards. admit. }
+      { by rewrite length_map -compile_cases_length -Hlen_τs_ess Hlen_τs_ser. }
       iApply (Hes3 with "[$Hf] [$Hrun]").
       { admit. }
       { done. }

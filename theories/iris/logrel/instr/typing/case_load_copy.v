@@ -21,6 +21,7 @@ Section case_load_copy.
     let F' := F <| fc_labels ::= cons (τs', L') |> in
     let τs_ser := zip_with SerT κs τs in
     let ψ := InstrT [RefT κr μ Imm (VariantT κv τs_ser)] (RefT κr μ Imm (VariantT κv τs_ser) :: τs') in
+    length κs = length τs ->
     Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
     Forall2
       (fun τ es =>

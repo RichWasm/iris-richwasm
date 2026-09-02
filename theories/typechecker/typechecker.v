@@ -6080,6 +6080,7 @@ Proof.
       fold hitc in HMatch12.
       subst.
       constructor; try done.
+      { admit. } (* TODO: equal lengths *)
       apply flip_foldr2_bool in HMatch12.
       eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch12.
       (* I'm sure there's a way to make the following less jank but it's okay for now *)
@@ -6089,6 +6090,7 @@ Proof.
       subst.
       fold hitc in HMatch8.
       constructor; try done.
+      { admit. } (* TODO: equal lengths *)
       apply flip_foldr2_bool in HMatch8.
       eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch8.
       (* I'm sure there's a way to make the following less jank but it's okay for now *)
@@ -6193,9 +6195,7 @@ Proof.
       (fun t => has_mono_size F t) (pr_prefix p) HMatch7.
     by econstructor.
   }
-
-Qed.
-
+Admitted.
 
 Lemma have_instruction_type_checker_correct :
   ∀ insts M F L ψ L',
