@@ -80,17 +80,39 @@ Proof.
       rewrite fc_type_vars_get_upd in H0; cbn in H0; inversion H0; subst.
       inversion Hrefresh; subst.
       constructor; eauto.
+  - inversion Hkind; subst.
+    inversion Hrefresh; subst.
+    constructor.
+  - inversion Hkind; subst;
+    inversion Hrefresh; subst;
+    constructor; eauto.
   - admit.
   - admit.
   - admit.
   - admit.
   - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
+  - inversion Hkind; subst;
+    inversion Hrefresh; subst;
+      constructor; eauto.
+    admit.
+  - inversion Hkind; subst;
+    inversion Hrefresh; subst.
+    unfold κ0 in *.
+    eapply IHτ in H3; eauto.
+    assert (κ' = VALTYPE ρ ξ).
+    { admit. }
+    subst.
+    econstructor; eauto.
+  - inversion Hkind; subst.
+    inversion Hrefresh; subst.
+    unfold κ1 in *.
+    rewrite instId'_representation.
+    constructor; eauto.
+  - inversion Hkind; subst.
+    inversion Hrefresh; subst.
+    unfold κ1, κ0 in *.
+    rewrite instId'_size.
+    econstructor; eauto.
   - admit.
   - admit.
   - admit.
