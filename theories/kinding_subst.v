@@ -60,64 +60,214 @@ Proof.
   induction Hkind; try by (inversion Hrefresh; subst).
 Admitted.
 
+Lemma Forall3_specialize {X Y Z A : Type} {P : X → Y → Z → A → Prop} {xs ys zs} :
+  ∀ a,
+    Forall3 (λ x y z, forall a, P x y z a) xs ys zs →
+    Forall3 (λ x y z, P x y z a) xs ys zs.
+Proof.
+  intros a H. revert a. induction H.
+  - intros; constructor.
+  - intros a; constructor; auto.
+Qed.
+
 Lemma has_kind_env_to_has_kind_subst τ : ∀ F τv κv κ τ',
   refreshed_kinds F (subst_type VarM VarR VarS (unscoped.scons τv VarT) τ) τ' →
   has_kind F τv κv →
   has_kind (F <| fc_type_vars ::= cons κv |>) τ κ →
   has_kind F τ' κ.
 Proof.
-  induction τ; intros * Hrefresh Hv Hkind.
-  - destruct n.
-    + cbn in *.
-      inversion Hkind; cbn in *; subst.
-      rewrite fc_type_vars_get_upd in H0; cbn in H0; inversion H0; subst.
-      rewrite fc_kind_ctx_ty_update in H2.
-      eapply refreshed_kinds_has_kind in Hrefresh; last done.
-      subst τv.
-      done.
-    + cbn in *.
-      inversion Hkind; cbn in *; subst.
-      rewrite fc_type_vars_get_upd in H0; cbn in H0; inversion H0; subst.
-      inversion Hrefresh; subst.
-      constructor; eauto.
-  - inversion Hkind; subst.
-    inversion Hrefresh; subst.
+  intros * Hrefresh Hv Ht.
+  remember (F <| fc_type_vars ::= cons κv |>) as F'.
+  revert Hrefresh Hv.
+  revert τ'.
+  revert HeqF'.
+  revert τv κv F.
+  induction Ht using has_kind_ind' with
+    (Pi := λ F' ft,
+       ∀ (τv : type) (κv : kind) (F : function_ctx),
+         F' = F <| fc_type_vars ::= cons κv |> →
+         ∀ ft',
+           refreshed_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τv VarT) ft) ft' →
+           has_kind F τv κv →
+           has_kind_ift F ft')
+    (P0 := λ F' ft,
+       ∀ (τv : type) (κv : kind) (F : function_ctx),
+         F' = F <| fc_type_vars ::= cons κv |> →
+         ∀ ft',
+           refreshed_kinds_ft F (subst_function_type VarM VarR VarS (unscoped.scons τv VarT) ft) ft' →
+           has_kind F τv κv →
+           has_kind_ft F ft');
+    try intros τv κv F'' -> τ' Hrefresh Hv; try rename F'' into F.
+  - inversion Hrefresh; subst.
     constructor.
-  - inversion Hkind; subst;
-    inversion Hrefresh; subst;
-    constructor; eauto.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - inversion Hkind; subst;
-    inversion Hrefresh; subst;
-      constructor; eauto.
-    admit.
-  - inversion Hkind; subst;
-    inversion Hrefresh; subst.
-    unfold κ0 in *.
-    eapply IHτ in H3; eauto.
+  - inversion Hrefresh; subst.
+    constructor.
+  - inversion Hrefresh; subst.
+    constructor.
+  - inversion Hrefresh; subst.
+    constructor.
+  - inversion Hrefresh; subst.
+    constructor.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    apply (Forall3_specialize τv) in H.
+    apply (Forall3_specialize κv) in H.
+    apply (Forall3_specialize F) in H.
+    cbn in H.
+    apply (Forall3_specialize eq_refl) in H; cbn in H.
+    assert (Hτs' : Forall3 (λ τ' ρ ξ, has_kind F τ' (VALTYPE ρ ξ)) τs' ρs ξs).
+    {
+      rewrite -> Forall2_fmap_l in *.
+      clear H4 H6 κs' ρs0 ξs0 κ.
+      revert H.
+      revert ρs ξs.
+      induction H2; intros ρs ξs Hkinds.
+      - inversion Hkinds; subst; clear Hkinds.
+        constructor.
+      - inversion Hkinds; subst; clear Hkinds.
+        constructor.
+        + eauto.
+        + eauto.
+    }
+    assert (ρs0 = ρs). { admit. }
+    assert (ξs0 = ξs). { admit. }
+    subst.
+    by constructor.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    apply (Forall3_specialize τv) in H.
+    apply (Forall3_specialize κv) in H.
+    apply (Forall3_specialize F) in H.
+    cbn in H.
+    apply (Forall3_specialize eq_refl) in H; cbn in H.
+    assert (Hτs' : Forall3 (λ τ' σ ξ, has_kind F τ' (MEMTYPE σ ξ)) τs' σs ξs).
+    {
+      rewrite -> Forall2_fmap_l in *.
+      clear H4 H6 κs' σs0 ξs0 κ.
+      revert H.
+      revert σs ξs.
+      induction H2; intros σs ξs Hkinds.
+      - inversion Hkinds; subst; clear Hkinds.
+        constructor.
+      - inversion Hkinds; subst; clear Hkinds.
+        constructor.
+        + eauto.
+        + eauto.
+    }
+    assert (σs0 = σs). { admit. }
+    assert (ξs0 = ξs). { admit. }
+    subst.
+    by constructor.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    apply (Forall3_specialize τv) in H.
+    apply (Forall3_specialize κv) in H.
+    apply (Forall3_specialize F) in H.
+    cbn in H.
+    apply (Forall3_specialize eq_refl) in H; cbn in H.
+    assert (Hτs' : Forall3 (λ τ' ρ ξ, has_kind F τ' (VALTYPE ρ ξ)) τs' ρs ξs).
+    {
+      rewrite -> Forall2_fmap_l in *.
+      clear H4 H6 κs' ρs0 ξs0 κ.
+      revert H.
+      revert ρs ξs.
+      induction H2; intros ρs ξs Hkinds.
+      - inversion Hkinds; subst; clear Hkinds.
+        constructor.
+      - inversion Hkinds; subst; clear Hkinds.
+        constructor.
+        + eauto.
+        + eauto.
+    }
+    assert (ρs0 = ρs). { admit. }
+    assert (ξs0 = ξs). { admit. }
+    subst.
+    by constructor.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    apply (Forall3_specialize τv) in H.
+    apply (Forall3_specialize κv) in H.
+    apply (Forall3_specialize F) in H.
+    cbn in H.
+    apply (Forall3_specialize eq_refl) in H; cbn in H.
+    assert (Hτs' : Forall3 (λ τ' σ ξ, has_kind F τ' (MEMTYPE σ ξ)) τs' σs ξs).
+    {
+      rewrite -> Forall2_fmap_l in *.
+      clear H4 H6 κs' σs0 ξs0 κ.
+      revert H.
+      revert σs ξs.
+      induction H2; intros σs ξs Hkinds.
+      - inversion Hkinds; subst; clear Hkinds.
+        constructor.
+      - inversion Hkinds; subst; clear Hkinds.
+        constructor.
+        + eauto.
+        + eauto.
+    }
+    assert (σs0 = σs). { admit. }
+    assert (ξs0 = ξs). { admit. }
+    subst.
+    by constructor.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    econstructor; eauto.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    econstructor; eauto.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    econstructor; eauto.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    eapply IHHt in H3; eauto.
+    econstructor; eauto.
+  - inversion Hrefresh; subst.
     assert (κ' = VALTYPE ρ ξ).
     { admit. }
     subst.
     econstructor; eauto.
-  - inversion Hkind; subst.
-    inversion Hrefresh; subst.
-    unfold κ1 in *.
+  - inversion Hrefresh; subst.
     rewrite instId'_representation.
-    constructor; eauto.
-  - inversion Hkind; subst.
-    inversion Hrefresh; subst.
-    unfold κ1, κ0 in *.
+    by constructor.
+  - inversion Hrefresh; subst.
     rewrite instId'_size.
+    by constructor.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    rewrite instId'_kind.
+    rewrite instId'_kind in H3.
+    econstructor.
+    (* Not sure how to prove this case for recursive types. Does the IH need generalizing? *)
+    admit.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    rewrite instId'_kind.
     econstructor; eauto.
+    (* Not sure how to prove this case for exists mem. Should we prove the theorem for _any_ substitution? *)
+    admit.
   - admit.
   - admit.
   - admit.
-  - admit.
-  - admit.
+  - destruct t.
+    + cbn in *.
+      rewrite fc_type_vars_get_upd in H; cbn in H; inversion H; subst.
+      rewrite fc_kind_ctx_ty_update in H0.
+      eapply refreshed_kinds_has_kind in Hrefresh; last done.
+      subst τv.
+      done.
+    + cbn in *.
+      rewrite fc_type_vars_get_upd in H; cbn in H; inversion H; subst.
+      inversion Hrefresh; subst.
+      constructor; eauto.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    econstructor.
+    + admit.
+    + admit.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    constructor; eauto.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    constructor; eauto.
+    admit.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    constructor; eauto.
+    admit.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    constructor; eauto.
+    admit.
+  - inversion Hrefresh; subst; clear Hrefresh.
+    rewrite instId'_kind.
+    constructor; eauto.
+    admit.
 Admitted.
 
 Lemma has_kinds_env_to_has_kinds_subst τs : ∀ F τv κv κs τs',
