@@ -187,9 +187,23 @@ Section case_load_move.
     iMod "Hown".
     iModIntro.
     rewrite app_assoc.
+    apply Forall2_length in IH as Hlen_τs_ess.
     iApply (cwp_seq with "[-]").
     {
-      (* case_blocks *)
+      eapply cwp_case_switch in Hcg_case as (wt_c & wt_c' & wl_c & wl_c' & es_c & Hcg_case & Hes3);
+        first last.
+      { admit. }
+      {
+        rewrite length_map -compile_cases_length -Hlen_τs_ess.
+        (* TODO: Relate lengths of τs and τs_ser. *)
+        admit.
+      }
+      iApply (Hes3 with "[$Hf] [$Hrun]").
+      { admit. }
+      { done. }
+      { apply Is_true_true. apply has_values_to_consts. }
+      { admit. }
+      iIntros "Hfr Hrun".
       admit.
     }
 

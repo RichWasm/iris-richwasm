@@ -1861,7 +1861,7 @@ Section CodeGen.
   Qed.
 
   Lemma cwp_case_switch wt wt' wl wl' fe ts cases case i es_s :
-    (length cases < Wasm_int.Int32.modulus)%Z ->
+    (length cases <= Wasm_int.Int32.modulus)%Z ->
     cases !! i = Some case ->
     run_codegen (case_switch fe ts cases) wt wl = inr (tt, wt', wl', es_s) ->
     exists wt_c wt_c' wl_c wl_c' es_c,
@@ -1997,8 +1997,7 @@ Section CodeGen.
       - left. instantiate (1 := i). rewrite -Hi. lia.
       - rewrite Hi_tag Z2Nat.id. all: apply Wasm_int.Int32.unsigned_range.
       - rewrite length_app in Hlen_cases. cbn in *.
-        rewrite -Nat2Z.inj_add Nat.add_succ_comm.
-        by apply Z.lt_le_incl.
+        by rewrite -Nat2Z.inj_add Nat.add_succ_comm.
       - done.
       - rewrite Hi_tag Hf_tag Z2Nat.id; last apply Wasm_int.Int32.unsigned_range.
         by rewrite Wasm_int.Int32.repr_unsigned.
