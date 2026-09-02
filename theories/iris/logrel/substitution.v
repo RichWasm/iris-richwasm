@@ -16,40 +16,6 @@ Section substitution.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-
-  (* NOT DONE P:L these substitution lemmas are almost certainly okay *)
-  Lemma refresh_kinds_up_shift_type F κ τ :
-    refresh_kinds (F <| fc_type_vars ::= cons κ |>)
-      (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift τ) =
-      ren_type unscoped.id unscoped.id unscoped.id unscoped.shift (refresh_kinds F τ).
-  Proof.
-  Admitted.
-
-
-
-  (* NOT DONE P:L PROBABLY TRUE BUT ANNOYING *)
-  Lemma type_interp_up_rep se sub_t ρ sv i :
-    type_interp rti sr (sub_t i) se sv ∗-∗
-    type_interp rti sr (up_representation_type sub_t i) (senv_insert_rep ρ se) sv.
-  Proof.
-  Admitted.
-  Lemma type_interp_up_size se sub_t n sv i :
-    type_interp rti sr (sub_t i) se sv ∗-∗
-    type_interp rti sr (up_size_type sub_t i) (senv_insert_size n se) sv.
-  Proof.
-  Admitted.
-  Lemma type_interp_up_type se sub_t sκ sκ_T T sv i :
-    True -> (* need to add a condition on sκ and T here? *)
-    type_interp rti sr (sub_t i) se sv ∗-∗
-    type_interp rti sr (up_type_type sub_t (S i)) (senv_insert_type sκ sκ_T T se) sv.
-  Proof.
-  Admitted.
-  Lemma type_interp_up_memory se sub_t μ sv i :
-    type_interp rti sr (sub_t i) se sv ∗-∗
-    type_interp rti sr (up_memory_type sub_t i) (senv_insert_mem μ se) sv.
-  Proof.
-  Admitted.
-
   (** STARTING FROM HERE, we begin to have these assumptions about how substitutions and semantic envs
       relate to one another. These relations are strong enough to prove the necessary subsitution
       lemmas, and weak enough to be proven about the outermost substitution we're working on. *)
@@ -201,6 +167,604 @@ Section substitution.
       by rewrite <- (eval_rep_subst_senv_eq _ _ _ _ Hsub_r).
     - cbn.
       by rewrite <- (eval_size_subst_senv_eq _ _ _ _ _ Hsub_r Hsub_s).
+  Qed.
+
+  Record sem_env_ren (ξm ξr ξs ξt : nat → nat) (se se' : semantic_env (Σ:=Σ)) : Prop :=
+    { sem_env_ren_mem : ∀ i, lookup_mem se i = lookup_mem se' (ξm i);
+      sem_env_ren_rep : ∀ i, lookup_rep se i = lookup_rep se' (ξr i);
+      sem_env_ren_size : ∀ i, lookup_size se i = lookup_size se' (ξs i);
+      sem_env_ren_type : ∀ i, lookup_type se i ≡ lookup_type se' (ξt i) }.
+
+  Lemma sem_env_ren_insert_mem ξm ξr ξs ξt se se' μ :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    sem_env_ren (unscoped.up_ren ξm) ξr ξs ξt (senv_insert_mem μ se) (senv_insert_mem μ se').
+  Proof.
+    intros [Hm Hr Hs Ht]; split; intros i; [destruct i|..]; cbn in *; auto.
+  Qed.
+
+  Lemma sem_env_ren_insert_rep ξm ξr ξs ξt se se' ιs :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    sem_env_ren ξm (unscoped.up_ren ξr) ξs ξt (senv_insert_rep ιs se) (senv_insert_rep ιs se').
+  Proof.
+    intros [Hm Hr Hs Ht]; split; intros i; [|destruct i|..]; cbn in *; auto.
+  Qed.
+
+  Lemma sem_env_ren_insert_size ξm ξr ξs ξt se se' n :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    sem_env_ren ξm ξr (unscoped.up_ren ξs) ξt (senv_insert_size n se) (senv_insert_size n se').
+  Proof.
+    intros [Hm Hr Hs Ht]; split; intros i; [| |destruct i|]; cbn in *; auto.
+  Qed.
+
+  Lemma sem_env_ren_insert_type ξm ξr ξs ξt se se' sκ sκ_T T :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    sem_env_ren ξm ξr ξs (unscoped.up_ren ξt) (senv_insert_type sκ sκ_T T se) (senv_insert_type sκ sκ_T T se').
+  Proof.
+    intros [Hm Hr Hs Ht]; split; intros i; [| | |destruct i]; cbn in *; auto.
+  Qed.
+
+  Lemma eval_mem_ren ξm ξr ξs ξt se se' μ :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    eval_mem se μ = eval_mem se' (ren_memory ξm μ).
+  Proof.
+    intros HR; destruct μ; cbn; [apply HR|done].
+  Qed.
+
+  Lemma eval_rep_ren ξm ξr ξs ξt se se' ρ :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    eval_rep se ρ = eval_rep se' (ren_representation ξr ρ).
+  Proof.
+    intros HR; rewrite rinstInst'_representation.
+    apply eval_rep_subst_senv_eq; intros i; cbn; apply HR.
+  Qed.
+
+  Lemma eval_size_ren ξm ξr ξs ξt se se' σ :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    eval_size se σ = eval_size se' (ren_size ξr ξs σ).
+  Proof.
+    intros HR; rewrite rinstInst'_size.
+    apply eval_size_subst_senv_eq; intros i; cbn; apply HR.
+  Qed.
+
+  Lemma eval_kind_ren ξm ξr ξs ξt se se' κ :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    eval_kind se κ = eval_kind se' (ren_kind ξr ξs κ).
+  Proof.
+    intros HR; rewrite rinstInst'_kind.
+    apply eval_kind_subst_senv_eq; intros i; cbn; apply HR.
+  Qed.
+
+  Lemma sum_offset_ren ξm ξr ξs ξt se se' ρs i :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    sum_offset se ρs i = sum_offset se' (map (ren_representation ξr) ρs) i.
+  Proof.
+    intros HR; unfold sum_offset.
+    rewrite firstn_map.
+    f_equal.
+    apply Forall_mapM_map_ext, Forall_forall; intros ρ _.
+    by eapply eval_rep_ren.
+  Qed.
+
+  Lemma type_entry_equiv_skind
+    (o o' : optionO (prodO (leibnizO skind) (prodO (leibnizO skind) (leibnizO semantic_value -n> iPropO Σ)))) :
+    o ≡ o' → fst <$> o = fst <$> o'.
+  Proof.
+    intros H; inversion H as [u v Huv|]; subst; cbn; [f_equal|done].
+    by destruct Huv as [Hfst _].
+  Qed.
+
+  Lemma type_skind_ren ξm ξr ξs ξt se se' τ :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    type_skind se τ = type_skind se' (ren_type ξm ξr ξs ξt τ).
+  Proof.
+    intros HR; destruct τ; cbn; try by eapply eval_kind_ren.
+    apply type_entry_equiv_skind, (sem_env_ren_type _ _ _ _ _ _ HR).
+  Qed.
+
+  Lemma translate_type_ren ξm ξr ξs ξt se se' τ :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    translate_type se τ = translate_type se' (ren_type ξm ξr ξs ξt τ).
+  Proof.
+    intros HR; cbn -[type_skind].
+    by rewrite (type_skind_ren _ _ _ _ _ _ τ HR).
+  Qed.
+
+  Lemma translate_types_ren ξm ξr ξs ξt se se' τs :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    translate_types se τs = translate_types se' (map (ren_type ξm ξr ξs ξt) τs).
+  Proof.
+    intros HR; cbn -[translate_type].
+    f_equal.
+    apply Forall_mapM_map_ext, Forall_forall; intros τ _.
+    by apply translate_type_ren.
+  Qed.
+
+  Lemma type_var_interp_ren ξm ξr ξs ξt se se' x :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    type_var_interp x se ≡ type_var_interp (ξt x) se'.
+  Proof.
+    intros HR; pose proof (sem_env_ren_type _ _ _ _ _ _ HR x) as Ht.
+    intros sv; cbn -[lookup_type]; revert Ht.
+    generalize (lookup_type se x), (lookup_type se' (ξt x)); intros o o' Ht.
+    inversion Ht as [u v Huv|]; subst; cbn; [|done].
+    destruct Huv as [_ [_ HT]]; apply HT.
+  Qed.
+
+  Lemma lookup_interp_ren (Ts Ts' : list semantic_type) (se se' : semantic_env (Σ:=Σ)) (i : nat) (sv : semantic_value) :
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts Ts' →
+    (match list_lookup i Ts as o return (o = list_lookup i Ts → iPropI Σ) with
+     | Some T => λ _, T se sv
+     | None => λ _, False%I
+     end eq_refl) ⊣⊢
+    (match list_lookup i Ts' as o return (o = list_lookup i Ts' → iPropI Σ) with
+     | Some T => λ _, T se' sv
+     | None => λ _, False%I
+     end eq_refl).
+  Proof.
+    intros HF; revert i.
+    induction HF as [|T T' Ts Ts' HT _ IH]; intros [|i]; cbn; [done|done|apply HT|apply IH].
+  Qed.
+
+  Lemma big_sepL2_interp_ren {B} (Ts Ts' : list (semantic_type (Σ:=Σ))) (l : list B) (g : B → semantic_value)
+    (se se' : semantic_env (Σ:=Σ)) :
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts Ts' →
+    ([∗ list] (T : semantic_type);b ∈ Ts;l, T se (g b)) ⊣⊢
+    ([∗ list] (T : semantic_type);b ∈ Ts';l, T se' (g b)).
+  Proof.
+    intros HF; revert l.
+    induction HF as [|T T' Ts Ts' HT _ IH]; intros [|b l]; cbn; [done..|].
+    f_equiv; [apply HT|apply IH].
+  Qed.
+
+  Lemma type_interp_ext τ τ' se se' :
+    type_skind se τ = type_skind se' τ' →
+    pre_type_interp rti sr τ se ≡ pre_type_interp rti sr τ' se' →
+    type_interp rti sr τ se ≡ type_interp rti sr τ' se'.
+  Proof.
+    intros Hsk HT sv.
+    rewrite !type_interp_eq; cbn -[type_skind pre_type_interp skind_has_svalue].
+    rewrite Hsk.
+    f_equiv; intros sκ.
+    repeat (f_equiv; try done).
+  Qed.
+
+  Lemma sum_interp_ren ξm ξr ξs ξt se se' κ Ts Ts' :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts Ts' →
+    sum_interp κ Ts se ≡ sum_interp (ren_kind ξr ξs κ) Ts' se'.
+  Proof.
+    intros HR HF.
+    destruct κ as [[|ρs|ρs|ι] ξ|σ ξ]; try done.
+    intros sv; cbn.
+    do 4 (f_equiv; intros ?).
+    rewrite (sum_offset_ren _ _ _ _ _ _ ρs _ HR).
+    rewrite map_fmap list_lookup_fmap.
+    destruct (ρs !! _) as [ρ|]; cbn; [rewrite (eval_rep_ren _ _ _ _ _ _ ρ HR)|].
+    all: repeat (f_equiv; try done).
+    all: apply lookup_interp_ren, HF.
+  Qed.
+
+  Lemma variant_interp_ren Ts Ts' (se se' : semantic_env (Σ:=Σ)) :
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts Ts' →
+    variant_interp Ts se ≡ variant_interp Ts' se'.
+  Proof.
+    intros HF sv; cbn.
+    do 4 (f_equiv; intros ?).
+    repeat (f_equiv; try done).
+    apply lookup_interp_ren, HF.
+  Qed.
+
+  Lemma prod_interp_ren Ts Ts' (se se' : semantic_env (Σ:=Σ)) :
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts Ts' →
+    prod_interp Ts se ≡ prod_interp Ts' se'.
+  Proof.
+    intros HF sv; cbn.
+    f_equiv; intros oss.
+    f_equiv.
+    apply (big_sepL2_interp_ren _ _ _ SAtoms), HF.
+  Qed.
+
+  Lemma struct_interp_ren Ts Ts' (se se' : semantic_env (Σ:=Σ)) :
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts Ts' →
+    struct_interp Ts se ≡ struct_interp Ts' se'.
+  Proof.
+    intros HF sv; cbn.
+    f_equiv; intros wss.
+    f_equiv.
+    rewrite (big_sepL2_flip (λ _ (T : semantic_type) ws,T se (SWords ws)) Ts wss).
+    rewrite (big_sepL2_flip (λ _ (T : semantic_type) ws,T se' (SWords ws)) Ts' wss).
+    apply (big_sepL2_interp_ren _ _ _ SWords), HF.
+  Qed.
+
+  Lemma ref_interp_ren ξm ξr ξs ξt se se' μ β (T T' : semantic_type) :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    T se ≡ T' se' →
+    ref_interp μ β T se ≡ ref_interp (ren_memory ξm μ) β T' se'.
+  Proof.
+    intros HR HT.
+    cbn -[ref_mm_mut_interp ref_mm_imm_interp ref_gc_mut_interp ref_gc_imm_interp].
+    rewrite <- (eval_mem_ren _ _ _ _ _ _ μ HR).
+    destruct (eval_mem se μ) as [[|]|], β; try done.
+    all: intros sv; cbn.
+    all: do 2 (f_equiv; intros ?).
+    all: repeat (f_equiv; try (intros ?); try done).
+  Qed.
+
+  Lemma coderef_interp_ren (FT FT' : semantic_env -n> ClR) (se se' : semantic_env (Σ:=Σ)) :
+    FT se ≡ FT' se' →
+    coderef_interp sr FT se ≡ coderef_interp sr FT' se'.
+  Proof.
+    intros H sv; cbn.
+    do 4 (f_equiv; intros ?).
+    repeat (f_equiv; try done).
+  Qed.
+
+  Lemma ser_interp_ren (T T' : semantic_type) (se se' : semantic_env (Σ:=Σ)) :
+    T se ≡ T' se' →
+    ser_interp T se ≡ ser_interp T' se'.
+  Proof.
+    intros HT sv; cbn.
+    f_equiv; intros os.
+    repeat (f_equiv; try done).
+  Qed.
+
+  Lemma rec_interp_ren ξm ξr ξs ξt se se' κ (T T' : semantic_type) :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    (∀ sκ sκ_T X, T (senv_insert_type sκ sκ_T X se) ≡ T' (senv_insert_type sκ sκ_T X se')) →
+    rec_interp κ T se ≡ rec_interp (ren_kind ξr ξs κ) T' se'.
+  Proof.
+    intros HR HT.
+    cbn -[skind_rec_interp].
+    rewrite <- (eval_kind_ren _ _ _ _ _ _ κ HR).
+    destruct (eval_kind se κ) as [sκ|]; [|done].
+    cbn -[fixpoint skind_rec_interp1].
+    apply fixpoint_proper; intros X sv.
+    cbn -[senv_insert_type add_skind_interp_closed].
+    f_equiv.
+    apply HT.
+  Qed.
+
+  Lemma exists_mem_interp_ren (T T' : semantic_type) (se se' : semantic_env (Σ:=Σ)) :
+    (∀ μ, T (senv_insert_mem μ se) ≡ T' (senv_insert_mem μ se')) →
+    exists_mem_interp T se ≡ exists_mem_interp T' se'.
+  Proof.
+    intros HT sv; cbn -[senv_insert_mem].
+    f_equiv; intros μ.
+    apply HT.
+  Qed.
+
+  Lemma exists_rep_interp_ren (T T' : semantic_type) (se se' : semantic_env (Σ:=Σ)) :
+    (∀ ιs, T (senv_insert_rep ιs se) ≡ T' (senv_insert_rep ιs se')) →
+    exists_rep_interp T se ≡ exists_rep_interp T' se'.
+  Proof.
+    intros HT sv; cbn -[senv_insert_rep].
+    f_equiv; intros ιs.
+    apply HT.
+  Qed.
+
+  Lemma exists_size_interp_ren (T T' : semantic_type) (se se' : semantic_env (Σ:=Σ)) :
+    (∀ n, T (senv_insert_size n se) ≡ T' (senv_insert_size n se')) →
+    exists_size_interp T se ≡ exists_size_interp T' se'.
+  Proof.
+    intros HT sv; cbn -[senv_insert_size].
+    f_equiv; intros n.
+    apply HT.
+  Qed.
+
+  Lemma exists_type_interp_ren ξm ξr ξs ξt se se' κ (T T' : semantic_type) :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    (∀ sκ sκ_T X, T (senv_insert_type sκ sκ_T X se) ≡ T' (senv_insert_type sκ sκ_T X se')) →
+    exists_type_interp κ T se ≡ exists_type_interp (ren_kind ξr ξs κ) T' se'.
+  Proof.
+    intros HR HT sv; cbn -[senv_insert_type].
+    rewrite <- (eval_kind_ren _ _ _ _ _ _ κ HR).
+    f_equiv; intros X.
+    f_equiv; intros sκ.
+    f_equiv; intros sκ_T.
+    specialize (HT sκ sκ_T X).
+    repeat (f_equiv; try done).
+  Qed.
+
+  Lemma values_interp1_ren Ts Ts' (se se' : semantic_env (Σ:=Σ)) :
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts Ts' →
+    values_interp1 Ts se ≡ values_interp1 Ts' se'.
+  Proof.
+    intros HF os; cbn.
+    f_equiv; intros oss.
+    f_equiv.
+    apply (big_sepL2_interp_ren _ _ _ SAtoms), HF.
+  Qed.
+
+  Lemma cwp_wasm_equiv es (L1 L2 : label_ctxO) (R1 R2 : return_ctxO) (Φ1 Φ2 : fvs_predO) :
+    L1 ≡ L2 → R1 ≡ R2 → Φ1 ≡ Φ2 →
+    cwp_wasm NotStuck ⊤ es (coe_label_ctx L1) (coe_return_ctx R1) (coe_fvs_pred Φ1) ⊣⊢
+    cwp_wasm NotStuck ⊤ es (coe_label_ctx L2) (coe_return_ctx R2) (coe_fvs_pred Φ2).
+  Proof.
+    intros HL HR HΦ.
+    unfold cwp_wasm.
+    apply (ne_proper (A:=logpredO) (B:=iPropO Σ) (lenient_wp _ _ _)).
+    change (cwp_post_lp (coe_label_ctx L1) (coe_return_ctx R1) (coe_fvs_pred Φ1))
+      with (cwp_post_lp_ne L1 R1 Φ1).
+    change (cwp_post_lp (coe_label_ctx L2) (coe_return_ctx R2) (coe_fvs_pred Φ2))
+      with (cwp_post_lp_ne L2 R2 Φ2).
+    repeat (f_equiv; try done).
+  Qed.
+
+  Lemma mono_closure_interp_ren ξm ξr ξs ξt se se' τs1 τs2 Ts1 Ts2 Ts1' Ts2' :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts1 Ts1' →
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts2 Ts2' →
+    mono_closure_interp rti sr τs1 τs2 Ts1 Ts2 se ≡
+    mono_closure_interp rti sr (map (ren_type ξm ξr ξs ξt) τs1) (map (ren_type ξm ξr ξs ξt) τs2) Ts1' Ts2' se'.
+  Proof.
+    intros HR HF1 HF2 cl.
+    destruct cl as [inst [ts1 ts2] tlocs es|]; [|done].
+    cbn -[values_interp1 atoms_interp translate_types].
+    rewrite <- !(translate_types_ren _ _ _ _ _ _ _ HR).
+    pose proof (values_interp1_ren _ _ _ _ HF1) as HV1.
+    pose proof (values_interp1_ren _ _ _ _ HF2) as HV2.
+    pose (oΦ1 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗
+                           (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I).
+    pose (oΦ2 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2' se' os2) ∗
+                           (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I).
+    assert (HΦs : oΦ1 ≡ oΦ2).
+    { intros vs2; cbn -[values_interp1 atoms_interp].
+      f_equiv.
+      f_equiv; intros os2.
+      f_equiv.
+      exact (HV2 os2). }
+    assert (HΦs' : (λne _ : leibnizO frame, oΦ1) ≡ (λne _, oΦ2)) by (intros ?; exact HΦs).
+    pose (oL1 := [(length ts2, λne _, oΦ1)] : label_ctxO).
+    pose (oL2 := [(length ts2, λne _, oΦ2)] : label_ctxO).
+    assert (HLs : oL1 ≡ oL2) by (constructor; [split; [done|exact HΦs']|constructor]).
+    pose (oR1 := Some (length ts2, oΦ1) : return_ctxO).
+    pose (oR2 := Some (length ts2, oΦ2) : return_ctxO).
+    assert (HRs : oR1 ≡ oR2) by (constructor; split; [done|exact HΦs]).
+    do 2 (f_equiv; try done).
+    do 9 f_equiv.
+    f_equiv; first exact (HV1 _).
+    do 4 f_equiv.
+    apply (cwp_wasm_equiv es oL1 oL2 oR1 oR2 (λne _, oΦ1) (λne _, oΦ2) HLs HRs HΦs').
+  Qed.
+
+  Lemma forall_type_interp_ren ξm ξr ξs ξt se se' κ (FT FT' : semantic_env -n> ClR) :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    (∀ sκ sκ_T X, FT (senv_insert_type sκ sκ_T X se) ≡ FT' (senv_insert_type sκ sκ_T X se')) →
+    forall_type_interp κ FT se ≡ forall_type_interp (ren_kind ξr ξs κ) FT' se'.
+  Proof.
+    intros HR HFT cl; cbn -[senv_insert_type].
+    rewrite <- (eval_kind_ren _ _ _ _ _ _ κ HR).
+    f_equiv.
+    f_equiv; intros sκ.
+    f_equiv; intros sκ_T.
+    f_equiv; intros X.
+    specialize (HFT sκ sκ_T X).
+    repeat (f_equiv; try done).
+  Qed.
+
+  Lemma forall_mem_interp_ren (FT FT' : semantic_env -n> ClR) (se se' : semantic_env (Σ:=Σ)) :
+    (∀ μ, FT (senv_insert_mem μ se) ≡ FT' (senv_insert_mem μ se')) →
+    forall_mem_interp FT se ≡ forall_mem_interp FT' se'.
+  Proof.
+    intros H cl; cbn -[senv_insert_mem].
+    f_equiv.
+    f_equiv; intros μ.
+    exact (H μ cl).
+  Qed.
+
+  Lemma forall_rep_interp_ren (FT FT' : semantic_env -n> ClR) (se se' : semantic_env (Σ:=Σ)) :
+    (∀ ιs, FT (senv_insert_rep ιs se) ≡ FT' (senv_insert_rep ιs se')) →
+    forall_rep_interp FT se ≡ forall_rep_interp FT' se'.
+  Proof.
+    intros H cl; cbn -[senv_insert_rep].
+    f_equiv.
+    f_equiv; intros ιs.
+    exact (H ιs cl).
+  Qed.
+
+  Lemma forall_size_interp_ren (FT FT' : semantic_env -n> ClR) (se se' : semantic_env (Σ:=Σ)) :
+    (∀ n, FT (senv_insert_size n se) ≡ FT' (senv_insert_size n se')) →
+    forall_size_interp FT se ≡ forall_size_interp FT' se'.
+  Proof.
+    intros H cl; cbn -[senv_insert_size].
+    f_equiv.
+    f_equiv; intros n.
+    exact (H n cl).
+  Qed.
+
+  Definition type_ren_ok (τ : type) : Prop :=
+    ∀ ξm ξr ξs ξt se se',
+      sem_env_ren ξm ξr ξs ξt se se' →
+      type_interp rti sr τ se ≡ type_interp rti sr (ren_type ξm ξr ξs ξt τ) se'.
+
+  Definition function_type_ren_ok (ϕ : Core.function_type) : Prop :=
+    ∀ ξm ξr ξs ξt se se',
+      sem_env_ren ξm ξr ξs ξt se se' →
+      closure_interp rti sr ϕ se ≡ closure_interp rti sr (ren_function_type ξm ξr ξs ξt ϕ) se'.
+
+  Definition inner_function_type_ren_ok (ϕ : inner_function_type) : Prop :=
+    ∀ ξm ξr ξs ξt se se',
+      sem_env_ren ξm ξr ξs ξt se se' →
+      inner_closure_interp rti sr ϕ se ≡
+      inner_closure_interp rti sr (ren_inner_function_type ξm ξr ξs ξt ϕ) se'.
+
+  Lemma map_type_interp_ren τs ξm ξr ξs ξt se se' :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    Forall type_ren_ok τs →
+    Forall2 (λ T T' : semantic_type, T se ≡ T' se')
+      (map (type_interp rti sr) τs) (map (type_interp rti sr) (map (ren_type ξm ξr ξs ξt) τs)).
+  Proof.
+    intros HR IH.
+    rewrite !map_fmap.
+    apply Forall2_fmap, Forall2_fmap_r, Forall_Forall2_diag.
+    eapply Forall_impl; [exact IH|].
+    intros τ Hτ; cbn.
+    by apply Hτ.
+  Qed.
+
+  Lemma closure_interp_eq' ϕ se :
+    closure_interp rti sr ϕ se ≡ closure_interp' rti sr ϕ se.
+  Proof.
+    intros cl; apply closure_interp_eq.
+  Qed.
+
+  Lemma inner_closure_interp_eq' ϕ se :
+    inner_closure_interp rti sr ϕ se ≡ inner_closure_interp' rti sr ϕ se.
+  Proof.
+    intros cl; apply inner_closure_interp_eq.
+  Qed.
+
+  Ltac cbn_interp :=
+    cbn -[type_var_interp sum_interp variant_interp prod_interp struct_interp
+          ref_interp coderef_interp ser_interp rec_interp
+          exists_mem_interp exists_rep_interp exists_size_interp exists_type_interp
+          mono_closure_interp forall_type_interp forall_mem_interp forall_rep_interp forall_size_interp
+          unscoped.up_ren].
+
+  Lemma type_interp_ren :
+    (∀ τ, type_ren_ok τ) ∧ (∀ ϕ, function_type_ren_ok ϕ) ∧ (∀ ϕ, inner_function_type_ren_ok ϕ).
+  Proof.
+    apply type_and_function_ind.
+    - intros x ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      by eapply type_var_interp_ren.
+    - intros κ ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      by intros sv; cbn.
+    - intros κ nt ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      by intros sv; cbn.
+    - intros κ τs IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply (sum_interp_ren _ _ _ _ _ _ _ _ _ HR), (map_type_interp_ren _ _ _ _ _ _ _ HR IH).
+    - intros κ τs IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply variant_interp_ren, (map_type_interp_ren _ _ _ _ _ _ _ HR IH).
+    - intros κ τs IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply prod_interp_ren, (map_type_interp_ren _ _ _ _ _ _ _ HR IH).
+    - intros κ τs IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply struct_interp_ren, (map_type_interp_ren _ _ _ _ _ _ _ HR IH).
+    - intros κ μ β τ IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply (ref_interp_ren _ _ _ _ _ _ _ _ _ _ HR).
+      by apply IH.
+    - intros κ ϕ IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply coderef_interp_ren.
+      by apply IH.
+    - intros κ τ IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply ser_interp_ren.
+      by apply IH.
+    - intros κ ρ ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      by intros sv; cbn.
+    - intros κ σ ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      by intros sv; cbn.
+    - intros κ τ IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply (rec_interp_ren _ _ _ _ _ _ _ _ _ HR).
+      intros sκ sκ_T X.
+      apply IH.
+      by apply sem_env_ren_insert_type.
+    - intros κ τ IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply exists_mem_interp_ren; intros μ.
+      apply IH.
+      by apply sem_env_ren_insert_mem.
+    - intros κ τ IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply exists_rep_interp_ren; intros ιs.
+      apply IH.
+      by apply sem_env_ren_insert_rep.
+    - intros κ τ IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply exists_size_interp_ren; intros n.
+      apply IH.
+      by apply sem_env_ren_insert_size.
+    - intros κ κ0 τ IH ξm ξr ξs ξt se se' HR.
+      apply type_interp_ext; [by eapply type_skind_ren|].
+      cbn_interp.
+      apply (exists_type_interp_ren _ _ _ _ _ _ _ _ _ HR).
+      intros sκ sκ_T X.
+      apply IH.
+      by apply sem_env_ren_insert_type.
+    - intros τs1 τs2 IH1 IH2 ξm ξr ξs ξt se se' HR.
+      cbn_interp.
+      apply (mono_closure_interp_ren _ _ _ _ _ _ _ _ _ _ _ _ HR);
+        by apply map_type_interp_ren.
+    - intros κ ϕ IH ξm ξr ξs ξt se se' HR.
+      cbn_interp.
+      apply (forall_type_interp_ren _ _ _ _ _ _ _ _ _ HR).
+      intros sκ sκ_T X.
+      apply IH.
+      by apply sem_env_ren_insert_type.
+    - intros ϕ IH ξm ξr ξs ξt se se' HR.
+      rewrite !closure_interp_eq'; cbn_interp.
+      rewrite <- !inner_closure_interp_eq'.
+      by apply IH.
+    - intros ϕ IH ξm ξr ξs ξt se se' HR.
+      rewrite !closure_interp_eq'; cbn_interp.
+      apply forall_mem_interp_ren; intros μ.
+      apply IH.
+      by apply sem_env_ren_insert_mem.
+    - intros ϕ IH ξm ξr ξs ξt se se' HR.
+      rewrite !closure_interp_eq'; cbn_interp.
+      apply forall_rep_interp_ren; intros ιs.
+      apply IH.
+      by apply sem_env_ren_insert_rep.
+    - intros ϕ IH ξm ξr ξs ξt se se' HR.
+      rewrite !closure_interp_eq'; cbn_interp.
+      apply forall_size_interp_ren; intros n.
+      apply IH.
+      by apply sem_env_ren_insert_size.
+  Qed.
+
+  Lemma type_interp_up_rep se sub_t ρ sv i :
+    type_interp rti sr (sub_t i) se sv ∗-∗
+    type_interp rti sr (up_representation_type sub_t i) (senv_insert_rep ρ se) sv.
+  Proof.
+    apply bi.equiv_wand_iff, (proj1 type_interp_ren).
+    by split; intros [|j]; cbn.
+  Qed.
+
+  Lemma type_interp_up_size se sub_t n sv i :
+    type_interp rti sr (sub_t i) se sv ∗-∗
+    type_interp rti sr (up_size_type sub_t i) (senv_insert_size n se) sv.
+  Proof.
+    apply bi.equiv_wand_iff, (proj1 type_interp_ren).
+    by split; intros [|j]; cbn.
+  Qed.
+
+  Lemma type_interp_up_type se sub_t sκ sκ_T T sv i :
+    type_interp rti sr (sub_t i) se sv ∗-∗
+    type_interp rti sr (up_type_type sub_t (S i)) (senv_insert_type sκ sκ_T T se) sv.
+  Proof.
+    apply bi.equiv_wand_iff, (proj1 type_interp_ren).
+    by split; intros [|j]; cbn.
+  Qed.
+
+  Lemma type_interp_up_memory se sub_t μ sv i :
+    type_interp rti sr (sub_t i) se sv ∗-∗
+    type_interp rti sr (up_memory_type sub_t i) (senv_insert_mem μ se) sv.
+  Proof.
+    apply bi.equiv_wand_iff, (proj1 type_interp_ren).
+    by split; intros [|j]; cbn.
   Qed.
 
   Lemma eq_subskind_of_option u v :
@@ -814,9 +1378,7 @@ Section substitution.
         + change (snd <$> se'.2 !! i) with (snd <$> lookup_type se' i).
           rewrite Hsub_T.
           iIntros (sv').
-          iApply type_interp_up_type. (* THIS IS A COMPLETELY ADMITTED LEMMA THAT'S PROBABLY FINE *)
-          (* NOTE: there may be other conditions here *)
-          done.
+          iApply type_interp_up_type.
       - cbn.
         destruct i; try (cbn; done). (* gets rid of the i=0 case, which is what we're putting in *)
         asimpl'; cbn; unfold core.funcomp.

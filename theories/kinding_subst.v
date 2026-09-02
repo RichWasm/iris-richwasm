@@ -380,6 +380,169 @@ Proof.
   }
 Admitted.
 
+Definition fc_ren (ξr ξs ξt : nat → nat) (F F' : function_ctx) : Prop :=
+  ∀ t, fc_type_vars F' !! ξt t = ren_kind ξr ξs <$> fc_type_vars F !! t.
+
+Lemma fc_ren_cons ξr ξs ξt F F' κ :
+  fc_ren ξr ξs ξt F F' →
+  fc_ren ξr ξs (unscoped.up_ren ξt)
+    (F <| fc_type_vars ::= cons κ |>) (F' <| fc_type_vars ::= cons (ren_kind ξr ξs κ) |>).
+Proof.
+  intros HF [|t]; cbn; [done|apply HF].
+Qed.
+
+Lemma fc_ren_mem ξr ξs ξt F F' :
+  fc_ren ξr ξs ξt F F' →
+  fc_ren ξr ξs ξt (F <| fc_kind_ctx ::= set kc_mem_vars S |>) (F' <| fc_kind_ctx ::= set kc_mem_vars S |>).
+Proof.
+  intros HF t; cbn; apply HF.
+Qed.
+
+Lemma fc_ren_rep ξr ξs ξt F F' :
+  fc_ren ξr ξs ξt F F' →
+  fc_ren (unscoped.up_ren ξr) ξs ξt (add_rep_var F) (add_rep_var F').
+Proof.
+  intros HF t; unfold fc_ren in *; destruct F as [? ? ? ? tvs], F' as [? ? ? ? tvs'].
+  unfold add_rep_var; cbn in *.
+  rewrite !list_lookup_fmap HF.
+  destruct (tvs !! t) as [κ|]; cbn; [f_equal|done].
+  rewrite !renRen_kind.
+  apply extRen_kind; intros n; done.
+Qed.
+
+Lemma fc_ren_size ξr ξs ξt F F' :
+  fc_ren ξr ξs ξt F F' →
+  fc_ren ξr (unscoped.up_ren ξs) ξt (add_size_var F) (add_size_var F').
+Proof.
+  intros HF t; unfold fc_ren in *; destruct F as [? ? ? ? tvs], F' as [? ? ? ? tvs'].
+  unfold add_size_var; cbn in *.
+  rewrite !list_lookup_fmap HF.
+  destruct (tvs !! t) as [κ|]; cbn; [f_equal|done].
+  rewrite !renRen_kind.
+  apply extRen_kind; intros n; done.
+Qed.
+
+Lemma kind_of_node_ren ξm ξr ξs ξt F F' τ :
+  fc_ren ξr ξs ξt F F' →
+  kind_of_node F' (ren_type ξm ξr ξs ξt τ) = ren_kind ξr ξs (kind_of_node F τ).
+Proof.
+  intros HF; destruct τ; cbn; try done.
+  rewrite HF.
+  by destruct (fc_type_vars F !! n).
+Qed.
+
+Lemma get_all_lefts_ren ξr ξs κs :
+  get_all_lefts (map get_rep_or_size (map (ren_kind ξr ξs) κs)) =
+  map (ren_representation ξr) (get_all_lefts (map get_rep_or_size κs)).
+Proof.
+  induction κs as [|[ρ ξ|σ ξ] κs IH]; cbn; [done|by rewrite IH|done].
+Qed.
+
+Lemma get_all_rights_ren ξr ξs κs :
+  get_all_rights (map get_rep_or_size (map (ren_kind ξr ξs) κs)) =
+  map (ren_size ξr ξs) (get_all_rights (map get_rep_or_size κs)).
+Proof.
+  induction κs as [|[ρ ξ|σ ξ] κs IH]; cbn; [done|done|by rewrite IH].
+Qed.
+
+Lemma kind_ref_flag_ren ξr ξs κs :
+  map kind_ref_flag (map (ren_kind ξr ξs) κs) = map kind_ref_flag κs.
+Proof.
+  induction κs as [|[ρ ξ|σ ξ] κs IH]; cbn; [done|by rewrite IH|by rewrite IH].
+Qed.
+
+Definition refresh_ren_ok (τ : type) : Prop :=
+  ∀ ξm ξr ξs ξt F F', fc_ren ξr ξs ξt F F' →
+    refresh_kinds F' (ren_type ξm ξr ξs ξt τ) = ren_type ξm ξr ξs ξt (refresh_kinds F τ).
+
+Lemma map_refresh_ren τs ξm ξr ξs ξt F F' :
+  fc_ren ξr ξs ξt F F' →
+  Forall refresh_ren_ok τs →
+  map (refresh_kinds F') (map (ren_type ξm ξr ξs ξt) τs) =
+  map (ren_type ξm ξr ξs ξt) (map (refresh_kinds F) τs).
+Proof.
+  intros HF IH; induction IH as [|τ τs Hτ _ IHτs]; cbn; [done|].
+  by rewrite (Hτ _ _ _ _ _ _ HF) IHτs.
+Qed.
+
+Lemma map_kind_of_node_ren ξm ξr ξs ξt F F' τs :
+  fc_ren ξr ξs ξt F F' →
+  map (kind_of_node F') (map (ren_type ξm ξr ξs ξt) τs) = map (ren_kind ξr ξs) (map (kind_of_node F) τs).
+Proof.
+  intros HF; rewrite !map_map.
+  apply map_ext; intros τ.
+  by apply kind_of_node_ren.
+Qed.
+
+Lemma refresh_kinds_ren :
+  (∀ τ, refresh_ren_ok τ) ∧
+  (∀ ϕ ξm ξr ξs ξt F F', fc_ren ξr ξs ξt F F' →
+     refresh_kinds_ft F' (ren_function_type ξm ξr ξs ξt ϕ) =
+     ren_function_type ξm ξr ξs ξt (refresh_kinds_ft F ϕ)) ∧
+  (∀ ϕ ξm ξr ξs ξt F F', fc_ren ξr ξs ξt F F' →
+     refresh_kinds_ift F' (ren_inner_function_type ξm ξr ξs ξt ϕ) =
+     ren_inner_function_type ξm ξr ξs ξt (refresh_kinds_ift F ϕ)).
+Proof.
+  apply type_and_function_ind.
+  - done.
+  - done.
+  - intros κ nt; by destruct nt as [[|]|[|]].
+  - intros κ τs IH ξm ξr ξs ξt F F' HF; cbn.
+    rewrite (map_refresh_ren _ _ _ _ _ _ _ HF IH) (map_kind_of_node_ren _ _ _ _ _ _ _ HF).
+    by rewrite get_all_lefts_ren kind_ref_flag_ren.
+  - intros κ τs IH ξm ξr ξs ξt F F' HF; cbn.
+    rewrite (map_refresh_ren _ _ _ _ _ _ _ HF IH) (map_kind_of_node_ren _ _ _ _ _ _ _ HF).
+    by rewrite get_all_rights_ren kind_ref_flag_ren.
+  - intros κ τs IH ξm ξr ξs ξt F F' HF; cbn.
+    rewrite (map_refresh_ren _ _ _ _ _ _ _ HF IH) (map_kind_of_node_ren _ _ _ _ _ _ _ HF).
+    by rewrite get_all_lefts_ren kind_ref_flag_ren.
+  - intros κ τs IH ξm ξr ξs ξt F F' HF; cbn.
+    rewrite (map_refresh_ren _ _ _ _ _ _ _ HF IH) (map_kind_of_node_ren _ _ _ _ _ _ _ HF).
+    by rewrite get_all_rights_ren kind_ref_flag_ren.
+  - intros κ μ β τ IH ξm ξr ξs ξt F F' HF; cbn.
+    rewrite (IH _ _ _ _ _ _ HF).
+    by destruct μ as [m|[|]].
+  - intros κ ϕ IH ξm ξr ξs ξt F F' HF; cbn.
+    by rewrite (IH _ _ _ _ _ _ HF).
+  - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
+    rewrite (IH _ _ _ _ _ _ HF) (kind_of_node_ren _ _ _ _ _ _ _ HF).
+    by destruct (kind_of_node F (refresh_kinds F τ)).
+  - done.
+  - done.
+  - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_cons, HF.
+  - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_mem, HF.
+  - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_rep, HF.
+  - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_size, HF.
+  - intros κ κ0 τ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_cons, HF.
+  - intros τs1 τs2 IH1 IH2 ξm ξr ξs ξt F F' HF; cbn.
+    by rewrite (map_refresh_ren _ _ _ _ _ _ _ HF IH1) (map_refresh_ren _ _ _ _ _ _ _ HF IH2).
+  - intros κ ϕ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_cons, HF.
+  - intros ϕ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, HF.
+  - intros ϕ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_mem, HF.
+  - intros ϕ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_rep, HF.
+  - intros ϕ IH ξm ξr ξs ξt F F' HF; cbn.
+    f_equal; apply IH, fc_ren_size, HF.
+Qed.
+
+Lemma refresh_kinds_up_shift_type F κ τ :
+  refresh_kinds (F <| fc_type_vars ::= cons κ |>)
+    (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift τ) =
+  ren_type unscoped.id unscoped.id unscoped.id unscoped.shift (refresh_kinds F τ).
+Proof.
+  apply (proj1 refresh_kinds_ren); intros t.
+  rewrite fc_type_vars_get_upd; cbn.
+  destruct (fc_type_vars F !! t); cbn; [by rewrite rinstId'_kind|done].
+Qed.
+
 Lemma has_kind_subst_rec_helper :
   (∀ τ F κ, let τrec := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
             has_kind F (RecT κ τ) κ -> has_kind F τrec κ) /\
