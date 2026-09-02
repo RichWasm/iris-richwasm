@@ -385,4 +385,16 @@ Section Compiler.
     induction ess1; simpl; [done | by setoid_rewrite IHess1].
   Qed.
 
+  Lemma compile_cases_lookup fe ess es i :
+    ess !! i = Some es ->
+    compile_cases fe ess !! i = Some (compile_instrs fe es).
+  Proof.
+    revert ess i.
+    induction ess.
+    - intros i H. inversion H.
+    - intros i H. destruct i.
+      + by inversion H.
+      + inversion H. by apply IHess.
+  Qed.
+
 End Compiler.

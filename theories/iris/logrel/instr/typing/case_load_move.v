@@ -185,6 +185,9 @@ Section case_load_move.
     apply Forall2_length in IH as Hlen_τs_ess.
     assert (length τs = length τs_ser) as Hlen_τs_ser.
     { by rewrite length_zip_with Hlen_κs_τs Nat.min_id. }
+    assert (is_Some (ess !! i)) as Hess_i.
+    { apply lookup_lt_is_Some. by rewrite -Hlen_τs_ess Hlen_τs_ser. }
+    destruct Hess_i as [es Hess_i].
 
     iIntros (??) "(-> & Haddr & Hrt & Hown) Hf Hrun".
     clear Hcg_tag.
@@ -196,14 +199,29 @@ Section case_load_move.
     {
       eapply cwp_case_switch in Hcg_case as (wt_c & wt_c' & wl_c & wl_c' & es_c & Hcg_case & Hes3);
         first last.
-      { apply map_lookup_helper_forwards. admit. }
+      { apply map_lookup_helper_forwards. by apply compile_cases_lookup. }
       { by rewrite length_map -compile_cases_length -Hlen_τs_ess Hlen_τs_ser. }
       iApply (Hes3 with "[$Hf] [$Hrun]").
       { admit. }
-      { done. }
+      {
+        instantiate (1 := Wasm_int.Int32.repr (Z.of_nat i)).
+        apply nat_repr_i32repr.
+        eapply Z.lt_le_trans.
+        - apply Nat2Z.inj_lt. exact Hi_lt.
+        - done.
+      }
       { apply Is_true_true. apply has_values_to_consts. }
-      { admit. }
+      {
+        instantiate
+          (1 := fun fr' vs' =>
+                  (⌜frame_rel lmask f fr'⌝ ∗ frame_interp rti sr se F.(typing.fc_locals) L' WL fr' ∗
+                   (∃ os', values_interp rti sr se [t] os' ∗ atoms_interp os' vs') ∗
+                   (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I).
+        iIntros (??) "(%Hfrel & Hframe & (% & Hos' & Hvs) & [% Hrt] & Hown)".
+        admit.
+      }
       iIntros "Hfr Hrun".
+      clear Hes3.
       admit.
     }
 
