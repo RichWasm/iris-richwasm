@@ -8,10 +8,10 @@ Set Bullet Behavior "Strict Subproofs".
 
 (* Refutations of the four statements left Admitted in kinding_subst.v.  Two causes:
    (A) refreshed_kinds overwrites every annotation of its input, so nothing follows about
-   the unrefreshed source; (B) refresh keeps the annotation of RecT, so instantiation of a
-   well-kinded type can produce an ill-kinded one.  34849c4c recomputes the ExistsMemT and
-   ExistsTypeT annotations, which killed the older cause-B witnesses; RecT reproduces both
-   of them verbatim. *)
+   the unrefreshed source; (B) refresh keeps the annotation of RecT, ExistsRepT and
+   ExistsSizeT, so instantiation of a well-kinded type can produce an ill-kinded one.
+   34849c4c recomputes the ExistsMemT and ExistsTypeT annotations, which invalidated the
+   older cause-B witnesses; each of the three remaining binders reproduces them. *)
 
 Definition κ_no : kind := VALTYPE (AtomR PtrR) NoRefs.
 Definition κ_any : kind := VALTYPE (AtomR PtrR) AnyRefs.
@@ -227,4 +227,107 @@ Proof.
     match goal with
     | H : has_kind_ift _ (ForallTypeT _ _) |- _ => by inversion H
     end.
+Qed.
+
+(* Cause B is not confined to RecT: refresh keeps the ExistsRepT and ExistsSizeT
+   annotations too, so the memory witness above goes through at either of them. *)
+
+Definition ift_rep : inner_function_type :=
+  MonoFunT [ExistsRepT κ_any (RefT κ_any (VarM 0) Mut τ_span)] [].
+
+Definition ift_rep' : inner_function_type :=
+  MonoFunT [ExistsRepT κ_any (RefT κ_gc (BaseM MemGC) Mut τ_span)] [].
+
+Lemma ft_rep_kinded : has_kind_ft fc_empty (ForallMemT (InnerFunT ift_rep)).
+Proof.
+  apply KForallMem, KInnerFun.
+  apply (KMonoFun _ _ _ [κ_any] []); [|constructor].
+  constructor; [|constructor].
+  apply KExistsRep; [repeat constructor|].
+  cbn.
+  eapply KRefVar.
+  - apply OKVarM; cbn; lia.
+  - apply KSpan; repeat constructor.
+Qed.
+
+Lemma ift_rep'_not_kinded F : ¬ has_kind_ift F ift_rep'.
+Proof.
+  intros Hk.
+  inversion Hk; subst.
+  match goal with
+  | H : Forall2 _ [_] _ |- _ => inversion H; subst
+  end.
+  match goal with
+  | H : has_kind _ (ExistsRepT _ _) _ |- _ => inversion H; subst
+  end.
+  match goal with
+  | H : has_kind _ (RefT _ _ _ _) _ |- _ => inversion H
+  end.
+Qed.
+
+Lemma inst_rep :
+  function_type_inst fc_empty (MemI (BaseM MemGC)) (ForallMemT (InnerFunT ift_rep))
+    (InnerFunT ift_rep').
+Proof.
+  apply FTInstMem; repeat constructor.
+Qed.
+
+Definition ift_size : inner_function_type :=
+  MonoFunT [ExistsSizeT κ_any (RefT κ_any (VarM 0) Mut τ_span)] [].
+
+Definition ift_size' : inner_function_type :=
+  MonoFunT [ExistsSizeT κ_any (RefT κ_gc (BaseM MemGC) Mut τ_span)] [].
+
+Lemma ft_size_kinded : has_kind_ft fc_empty (ForallMemT (InnerFunT ift_size)).
+Proof.
+  apply KForallMem, KInnerFun.
+  apply (KMonoFun _ _ _ [κ_any] []); [|constructor].
+  constructor; [|constructor].
+  apply KExistsSize; [repeat constructor|].
+  cbn.
+  eapply KRefVar.
+  - apply OKVarM; cbn; lia.
+  - apply KSpan; repeat constructor.
+Qed.
+
+Lemma ift_size'_not_kinded F : ¬ has_kind_ift F ift_size'.
+Proof.
+  intros Hk.
+  inversion Hk; subst.
+  match goal with
+  | H : Forall2 _ [_] _ |- _ => inversion H; subst
+  end.
+  match goal with
+  | H : has_kind _ (ExistsSizeT _ _) _ |- _ => inversion H; subst
+  end.
+  match goal with
+  | H : has_kind _ (RefT _ _ _ _) _ |- _ => inversion H
+  end.
+Qed.
+
+Lemma inst_size :
+  function_type_inst fc_empty (MemI (BaseM MemGC)) (ForallMemT (InnerFunT ift_size))
+    (InnerFunT ift_size').
+Proof.
+  apply FTInstMem; repeat constructor.
+Qed.
+
+Lemma has_kind_ft_through_inst_false_rep :
+  ¬ (∀ F ϕ ϕ' ix, function_type_inst F ix ϕ ϕ' → has_kind_ft F ϕ → has_kind_ft F ϕ').
+Proof.
+  intros Hbogus.
+  eapply ift_rep'_not_kinded.
+  assert (Hk : has_kind_ft fc_empty (InnerFunT ift_rep')).
+  { apply (Hbogus _ _ _ _ inst_rep), ft_rep_kinded. }
+  by inversion Hk.
+Qed.
+
+Lemma has_kind_ft_through_inst_false_size :
+  ¬ (∀ F ϕ ϕ' ix, function_type_inst F ix ϕ ϕ' → has_kind_ft F ϕ → has_kind_ft F ϕ').
+Proof.
+  intros Hbogus.
+  eapply ift_size'_not_kinded.
+  assert (Hk : has_kind_ft fc_empty (InnerFunT ift_size')).
+  { apply (Hbogus _ _ _ _ inst_size), ft_size_kinded. }
+  by inversion Hk.
 Qed.
