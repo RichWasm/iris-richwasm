@@ -1114,18 +1114,88 @@ Section substitution.
       by rewrite Hn Hn'.
   Qed.
 
-  Lemma type_skind_refresh_subst F F' sub_m sub_r sub_s sub_t se se' τ κ κ' :
-    subst_rel F F' sub_m sub_r sub_s sub_t se se' →
-    has_kind F' τ κ →
-    has_kind F (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)) κ' →
-    subskind_of_option
-      (type_skind (Σ:=Σ) se (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)))
-      (type_skind (Σ:=Σ) se' τ).
+  Lemma has_kind_rec_inv F κ τ κ' :
+    has_kind F (RecT κ τ) κ' → κ' = κ ∧ has_kind (F <| fc_type_vars ::= cons κ |>) τ κ.
+  Proof. by inversion 1; subst. Qed.
+
+  Lemma has_kind_existsmem_inv F κ τ κ' :
+    has_kind F (ExistsMemT κ τ) κ' →
+    κ' = κ ∧ has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ.
+  Proof. by inversion 1; subst. Qed.
+
+  Lemma has_kind_existsrep_inv F κ τ κ' :
+    has_kind F (ExistsRepT κ τ) κ' →
+    κ' = κ ∧ has_kind (add_rep_var F) τ (ren_kind unscoped.shift unscoped.id κ).
+  Proof. by inversion 1; subst. Qed.
+
+  Lemma has_kind_existssize_inv F κ τ κ' :
+    has_kind F (ExistsSizeT κ τ) κ' →
+    κ' = κ ∧ has_kind (add_size_var F) τ (ren_kind unscoped.id unscoped.shift κ).
+  Proof. by inversion 1; subst. Qed.
+
+  Lemma has_kind_existstype_inv F κ κ0 τ κ' :
+    has_kind F (ExistsTypeT κ κ0 τ) κ' →
+    κ' = κ ∧ has_kind (F <| fc_type_vars ::= cons κ0 |>) τ κ.
+  Proof. by inversion 1; subst. Qed.
+
+  Lemma has_kind_existstype_bound_ok F κ κ0 τ κ' :
+    has_kind F (ExistsTypeT κ κ0 τ) κ' → kind_ok F.(fc_kind_ctx) κ0.
+  Proof. by inversion 1; subst. Qed.
+
+  Lemma skind_has_stype_trivial sκ :
+    skind_has_stype (Σ:=Σ) sκ (λne _ : leibnizO semantic_value, False%I).
   Proof.
-    intros [Henv' Henv Hr Hs Hm Hsκ HT Hgood]; unfold_sem_rels.
-    revert κ κ'.
+    split; last by intros sv; apply bi.False_elim.
+    destruct sκ as [? ξ|? ξ]; destruct ξ; try done; intros sv; apply _.
+  Qed.
+
+  Lemma eval_kind_mem_irrel_rev (se : semantic_env (Σ:=Σ)) κ sκ μ :
+    eval_kind (senv_insert_mem μ se) κ = Some sκ → eval_kind se κ = Some sκ.
+  Proof. by rewrite <- eval_kind_mem_irrel_eq. Qed.
+
+  Lemma eval_kind_type_irrel_rev (se : semantic_env (Σ:=Σ)) κ sκ sκ0 sκ_T T :
+    eval_kind (senv_insert_type sκ0 sκ_T T se) κ = Some sκ → eval_kind se κ = Some sκ.
+  Proof. by rewrite <- eval_kind_type_irrel_eq. Qed.
+
+  Lemma subskind_of_option_mem_irrel (se se' : semantic_env (Σ:=Σ)) κ κ' μ :
+    subskind_of_option (eval_kind (senv_insert_mem μ se) κ)
+      (eval_kind (senv_insert_mem μ se') κ') →
+    subskind_of_option (eval_kind se κ) (eval_kind se' κ').
+  Proof. by rewrite <- !eval_kind_mem_irrel_eq. Qed.
+
+  Lemma subskind_of_option_type_irrel (se se' : semantic_env (Σ:=Σ)) κ κ' sκ sκ_T T :
+    subskind_of_option (eval_kind (senv_insert_type sκ sκ_T T se) κ)
+      (eval_kind (senv_insert_type sκ sκ_T T se') κ') →
+    subskind_of_option (eval_kind se κ) (eval_kind se' κ').
+  Proof. by rewrite <- !eval_kind_type_irrel_eq. Qed.
+
+  (** The refresh half of the substitution lemma, generalised over the environments so that
+      the binder cases can appeal to the induction hypothesis at the extended ones. *)
+  Definition refresh_subskind_ok (τ : type) : Prop :=
+    ∀ F F' sub_m sub_r sub_s sub_t se se' κ κ',
+      subst_rel F F' sub_m sub_r sub_s sub_t se se' →
+      has_kind F' τ κ →
+      has_kind F (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)) κ' →
+      subskind_of_option
+        (type_skind (Σ:=Σ) se (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)))
+        (type_skind (Σ:=Σ) se' τ).
+
+  Lemma refresh_subskind_ok_list F F' sub_m sub_r sub_s sub_t se se' τs :
+    subst_rel F F' sub_m sub_r sub_s sub_t se se' →
+    Forall refresh_subskind_ok τs →
+    Forall
+      (refresh_subskind (λ τ, refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)) F F' se se')
+      τs.
+  Proof.
+    intros HR H; eapply Forall_impl; first exact H.
+    intros τ Hτ κ κ' Hk Hk'; by eapply Hτ.
+  Qed.
+
+  Lemma type_skind_refresh_subst_gen τ : refresh_subskind_ok τ.
+  Proof.
     induction τ using type_ind with (P0 := const True) (Pi := const True); try done;
-      intros κa κb Hk Hk'.
+      intros F F' sub_m sub_r sub_s sub_t se se' κa κb HR Hk Hk';
+      pose proof HR as [Henv' Henv Hr Hs Hm Hsκ HT Hgood]; unfold_sem_rels.
     1: cbn; rewrite Hgood; apply Hsκ.
     all: rewrite (type_skind_has_kind _ _ _ _ Hk' Henv) (type_skind_has_kind _ _ _ _ Hk Henv').
     all: try by (inversion Hk'; subst; inversion Hk; subst;
@@ -1136,7 +1206,8 @@ Section substitution.
       apply has_kind_sum_inv in Hk' as (ρs' & ξs' & -> & _ & H2).
       rewrite map_map in H2.
       destruct (refresh_children_val (λ τ, refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ))
-                  _ _ _ _ _ _ _ _ _ Henv' Henv H H1 H2) as [Hρ Hle].
+                  _ _ _ _ _ _ _ _ _ Henv' Henv
+                  (refresh_subskind_ok_list _ _ _ _ _ _ _ _ _ HR H) H1 H2) as [Hρ Hle].
       cbn; rewrite <- (Forall2_mapM_ext _ _ _ _ Hρ).
       destruct (mapM (eval_rep se') ρs); cbn; last done.
       constructor; by apply ref_flag_lub_mono.
@@ -1145,7 +1216,8 @@ Section substitution.
       apply has_kind_variant_inv in Hk' as (σs' & ξs' & -> & _ & H2).
       rewrite map_map in H2.
       destruct (refresh_children_mem (λ τ, refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ))
-                  _ _ _ _ _ _ _ _ _ Henv' Henv H H1 H2) as [Hσ Hle].
+                  _ _ _ _ _ _ _ _ _ Henv' Henv
+                  (refresh_subskind_ok_list _ _ _ _ _ _ _ _ _ HR H) H1 H2) as [Hσ Hle].
       cbn; rewrite <- (Forall2_mapM_ext _ _ _ _ Hσ).
       destruct (mapM (eval_size se') σs); cbn; last done.
       constructor; by apply ref_flag_lub_mono.
@@ -1154,7 +1226,8 @@ Section substitution.
       apply has_kind_prod_inv in Hk' as (ρs' & ξs' & -> & _ & H2).
       rewrite map_map in H2.
       destruct (refresh_children_val (λ τ, refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ))
-                  _ _ _ _ _ _ _ _ _ Henv' Henv H H1 H2) as [Hρ Hle].
+                  _ _ _ _ _ _ _ _ _ Henv' Henv
+                  (refresh_subskind_ok_list _ _ _ _ _ _ _ _ _ HR H) H1 H2) as [Hρ Hle].
       cbn; rewrite <- (Forall2_mapM_ext _ _ _ _ Hρ).
       destruct (mapM (eval_rep se') ρs); cbn; last done.
       constructor; by apply ref_flag_lub_mono.
@@ -1163,7 +1236,8 @@ Section substitution.
       apply has_kind_struct_inv in Hk' as (σs' & ξs' & -> & _ & H2).
       rewrite map_map in H2.
       destruct (refresh_children_mem (λ τ, refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ))
-                  _ _ _ _ _ _ _ _ _ Henv' Henv H H1 H2) as [Hσ Hle].
+                  _ _ _ _ _ _ _ _ _ Henv' Henv
+                  (refresh_subskind_ok_list _ _ _ _ _ _ _ _ _ HR H) H1 H2) as [Hσ Hle].
       cbn; rewrite <- (Forall2_mapM_ext _ _ _ _ Hσ).
       destruct (mapM (eval_size se') σs); cbn; last done.
       constructor; by apply ref_flag_lub_mono.
@@ -1175,16 +1249,42 @@ Section substitution.
     - (* ser *)
       apply has_kind_ser_inv in Hk as (ρ & ξ & -> & _ & Hk0).
       apply has_kind_ser_inv in Hk' as (ρ' & ξ' & -> & _ & Hk0').
-      specialize (IHτ _ _ Hk0 Hk0').
+      specialize (IHτ _ _ _ _ _ _ _ _ _ _ HR Hk0 Hk0').
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henv) (type_skind_has_kind _ _ _ _ Hk0 Henv') in IHτ.
       cbn in IHτ |- *.
       destruct (eval_rep se ρ'), (eval_rep se' ρ); cbn in IHτ |- *; try done.
       inversion IHτ; subst; by constructor.
     - (* exists mem *)
-      admit.
+      pose proof (has_kind_existsmem_inv _ _ _ _ Hk) as [-> Hk0].
+      pose proof (has_kind_existsmem_inv _ _ _ _ Hk') as [-> Hk0'].
+      pose proof (subst_rel_insert_mem _ _ _ _ _ _ _ _ MemGC HR) as HRm.
+      pose proof HRm as [Henvm' Henvm _ _ _ _ _ _].
+      specialize (IHτ _ _ _ _ _ _ _ _ _ _ HRm Hk0 Hk0').
+      rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvm)
+              (type_skind_has_kind _ _ _ _ Hk0 Henvm') in IHτ.
+      exact (subskind_of_option_mem_irrel _ _ _ _ _ IHτ).
     - (* exists type *)
-      admit.
-  Admitted.
+      pose proof (has_kind_existstype_inv _ _ _ _ _ Hk) as [-> Hk0].
+      pose proof (has_kind_existstype_inv _ _ _ _ _ Hk') as [-> Hk0'].
+      destruct (eval_kind_ok_Some _ _ _ Henv' (has_kind_existstype_bound_ok _ _ _ _ _ Hk))
+        as [sκ0 Hsκ0].
+      pose proof (subst_rel_insert_type _ _ _ _ _ _ _ _ _ _ _ _ HR Hsκ0
+                    (subskind_of_refl _) (skind_has_stype_trivial _)) as HRt.
+      pose proof HRt as [Henvt' Henvt _ _ _ _ _ _].
+      specialize (IHτ _ _ _ _ _ _ _ _ _ _ HRt Hk0 Hk0').
+      rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt)
+              (type_skind_has_kind _ _ _ _ Hk0 Henvt') in IHτ.
+      exact (subskind_of_option_type_irrel _ _ _ _ _ _ _ IHτ).
+  Qed.
+
+  Lemma type_skind_refresh_subst F F' sub_m sub_r sub_s sub_t se se' τ κ κ' :
+    subst_rel F F' sub_m sub_r sub_s sub_t se se' →
+    has_kind F' τ κ →
+    has_kind F (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)) κ' →
+    subskind_of_option
+      (type_skind (Σ:=Σ) se (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)))
+      (type_skind (Σ:=Σ) se' τ).
+  Proof. apply type_skind_refresh_subst_gen. Qed.
 
   Lemma type_arep_refresh_subst F F' sub_m sub_r sub_s sub_t se se' τ κ κ' :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -1563,10 +1663,32 @@ Section substitution.
       cbn; unfold compose.
       by rewrite (has_areps_serialize_length _ _ Hareps).
     - (* exists mem *)
-      admit.
+      pose proof (has_kind_existsmem_inv _ _ _ _ Hk) as [-> Hk0].
+      pose proof (has_kind_existsmem_inv _ _ _ _ Hk') as [-> Hk0'].
+      iIntros "H".
+      iEval (rewrite type_interp_eq; cbn -[type_skind senv_insert_mem]) in "H".
+      iDestruct "H" as (sκ0) "(_ & _ & H)".
+      iDestruct "H" as (μ) "H".
+      pose proof (subst_rel_insert_mem _ _ _ _ _ _ _ _ μ HR) as HRm.
+      pose proof HRm as [Henvm' Henvm _ _ _ _ _ _].
+      iDestruct (IHτ _ _ _ _ _ _ _ _ _ _ _ HRm Hk0 Hk0' with "H") as %(sκ1 & Hsκ1 & Hsv1).
+      rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvm) in Hsκ1.
+      iExists sκ1; iPureIntro; split; last done.
+      exact (eval_kind_mem_irrel_rev _ _ _ _ Hsκ1).
     - (* exists type *)
-      admit.
-  Admitted.
+      pose proof (has_kind_existstype_inv _ _ _ _ _ Hk) as [-> Hk0].
+      pose proof (has_kind_existstype_inv _ _ _ _ _ Hk') as [-> Hk0'].
+      iIntros "H".
+      iEval (rewrite type_interp_eq; cbn -[type_skind senv_insert_type]) in "H".
+      iDestruct "H" as (sκ0) "(_ & _ & H)".
+      iDestruct "H" as (Tb sκb sκb_T) "(%Hevb & %Hsubb & %HsTb & H)".
+      pose proof (subst_rel_insert_type _ _ _ _ _ _ _ _ _ _ _ _ HR Hevb Hsubb HsTb) as HRt.
+      pose proof HRt as [Henvt' Henvt _ _ _ _ _ _].
+      iDestruct (IHτ _ _ _ _ _ _ _ _ _ _ _ HRt Hk0 Hk0' with "H") as %(sκ1 & Hsκ1 & Hsv1).
+      rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt) in Hsκ1.
+      iExists sκ1; iPureIntro; split; last done.
+      exact (eval_kind_type_irrel_rev _ _ _ _ _ _ Hsκ1).
+  Qed.
 
   Lemma skind_interp_chillin_backwards F F' sub_m sub_r sub_s sub_t se se' τ κ κ' sv :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -1771,30 +1893,6 @@ Section substitution.
     - iIntros "(% & H)"; iExists sκ; by iFrame.
     - iIntros "(%sκ0 & %Heq & %Hsv & H)"; injection Heq as <-; by iFrame.
   Qed.
-
-  Lemma has_kind_rec_inv F κ τ κ' :
-    has_kind F (RecT κ τ) κ' → κ' = κ ∧ has_kind (F <| fc_type_vars ::= cons κ |>) τ κ.
-  Proof. by inversion 1; subst. Qed.
-
-  Lemma has_kind_existsmem_inv F κ τ κ' :
-    has_kind F (ExistsMemT κ τ) κ' →
-    κ' = κ ∧ has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ.
-  Proof. by inversion 1; subst. Qed.
-
-  Lemma has_kind_existsrep_inv F κ τ κ' :
-    has_kind F (ExistsRepT κ τ) κ' →
-    κ' = κ ∧ has_kind (add_rep_var F) τ (ren_kind unscoped.shift unscoped.id κ).
-  Proof. by inversion 1; subst. Qed.
-
-  Lemma has_kind_existssize_inv F κ τ κ' :
-    has_kind F (ExistsSizeT κ τ) κ' →
-    κ' = κ ∧ has_kind (add_size_var F) τ (ren_kind unscoped.id unscoped.shift κ).
-  Proof. by inversion 1; subst. Qed.
-
-  Lemma has_kind_existstype_inv F κ κ0 τ κ' :
-    has_kind F (ExistsTypeT κ κ0 τ) κ' →
-    κ' = κ ∧ has_kind (F <| fc_type_vars ::= cons κ0 |>) τ κ.
-  Proof. by inversion 1; subst. Qed.
 
   Lemma has_kind_coderef_inv F κ ϕ κ' :
     has_kind F (CodeRefT κ ϕ) κ' → has_kind_ft F ϕ.
