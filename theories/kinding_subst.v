@@ -1711,13 +1711,15 @@ Proof.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_cons, HF.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
-    admit.
+    rewrite (IH _ _ _ _ _ _ (fc_ren_mem _ _ _ _ _ HF)).
+    by rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_mem _ _ _ _ _ HF)).
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_rep, HF.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_size, HF.
   - intros κ κ0 τ IH ξm ξr ξs ξt F F' HF; cbn.
-    admit.
+    rewrite (IH _ _ _ _ _ _ (fc_ren_cons _ _ _ _ _ _ HF)).
+    by rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_cons _ _ _ _ _ _ HF)).
   - intros τs1 τs2 IH1 IH2 ξm ξr ξs ξt F F' HF; cbn.
     by rewrite (map_refresh_ren _ _ _ _ _ _ _ HF IH1) (map_refresh_ren _ _ _ _ _ _ _ HF IH2).
   - intros κ ϕ IH ξm ξr ξs ξt F F' HF; cbn.
@@ -1730,7 +1732,7 @@ Proof.
     f_equal; apply IH, fc_ren_rep, HF.
   - intros ϕ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_size, HF.
-Admitted.
+Qed.
 
 Lemma refresh_kinds_up_shift_type F κ τ :
   refresh_kinds (F <| fc_type_vars ::= cons κ |>)
