@@ -276,16 +276,16 @@ Section load_move.
   Lemma wp_load1_move_mm (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
     let fe := fe_of_context F in
     run_codegen (memory.load1 mr fe MemMM Move lidx off ι) wt wl = inr (ret, wt', wl', es) ->
-    ∀ f ℓ a32 a o ws s E B R θ lmask Φ,
+    ∀ f ℓ a32 a o ws s E1 E2 B R θ lmask Φ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hrun" ∷ ↪[RUN] -∗
       "Hptr" ∷ ℓ ↦heap ws -∗
       "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-      "Hown"  ∷ na_own logrel_nais E -∗
+      "Hown"  ∷ na_own logrel_nais E2 -∗
       "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
       "%Hℓmask"  ∷ ⌜¬ lmask ℓ⌝ -∗
-      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
       "%Hbound" ∷ ⌜off + arep_size ι ≤ length ws⌝ -∗
       "%Harep" ∷ ⌜has_arep ι o⌝ -∗
       "%Hser" ∷ ⌜serialize_atom o = get_path_words off (arep_size ι) ws⌝ -∗
@@ -305,12 +305,12 @@ Section load_move.
            "%Hvf"  ∷ ⌜types_agree (translate_arep ι) vf⌝ -∗
            "Hptr"  ∷ ℓ ↦heap update_path_words off ws (map WordInt ns') -∗
            "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-           "Hown"  ∷ na_own logrel_nais E -∗
+           "Hown"  ∷ na_own logrel_nais E2 -∗
            "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Ho"    ∷ atom_interp o v -∗
            Φ f' [v]) -∗
-      CWP es @ s; E UNDER B; R {{ Φ }}.
+      CWP es @ s; E1 UNDER B; R {{ Φ }}.
   Proof.
     unfold load1.
     intros Hcompile.
@@ -424,7 +424,7 @@ Section load_move.
       inv_cg_ret Hcg2.
       inv_cg_ret Hcg3.
       clear_nils.
-      iAssert ((CWP to_consts [VAL_int32 av32] @ s; E UNDER []; R {{ f0; vs, Φ f0 vs }})%I) with "[-]" as "H";
+      iAssert ((CWP to_consts [VAL_int32 av32] @ s; E1 UNDER []; R {{ f0; vs, Φ f0 vs }})%I) with "[-]" as "H";
         last (destruct p as [| [|]]; by iApply "H").
       iApply (cwp_val with "[$] [$]"); first (clear_nils; eauto using has_values_to_consts).
       iApply ("HΦ" with "[] [] [] [$] [$] [$] [$] [$] [-]").
@@ -480,16 +480,16 @@ Section load_move.
     ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs ∧
     wt' = [] ∧
     wl' = map translate_arep ιs ∧
-    ∀ f ℓ a32 a os ws E B R θ lmask Φ,
+    ∀ f ℓ a32 a os ws E1 E2 B R θ lmask Φ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hrun" ∷ ↪[RUN] -∗
       "Hptr" ∷ ℓ ↦heap ws -∗
       "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
       "%Hℓmask"  ∷ ⌜¬ lmask ℓ⌝ -∗
-      "Hown"  ∷ na_own logrel_nais E -∗
+      "Hown"  ∷ na_own logrel_nais E2 -∗
       "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
       "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
       "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
       "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
@@ -507,7 +507,7 @@ Section load_move.
         (∀ f' vs vsf ns',
            "Hptr"  ∷ ℓ ↦heap update_path_words off ws (map WordInt ns') -∗
            "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-           "Hown"  ∷ na_own logrel_nais E -∗
+           "Hown"  ∷ na_own logrel_nais E2 -∗
            "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Hos"    ∷ ([∗ list] o;v ∈ os; vs, atom_interp o v) -∗
@@ -515,7 +515,7 @@ Section load_move.
            "%Hf'"  ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
            "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
            Φ f' vs) -∗
-      CWP es @ E UNDER B; R {{ Φ }}.
+      CWP es @ E1 UNDER B; R {{ Φ }}.
   Proof.
     induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg *.
     - cbn in Hcg.
@@ -711,16 +711,16 @@ Section load_move.
     ret = () /\
     wt' = [] ∧
     wl' = map translate_arep ιs ∧
-    ∀ f ℓ a32 a os ws E B R θ lmask Φ,
+    ∀ f ℓ a32 a os ws E1 E2 B R θ lmask Φ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hrun" ∷ ↪[RUN] -∗
       "Hptr" ∷ ℓ ↦heap ws -∗
       "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
       "%Hℓmask"  ∷ ⌜¬ lmask ℓ⌝ -∗
-      "Hown"  ∷ na_own logrel_nais E -∗
+      "Hown"  ∷ na_own logrel_nais E2 -∗
       "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
       "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
       "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
       "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
@@ -741,12 +741,12 @@ Section load_move.
            "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
            "Hptr"  ∷ ℓ ↦heap update_path_words off ws (map WordInt ns') -∗
            "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-           "Hown"  ∷ na_own logrel_nais E -∗
+           "Hown"  ∷ na_own logrel_nais E2 -∗
            "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Hos"    ∷ ([∗ list] o;v ∈ os; vs, atom_interp o v) -∗
            Φ f' vs) -∗
-      CWP es @ E UNDER B; R {{ Φ }}.
+      CWP es @ E1 UNDER B; R {{ Φ }}.
   Proof.
     iIntros (? Hcg ? ?).
     apply wp_ignore in Hcg.

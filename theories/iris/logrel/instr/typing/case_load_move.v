@@ -1,5 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
-From RichWasm.iris.logrel Require Import case_ptr roots load_copy.
+From RichWasm.iris.logrel Require Import case_ptr roots load_copy load_move.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -90,7 +90,7 @@ Section case_load_move.
 
     iIntros (??) "[-> ->] Hfr Hrun".
     rewrite value_interp_eq.
-    iDestruct "Hos" as "(% & % & % & % & % & % & % & Hℓ & Href)".
+    iDestruct "Hos" as "(% & % & % & % & % & % & % & #Hℓ & Href)".
     inversion H1.
     subst o.
     clear H1.
@@ -263,6 +263,69 @@ Section case_load_move.
 
       iIntros "Hfr Hrun".
       clear Hes3.
+      inv_cg_bind Hcg_case τ_ser ?wt ?wt ?wl ?wl ?es ?es Hcg_lookup Hcg.
+      inv_cg_try_option Hcg_lookup.
+      inv_cg_bind Hcg τ0 ?wt ?wt ?wl ?wl ?es ?es Hcg_match Hcg.
+      inv_cg_try_option Hcg_match.
+      inv_cg_bind Hcg ρ ?wt ?wt ?wl ?wl ?es ?es Hcg_rep Hcg.
+      inv_cg_try_option Hcg_rep.
+      inv_cg_bind Hcg ιs ?wt ?wt ?wl ?wl ?es ?es Hcg_arep Hcg.
+      inv_cg_try_option Hcg_arep.
+      inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_load Hcg_es.
+      subst wt0 wl0 es0 wt3 wl3 es4 wt7 wl7 es7 wt10 wl10 es11 wt11 wl11 es12 wt8 wl8 es10 wt5 wl5
+        es6 wt1 wl1 es2 wt_c' wl_c' es_c.
+      clear_nils.
+      destruct τ_ser; try done.
+      inversion Heq_some2.
+      subst τ0.
+      clear Heq_some2.
+      rewrite Heq_some1 in Hτ.
+      inversion Hτ.
+      subst τ.
+      clear Hτ.
+      rewrite type_interp_eq.
+      iDestruct "Hτ" as "(%sκ1 & %Hsκ1 & %Hsκ1_ws0 & %os & %Hws0 & Hτ_ser)".
+      inversion Hws0.
+      subst ws0.
+      rename τ_ser into τ.
+      iApply (cwp_seq with "[-Hτ_ser Hframe]").
+      {
+        eapply wp_mem_load_move in Hcg_load as (_ & -> & -> & Hes_load).
+        iApply fupd_cwp.
+        iMod (na_inv_acc with "Hℓ Hown") as "(>[Hlayout Hheap] & Hown & Hclose)".
+        { done. }
+        { done. }
+        iModIntro.
+        iDestruct (rt_token_lpall _ _ (fun ℓ' => ℓ' <> ℓ) with "Hrt") as "Hrt".
+        iApply (Hes_load with "[$Hfr] [$Hrun] [$Hheap] [$Haddr] [] [$Hown] [$Hrt]").
+        - iPureIntro. congruence.
+        - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & H & _) & _)".
+        - solve_ndisj.
+        - iPureIntro. rewrite length_cons length_app Nat.add_1_l. apply le_n_S.
+          assert (sum_list_with arep_size ιs = length (flat_map serialize_atom os)); last lia.
+          rewrite length_flat_map.
+          rewrite sum_list_with_list_sum.
+          f_equal.
+          erewrite <- load_common.has_areps_size; first done.
+          admit.
+        - instantiate (1 := os). iPureIntro. admit.
+        - iPureIntro. admit.
+        - done.
+        - iPureIntro. admit.
+        - iPureIntro. admit.
+        - iPureIntro. admit.
+        - done.
+        - done.
+        - done.
+        - done.
+        - by iDestruct "Hinst" as "(_ & _ & _ & _ & H & _)".
+        - by iDestruct "Hinst" as "(_ & _ & _ & _ & _ & H)".
+        - iIntros (????) "@@@@@@@_@".
+          unfold path.update_path_words.
+          iSimpl in "Hptr".
+          (* probably need to change this to a mut ref *)
+          admit.
+      }
       admit.
     }
 
