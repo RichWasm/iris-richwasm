@@ -175,11 +175,26 @@ Section case_load_move.
         iSpecialize ("Ho" with "[//]").
         iSpecialize ("Hclose" with "[Hlayout Hptr Hown]"); first iFrame.
         iDestruct "Ho" as "->".
-        instantiate (1 := fun f vs => (⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))]⌝ ∗
-                                      ℓ ↦addr (MemMM, a) ∗
-                                      rt_token rti sr lpall θ ∗
-                                      |={⊤}=> na_own logrel_nais ⊤)%I).
-        by iFrame.
+        instantiate
+          (1 :=
+             fun fr' vs =>
+               (∃ vf,
+                   ⌜types_agree W.T_i32 vf⌝ ∗
+                     ⌜fr' = load_common.mk_load1_frame
+                              fe
+                              {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |}
+                              (length wl + 1) vf⌝ ∗
+                     ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))]⌝ ∗
+                     ℓ ↦addr (MemMM, a) ∗
+                     rt_token rti sr lpall θ ∗
+                     |={⊤}=> na_own logrel_nais ⊤)%I).
+        iFrame.
+        iExists vf.
+        iPureIntro.
+        split; last split.
+        + apply Is_true_true. apply Hvf.
+        + rewrite Hf'. by rewrite length_app.
+        + done.
     }
 
     apply Forall2_length in IH as Hlen_τs_ess.
@@ -189,7 +204,7 @@ Section case_load_move.
     { apply lookup_lt_is_Some. by rewrite -Hlen_τs_ess Hlen_τs_ser. }
     destruct Hess_i as [es Hess_i].
 
-    iIntros (??) "(-> & Haddr & Hrt & Hown) Hf Hrun".
+    iIntros (??) "(% & %Hvf & -> & -> & Haddr & Hrt & Hown) Hf Hrun".
     clear Hcg_tag.
     iApply fupd_cwp.
     iMod "Hown".
@@ -201,8 +216,26 @@ Section case_load_move.
         first last.
       { apply map_lookup_helper_forwards. by apply compile_cases_lookup. }
       { by rewrite length_map -compile_cases_length -Hlen_τs_ess Hlen_τs_ser. }
+
+      iDestruct (frame_interp_wl_interp with "Hframe") as "%Hwl".
       iApply (Hes3 with "[$Hf] [$Hrun]").
-      { admit. }
+      {
+        subst WL. rewrite app_nil_l. rewrite !app_nil_l app_nil_r in Hwl.
+        instantiate (1 := wl6 ++ wl9 ++ x5 ++ wlf).
+        rewrite -!app_assoc.
+        rewrite -!app_assoc in Hwl.
+        destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hvs & Hvs__wl).
+        subst x.
+        exists vs, (<[ length wl + 1 := vf ]> (<[ length wl := VAL_int32 n32 ]> vs__wl)), vs'.
+        split; last split.
+        - cbn -[fe_wlocal_offset]. rewrite -Hvs Hlocs !insert_app_r.
+          apply Forall2_length in Hvs__wl as Hlen_vs__wl.
+          rewrite !insert_app_l; first done.
+          + rewrite length_insert. rewrite -Hlen_vs__wl length_app. cbn. admit.
+          + rewrite -Hlen_vs__wl length_app. cbn. lia.
+        - done.
+        - admit.
+      }
       {
         instantiate (1 := Wasm_int.Int32.repr (Z.of_nat i)).
         apply nat_repr_i32repr.
@@ -214,12 +247,20 @@ Section case_load_move.
       {
         instantiate
           (1 := fun fr' vs' =>
-                  (⌜frame_rel lmask f fr'⌝ ∗ frame_interp rti sr se F.(typing.fc_locals) L' WL fr' ∗
-                   (∃ os', values_interp rti sr se [t] os' ∗ atoms_interp os' vs') ∗
-                   (∃ θ', rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I).
+                  (⌜frame_rel lmask
+                      (load_common.mk_load1_frame
+                         fe
+                         {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |}
+                         (length wl + 1) vf)
+                      fr'⌝ ∗
+                     frame_interp rti sr se F.(typing.fc_locals) L' WL fr' ∗
+                     (∃ os', values_interp rti sr se [t] os' ∗ atoms_interp os' vs') ∗
+                     (∃ θ', rt_token rti sr lpall θ') ∗
+                     na_own logrel_nais ⊤)%I).
         iIntros (??) "(%Hfrel & Hframe & (% & Hos' & Hvs) & [% Hrt] & Hown)".
         admit.
       }
+
       iIntros "Hfr Hrun".
       clear Hes3.
       admit.
