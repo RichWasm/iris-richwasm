@@ -96,7 +96,6 @@ Section fold.
                (senv_insert_type sκ sκ (value_interp rti sr se (RecT κ τ)) se) (SAtoms os))
     with "[Hval]" as "Hos". {
       iApply (type_interp_subst_type_backwards with "[$Hval]").
-      1: exact mr.
       11: exact H3.
       1-9: try done.
       - unfold sem_env_types_well_formed in *.

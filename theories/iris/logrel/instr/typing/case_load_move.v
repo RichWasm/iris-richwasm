@@ -118,7 +118,7 @@ Section case_load_move.
     clear Hcwp Hcg_gc.
 
     rewrite type_interp_eq.
-    iDestruct "Href" as "(% & % & % & % & % & % & % & % & % & Hτ)".
+    iDestruct "Href" as "(% & % & % & % & % & % & % & % & % & % & Hτ)".
     inversion H8.
     subst ws.
     clear H8.

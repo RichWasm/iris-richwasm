@@ -88,7 +88,7 @@ Section case.
     iEval (rewrite value_interp_eq) in "Hvs".
     iDestruct "Hvs" as "(%κ & %Hkind_sum & %Hskind_as_type & Hsum_interp)".
 
-    iDestruct "Hsum_interp" as (tag os_payload off count HSAtoms Hsum_offset Hcount) "Hvalue_interp_os_tag".
+    iDestruct "Hsum_interp" as (tag os_payload off count HSAtoms Hsum_offset Hcount _) "Hvalue_interp_os_tag".
     cbn in Hsum_offset.
     change (list_lookup tag (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! tag).
     rewrite list_lookup_fmap.

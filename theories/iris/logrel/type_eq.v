@@ -581,9 +581,9 @@ Section type_eq_sem.
         iSplit; first (iPureIntro; exact Hsk).
         iSplit; first done.
         simpl.
-        iDestruct "Hsum" as (i os off count ->) "(%Hoff & %Hcount & HTi)".
+        iDestruct "Hsum" as (i os off count ->) "(%Hoff & %Hcount & %Hpad & HTi)".
         iExists i, os, off, count.
-        do 3 (iSplit; first done).
+        do 4 (iSplit; first done).
         destruct (τs !! i) as [τi_raw|] eqn:Hiraw.
         * eapply (Forall2_lookup_l) in Heq as [τi_raw' [Hiraw' Heqi]]; last exact Hiraw.
           iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn) in "HTi".
@@ -600,9 +600,9 @@ Section type_eq_sem.
         iSplit; first (iPureIntro; exact Hsk).
         iSplit; first done.
         simpl.
-        iDestruct "Hsum" as (i os off count ->) "(%Hoff & %Hcount & HTi)".
+        iDestruct "Hsum" as (i os off count ->) "(%Hoff & %Hcount & %Hpad & HTi)".
         iExists i, os, off, count.
-        do 3 (iSplit; first done).
+        do 4 (iSplit; first done).
         destruct (τs' !! i) as [τi_raw'|] eqn:Hiraw'.
         * eapply (Forall2_lookup_r) in Heq as [τi_raw [Hiraw Heqi]]; last exact Hiraw'.
           iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn) in "HTi".
@@ -625,9 +625,9 @@ Section type_eq_sem.
         iSplit; first (iPureIntro; exact Hsk).
         iSplit; first done.
         simpl.
-        iDestruct "Hvar" as (i n ws ws' Hrepr ->) "HTi".
+        iDestruct "Hvar" as (i n ws ws' Hrepr -> Hpad) "HTi".
         iExists i, n, ws, ws'.
-        do 2 (iSplit; first done).
+        do 3 (iSplit; first done).
         destruct (τs !! i) as [τi_raw|] eqn:Hiraw.
         * eapply (Forall2_lookup_l) in Heq as [τi_raw' [Hiraw' Heqi]]; last exact Hiraw.
 
@@ -648,9 +648,9 @@ Section type_eq_sem.
         iSplit; first (iPureIntro; exact Hsk).
         iSplit; first done.
         simpl.
-        iDestruct "Hvar" as (i n ws ws' Hrepr ->) "HTi".
+        iDestruct "Hvar" as (i n ws ws' Hrepr -> Hpad) "HTi".
         iExists i, n, ws, ws'.
-        do 2 (iSplit; first done).
+        do 3 (iSplit; first done).
         destruct (τs' !! i) as [τi_raw'|] eqn:Hiraw'.
         * eapply (Forall2_lookup_r) in Heq as [τi_raw [Hiraw Heqi]]; last exact Hiraw'.
           iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn) in "HTi".

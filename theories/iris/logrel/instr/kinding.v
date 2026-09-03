@@ -1023,7 +1023,7 @@ Section kinding.
         apply bi.exist_persistent; intros off.
         apply bi.exist_persistent; intros count.
         unfold Persistent.
-        iIntros "(-> & %Hoff & %Hev & Hty)".
+        iIntros "(-> & %Hoff & %Hev & %Hpad & Hty)".
 
         apply bind_Some in Hev.
         destruct Hev as (ιs & Hev & Hret).
@@ -1053,6 +1053,7 @@ Section kinding.
            rewrite Hev; cbn; rewrite Hret.
            iModIntro; iPureIntro.
            done. }
+        iSplit; first eauto.
 
         eapply Forall3_lookup_lmr in H; eauto.
         specialize (H se (SVALTYPE ιs ξ) ltac:(done) ltac:(cbn; rewrite Hret; done)).
@@ -1073,7 +1074,7 @@ Section kinding.
         apply bi.exist_persistent; intros off.
         apply bi.exist_persistent; intros count.
         unfold Persistent.
-        iIntros "(-> & %Hoff & %Hev & Hty)".
+        iIntros "(-> & %Hoff & %Hev & %Hpad & Hty)".
 
         apply bind_Some in Hev.
         destruct Hev as (ιs & Hev & Hret).
@@ -1103,6 +1104,7 @@ Section kinding.
            rewrite Hev; cbn; rewrite Hret.
            iModIntro; iPureIntro.
            done. }
+        iSplit; first eauto.
 
         eapply Forall3_lookup_lmr in H; eauto.
         specialize (H se (SVALTYPE ιs ξ) ltac:(done) ltac:(cbn; rewrite Hret; done)).
@@ -1141,7 +1143,7 @@ Section kinding.
         apply bi.exist_persistent; intros ws.
         apply bi.exist_persistent; intros ws'.
         unfold Persistent.
-        iIntros "(%Hrep & -> & Hty)".
+        iIntros "(%Hrep & -> & %Hpad & Hty)".
 
         pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
         unfold fmap in Hfmap.
@@ -1162,6 +1164,7 @@ Section kinding.
         rewrite Hσ in Hns; cbn in Hns.
         rewrite Hm in Hns.
 
+        iSplit; first eauto.
         iSplit; first eauto.
         iSplit; first eauto.
 
@@ -1182,7 +1185,7 @@ Section kinding.
         apply bi.exist_persistent; intros ws.
         apply bi.exist_persistent; intros ws'.
         unfold Persistent.
-        iIntros "(%Hrep & -> & Hty)".
+        iIntros "(%Hrep & -> & %Hpad & Hty)".
 
         pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
         unfold fmap in Hfmap.
@@ -1203,6 +1206,7 @@ Section kinding.
         rewrite Hσ in Hns; cbn in Hns.
         rewrite Hm in Hns.
 
+        iSplit; first eauto.
         iSplit; first eauto.
         iSplit; first eauto.
 

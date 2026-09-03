@@ -445,6 +445,13 @@ Section inject.
           rewrite Heval_ρ_i.
           done.
         }
+        iSplit.
+        {
+          iPureIntro.
+          rewrite (has_areps_length _ _ Hareps_pre) (has_areps_length _ _ Hhas_areps).
+          rewrite take_app_length -drop_drop !drop_app_length.
+          by apply Forall_app.
+        }
         change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i).
         rewrite list_lookup_fmap.
         rewrite Hlookup_i.
