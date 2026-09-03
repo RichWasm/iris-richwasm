@@ -3420,7 +3420,7 @@ Proof.
     eapply type_kind_has_kind_agree; done.
 Qed.
 
-
+(* there's something in kinding_subst that's similar I think *)
 Lemma refresh_kinds_connect_has_kind_maybe :
   (∀ τ F κ, has_kind F (refresh_kinds F τ) κ -> refreshed_kinds F τ (refresh_kinds F τ)) /\
   (∀ ϕ F, has_kind_ft F (refresh_kinds_ft F ϕ) -> refreshed_kinds_ft F ϕ (refresh_kinds_ft F ϕ)) /\
@@ -3674,8 +3674,9 @@ Proof.
     by eapply RKRec.
   - intros IH * Hk.
     inversion Hk; subst.
-    apply IH in H4.
-    constructor; done.
+    apply IH in H4 as Hnew.
+    cbn; constructor; try done.
+    by apply has_kind_type_kind.
   - intros IH * Hk.
     inversion Hk; subst.
     apply IH in H4.
@@ -3686,8 +3687,9 @@ Proof.
     constructor; done.
   - intros IH * Hk.
     inversion Hk; subst.
-    apply IH in H6.
-    constructor; done.
+    apply IH in H6 as Hnew.
+    cbn; constructor; try done.
+    by apply has_kind_type_kind.
   - intros IH1 IH2 F Hk.
     inversion Hk; subst.
     cbn.

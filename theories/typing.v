@@ -1304,19 +1304,22 @@ Inductive refreshed_kinds : function_ctx → type → type → Prop :=
   refreshed_kinds F (SpanT κ σ) (SpanT (MEMTYPE σ NoRefs) σ)
 | RKRec F κ τ τ' :
   refreshed_kinds (F <| fc_type_vars ::= cons κ |>) τ τ' →
+  (* type_kind (fc_type_vars F) τ' = Some κ' -> *)
   refreshed_kinds F (RecT κ τ) (RecT κ τ') (* does the κ here need to be adjusted..? *)
-| RKExistsMem F κ τ τ' :
+| RKExistsMem F κ κ' τ τ' :
   refreshed_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ τ' →
-  refreshed_kinds F (ExistsMemT κ τ) (ExistsMemT κ τ')
+  type_kind (fc_type_vars ((F <| fc_kind_ctx ::= set kc_mem_vars S |>))) τ' = Some κ' ->
+  refreshed_kinds F (ExistsMemT κ τ) (ExistsMemT κ' τ')
 | RKExistsRep F κ τ τ' :
   refreshed_kinds (add_rep_var F) τ τ' →
   refreshed_kinds F (ExistsRepT κ τ) (ExistsRepT κ τ')
 | RKExistsSize F κ τ τ' :
   refreshed_kinds (add_size_var F) τ τ' →
   refreshed_kinds F (ExistsSizeT κ τ) (ExistsSizeT κ τ')
-| RKExistsType F κ κv τ τ' :
+| RKExistsType F κ κ' κv τ τ' :
   refreshed_kinds (F <| fc_type_vars ::= cons κv |>) τ τ' →
-  refreshed_kinds F (ExistsTypeT κ κv τ) (ExistsTypeT κ κv τ')
+  type_kind (fc_type_vars ((F <| fc_type_vars ::= cons κv |>))) τ' = Some κ' ->
+  refreshed_kinds F (ExistsTypeT κ κv τ) (ExistsTypeT κ' κv τ')
 
 with refreshed_kinds_ft : function_ctx → function_type → function_type → Prop :=
 | RKInnerFun F ϕ ϕ' :

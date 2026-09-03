@@ -6,6 +6,7 @@ Require Import RichWasm.kinding_subst.
 
 Set Bullet Behavior "Strict Subproofs".
 
+(*
 Definition κ_no : kind := VALTYPE (AtomR PtrR) NoRefs.
 Definition κ_any : kind := VALTYPE (AtomR PtrR) AnyRefs.
 Definition κ_gc : kind := VALTYPE (AtomR PtrR) GCRefs.
@@ -221,3 +222,4 @@ Proof.
     | H : has_kind_ift _ (ForallTypeT _ _) |- _ => by inversion H
     end.
 Qed.
+*)

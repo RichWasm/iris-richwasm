@@ -98,7 +98,7 @@ Section unfold.
     pose proof (sem_well_formed_from_interp F se Hse) as HseF.
 
     iApply (type_interp_subst_type_forwards with "[$Hos]").
-    11: exact H4.
+    12: exact H4.
     1-9: try done.
     - unfold sem_env_types_well_formed in *.
       apply Forall_cons; split; last exact HseF.

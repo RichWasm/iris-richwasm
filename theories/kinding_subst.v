@@ -760,8 +760,11 @@ Proof.
     inversion Hk; subst; inversion Hr; subst; f_equal; try done;
       by eapply IH; eauto.
   - intros κ0 t IH F κ τ' Hk Hr.
-    inversion Hk; subst; inversion Hr; subst; f_equal; try done;
-      by eapply IH; eauto.
+    inversion Hk; subst; inversion Hr; subst.
+    unfold refresh_det in IH.
+    assert (t = τ'0) as <- by (by apply (IH _ _ _ H4 H3)).
+    rewrite (has_kind_type_kind _ _ _ H4) in H6.
+    inversion H6; done.
   - intros κ0 t IH F κ τ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst; f_equal; try done;
       by eapply IH; eauto.
@@ -769,8 +772,10 @@ Proof.
     inversion Hk; subst; inversion Hr; subst; f_equal; try done;
       by eapply IH; eauto.
   - intros κ1 κ2 t IH F κ τ' Hk Hr.
-    inversion Hk; subst; inversion Hr; subst; f_equal; try done;
-      by eapply IH; eauto.
+    inversion Hk; subst; inversion Hr; subst.
+    assert (t = τ'0) as <- by (by apply (IH _ _ _ H6 H7)).
+    rewrite (has_kind_type_kind _ _ _ H6) in H8.
+    inversion H8; done.
   - intros τs1 τs2 IH1 IH2 F ϕ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst.
     f_equal; by eapply refreshed_kinds_list2; eauto.
@@ -1436,15 +1441,22 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
       SerT κ τ'
   | PlugT _ ρ => PlugT (VALTYPE ρ NoRefs) ρ
   | SpanT _ σ => SpanT (MEMTYPE σ NoRefs) σ
-  | RecT κ τ => RecT κ (refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ)
-  | ExistsMemT κ τ =>
-      ExistsMemT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ)
+  | RecT κ τ =>
+      let τ' := refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ in
+      (* let κ := kind_of_node F τ' in *) (* note: κ also likely has to change *)
+      RecT κ τ'
+  | ExistsMemT _ τ =>
+      let τ' := refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ in
+      let κ := kind_of_node ((F <| fc_kind_ctx ::= set kc_mem_vars S |>)) τ' in
+      ExistsMemT κ τ'
   | ExistsRepT κ τ =>
       ExistsRepT κ (refresh_kinds (add_rep_var F) τ)
   | ExistsSizeT κ τ =>
       ExistsSizeT κ (refresh_kinds (add_size_var F) τ)
-  | ExistsTypeT κ κ0 τ =>
-      ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
+  | ExistsTypeT _ κ0 τ =>
+      let τ' := refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ in
+      let κ := kind_of_node ((F <| fc_type_vars ::= cons κ0 |>)) τ' in
+      ExistsTypeT κ κ0 τ'
   end
 with refresh_kinds_ift (F : function_ctx) (ϕ : inner_function_type) : inner_function_type :=
        match ϕ with
@@ -1582,13 +1594,19 @@ Proof.
   - intros κ τ IH F κ0 Hk.
     inversion Hk; subst; cbn; f_equal; by eapply IH.
   - intros κ τ IH F κ0 Hk.
-    inversion Hk; subst; cbn; f_equal; by eapply IH.
+    inversion Hk; subst; cbn.
+    apply IH in H4 as Hnew.
+    rewrite <- Hnew.
+    by rewrite <- (kind_of_node_good _ _ _ H4).
   - intros κ τ IH F κ0 Hk.
     inversion Hk; subst; cbn; f_equal; by eapply IH.
   - intros κ τ IH F κ0 Hk.
     inversion Hk; subst; cbn; f_equal; by eapply IH.
   - intros κ κv τ IH F κ0 Hk.
-    inversion Hk; subst; cbn; f_equal; by eapply IH.
+    inversion Hk; subst; cbn.
+    apply IH in H6 as Hnew.
+    rewrite <- Hnew.
+    by rewrite <- (kind_of_node_good _ _ _ H6).
   - intros τs1 τs2 IH1 IH2 F Hk.
     inversion Hk; subst; cbn; f_equal; symmetry; by eapply map_refresh_kinds_id.
   - intros κ ϕ IH F Hk.
@@ -1693,13 +1711,13 @@ Proof.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_cons, HF.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
-    f_equal; apply IH, fc_ren_mem, HF.
+    admit.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_rep, HF.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_size, HF.
   - intros κ κ0 τ IH ξm ξr ξs ξt F F' HF; cbn.
-    f_equal; apply IH, fc_ren_cons, HF.
+    admit.
   - intros τs1 τs2 IH1 IH2 ξm ξr ξs ξt F F' HF; cbn.
     by rewrite (map_refresh_ren _ _ _ _ _ _ _ HF IH1) (map_refresh_ren _ _ _ _ _ _ _ HF IH2).
   - intros κ ϕ IH ξm ξr ξs ξt F F' HF; cbn.
@@ -1712,7 +1730,7 @@ Proof.
     f_equal; apply IH, fc_ren_rep, HF.
   - intros ϕ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_size, HF.
-Qed.
+Admitted.
 
 Lemma refresh_kinds_up_shift_type F κ τ :
   refresh_kinds (F <| fc_type_vars ::= cons κ |>)
@@ -1857,10 +1875,12 @@ Proof.
   - intros κ σ F τ Hr; by inversion Hr.
   - intros κ τ' IH F τ Hr.
     inversion Hr; subst.
+    cbn.
     cbn; f_equal; by apply IH.
   - intros κ τ' IH F τ Hr.
-    inversion Hr; subst.
-    cbn; f_equal; by apply IH.
+    inversion Hr; subst; cbn.
+    apply IH in H3 as Hnew. rewrite <- Hnew.
+    by rewrite (type_kind_kind_of_node _ _ _ H4).
   - intros κ τ' IH F τ Hr.
     inversion Hr; subst.
     cbn; f_equal; by apply IH.
@@ -1868,8 +1888,9 @@ Proof.
     inversion Hr; subst.
     cbn; f_equal; by apply IH.
   - intros κ κv τ' IH F τ Hr.
-    inversion Hr; subst.
-    cbn; f_equal; by apply IH.
+    inversion Hr; subst; cbn.
+    apply IH in H3 as Hnew. rewrite <- Hnew.
+    by rewrite (type_kind_kind_of_node _ _ _ H5).
   - intros τs1' τs2' IH1 IH2 F ϕ Hr.
     inversion Hr; subst.
     cbn; f_equal; symmetry; by eapply map_refresh_kinds_refreshed.

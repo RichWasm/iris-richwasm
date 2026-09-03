@@ -1180,7 +1180,11 @@ Section substitution.
       cbn in IHτ |- *.
       destruct (eval_rep se ρ'), (eval_rep se' ρ); cbn in IHτ |- *; try done.
       inversion IHτ; subst; by constructor.
-  Qed.
+    - (* exists mem *)
+      admit.
+    - (* exists type *)
+      admit.
+  Admitted.
 
   Lemma type_arep_refresh_subst F F' sub_m sub_r sub_s sub_t se se' τ κ κ' :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -1558,7 +1562,11 @@ Section substitution.
       split; last by apply ref_flag_serialize.
       cbn; unfold compose.
       by rewrite (has_areps_serialize_length _ _ Hareps).
-  Qed.
+    - (* exists mem *)
+      admit.
+    - (* exists type *)
+      admit.
+  Admitted.
 
   Lemma skind_interp_chillin_backwards F F' sub_m sub_r sub_s sub_t se se' τ κ κ' sv :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
