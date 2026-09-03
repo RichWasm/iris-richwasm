@@ -1049,20 +1049,200 @@ with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
   | _, _ => False
   end.
 
+Lemma types_eq_mod_kinds_Forall2 κ1 κ2 τs1 τs2 :
+  type_eq_mod_kinds (ProdT κ1 τs1) (ProdT κ2 τs2) ↔ Forall2 type_eq_mod_kinds τs1 τs2.
+Proof.
+  revert τs2.
+  induction τs1 as [| τ1 τs1 IH]; intros [| τ2 τs2]; split; intros H; simpl in *.
+  - constructor.
+  - exact I.
+  - contradiction.
+  - inversion H.
+  - contradiction.
+  - inversion H.
+  - destruct H as [Hhd Htl].
+    constructor; [ exact Hhd | exact (proj1 (IH τs2) Htl) ].
+  - apply Forall2_cons_1 in H as [Hhd Htl].
+    split; [ exact Hhd | exact (proj2 (IH τs2) Htl) ].
+Qed.
+
+Lemma mono_fun_eq_mod_kinds_Forall2 τs1 τs2 τs1' τs2' :
+  inner_function_type_eq_mod_kinds (MonoFunT τs1 τs1') (MonoFunT τs2 τs2') ↔
+  Forall2 type_eq_mod_kinds τs1 τs2 ∧ Forall2 type_eq_mod_kinds τs1' τs2'.
+Proof.
+  pose (κ := VALTYPE (AtomR PtrR) NoRefs).
+  split; intros [H1 H2]; split.
+  - exact (proj1 (types_eq_mod_kinds_Forall2 κ κ τs1 τs2) H1).
+  - exact (proj1 (types_eq_mod_kinds_Forall2 κ κ τs1' τs2') H2).
+  - exact (proj2 (types_eq_mod_kinds_Forall2 κ κ τs1 τs2) H1).
+  - exact (proj2 (types_eq_mod_kinds_Forall2 κ κ τs1' τs2') H2).
+Qed.
+
+Lemma Forall2_type_eq_mod_kinds_rel τs1 τs2 :
+  Forall (fun τ1 => ∀ τ2, type_eq_mod_kinds τ1 τ2 → type_eq_mod_kinds_rel τ1 τ2) τs1 →
+  Forall2 type_eq_mod_kinds τs1 τs2 →
+  Forall2 type_eq_mod_kinds_rel τs1 τs2.
+Proof.
+  intros HP.
+  revert τs2.
+  induction HP as [| τ1 τs1 Hτ1 _ IH]; intros [| τ2 τs2] H.
+  - constructor.
+  - inversion H.
+  - inversion H.
+  - apply Forall2_cons_1 in H as [Hhd Htl].
+    constructor; [ exact (Hτ1 _ Hhd) | exact (IH _ Htl) ].
+Qed.
+
+Lemma type_eq_mod_kinds_rel_complete :
+  (∀ τ1 τ2, type_eq_mod_kinds τ1 τ2 → type_eq_mod_kinds_rel τ1 τ2) ∧
+  (∀ ϕ1 ϕ2, function_type_eq_mod_kinds ϕ1 ϕ2 → function_type_eq_mod_kinds_rel ϕ1 ϕ2) ∧
+  (∀ ϕ1 ϕ2, inner_function_type_eq_mod_kinds ϕ1 ϕ2 → inner_function_type_eq_mod_kinds_rel ϕ1 ϕ2).
+Proof.
+  apply type_and_function_ind.
+  - intros i τ2 H; destruct τ2; simpl in H; try contradiction.
+    subst; constructor.
+  - intros κ τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor.
+  - intros κ nt τ2 H; destruct τ2; simpl in H; try contradiction.
+    subst; constructor.
+  - intros κ τs IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor.
+    apply Forall2_type_eq_mod_kinds_rel; [ exact IH |].
+    exact (proj1 (types_eq_mod_kinds_Forall2 κ κ _ _) H).
+  - intros κ τs IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor.
+    apply Forall2_type_eq_mod_kinds_rel; [ exact IH |].
+    exact (proj1 (types_eq_mod_kinds_Forall2 κ κ _ _) H).
+  - intros κ τs IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor.
+    apply Forall2_type_eq_mod_kinds_rel; [ exact IH |].
+    exact (proj1 (types_eq_mod_kinds_Forall2 κ κ _ _) H).
+  - intros κ τs IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor.
+    apply Forall2_type_eq_mod_kinds_rel; [ exact IH |].
+    exact (proj1 (types_eq_mod_kinds_Forall2 κ κ _ _) H).
+  - intros κ μ β τ IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    destruct H as (-> & -> & H).
+    constructor; exact (IH _ H).
+  - intros κ ϕ IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros κ τ IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros κ ρ τ2 H; destruct τ2; simpl in H; try contradiction.
+    subst; constructor.
+  - intros κ σ τ2 H; destruct τ2; simpl in H; try contradiction.
+    subst; constructor.
+  - intros κ τ IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros κ τ IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros κ τ IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros κ τ IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros κ κ0 τ IH τ2 H; destruct τ2; simpl in H; try contradiction.
+    destruct H as [-> H].
+    constructor; exact (IH _ H).
+  - intros τs1 τs1' IH1 IH2 ϕ2 H; destruct ϕ2; simpl in H; try contradiction.
+    apply mono_fun_eq_mod_kinds_Forall2 in H as [H1 H2].
+    constructor; apply Forall2_type_eq_mod_kinds_rel; assumption.
+  - intros κ ϕ IH ϕ2 H; destruct ϕ2; simpl in H; try contradiction.
+    destruct H as [-> H].
+    constructor; exact (IH _ H).
+  - intros ϕ IH ϕ2 H; destruct ϕ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros ϕ IH ϕ2 H; destruct ϕ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros ϕ IH ϕ2 H; destruct ϕ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+  - intros ϕ IH ϕ2 H; destruct ϕ2; simpl in H; try contradiction.
+    constructor; exact (IH _ H).
+Qed.
+
+Lemma type_eq_mod_kinds_rel_sound τ1 τ2 :
+  type_eq_mod_kinds_rel τ1 τ2 → type_eq_mod_kinds τ1 τ2.
+Proof.
+  apply (type_eq_mod_kinds_rel_ind'
+           type_eq_mod_kinds function_type_eq_mod_kinds inner_function_type_eq_mod_kinds).
+  - intros i; reflexivity.
+  - intros κ1 κ2; exact I.
+  - intros κ1 κ2 nt; reflexivity.
+  - intros κ1 κ2 τs1 τs2 H.
+    exact (proj2 (types_eq_mod_kinds_Forall2 κ1 κ2 τs1 τs2) H).
+  - intros κ1 κ2 τs1 τs2 H.
+    exact (proj2 (types_eq_mod_kinds_Forall2 κ1 κ2 τs1 τs2) H).
+  - intros κ1 κ2 τs1 τs2 H.
+    exact (proj2 (types_eq_mod_kinds_Forall2 κ1 κ2 τs1 τs2) H).
+  - intros κ1 κ2 τs1 τs2 H.
+    exact (proj2 (types_eq_mod_kinds_Forall2 κ1 κ2 τs1 τs2) H).
+  - intros κ1 κ2 μ β τ1' τ2' H.
+    split; [ reflexivity | split; [ reflexivity | exact H ] ].
+  - intros κ1 κ2 ϕ1 ϕ2 H; exact H.
+  - intros κ1 κ2 τ1' τ2' H; exact H.
+  - intros κ1 κ2 ρ; reflexivity.
+  - intros κ1 κ2 σ; reflexivity.
+  - intros κ1 κ2 τ1' τ2' H; exact H.
+  - intros κ1 κ2 τ1' τ2' H; exact H.
+  - intros κ1 κ2 τ1' τ2' H; exact H.
+  - intros κ1 κ2 τ1' τ2' H; exact H.
+  - intros κ κ1 κ2 τ1' τ2' H.
+    split; [ reflexivity | exact H ].
+  - intros ϕ1 ϕ2 H; exact H.
+  - intros ϕ1 ϕ2 H; exact H.
+  - intros ϕ1 ϕ2 H; exact H.
+  - intros ϕ1 ϕ2 H; exact H.
+  - intros τs1 τs2 τs1' τs2' H1 H2.
+    exact (proj2 (mono_fun_eq_mod_kinds_Forall2 τs1 τs2 τs1' τs2') (conj H1 H2)).
+  - intros ϕ1 ϕ2 κ H.
+    split; [ reflexivity | exact H ].
+Qed.
+
+Lemma inner_function_type_eq_mod_kinds_rel_sound ϕ1 ϕ2 :
+  inner_function_type_eq_mod_kinds_rel ϕ1 ϕ2 → inner_function_type_eq_mod_kinds ϕ1 ϕ2.
+Proof.
+  intros H.
+  induction H as [τs1 τs2 τs1' τs2' H1 H2 | ϕ1 ϕ2 κ H IH].
+  - apply mono_fun_eq_mod_kinds_Forall2.
+    split.
+    + exact (Forall2_impl _ _ _ _ H1 type_eq_mod_kinds_rel_sound).
+    + exact (Forall2_impl _ _ _ _ H2 type_eq_mod_kinds_rel_sound).
+  - split; [ reflexivity | exact IH ].
+Qed.
+
+Lemma function_type_eq_mod_kinds_rel_sound ϕ1 ϕ2 :
+  function_type_eq_mod_kinds_rel ϕ1 ϕ2 → function_type_eq_mod_kinds ϕ1 ϕ2.
+Proof.
+  intros H.
+  induction H as [ϕ1 ϕ2 H | ϕ1 ϕ2 H IH | ϕ1 ϕ2 H IH | ϕ1 ϕ2 H IH].
+  - exact (inner_function_type_eq_mod_kinds_rel_sound _ _ H).
+  - exact IH.
+  - exact IH.
+  - exact IH.
+Qed.
+
 Lemma type_eq_mod_equiv τ1 τ2 :
   type_eq_mod_kinds τ1 τ2 ↔ type_eq_mod_kinds_rel τ1 τ2.
 Proof.
-Admitted.
+  split.
+  - apply type_eq_mod_kinds_rel_complete.
+  - apply type_eq_mod_kinds_rel_sound.
+Qed.
 
 Lemma function_type_eq_mod_equiv τ1 τ2 :
   function_type_eq_mod_kinds τ1 τ2 ↔ function_type_eq_mod_kinds_rel τ1 τ2.
 Proof.
-Admitted.
+  split.
+  - apply type_eq_mod_kinds_rel_complete.
+  - apply function_type_eq_mod_kinds_rel_sound.
+Qed.
 
 Lemma inner_function_type_eq_mod_equiv τ1 τ2 :
   inner_function_type_eq_mod_kinds τ1 τ2 ↔ inner_function_type_eq_mod_kinds_rel τ1 τ2.
 Proof.
-Admitted.
+  split.
+  - apply type_eq_mod_kinds_rel_complete.
+  - apply inner_function_type_eq_mod_kinds_rel_sound.
+Qed.
 
 Definition kind_of_num (nt : num_type) : kind :=
   match nt with
