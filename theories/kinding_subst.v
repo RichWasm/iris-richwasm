@@ -757,8 +757,11 @@ Proof.
   - intros κ0 ρ F κ τ' Hk Hr; by inversion Hk; subst; inversion Hr; subst.
   - intros κ0 σ F κ τ' Hk Hr; by inversion Hk; subst; inversion Hr; subst.
   - intros κ0 t IH F κ τ' Hk Hr.
-    inversion Hk; subst; inversion Hr; subst; f_equal; try done;
-      by eapply IH; eauto.
+    inversion Hk; subst; inversion Hr; subst.
+    unfold refresh_det in IH.
+    assert (t = τ'0) as <- by (by apply (IH _ _ _ H3 H2)).
+    rewrite (has_kind_type_kind _ _ _ H3) in H5.
+    inversion H5; done.
   - intros κ0 t IH F κ τ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst.
     unfold refresh_det in IH.
@@ -1443,8 +1446,8 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
   | SpanT _ σ => SpanT (MEMTYPE σ NoRefs) σ
   | RecT κ τ =>
       let τ' := refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ in
-      (* let κ := kind_of_node F τ' in *) (* note: κ also likely has to change *)
-      RecT κ τ'
+      let κ' := kind_of_node ((F <| fc_type_vars ::= cons κ |>)) τ' in
+      RecT κ' τ'
   | ExistsMemT _ τ =>
       let τ' := refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ in
       let κ := kind_of_node ((F <| fc_kind_ctx ::= set kc_mem_vars S |>)) τ' in
@@ -1592,7 +1595,10 @@ Proof.
   - intros κ ρ F κ0 Hk; by inversion Hk.
   - intros κ σ F κ0 Hk; by inversion Hk.
   - intros κ τ IH F κ0 Hk.
-    inversion Hk; subst; cbn; f_equal; by eapply IH.
+    inversion Hk; subst; cbn.
+    match goal with
+    | H : has_kind _ τ _ |- _ => by rewrite -(IH _ _ H) -(kind_of_node_good _ _ _ H)
+    end.
   - intros κ τ IH F κ0 Hk.
     inversion Hk; subst; cbn.
     apply IH in H4 as Hnew.
@@ -1709,7 +1715,8 @@ Proof.
   - done.
   - done.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
-    f_equal; apply IH, fc_ren_cons, HF.
+    rewrite (IH _ _ _ _ _ _ (fc_ren_cons _ _ _ _ _ _ HF)).
+    by rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_cons _ _ _ _ _ _ HF)).
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     rewrite (IH _ _ _ _ _ _ (fc_ren_mem _ _ _ _ _ HF)).
     by rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_mem _ _ _ _ _ HF)).
@@ -1876,9 +1883,11 @@ Proof.
   - intros κ ρ F τ Hr; by inversion Hr.
   - intros κ σ F τ Hr; by inversion Hr.
   - intros κ τ' IH F τ Hr.
-    inversion Hr; subst.
-    cbn.
-    cbn; f_equal; by apply IH.
+    inversion Hr; subst; cbn.
+    match goal with
+    | Hb : refreshed_kinds _ _ τ', Htk : layout.type_kind _ τ' = Some _ |- _ =>
+        rewrite -(IH _ _ Hb); by rewrite (type_kind_kind_of_node _ _ _ Htk)
+    end.
   - intros κ τ' IH F τ Hr.
     inversion Hr; subst; cbn.
     apply IH in H3 as Hnew. rewrite <- Hnew.

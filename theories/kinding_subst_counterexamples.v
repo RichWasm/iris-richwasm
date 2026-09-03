@@ -8,10 +8,10 @@ Set Bullet Behavior "Strict Subproofs".
 
 (* Refutations of the four statements left Admitted in kinding_subst.v.  Two causes:
    (A) refreshed_kinds overwrites every annotation of its input, so nothing follows about
-   the unrefreshed source; (B) refresh keeps the annotation of RecT, ExistsRepT and
-   ExistsSizeT, so instantiation of a well-kinded type can produce an ill-kinded one.
-   34849c4c recomputes the ExistsMemT and ExistsTypeT annotations, which invalidated the
-   older cause-B witnesses; each of the three remaining binders reproduces them. *)
+   the unrefreshed source; (B) refresh keeps the annotation of ExistsRepT and ExistsSizeT,
+   so instantiation of a well-kinded type can produce an ill-kinded one.  Cause B used to
+   fire at ExistsMemT and ExistsTypeT (fixed in 34849c4c) and at RecT (fixed here), and
+   those witnesses are gone; the two remaining binders still reproduce it. *)
 
 Definition κ_no : kind := VALTYPE (AtomR PtrR) NoRefs.
 Definition κ_any : kind := VALTYPE (AtomR PtrR) AnyRefs.
@@ -49,82 +49,7 @@ Proof.
   - repeat constructor.
 Qed.
 
-Definition ift_shrink : inner_function_type :=
-  MonoFunT [RecT κ_any (VarT 1)] [].
-
-Definition ift_shrunk : inner_function_type :=
-  MonoFunT [RecT κ_any (I31T κ_no)] [].
-
-Lemma ift_shrink_kinded :
-  has_kind_ift (fc_empty <| fc_type_vars ::= cons κ_any |>) ift_shrink.
-Proof.
-  apply (KMonoFun _ _ _ [κ_any] []); repeat constructor.
-Qed.
-
-Lemma ift_shrunk_not_kinded F : ¬ has_kind_ift F ift_shrunk.
-Proof.
-  intros Hk.
-  inversion Hk; subst.
-  match goal with
-  | H : Forall2 _ [_] _ |- _ => inversion H; subst
-  end.
-  match goal with
-  | H : has_kind _ (RecT _ _) _ |- _ => inversion H; subst
-  end.
-  match goal with
-  | H : has_kind _ (I31T _) _ |- _ => inversion H
-  end.
-Qed.
-
-Lemma inst_shrink :
-  inner_function_type_inst fc_empty (TypeI (I31T κ_no)) (ForallTypeT κ_any ift_shrink) ift_shrunk.
-Proof.
-  eapply FTInstType with (κ' := κ_no).
-  - constructor.
-  - constructor; done.
-  - repeat constructor.
-Qed.
-
 Definition τ_span : type := SpanT (MEMTYPE (ConstS 0) NoRefs) (ConstS 0).
-
-Definition ift_mem : inner_function_type :=
-  MonoFunT [RecT κ_any (RefT κ_any (VarM 0) Mut τ_span)] [].
-
-Definition ift_mem' : inner_function_type :=
-  MonoFunT [RecT κ_any (RefT κ_gc (BaseM MemGC) Mut τ_span)] [].
-
-Lemma ft_mem_kinded : has_kind_ft fc_empty (ForallMemT (InnerFunT ift_mem)).
-Proof.
-  apply KForallMem, KInnerFun.
-  apply (KMonoFun _ _ _ [κ_any] []); [|constructor].
-  constructor; [|constructor].
-  apply KRec.
-  eapply KRefVar.
-  - apply OKVarM; cbn; lia.
-  - apply KSpan; repeat constructor.
-Qed.
-
-Lemma ift_mem'_not_kinded F : ¬ has_kind_ift F ift_mem'.
-Proof.
-  intros Hk.
-  inversion Hk; subst.
-  match goal with
-  | H : Forall2 _ [_] _ |- _ => inversion H; subst
-  end.
-  match goal with
-  | H : has_kind _ (RecT _ _) _ |- _ => inversion H; subst
-  end.
-  match goal with
-  | H : has_kind _ (RefT _ _ _ _) _ |- _ => inversion H
-  end.
-Qed.
-
-Lemma inst_mem :
-  function_type_inst fc_empty (MemI (BaseM MemGC)) (ForallMemT (InnerFunT ift_mem))
-    (InnerFunT ift_mem').
-Proof.
-  apply FTInstMem; repeat constructor.
-Qed.
 
 (* Cause A: refreshed_kinds accepts any annotation on its input, so the ← direction
    holds of ill-annotated ϕ. *)
@@ -145,42 +70,36 @@ Proof.
   - apply ift_good_kinded.
 Qed.
 
-(* Cause B: RecT's annotation is not refreshed, so instantiating a κ_any binder
-   with a κ_no type leaves a stale RecT annotation (→ direction). *)
+(* Cause A again: refreshed_kinds says nothing about the annotations of its input,
+   so the ← direction fails even where the → direction now holds. *)
 Lemma has_kind_ift_through_inst_iff_false :
   ¬ (∀ F ϕ ϕ' ix,
         inner_function_type_inst F ix ϕ ϕ' →
         (has_kind_ift F ϕ ↔ has_kind_ift F ϕ')).
 Proof.
   intros Hbogus.
-  eapply ift_shrunk_not_kinded.
-  apply (Hbogus _ _ _ _ inst_shrink).
-  constructor; [repeat constructor|apply ift_shrink_kinded].
+  assert (Hk : has_kind_ift fc_empty (ForallTypeT κ_no ift_bad)).
+  { apply (Hbogus _ _ _ _ inst_bad), ift_good_kinded. }
+  inversion Hk; subst.
+  by eapply ift_bad_not_kinded.
 Qed.
 
-(* Cause B: substituting BaseM MemGC re-flags the RefT but not the RecT around it;
-   no subkinding involved (→ direction). *)
 Lemma has_kind_ft_through_inst_iff_false :
   ¬ (∀ F ϕ ϕ' ix,
         function_type_inst F ix ϕ ϕ' →
-        (has_kind_ft F ϕ ↔ has_kind_ft F ϕ')).
+        (has_kind_ft F ϕ <-> has_kind_ft F ϕ')).
 Proof.
   intros Hbogus.
-  eapply ift_mem'_not_kinded.
-  assert (Hk : has_kind_ft fc_empty (InnerFunT ift_mem')).
-  { apply (Hbogus _ _ _ _ inst_mem), ft_mem_kinded. }
-  by inversion Hk.
-Qed.
-
-(* Cause B: same witness; the forward implication alone already fails. *)
-Lemma has_kind_ft_through_inst_false :
-  ¬ (∀ F ϕ ϕ' ix, function_type_inst F ix ϕ ϕ' → has_kind_ft F ϕ → has_kind_ft F ϕ').
-Proof.
-  intros Hbogus.
-  eapply ift_mem'_not_kinded.
-  assert (Hk : has_kind_ft fc_empty (InnerFunT ift_mem')).
-  { apply (Hbogus _ _ _ _ inst_mem), ft_mem_kinded. }
-  by inversion Hk.
+  assert (Hinst : function_type_inst fc_empty (TypeI (I31T κ_no))
+                    (InnerFunT (ForallTypeT κ_no ift_bad)) (InnerFunT ift_good))
+    by (apply FTInstInner, inst_bad).
+  assert (Hk : has_kind_ft fc_empty (InnerFunT (ForallTypeT κ_no ift_bad))).
+  { apply (Hbogus _ _ _ _ Hinst), KInnerFun, ift_good_kinded. }
+  inversion Hk; subst.
+  match goal with
+  | H : has_kind_ift _ (ForallTypeT _ _) |- _ => inversion H; subst
+  end.
+  by eapply ift_bad_not_kinded.
 Qed.
 
 (* Cause A: the refreshed τs' are well kinded while the ill-annotated τs are not. *)
@@ -229,8 +148,8 @@ Proof.
     end.
 Qed.
 
-(* Cause B is not confined to RecT: refresh keeps the ExistsRepT and ExistsSizeT
-   annotations too, so the memory witness above goes through at either of them. *)
+(* The two binders whose annotation refresh still keeps.  The memory witness goes
+   through at either of them, so the forward direction of instantiation remains false. *)
 
 Definition ift_rep : inner_function_type :=
   MonoFunT [ExistsRepT κ_any (RefT κ_any (VarM 0) Mut τ_span)] [].

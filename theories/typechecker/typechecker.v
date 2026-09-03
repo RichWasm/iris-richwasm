@@ -3670,8 +3670,9 @@ Proof.
   - intros Hk; inversion Hk; subst; constructor.
   - intros IH * Hk.
     inversion Hk; subst.
-    apply IH in H3.
-    by eapply RKRec.
+    apply IH in H3 as Hnew.
+    cbn; constructor; try done.
+    by apply has_kind_type_kind.
   - intros IH * Hk.
     inversion Hk; subst.
     apply IH in H4 as Hnew.

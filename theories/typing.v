@@ -1302,10 +1302,10 @@ Inductive refreshed_kinds : function_ctx → type → type → Prop :=
   refreshed_kinds F (PlugT κ ρ) (PlugT (VALTYPE ρ NoRefs) ρ)
 | RKSpan F κ σ :
   refreshed_kinds F (SpanT κ σ) (SpanT (MEMTYPE σ NoRefs) σ)
-| RKRec F κ τ τ' :
+| RKRec F κ κ' τ τ' :
   refreshed_kinds (F <| fc_type_vars ::= cons κ |>) τ τ' →
-  (* type_kind (fc_type_vars F) τ' = Some κ' -> *)
-  refreshed_kinds F (RecT κ τ) (RecT κ τ') (* does the κ here need to be adjusted..? *)
+  type_kind (fc_type_vars ((F <| fc_type_vars ::= cons κ |>))) τ' = Some κ' ->
+  refreshed_kinds F (RecT κ τ) (RecT κ' τ')
 | RKExistsMem F κ κ' τ τ' :
   refreshed_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ τ' →
   type_kind (fc_type_vars ((F <| fc_kind_ctx ::= set kc_mem_vars S |>))) τ' = Some κ' ->
