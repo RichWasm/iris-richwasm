@@ -6,7 +6,13 @@ Require Import RichWasm.kinding_subst.
 
 Set Bullet Behavior "Strict Subproofs".
 
-(*
+(* Refutations of the four statements left Admitted in kinding_subst.v.  Two causes:
+   (A) refreshed_kinds overwrites every annotation of its input, so nothing follows about
+   the unrefreshed source; (B) refresh keeps the annotation of RecT, so instantiation of a
+   well-kinded type can produce an ill-kinded one.  34849c4c recomputes the ExistsMemT and
+   ExistsTypeT annotations, which killed the older cause-B witnesses; RecT reproduces both
+   of them verbatim. *)
+
 Definition κ_no : kind := VALTYPE (AtomR PtrR) NoRefs.
 Definition κ_any : kind := VALTYPE (AtomR PtrR) AnyRefs.
 Definition κ_gc : kind := VALTYPE (AtomR PtrR) GCRefs.
@@ -44,10 +50,10 @@ Proof.
 Qed.
 
 Definition ift_shrink : inner_function_type :=
-  MonoFunT [ExistsTypeT κ_any κ_no (VarT 1)] [].
+  MonoFunT [RecT κ_any (VarT 1)] [].
 
 Definition ift_shrunk : inner_function_type :=
-  MonoFunT [ExistsTypeT κ_any κ_no (I31T κ_no)] [].
+  MonoFunT [RecT κ_any (I31T κ_no)] [].
 
 Lemma ift_shrink_kinded :
   has_kind_ift (fc_empty <| fc_type_vars ::= cons κ_any |>) ift_shrink.
@@ -63,7 +69,7 @@ Proof.
   | H : Forall2 _ [_] _ |- _ => inversion H; subst
   end.
   match goal with
-  | H : has_kind _ (ExistsTypeT _ _ _) _ |- _ => inversion H; subst
+  | H : has_kind _ (RecT _ _) _ |- _ => inversion H; subst
   end.
   match goal with
   | H : has_kind _ (I31T _) _ |- _ => inversion H
@@ -82,17 +88,17 @@ Qed.
 Definition τ_span : type := SpanT (MEMTYPE (ConstS 0) NoRefs) (ConstS 0).
 
 Definition ift_mem : inner_function_type :=
-  MonoFunT [ExistsTypeT κ_any κ_no (RefT κ_any (VarM 0) Mut τ_span)] [].
+  MonoFunT [RecT κ_any (RefT κ_any (VarM 0) Mut τ_span)] [].
 
 Definition ift_mem' : inner_function_type :=
-  MonoFunT [ExistsTypeT κ_any κ_no (RefT κ_gc (BaseM MemGC) Mut τ_span)] [].
+  MonoFunT [RecT κ_any (RefT κ_gc (BaseM MemGC) Mut τ_span)] [].
 
 Lemma ft_mem_kinded : has_kind_ft fc_empty (ForallMemT (InnerFunT ift_mem)).
 Proof.
   apply KForallMem, KInnerFun.
   apply (KMonoFun _ _ _ [κ_any] []); [|constructor].
   constructor; [|constructor].
-  apply KExistsType; [repeat constructor..|].
+  apply KRec.
   eapply KRefVar.
   - apply OKVarM; cbn; lia.
   - apply KSpan; repeat constructor.
@@ -106,7 +112,7 @@ Proof.
   | H : Forall2 _ [_] _ |- _ => inversion H; subst
   end.
   match goal with
-  | H : has_kind _ (ExistsTypeT _ _ _) _ |- _ => inversion H; subst
+  | H : has_kind _ (RecT _ _) _ |- _ => inversion H; subst
   end.
   match goal with
   | H : has_kind _ (RefT _ _ _ _) _ |- _ => inversion H
@@ -139,8 +145,8 @@ Proof.
   - apply ift_good_kinded.
 Qed.
 
-(* Cause B: binder annotations are not refreshed, so instantiating a κ_any binder
-   with a κ_no type leaves a stale ExistsTypeT annotation (→ direction). *)
+(* Cause B: RecT's annotation is not refreshed, so instantiating a κ_any binder
+   with a κ_no type leaves a stale RecT annotation (→ direction). *)
 Lemma has_kind_ift_through_inst_iff_false :
   ¬ (∀ F ϕ ϕ' ix,
         inner_function_type_inst F ix ϕ ϕ' →
@@ -152,8 +158,8 @@ Proof.
   constructor; [repeat constructor|apply ift_shrink_kinded].
 Qed.
 
-(* Cause B: substituting BaseM MemGC re-flags the RefT but not the ExistsTypeT
-   around it; no subkinding involved (→ direction). *)
+(* Cause B: substituting BaseM MemGC re-flags the RefT but not the RecT around it;
+   no subkinding involved (→ direction). *)
 Lemma has_kind_ft_through_inst_iff_false :
   ¬ (∀ F ϕ ϕ' ix,
         function_type_inst F ix ϕ ϕ' →
@@ -222,4 +228,3 @@ Proof.
     | H : has_kind_ift _ (ForallTypeT _ _) |- _ => by inversion H
     end.
 Qed.
-*)
