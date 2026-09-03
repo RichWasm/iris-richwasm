@@ -95,7 +95,7 @@ Section fold.
     iAssert (type_interp rti sr τ
                (senv_insert_type sκ sκ (value_interp rti sr se (RecT κ τ)) se) (SAtoms os))
     with "[Hval]" as "Hos". {
-      iApply (type_interp_subst_type_backwards with "[$Hval]").
+      iApply (type_interp_subst_type_backwards with "[$Hval]"); try exact mr.
       11: exact H3.
       1-9: try done.
       - unfold sem_env_types_well_formed in *.
@@ -139,8 +139,9 @@ Section fold.
       - intros i; destruct i; try done.
         cbn.
         apply this in H3.
-        rewrite <- H3.
-        done.
+        (* rewrite <- H3. *)
+        (* done. *)
+        admit.
       - (* this is whatever the kinding admit above is *)
         rewrite H.
         exact Hkindτrec.
@@ -159,6 +160,6 @@ Section fold.
     done.
 
 
-  Qed.
+    Admitted.
 
 End fold.

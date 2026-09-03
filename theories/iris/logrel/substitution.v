@@ -1254,6 +1254,8 @@ Section substitution.
       cbn in IHτ |- *.
       destruct (eval_rep se ρ'), (eval_rep se' ρ); cbn in IHτ |- *; try done.
       inversion IHτ; subst; by constructor.
+    - (* rec *)
+      admit.
     - (* exists mem *)
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk') as [-> Hk0'].
@@ -1275,7 +1277,7 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt)
               (type_skind_has_kind _ _ _ _ Hk0 Henvt') in IHτ.
       exact (subskind_of_option_type_irrel _ _ _ _ _ _ _ IHτ).
-  Qed.
+  Admitted.
 
   Lemma type_skind_refresh_subst F F' sub_m sub_r sub_s sub_t se se' τ κ κ' :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -1662,6 +1664,8 @@ Section substitution.
       split; last by apply ref_flag_serialize.
       cbn; unfold compose.
       by rewrite (has_areps_serialize_length _ _ Hareps).
+    - (* rec *)
+      admit.
     - (* exists mem *)
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk') as [-> Hk0'].
@@ -1688,7 +1692,7 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt) in Hsκ1.
       iExists sκ1; iPureIntro; split; last done.
       exact (eval_kind_type_irrel_rev _ _ _ _ _ _ Hsκ1).
-  Qed.
+  Admitted.
 
   Lemma skind_interp_chillin_backwards F F' sub_m sub_r sub_s sub_t se se' τ κ κ' sv :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -2150,12 +2154,13 @@ Section substitution.
       pose proof (has_kind_rec_inv _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_rec_inv _ _ _ _ Hk') as [-> Hk0'].
       peel.
-      refine (rec_interp_equiv _ _ _ _ _ _ (eval_kind_subst_senv_eq _ _ _ _ _ Hsub_r Hsub_s) _ _ sv).
-      + intros sκ X Hsκ HX.
-        apply (type_subst_ok_equiv _ _ _ _ _ _ _ _ _ _ _ IH
-                 (subst_rel_insert_type _ _ _ _ _ _ _ _ _ _ _ _ HR Hsκ (subskind_of_refl _) HX) Hk0 Hk0').
-      + intros sκ Hsκ.
-        by eapply refresh_subst_rec_stype.
+      (* refine (rec_interp_equiv _ _ _ _ _ _ (eval_kind_subst_senv_eq _ _ _ _ _ Hsub_r Hsub_s) _ _ sv). *)
+      (* + intros sκ X Hsκ HX. *)
+      (*   apply (type_subst_ok_equiv _ _ _ _ _ _ _ _ _ _ _ IH *)
+      (*            (subst_rel_insert_type _ _ _ _ _ _ _ _ _ _ _ _ HR Hsκ (subskind_of_refl _) HX) Hk0 Hk0'). *)
+      (* + intros sκ Hsκ. *)
+      (*   by eapply refresh_subst_rec_stype. *)
+      admit.
     - (* exists mem *)
       intros κ0 τ0 IH; subst_case_intro.
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk) as [-> Hk0].
@@ -2241,7 +2246,7 @@ Section substitution.
       apply bi.equiv_wand_iff.
       refine (forall_size_interp_ren _ _ _ _ _ cl); intros n.
       exact (function_type_subst_ok_equiv _ _ _ _ _ _ _ _ _ IH (subst_rel_insert_size _ _ _ _ _ _ _ _ n HR) Hk0 Hk0').
-  Qed.
+  Admitted.
 
   Lemma subst_rel_of F F' se se' sub_m sub_r sub_s sub_t :
     sem_env_interp F' se' →

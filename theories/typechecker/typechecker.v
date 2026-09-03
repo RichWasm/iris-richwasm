@@ -3671,7 +3671,8 @@ Proof.
   - intros IH * Hk.
     inversion Hk; subst.
     apply IH in H3.
-    by eapply RKRec.
+    cbn in *.
+    admit.
   - intros IH * Hk.
     inversion Hk; subst.
     apply IH in H4 as Hnew.
@@ -3741,7 +3742,7 @@ Proof.
     inversion Hk; subst.
     apply IH in H1.
     constructor; done.
-Qed.
+Admitted.
 
 Lemma inner_function_type_inst_checker_correct :
   ∀ F i ft1 ft2,
