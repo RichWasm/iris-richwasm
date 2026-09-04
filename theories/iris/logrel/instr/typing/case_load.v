@@ -242,7 +242,7 @@ lia.
       iDestruct "Hos" as "(%sκ_var & %ToInv & %Hvar_sksv & Hos)".
       inversion ToInv; subst; clear ToInv.
       destruct Hvar_sksv as [Hws_len Hws_refflag].
-      iDestruct "Hos" as "(%i & %iN & %ws0 & %ws_padding & %Hnati & %ToInv & Hos)".
+      iDestruct "Hos" as "(%i & %iN & %ws0 & %ws_padding & %Hnati & %ToInv & %Hpad & Hos)".
       inversion ToInv; subst; clear ToInv.
       destruct (list_lookup i (map (type_interp rti sr) τs_ser)) as [τ0|] eqn:Hlookup;
         rewrite Hlookup; last done.

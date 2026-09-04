@@ -495,6 +495,7 @@ Section instr.
             ⌜sv = SAtoms (I32A (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: os)⌝ ∗
             ⌜sum_offset_se se ρs i = Some off⌝ ∗
             ⌜length <$> ρs !! i ≫= eval_rep se = Some count⌝ ∗
+            ⌜ref_flag_atoms_interp NoRefs (SAtoms (take off os ++ drop (off + count) os))⌝ ∗
             match list_lookup i τs with
             | Some τi => τi se (SAtoms (take count (drop off os)))
             | None => False%I
@@ -539,6 +540,7 @@ Section instr.
       (∃ i n ws ws',
          ⌜N_nat_repr i n⌝ ∗
          ⌜sv = SWords (WordInt n :: ws ++ ws')⌝ ∗
+         ⌜ref_flag_words_interp NoRefs (SWords ws')⌝ ∗
          match list_lookup i τs with
          | Some τ => τ se (SWords ws)
          | None => False%I

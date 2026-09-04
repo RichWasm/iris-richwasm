@@ -450,7 +450,11 @@ Section inject.
         rewrite Hlookup_i.
         rewrite (has_areps_length _ _ Hareps_pre).
         rewrite (has_areps_length _ _ Hhas_areps).
-        by rewrite drop_app_length take_app_length.
+        iSplitR; last by rewrite drop_app_length take_app_length.
+        rewrite Forall_app.
+        iSplitR.
+        * by rewrite take_app_length.
+        * by rewrite -length_app (app_assoc os_pre) drop_app_length.
     - iApply atoms_interp_cons.
       iSplit; first done.
       iApply atoms_interp_app_split_r; first done.

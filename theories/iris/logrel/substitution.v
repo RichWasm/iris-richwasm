@@ -1682,7 +1682,7 @@ Section substitution.
                (map (refresh_kinds F) (map (subst_type sub_m sub_r sub_s sub_t) τs)))))
                 ) in *.
         iDestruct "Hsuminterp" as "(%i & %os & %off & %count &
-                              %H67 & %H7 & %H8 & Hoa)".
+                              %H67 & %H7 & %H8 & %Hpad & Hoa)".
         destruct (list_lookup i (map (type_interp rti sr) τs)) eqn:Hτi_interp; try done.
         rename o into τi_interp.
 
