@@ -1084,7 +1084,7 @@ let rec elab_instruction (env : Env.t) :
       in
       let* it = instr_t_of env.kinds stack_in stack_out in
       ret @@ ICase (it, lfx', cases')
-  | CaseLoad (bt, consume, lfx, cases) ->
+  | CaseLoad (bt, lfx, cases) ->
       let* ref = pop "CaseLoad" in
       let* () = push ref in
       let f i : A.Type.t -> _ = function
@@ -1103,23 +1103,18 @@ let rec elab_instruction (env : Env.t) :
         | Ref (mem, _, t) -> ret (mem, t)
         | t -> fail (NonRef (`CaseLoad, t))
       in
-      let* t_out, consume' =
-        match consume with
-        | Move -> ret (stack_out, B.Consumption.Move)
-        | Copy ->
-            let ref_t = A.Type.Ref (mem, Imm, t_targ) in
-            (* NOTE: Copy keeps the scrutinee ref under the block results (cf. compile_case_load's tee_local). *)
-            let* tops =
-              List.init (List.length stack_out) ~f:Fn.id
-              |> mapM ~f:(fun _ -> pop "CaseLoad-Copy")
-            in
-            let* () = push ref_t in
-            let* () = List.rev tops |> iterM ~f:push in
-            ret (ref_t :: stack_out, B.Consumption.Copy)
-        | Follow -> fail FollowNotSupportedForCaseLoad
+      let* t_out =
+        let ref_t = A.Type.Ref (mem, Imm, t_targ) in
+        let* tops =
+          List.init (List.length stack_out) ~f:Fn.id
+          |> mapM ~f:(fun _ -> pop "CaseLoad")
+        in
+        let* () = push ref_t in
+        let* () = List.rev tops |> iterM ~f:push in
+        ret (ref_t :: stack_out)
       in
       let* it = instr_t_of env.kinds stack_in t_out in
-      ret @@ ICaseLoad (it, consume', lfx', cases')
+      ret @@ ICaseLoad (it, lfx', cases')
   | Group i ->
       (* top ... bottom -> bottom ... top *)
       let* ts =

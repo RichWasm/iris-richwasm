@@ -305,11 +305,9 @@ Section Compiler.
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _) _] [τ']) _ ess =>
         compile_case fe ρs τ' (compile_cases fe ess)
     | ICase _ _ _ => raise (EInvalidInstrT "ICase")
-    | ICaseLoad (InstrT [RefT _ _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) Copy _ ess =>
+    | ICaseLoad (InstrT [RefT _ _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) _ ess =>
         compile_case_load fe σ τs τ' Copy (compile_cases fe ess)
-    | ICaseLoad (InstrT [RefT _ _ _ (VariantT (MEMTYPE σ _) τs)] [τ']) Move _ ess =>
-        compile_case_load fe σ τs τ' Move (compile_cases fe ess)
-    | ICaseLoad _ _ _ _ => raise (EInvalidInstrT "ICaseLoad")
+    | ICaseLoad _ _ _ => raise (EInvalidInstrT "ICaseLoad")
     | IGroup _ => erased_in_wasm
     | IUngroup _ => erased_in_wasm
     | IFold _ => erased_in_wasm_nop

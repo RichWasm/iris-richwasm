@@ -10,8 +10,7 @@ From RichWasm.iris.logrel.instr.typing Require Import
   call
   call_indirect
   case
-  case_load_copy
-  case_load_move
+  case_load
   cast
   coderef
   copy
@@ -109,8 +108,7 @@ Section typing.
     - eapply compat_inject; eassumption.
     - eapply compat_inject_new; eassumption.
     - eapply compat_case; eassumption.
-    - eapply compat_case_load_copy; eassumption.
-    - eapply compat_case_load_move; eassumption.
+    - eapply compat_case_load; eassumption.
     - eapply compat_group; eassumption.
     - eapply compat_ungroup; eassumption.
     - eapply compat_fold; eassumption.

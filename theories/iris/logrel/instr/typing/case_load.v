@@ -5,7 +5,7 @@ From RichWasm.iris.logrel Require Import case_ptr roots load_copy.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section case_load_copy.
+Section case_load.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
@@ -15,7 +15,7 @@ Section case_load_copy.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_case_load_copy M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' μ κr κv κs :
+  Lemma compat_case_load M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' μ κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
@@ -36,7 +36,7 @@ Section case_load_copy.
             ⊢ have_instr_type_sem rti sr mr M F' L WT WL lmask es' (InstrT [τ] τs') L'))
       τs ess ->
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr mr fe (ICaseLoad ψ Copy L' ess)) wt wl = inr ((), wt', wl', es') ->
+    run_codegen (compile_instr mr fe (ICaseLoad ψ L' ess)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
     intros * Hlenκsτs Hgcref IH Hok Hcg.
@@ -325,4 +325,4 @@ lia.
 
   Admitted.
 
-End case_load_copy.
+End case_load.

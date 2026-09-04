@@ -756,9 +756,9 @@ Fixpoint instruction_eq_dec (e1 e2 : instruction) : {e1 = e2} + {e1 <> e2} :=
  | ICase ϕ1 τs1 ees1, ICase ϕ2 τs2 ees2 =>
      ltac:(triple_thing (instruction_type_eq_dec ϕ1 ϕ2) (type_eq_dec_list τs1 τs2)
           (instruction_list_eq_dec_list ees1 ees2))
- | ICaseLoad ϕ1 c1 τs1 ees1, ICaseLoad ϕ2 c2 τs2 ees2 =>
-     ltac:(quad_thing (instruction_type_eq_dec ϕ1 ϕ2) (type_eq_dec_list τs1 τs2)
-          (instruction_list_eq_dec_list ees1 ees2) (consumption_eq_dec c1 c2))
+ | ICaseLoad ϕ1 τs1 ees1, ICaseLoad ϕ2 τs2 ees2 =>
+     ltac:(triple_thing (instruction_type_eq_dec ϕ1 ϕ2) (type_eq_dec_list τs1 τs2)
+             (instruction_list_eq_dec_list ees1 ees2))
  | ILoad ϕ1 ns1 c1, ILoad ϕ2 ns2 c2 =>
      ltac:(triple_thing (instruction_type_eq_dec ϕ1 ϕ2) (nat_eq_dec_list ns1 ns2) (consumption_eq_dec c1 c2))
  | IStore ϕ1 ns1, IStore ϕ2 ns2
@@ -4649,7 +4649,7 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
   | IInject _ _
   | IInjectNew _ _ => inl (Some L)
   | ICase _ L' _
-  | ICaseLoad _ _ L' _ => inl (Some L')
+  | ICaseLoad _ L' _ => inl (Some L')
   | IGroup _
   | IUngroup _
   | IFold _
@@ -5108,67 +5108,43 @@ Fixpoint has_instruction_type_checker
         | _ => INR "incorrect isntruction type for case (wrong shape)"
         end
       else INR "incorrect instruction type for case"
-  | ICaseLoad ψ_inner cm L_inner ess => (* note: both TCaseLoadCopy and TCaseLoadMove *)
-      (* some of the shared things before casing on cm *)
+  | ICaseLoad ψ_inner L_inner ess =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L_inner L')
       then (* oh that's it, τs_ser needs to be gotten out of ψ lmao *)
-        match cm with (* DECISION POINT *)
-        | Copy => (* TCaseLoadCopy *)
-            match ψ with
-            | InstrT [τ1] (τ2::τs') =>
-                match τ1 with
-                | RefT κr μ Imm (VariantT κv τs_ser) =>
-                    match τ2 with
-                    | RefT κr0 μ0 Imm (VariantT κv0 τs'0) =>
-                        (* a bunch of variables have to be equal *)
-                        if andb (kind_beq κr κr0) (andb (kind_beq κv κv0)
-                                  (andb (memory_beq μ μ0) (list_beq type type_beq τs_ser τs'0)))
-                        then
-                          match unzip_sert τs_ser with
-                          | Some (κs, τs) =>
-                              let F' := F <| fc_labels ::= cons (τs', L') |> in
-                              if foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t GCRefs))) true τs
-                              then
-                                if foldr2_bool
-                                     (λ es, λ t:type,
-                                         andb (check_ok_output
-                                                 (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
-                                     ) true false ess τs
-                                then has_instruction_type_ok_checker F ψ L'
-                                else INR "incorrect instruction type for caseloadcopy (failed looping check)"
-                              else INR "incorrect instruction type for caseloadcopy (potentially copying mm refs)"
-                          | None => INR "incorrect instruction type for caseloadcopy (τs_ser isn't all SerT)"
-                          end
-                        else INR "incorrect instruction type for caseloadcopy (input/output don't match)"
-                    | _ => INR "incorrect instruction type for caseloadcopy (wrong output shape)"
-                    end
-                | _ => INR "incorrect instruction type for caseloadcopy (wrong input shape)"
+        match ψ with
+        | InstrT [τ1] (τ2::τs') =>
+            match τ1 with
+            | RefT κr μ Imm (VariantT κv τs_ser) =>
+                match τ2 with
+                | RefT κr0 μ0 Imm (VariantT κv0 τs'0) =>
+                    (* a bunch of variables have to be equal *)
+                    if andb (kind_beq κr κr0)
+                         (andb (kind_beq κv κv0)
+                            (andb (memory_beq μ μ0) (list_beq type type_beq τs_ser τs'0)))
+                    then
+                      match unzip_sert τs_ser with
+                      | Some (κs, τs) =>
+                          let F' := F <| fc_labels ::= cons (τs', L') |> in
+                          if foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t GCRefs))) true τs
+                          then
+                            if foldr2_bool
+                                 (λ es, λ t:type,
+                                     andb (check_ok_output
+                                             (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
+                                 ) true false ess τs
+                            then has_instruction_type_ok_checker F ψ L'
+                            else INR "incorrect instruction type for caseload (failed looping check)"
+                          else INR "incorrect instruction type for caseload (potentially copying mm refs)"
+                      | None => INR "incorrect instruction type for caseload (τs_ser isn't all SerT)"
+                      end
+                    else INR "incorrect instruction type for caseload (input/output don't match)"
+                | _ => INR "incorrect instruction type for caseload (wrong output shape)"
                 end
-            | _ => INR "incorrect instruction type for caseloadcopy (wrong shape)"
+            | _ => INR "incorrect instruction type for caseload (wrong input shape)"
             end
-        | Move => (* TCaseLoadMove *)
-            match ψ with
-            | InstrT [τ1] τs' =>
-                match τ1 with
-                | RefT κr (BaseM MemMM) Imm (VariantT κv τs_ser) =>
-                    match unzip_sert τs_ser with
-                    | Some (κs, τs) =>
-                        let F' := F <| fc_labels ::= cons (τs', L') |> in
-                        if foldr2_bool
-                             (λ es, λ t:type,
-                                 andb (check_ok_output
-                                         (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
-                             ) true false ess τs
-                        then has_instruction_type_ok_checker F ψ L'
-                        else INR "incorrect instruction type for caseloadmove (failed looping check)"
-                    | None => INR "incorrect instruction type for caseloadmove (τs_ser isn't all SerT)"
-                    end
-                | _ => INR "incorrect instruction type for caselaodmove (wrong input shape)"
-                end
-            | _ => INR "incorrect instruction type for caseloadmove (wrong shape)"
-            end
+        | _ => INR "incorrect instruction type for caseload (wrong shape)"
         end
-      else INR "incorrect instruction type for caseload (either version)"
+      else INR "incorrect instruction type for caseload"
   | IGroup ψ_inner =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
@@ -5624,7 +5600,7 @@ Section InstructionMind.
     (HInject: ∀ ψ n, P1 (IInject ψ n))
     (HInjectNew: ∀ ψ n, P1 (IInjectNew ψ n))
     (HCase: ∀ ψ τs ess, Forall P2 ess -> P1 (ICase ψ τs ess))
-    (HCaseLoad: ∀ ψ c τs ess, Forall P2 ess -> P1 (ICaseLoad ψ c τs ess))
+    (HCaseLoad: ∀ ψ τs ess, Forall P2 ess -> P1 (ICaseLoad ψ τs ess))
     (HGroup : ∀ ψ, P1 (IGroup ψ))
     (HUngroup: ∀ ψ, P1 (IUngroup ψ))
     (HFold: ∀ ψ, P1 (IFold ψ))
@@ -5678,7 +5654,7 @@ Section InstructionMind.
       | IInject ψ n => HInject ψ n
       | IInjectNew ψ n => HInjectNew ψ n
       | ICase ψ τs ess => HCase ψ τs ess (list_list_instruction_ind ess)
-      | ICaseLoad ψ c τs ess => HCaseLoad ψ c τs ess (list_list_instruction_ind ess)
+      | ICaseLoad ψ τs ess => HCaseLoad ψ τs ess (list_list_instruction_ind ess)
       | IGroup ψ => HGroup ψ
       | IUngroup ψ => HUngroup ψ
       | IFold ψ => HFold ψ
@@ -6077,27 +6053,17 @@ Proof.
   }
   [CaseLoad]: {
     half_shred.
-    - (* case load copy *)
-      fold hitc in HMatch12.
-      convert_foldr
-        (λ t:type, check_ok_output (has_ref_flag_checker F t GCRefs))
-        (fun t => has_ref_flag F t GCRefs) l5 HMatch10.
-      subst.
-      constructor; try done.
-      apply flip_foldr2_bool in HMatch12.
-      eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch12.
-      (* I'm sure there's a way to make the following less jank but it's okay for now *)
-      eapply Forall_impl; first exact H.
-      intros x MiniF t; apply MiniF.
-    - (* case load move *)
-      subst.
-      fold hitc in HMatch8.
-      constructor; try done.
-      apply flip_foldr2_bool in HMatch8.
-      eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch8.
-      (* I'm sure there's a way to make the following less jank but it's okay for now *)
-      eapply Forall_impl; first exact H.
-      intros x MiniF t; apply MiniF.
+    fold hitc in HMatch11.
+    convert_foldr
+      (λ t:type, check_ok_output (has_ref_flag_checker F t GCRefs))
+      (fun t => has_ref_flag F t GCRefs) l5 HMatch9.
+    subst.
+    constructor; try done.
+    apply flip_foldr2_bool in HMatch11.
+    eapply convert_foldr2_bool_to_Forall2_check_ok_output_right_list; try exact HMatch11.
+    (* I'm sure there's a way to make the following less jank but it's okay for now *)
+    eapply Forall_impl; first exact H.
+    intros x MiniF t; apply MiniF.
   }
 
   (* All the basic ones *)
