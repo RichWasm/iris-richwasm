@@ -49,7 +49,7 @@ Section case_load.
     destruct τs'; first last.
     { cbn in Hcg; inversion Hcg. }
 
-    cbn in Hcg.
+    cbn -[compile_cases] in Hcg.
     inv_cg_bind Hcg n ?wt ?wt ?wl ?wl ?es ?es Hn Hcg.
     inv_cg_bind Hcg ts ?wt ?wt ?wl ?wl ?es ?es Hts Hcg.
     destruct (Wasm_int.Int32.modulus <? length τs_ser)%Z eqn:Hlength; first done.
@@ -88,6 +88,10 @@ Section case_load.
     (* useful variables to set *)
     set (x := fe_wlocal_offset fe + length wl) in *.
     set (locsz := length (concat (typing.fc_locals F)) + length (WL)).
+    Ltac clear_frame_things HFLEN LOCSZ WL' := repeat (cbn; try rewrite !length_app;
+                  try rewrite !length_insert; try rewrite !length_concat;
+                  try rewrite !sum_list_with_list_sum;
+                  try rewrite !HFLEN; try unfold LOCSZ; try subst WL').
 
     (* frame and other facts *)
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
@@ -136,13 +140,9 @@ Section case_load.
     (* convenient spot for frame facts so things aren't clogged up elsewhere *)
     assert (Hlookup_x: f_locs {| W.f_locs := <[x:=v]> (f_locs fr); W.f_inst := f_inst fr |}
               !! localimm (Mk_localidx x) = Some v). {
-        cbn.
-        apply list_lookup_insert_eq.
-        rewrite Hflen.
-        unfold locsz. subst WL. cbn.
-        rewrite sum_list_with_list_sum length_concat.
-        rewrite !length_app. cbn.
-        lia.
+      cbn; apply list_lookup_insert_eq.
+      clear_frame_things Hflen locsz WL.
+      lia.
     }
 
     (* Time to split between MM and GC! *)
@@ -187,22 +187,23 @@ Section case_load.
       (* dig into Hcg *)
       inv_cg_emit Hcg_unr.
       inv_cg_bind Hcg_mm [] ?wt ?wt ?wl ?wl ?es ?es Hcg_root Hcg.
-      inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_tag Hcg.
-      inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg Hcg_case.
-      inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_savestack Hcg.
-      inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_defaults Hcg_caseblocks.
-      cbn in Hcg_case; inversion Hcg_case.
-      subst; clear_nils.
-      clear Hcg_case Hretval.
+      inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_tag Hcg_case_switch.
+      inv_cg_bind Hcg_case_switch [] ?wt ?wt ?wl ?wl ?es ?es Hcg_case_switch Hcg_null.
+      (* inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg Hcg_case. *)
+      (* inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_savestack Hcg. *)
+      (* inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_defaults Hcg_caseblocks. *)
+      (* cbn in Hcg_case; inversion Hcg_case. *)
+      cbn in Hcg_null; inversion Hcg_null; subst; clear Hcg_null; clear_nils.
+      clear Hretval.
       cbn in Hcg_root; inversion Hcg_root; subst; clear Hcg_root.
       (* use wp_root_to_heap in GC *)
       clear_nils.
       rename es1 into es_load_tag.
-      rename es5 into es_save_stack.
-      rename es7 into es_defaults.
-      rename es8 into es_case_blocks.
+      rename es3 into es_case_switch.
+      (* rename es5 into es_save_stack. *)
+      (* rename es7 into es_defaults. *)
+      (* rename es8 into es_case_blocks. *)
 
-      (* dig into instructions before case blocks *)
 
       (* first: load tag *)
       apply wp_mem_load1_cg_state in Hcg_tag as Hstate; try done.
@@ -213,12 +214,9 @@ Section case_load.
         fe_wlocal_offset (fe_of_context F) + length (wl ++ [W.T_i32]) + length [translate_arep I32R]
         ≤ length (f_locs {| W.f_locs := <[x:=(VAL_int32 n32)]> (f_locs fr);
                           W.f_inst := f_inst fr |})). {
-cbn.
-rewrite length_insert sum_list_with_list_sum.
-subst locsz. rewrite Hflen. rewrite length_concat.
-subst WL. clear_nils. rewrite !length_app. cbn.
-lia.
-}
+        clear_frame_things Hflen locsz WL.
+        lia.
+      }
 
       (* we need things in the invariant, so we must open the invariant *)
       iApply fupd_cwp.
@@ -292,7 +290,158 @@ lia.
           done.
       }
 
+      iIntros (??) "Rest Hfr Hrun".
+      iDestruct "Rest" as "(%vf & -> & -> & %Hvf & Haddr & Hrt & Hown)".
+      iApply fupd_cwp.
+      iMod "Hown". iModIntro.
+      clear_nils.
 
+      (* case switch~ *)
+      (* for some reason rocq hates cwp_case_switch so long and annoying lol *)
+      pose proof cwp_case_switch.
+      move Hcg_case_switch at bottom.
+      rename wt4 into wt_case_switch; rename wl4 into wl_case_switch.
+      specialize (H wt wt_case_switch (wl ++ [W.T_i32] ++ [translate_arep I32R]) wl_case_switch).
+      specialize (H fe ts).
+      set (on_each_case := ((λ (c : codegen ()) (i0 : nat),
+          try_option EFail (τs_ser !! i0)
+          ≫= λ τ0 : type,
+               try_option EFail match τ0 with
+                                | SerT _ t => Some t
+                                | _ => None
+                                end
+               ≫= λ τ1 : type,
+                    try_option EFail (type_rep (fe_type_vars fe) τ1)
+                    ≫= λ ρ : representation,
+                         try_option EFail (eval_rep EmptyEnv ρ)
+                         ≫= λ ιs : list atomic_rep,
+                              memory.load mr fe MemMM Copy (Mk_localidx x) 1 ιs ≫= λ _ : (), c))) in *.
+      set (cases := ((map
+            on_each_case
+            ((fix compile_cases
+                (fe : function_env) (ess : list (list instruction)) {struct ess} :
+                  list (codegen ()) :=
+                match ess with
+                | [] => []
+                | es :: ess' => mapM_ (compile_instr mr fe) es :: compile_cases fe ess'
+                end)
+               fe ess)))) in *.
+
+      apply Forall2_length in IH as Hlen_τs_ess.
+      assert (length τs = length τs_ser) as Hlen_τs_ser. {
+        by rewrite length_zip_with Hlenκsτs Nat.min_id.
+      }
+      assert (is_Some (ess !! i)) as Hess_i. {
+        apply lookup_lt_is_Some. by rewrite -Hlen_τs_ess Hlen_τs_ser.
+      }
+      destruct Hess_i as [es Hess_i].
+
+      assert (Hlencases: (length cases ≤ Wasm_int.Int32.modulus)%Z). {
+        subst cases.
+        by rewrite length_map -compile_cases_length -Hlen_τs_ess Hlen_τs_ser.
+      }
+
+      assert (cases !! i = Some (on_each_case (compile_instrs mr fe es))) as Hcase_i. {
+        subst cases.
+        apply (compile_cases_lookup mr fe) in Hess_i as Hcomes.
+        cbn in Hcomes.
+        pose proof (map_lookup_helper_forwards on_each_case _ _ _ Hcomes).
+        done.
+      }
+
+      specialize (H cases (on_each_case (compile_instrs mr fe es))).
+      specialize (H i es_case_switch ltac:(auto) ltac:(auto)).
+
+      apply H in Hcg_case_switch; clear H.
+      destruct Hcg_case_switch as (?wt & ?wt & ?wl & ?wl & es_case & Hcg_case & Hcg_case_switch).
+
+      iApply (Hcg_case_switch with "[$] [$] [-]").
+      { admit. } (* wl interp, later *)
+      { instantiate (1 := Wasm_int.Int32.repr (Z.of_nat i)).
+        apply nat_repr_i32repr.
+        eapply Z.lt_le_trans.
+        + apply Nat2Z.inj_lt. exact Hi_lt.
+        + done. }
+      { apply Is_true_true. apply has_values_to_consts. }
+      { admit. } (* soemthing is a bit weird here!!!! *)
+
+
+      iIntros "Hfr Hrun".
+      clear Hcg_case_switch.
+
+      (* time to dig into what happens in each case! *)
+      unfold on_each_case in Hcg_case.
+
+      inv_cg_bind Hcg_case τ_ser ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
+      inv_cg_try_option Hcg.
+      inv_cg_bind Hcg0 τ0 ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
+      inv_cg_try_option Hcg.
+      inv_cg_bind Hcg0 ρ ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
+      inv_cg_try_option Hcg.
+      inv_cg_bind Hcg0 ιs ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
+      inv_cg_try_option Hcg.
+      inv_cg_bind Hcg0 [] ?wt ?wt ?wl ?wl ?es ?es Hcg_load_tag Hcg_case.
+      clear_nils; subst.
+
+      destruct τ_ser; cbn in Heq_some2; inversion Heq_some2.
+      subst τ0; clear Heq_some2.
+      rename es8 into es_load; rename es10 into es_compiled.
+
+
+      (* Save stack time! *)
+      (* unsure if this is necessary but likely helpful, given what I've seen elsewhere *)
+    (*   assert (wt6 = []). { *)
+    (*     cbn in Hcg_savestack. inversion Hcg_savestack; subst; done. *)
+    (*   } *)
+    (*   subst. *)
+    (*   apply cwp_save_stack1 in Hcg_savestack. *)
+    (*   destruct Hcg_savestack as (Hn0 & -> & Hcg_savestack). *)
+    (*   iEval (rewrite app_assoc). *)
+    (*   iApply (cwp_seq with "[Hfr Hrun]"). { *)
+    (*     iApply (Hcg_savestack with "[$Hfr] [$Hrun]"). *)
+    (*     - cbn. *)
+    (*       clear_frame_things Hflen locsz WL. *)
+    (*       lia. *)
+    (*     - apply Is_true_true. apply has_values_to_consts. *)
+    (*     - by instantiate (1 := fun f vs => *)
+    (*         ((⌜vs = []⌝ ∗ *)
+    (*                 ⌜f = (mk_load1_frame (fe_of_context F) *)
+    (*                         {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |} *)
+    (*                         (length (wl ++ [W.T_i32])) vf <| *)
+    (*                       f_locs ::= <[localimm (prelude.W.Mk_localidx n0):=VAL_int32 (Wasm_int.int_of_Z i32m i)]> *)
+    (*                       |>)⌝ )%I)). *)
+    (*   } *)
+
+    (*   iIntros (??) "(-> & ->) Hfr Hrun". *)
+    (*   clear_nils. *)
+
+    (* (* this is (I believe) the final form of the frame, so make it shorter for *)
+    (*   convenient *) *)
+    (*   set (fr' := (mk_load1_frame (fe_of_context F) *)
+    (*                  {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |} *)
+    (*                  (length (wl ++ [W.T_i32])) vf <| *)
+    (*                f_locs ::= *)
+    (*                <[localimm (prelude.W.Mk_localidx n0):=VAL_int32 (Wasm_int.int_of_Z i32m i)]> *)
+    (*                |>)) in *. *)
+
+    (*   (* time for create defaults *) *)
+    (*   (* first state for the sake of simplicity *) *)
+    (*   apply run_codegen_create_defaults in Hcg_defaults as Hdef_state. *)
+    (*   destruct Hdef_state as (_ & -> & -> & ->). *)
+    (*   clear_nils. *)
+    (*   (* now the cwp *) *)
+    (*   eapply cwp_create_defaults in Hcg_defaults. *)
+    (*   destruct Hcg_defaults as (_ & _ & _ & Hcg_defaults). *)
+
+    (*   iApply (cwp_seq with "[Hfr Hrun]"). { *)
+    (*     iApply (Hcg_defaults with "[$Hfr] [$Hrun]"). *)
+    (*     by instantiate (1 := fun f vs => *)
+    (*         ((⌜vs = (map default_of_value_type ts)⌝ ∗ ⌜f = fr'⌝ )%I)). *)
+    (*   } *)
+
+    (*   iIntros (??) "(-> & ->) Hfr Hrun". *)
+    (*   (* a bit of cleanup *) *)
+    (*   clear Hcg_defaults Hcg_savestack. *)
 
 
 
