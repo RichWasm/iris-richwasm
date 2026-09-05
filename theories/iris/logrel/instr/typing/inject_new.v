@@ -64,9 +64,11 @@ Section inject_new.
     subst wt0 wl0 es wt2 wl2 es1 wt4 wl4 es3 wt9 wl9 wt10 wl10 es9 wt15 wl15 es14 wt16 wl16 wt17
       wl17 es16 wt24 wl24 es23 wt23 wl23 es22 wt21 wl21 es20 wt19 wl19 es18 wt18 wl18 es17 es15 wt14
       wl14 es13 wt12 wl12 es11 wt11 wl11 es8 es10 wt7 wl7 es6 wt5 wl5 es4 wt3 wl3 es2 wt1 wl1 es0
-      wt' wl' es'.
+      wt' wl' es' WL WT.
     clear_nils.
     clear Hretval Hretval0 Hretval1 Hretval2.
+    set WL := wl ++ wl6 ++ wl8 ++ [W.T_i32] ++ wl13 ++ [W.T_i32] ++ wl20 ++ wl22 ++ wl25 ++ wlf.
+    set WT := wt ++ wt6 ++ wt8 ++ wt13 ++ wt20 ++ wt22 ++ wt25 ++ wtf.
 
     apply type_rep_has_kind_agree in Hτ_kind as H.
     rewrite Hρ' in H.
@@ -88,7 +90,7 @@ Section inject_new.
     { by rewrite length_map length_map. }
     { by apply Is_true_true. }
     { by rewrite map_map. }
-    { subst WL. by rewrite !app_nil_l -!app_assoc in HWL. }
+    { done. }
     iApply (cwp_seq with "[Hfr Hrun]").
     {
       iApply (Hes5 with "[$Hfr] [$Hrun]").
@@ -101,8 +103,40 @@ Section inject_new.
                    ⌜vs' = []⌝)%I).
     }
 
-    iIntros (??) "(%Hfrel & %Hlocs & ->) Hfr Hrun".
     clear Hes5.
+    iIntros (??) "(%Hfrel & %Hlocs & ->) Hfr Hrun".
+    iDestruct (frame_interp_update_frame' with "Hframe") as "Hframe".
+    3: apply Hlocs.
+    { done. }
+    { by do 2 f_equal; [rewrite fe_wlocal_offset_length|rewrite !length_map]. }
+    { by rewrite map_map. }
+    { by rewrite -fe_wlocal_offset_length !length_map. }
+    fold WL.
+    clear HWL.
+    iDestruct (frame_interp_wl_interp with "Hframe") as "%HWL".
+    apply interp_wl_length in HWL as Hfr_len.
+
+    assert (localimm laddr < length f.(f_locs)) as Hladdr_lt.
+    {
+      eapply Nat.lt_le_trans; last apply Hfr_len. subst laddr WL. cbn.
+      rewrite !length_app length_cons. cbn. lia.
+    }
+
+    assert (localimm ltag < length f.(f_locs)) as Hltag_lt.
+    {
+      eapply Nat.lt_le_trans; last apply Hfr_len. subst ltag WL. cbn.
+      rewrite !length_app !length_cons length_app length_cons. lia.
+    }
+
+    assert (localimm laddr <> localimm ltag) as Hladdr_ltag_ne.
+    {
+      intros Hcontra. subst laddr ltag. inversion Hcontra.
+      rewrite Nat.add_cancel_l !length_app !Nat.add_cancel_l (plus_n_O (length wl8)) -Nat.add_assoc
+        Nat.add_cancel_l in H0.
+      cbn in H0.
+      congruence.
+    }
+
     destruct bm.
     - (* MM *)
       inv_cg_ret Hcg_regroot.
@@ -142,7 +176,7 @@ Section inject_new.
       iApply (cwp_seq with "[Hf Hrun]").
       {
         iApply (cwp_local_set with "[] [$Hf] [$Hrun]").
-        - admit.
+        - done.
         - by instantiate
                (1 := fun f' vs' =>
                        (⌜f' = f0 <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>⌝ ∗
@@ -159,7 +193,7 @@ Section inject_new.
         - done.
         - by intros H.
         - admit.
-        - rewrite list_lookup_insert_eq; first done. admit.
+        - by rewrite list_lookup_insert_eq.
         - done.
         - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & (_ & _ & H & _) & _)".
         - iIntros "Hlayout Hrt _ Hown _".
@@ -179,7 +213,7 @@ Section inject_new.
       iApply (cwp_seq with "[Hf Hrun]").
       {
         iApply (cwp_local_set with "[] [$Hf] [$Hrun]").
-        - admit.
+        - by rewrite length_insert.
         - by instantiate
                (1 := fun f' vs' =>
                        (⌜f' = f0 <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
@@ -195,11 +229,9 @@ Section inject_new.
         iApply (Hes19 with "[$Hf] [$Hrun] [$Hheap] [$Haddr] [] [$Hrt]").
         - iPureIntro. by intros H.
         - iPureIntro. instantiate (1 := ta32). unfold set. cbn.
-          rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
-          + admit.
-          + admit.
+          by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq.
         - iPureIntro. unfold set. cbn. rewrite list_lookup_insert_eq; first done.
-          admit.
+          by rewrite length_insert.
         - inversion Hta. by subst ta.
         - by inversion Hta.
         - by inversion Hta.
@@ -234,9 +266,7 @@ Section inject_new.
         iApply (Hes21 with "[$Hf] [$Hrun] [$Hheap] [$Haddr] [] [$Hrt]").
         - iPureIntro. by intro.
         - iPureIntro. unfold set.
-          rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
-          + admit.
-          + admit.
+          by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq.
         - admit.
         - inversion Hta. by subst ta.
         - by inversion Hta.
@@ -265,12 +295,7 @@ Section inject_new.
       iIntros (??) "(-> & -> & Hheap & Haddr & Hrt) Hf Hrun".
       rewrite app_nil_l.
       iApply (cwp_local_get with "[-Hf Hrun] [$Hf] [$Hrun]").
-      {
-        unfold set.
-        rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
-        - admit.
-        - admit.
-      }
+      { unfold set. by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq. }
 
       iModIntro.
       iSplitR; last iSplitL "Hframe"; last iSplitR "Hrt Hown"; last iSplitL "Hrt"; last done.
@@ -305,7 +330,7 @@ Section inject_new.
       iApply (cwp_seq with "[Hf Hrun]").
       {
         iApply (cwp_local_set with "[] [$Hf] [$Hrun]").
-        - admit.
+        - done.
         - by instantiate
                (1 := fun f' vs' => (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>⌝ ∗
                                    ⌜vs' = []⌝)%I).
@@ -321,7 +346,7 @@ Section inject_new.
         - done.
         - by intro.
         - done.
-        - unfold set. rewrite list_lookup_insert_eq; first done. admit.
+        - unfold set. by rewrite list_lookup_insert_eq.
         - done.
         - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & (_ & _ & H & _) & _)".
         - iIntros "Hlayout Hrt _ Hown _".
@@ -342,7 +367,7 @@ Section inject_new.
       iApply (cwp_seq with "[Hf Hrun]").
       {
         iApply (cwp_local_set with "[] [$Hf] [$Hrun]").
-        - admit.
+        - unfold set. by rewrite length_insert.
         - by instantiate
                (1 := fun f' vs' =>
                        (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
@@ -364,10 +389,9 @@ Section inject_new.
           by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & _ & H) & _)".
         - done.
         - iPureIntro. unfold set.
-          rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
-          + admit.
-          + admit.
-        - iPureIntro. unfold set. rewrite list_lookup_insert_eq; first done. admit.
+          by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq.
+        - iPureIntro. unfold set. rewrite list_lookup_insert_eq; first done.
+          by rewrite length_insert.
         - by subst ta.
         - done.
         - done.
@@ -411,9 +435,7 @@ Section inject_new.
           by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & _ & H) & _)".
         - done.
         - iPureIntro. unfold set.
-          rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
-          + admit.
-          + admit.
+          by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq.
         - admit.
         - by subst ta.
         - done.
@@ -445,9 +467,7 @@ Section inject_new.
       iApply (cwp_seq with "[Hf Hrun]").
       {
         iApply (cwp_local_get with "[] [$Hf] [$Hrun]").
-        - unfold set. rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
-          + admit.
-          + admit.
+        - unfold set. by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq.
         - by instantiate
                (1 := fun f' vs' =>
                        (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
