@@ -104,7 +104,8 @@ Section inject_new.
     iIntros (??) "(%Hfrel & %Hlocs & ->) Hfr Hrun".
     clear Hes5.
     destruct bm.
-    - inv_cg_ret Hcg_regroot.
+    - (* MM *)
+      inv_cg_ret Hcg_regroot.
       subst wt25 wl25 es24.
       clear Hretval.
       rewrite app_nil_r.
@@ -275,9 +276,201 @@ Section inject_new.
       iSplitR; last iSplitL "Hframe"; last iSplitR "Hrt Hown"; last iSplitL "Hrt"; last done.
       + admit.
       + admit.
-      + iExists [I32A ta32]. iSplitL; last by cbn. admit.
+      + iExists [PtrA (PtrHeap MemMM ℓ)]. admit.
       + iExists θ'. admit.
-    - admit.
+    - (* GC *)
+      eapply cwp_alloc_gc in Hcg_alloc as (_ & -> & -> & Hes7).
+      rewrite app_nil_l.
+      iApply (cwp_seq with "[Hrt Hown Hfr Hrun]").
+      {
+        iApply (Hes7 with "[$Hfr] [$Hrun] [] [$Hown] [$Hrt]").
+        - done.
+        - destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & (_ & H & _) & _)".
+        - iIntros "Hown _" (?????) "%Hta32 %Hta Hrt Hlayout Hheap".
+          instantiate
+            (1 := fun f' vs' =>
+                    (∃ θ' ℓ ta ta32 ws,
+                        ⌜f = f'⌝ ∗ ⌜vs' = [VAL_int32 ta32]⌝ ∗
+                        ⌜N_i32_repr ta ta32⌝ ∗ ⌜repr_pointer θ' (PtrHeap MemGC ℓ) ta⌝ ∗
+                        na_own logrel_nais ⊤ ∗ rt_token rti sr lpall θ' ∗
+                        ℓ ↦layout repeat FlagInt n ∗ ℓ ↦heap ws)%I).
+          iFrame.
+          by iExists _, _.
+      }
+
+      clear Hes7.
+      iIntros (??) "(% & % & % & % & % & <- & -> & %Hta32 & %Hta & Hown & Hrt & Hlayout & Hheap)
+                    Hf Hrun".
+      rewrite app_assoc.
+      iApply (cwp_seq with "[Hf Hrun]").
+      {
+        iApply (cwp_local_set with "[] [$Hf] [$Hrun]").
+        - admit.
+        - by instantiate
+               (1 := fun f' vs' => (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>⌝ ∗
+                                   ⌜vs' = []⌝)%I).
+      }
+
+      iIntros (??) "[-> ->] Hf Hrun".
+      rewrite app_nil_l.
+      eapply cwp_set_pointer_flags in Hcg_flags as (_ & -> & -> & Hes12).
+      iApply (cwp_seq with "[Hown Hrt Hlayout Hf Hrun]").
+      {
+        iDestruct (rt_token_lpall _ _ (fun ℓ' => ℓ <> ℓ') with "Hrt") as "Hrt".
+        iApply (Hes12 with "[$Hlayout] [$Hrt] [] [$Hown] [$Hf] [$Hrun]").
+        - done.
+        - by intro.
+        - done.
+        - unfold set. rewrite list_lookup_insert_eq; first done. admit.
+        - done.
+        - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & (_ & _ & H & _) & _)".
+        - iIntros "Hlayout Hrt _ Hown _".
+          instantiate
+            (1 := fun f' vs' =>
+                    (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>⌝ ∗
+                       ⌜vs' = []⌝ ∗
+                       ℓ ↦layout set_flags_at 1 (flat_map arep_flags ιs) (repeat FlagInt n) ∗
+                       rt_token rti sr (λ ℓ' : location, ℓ ≠ ℓ') θ' ∗
+                       na_own logrel_nais ⊤)%I).
+          by iFrame.
+      }
+
+      clear Hes12.
+      iIntros (??) "(-> & -> & Hlayout & Hrt & Hown) Hf Hrun".
+      rewrite app_nil_l.
+      rewrite app_assoc.
+      iApply (cwp_seq with "[Hf Hrun]").
+      {
+        iApply (cwp_local_set with "[] [$Hf] [$Hrun]").
+        - admit.
+        - by instantiate
+               (1 := fun f' vs' =>
+                       (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
+                                <| f_locs ::= <[ localimm ltag := VAL_int32 (Wasm_int.int_of_Z i32m i) ]> |>⌝ ∗
+                          ⌜vs' = []⌝)%I).
+      }
+
+      iIntros (??) "[-> ->] Hf Hrun".
+      rewrite app_nil_l.
+      eapply wp_store1_gc_strong in Hcg_store_tag as (_ & -> & -> & Hes19).
+      iApply (cwp_seq with "[Hheap Hlayout Hrt Hown Hf Hrun]").
+      {
+        inversion Hta.
+        subst θ0 μ ℓ0.
+        iApply (Hes19 with "[$Hf] [$Hrun] [$Hheap] [] [] [$Hrt] [] [$Hown]").
+        - done.
+        - iPureIntro. by intro.
+        - unfold set. destruct Hfrel as [_ <-].
+          by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & _ & H) & _)".
+        - done.
+        - iPureIntro. unfold set.
+          rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
+          + admit.
+          + admit.
+        - iPureIntro. unfold set. rewrite list_lookup_insert_eq; first done. admit.
+        - by subst ta.
+        - done.
+        - done.
+        - admit.
+        - by instantiate (1 := I32A (Wasm_int.Int32.repr i)).
+        - done.
+        - done.
+        - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & _ & _ & _ & H & _)".
+        - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & _ & _ & _ & _ & H)".
+        - done.
+        - iIntros "Hheap Hown _ Hrt".
+          instantiate
+            (1 := fun f' vs' =>
+                    (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
+                             <| f_locs ::= <[ localimm ltag := VAL_int32 (Wasm_int.int_of_Z i32m i)]> |>⌝ ∗
+                       ⌜vs' = []⌝ ∗
+                       ℓ ↦layout set_flags_at 1 (flat_map arep_flags ιs) (repeat FlagInt n) ∗
+                       ℓ ↦heap path.update_path_words 0 ws (serialize_atom (I32A (Wasm_int.Int32.repr i))) ∗
+                       na_own logrel_nais ⊤ ∗
+                       rt_token rti sr (λ ℓ' : location, ℓ ≠ ℓ') θ')%I).
+          by iFrame.
+      }
+
+      clear Hes19.
+      destruct Hos as (os' & Hos' & Hos).
+      inversion Hos'.
+      subst os'.
+      clear Hos'.
+      iIntros (??) "(-> & -> & Hlayout & Hheap & Hown & Hrt) Hf Hrun".
+      rewrite app_nil_l.
+      eapply wp_store_strong_gc in Hcg_store as (_ & -> & -> & Hes21); last first.
+      { admit. }
+      iApply (cwp_seq with "[Hvs Hheap Hown Hrt Hf Hrun]").
+      {
+        inversion Hta.
+        subst θ0 μ ℓ0.
+        iApply (Hes21 with "[$Hf] [$Hrun] [$Hheap] [] [] [$Hrt] [] [$Hown] [] [] [] [] [] [] [] [] [] [] [] [] [$Hvs]").
+        - done.
+        - iPureIntro. by intro.
+        - unfold set. destruct Hfrel as [_ <-].
+          by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & _ & H) & _)".
+        - done.
+        - iPureIntro. unfold set.
+          rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
+          + admit.
+          + admit.
+        - admit.
+        - by subst ta.
+        - done.
+        - done.
+        - admit.
+        - done.
+        - done.
+        - done.
+        - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & _ & _ & _ & H & _)".
+        - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & _ & _ & _ & _ & H)".
+        - iIntros "Hheap Hown _ Hrt".
+          instantiate
+            (1 := fun f' vs' =>
+                    (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
+                             <| f_locs ::= <[localimm ltag := VAL_int32 (Wasm_int.int_of_Z i32m i) ]> |>⌝ ∗
+                       ⌜vs' = []⌝ ∗
+                       ℓ ↦heap path.update_path_words 1
+                                 (path.update_path_words 0 ws
+                                    (serialize_atom (I32A (Wasm_int.Int32.repr i))))
+                                 (concat (map serialize_atom os)) ∗
+                      na_own logrel_nais ⊤ ∗
+                      rt_token rti sr (λ ℓ' : location, ℓ ≠ ℓ') θ')%I).
+          by iFrame.
+      }
+
+      clear Hes21.
+      iIntros (??) "(-> & -> & Hheap & Hown & Hrt) Hf Hrun".
+      rewrite app_nil_l.
+      iApply (cwp_seq with "[Hf Hrun]").
+      {
+        iApply (cwp_local_get with "[] [$Hf] [$Hrun]").
+        - unfold set. rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq; first done.
+          + admit.
+          + admit.
+        - by instantiate
+               (1 := fun f' vs' =>
+                       (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
+                                <| f_locs ::= <[ localimm ltag := VAL_int32 (Wasm_int.int_of_Z i32m i) ]> |>⌝ ∗
+                          ⌜vs' = [VAL_int32 ta32]⌝)%I).
+      }
+
+      iIntros (??) "[-> ->] Hf Hrun".
+      eapply roots.wp_registerroot in Hcg_regroot as (_ & -> & -> & Hes24).
+      iApply (Hes24 with "[-Hf Hrun Hown Hrt] [$Hf] [$Hrun] [] [] [$Hown] [$Hrt]").
+      + done.
+      + done.
+      + apply Is_true_true. apply has_values_to_consts.
+      + iIntros (??) "%Har Hroot Hrt Hown %Har32 _".
+        iSplitR; last iSplitL "Hframe"; last iSplitR "Hrt Hown"; last iSplitR "Hown"; last done.
+        * admit.
+        * admit.
+        * iExists [PtrA (PtrHeap MemGC ℓ)]. admit.
+        * admit.
+      + done.
+      + done.
+      + unfold set. destruct Hfrel as [_ <-].
+        by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & H & _) & _)".
   Admitted.
 
 End inject_new.
