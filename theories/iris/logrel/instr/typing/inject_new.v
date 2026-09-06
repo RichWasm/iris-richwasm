@@ -34,6 +34,18 @@ Section inject_new.
     by apply Forall2_length in H1.
   Qed.
 
+  Lemma elem_of_map_inj {A B} (f : A -> B) x (xs : list A) :
+    (forall x y, f x = f y -> x = y) ->
+    f x ∈ map f xs ->
+    x ∈ xs.
+  Proof.
+    intros Hinj Helem.
+    induction xs; first inversion Helem.
+    inversion Helem.
+    - apply Hinj in H1. rewrite -H1. constructor.
+    - apply list_elem_of_further. by apply IHxs.
+  Qed.
+
   Lemma compat_inject_new M F L wt wt' wtf wl wl' wlf es' μ i τ τs κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -157,7 +169,7 @@ Section inject_new.
     iDestruct (frame_interp_wl_interp with "Hframe") as "%HWL".
 
     rewrite app_assoc.
-    eapply cwp_save_stack_w in Hcg_save as (-> & -> & -> & Hes5); first last.
+    eapply cwp_save_stack_w in Hcg_save as (Hxs & -> & -> & Hes5); first last.
     { by rewrite length_map length_map. }
     { by apply Is_true_true. }
     { by rewrite map_map. }
@@ -169,8 +181,7 @@ Section inject_new.
       by instantiate
            (1 := fun f vs' =>
                    (⌜frame_rel (fun i => i ∉ seq (fe_wlocal_offset fe + length wl) (length ιs)) fr f⌝ ∗
-                      ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v)
-                         (map Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length ιs))) vs⌝ ∗
+                      ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) xs vs⌝ ∗
                    ⌜vs' = []⌝)%I).
     }
 
@@ -179,7 +190,7 @@ Section inject_new.
     iDestruct (frame_interp_update_frame' with "Hframe") as "Hframe".
     3: apply Hlocs.
     { done. }
-    { by do 2 f_equal; [rewrite fe_wlocal_offset_length|rewrite !length_map]. }
+    { subst xs. by do 2 f_equal; [rewrite fe_wlocal_offset_length|rewrite !length_map]. }
     { by rewrite map_map. }
     { by rewrite -fe_wlocal_offset_length !length_map. }
     fold WL.
@@ -513,7 +524,7 @@ Section inject_new.
       iIntros (??) "(-> & -> & Hlayout & Hheap & Hown & Hrt) Hf Hrun".
       rewrite app_nil_l.
       eapply wp_store_strong_gc in Hcg_store as (_ & -> & -> & Hes21); last first.
-      { admit. }
+      { subst xs. by rewrite length_map length_seq. }
       iApply (cwp_seq with "[Hvs Hheap Hown Hrt Hf Hrun]").
       {
         inversion Hta.
@@ -526,7 +537,18 @@ Section inject_new.
         - done.
         - iPureIntro. unfold set.
           by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq.
-        - admit.
+        - iPureIntro.
+          eapply forall2_lookup_same' with (P := fun x => x <> localimm laddr /\ x <> localimm ltag);
+            last apply Hlocs.
+          + intros x [Hx_laddr Hx_ltag]. by do 2 (rewrite list_lookup_insert_ne; last done).
+          + apply Forall_forall. intros x Hx. rewrite Hxs in Hx. destruct x as [x].
+            apply elem_of_map_inj in Hx; last by (intros ?? H; inversion H).
+            rewrite elem_of_seq in Hx. destruct Hx as [Hx_lb Hx_ub].
+            split.
+            * subst laddr. rewrite app_nil_r length_app !length_map Nat.add_assoc. intros H.
+              cbn [localimm] in H. rewrite H in Hx_ub. apply (Nat.lt_irrefl _ Hx_ub).
+            * subst ltag. rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc.
+              cbn [localimm length]. intros H. lia.
         - by subst ta.
         - done.
         - done.
