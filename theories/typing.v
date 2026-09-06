@@ -1415,6 +1415,7 @@ Inductive has_instruction_type :
 | TInjectNew M F L i μ τ τs κr κv κs :
   let τs' := zip_with SerT κs τs in
   let ψ := InstrT [τ] [RefT κr μ Imm (VariantT κv τs')] in
+  length κs = length τs ->
   τs !! i = Some τ ->
   mono_mem μ ->
   has_instruction_type_ok F ψ L ->
@@ -1655,6 +1656,7 @@ Section HasHaveInstructionTypeMind.
       (HInjectNew : forall M F L i μ τ τs κr κv κs,
           let τs' := zip_with SerT κs τs in
           let ψ := InstrT [τ] [RefT κr μ Imm (VariantT κv τs')] in
+          length κs = length τs ->
           τs !! i = Some τ ->
           mono_mem μ ->
           has_instruction_type_ok F ψ L ->
@@ -1813,7 +1815,7 @@ Section HasHaveInstructionTypeMind.
     | TCall M F L i ixs ϕ τs1 τs2 H1 H2 H3 => HCall M F L i ixs ϕ τs1 τs2 H1 H2 H3
     | TCallIndirect M F L τs1 τs2 H1 => HCallIndirect M F L τs1 τs2 H1
     | TInject M F L i τ τs κ H1 H2 => HInject M F L i τ τs κ H1 H2
-    | TInjectNew M F L i μ τ τs κr κv H1 H2 H3 H4 => HInjectNew M F L i μ τ τs κr κv H1 H2 H3 H4
+    | TInjectNew M F L i μ τ τs κr κv H1 H2 H3 H4 H5 => HInjectNew M F L i μ τ τs κr κv H1 H2 H3 H4 H5
     | TCase M F L L' ess τs τs' κ H1 H2 =>
         HCase M F L L' ess τs τs' κ
           (Forall2_impl _ _ _ _ H1 (fun τ es => have_instruction_type_mind _ _ _ _ _ _))

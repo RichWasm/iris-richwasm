@@ -41,13 +41,14 @@ Section inject_new.
     let lmask := wlmask fe wl in
     let τs' := zip_with SerT κs τs in
     let ψ := InstrT [τ] [RefT κr μ Imm (VariantT κv τs')] in
+    length κs = length τs ->
     τs !! i = Some τ ->
     mono_mem μ ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IInjectNew ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    iIntros (?????? Hτ [bm ->] [[Hτ_mono Href_mono] HL_ok] Hcg ????????) "@@@@@@@@@@@@".
+    iIntros (?????? Hκs_τs Hτ [bm ->] [[Hτ_mono Href_mono] HL_ok] Hcg ????????) "@@@@@@@@@@@@".
 
     rewrite Forall_singleton in Hτ_mono.
     destruct Hτ_mono as (ρ & Hτρ & Hρ_mono).
@@ -71,6 +72,26 @@ Section inject_new.
     subst F0 σ ξ' τs0.
     clear Hkind_variant.
     rename H1 into Hτs'_kind.
+
+    apply lookup_lt_Some in Hτ as Hi_lt.
+    rewrite -Hκs_τs in Hi_lt.
+    rewrite -lookup_lt_is_Some in Hi_lt.
+    destruct Hi_lt as [κ_ser Hκ_ser].
+    assert (τs' !! i = Some (SerT κ_ser τ)) as Hτ'.
+    { rewrite lookup_zip_with_Some. by exists κ_ser, τ. }
+
+    pose proof Hτ' as Hτ'2.
+    eapply Forall3_lookup_l in Hτ'2 as (σ & ξi & Hσ & Hξi & Hτ_ser_kind); last apply Hτs'_kind.
+    cbn in Hτ_ser_kind.
+    inversion Hτ_ser_kind.
+    subst F0 κ τ0 σ ξ0 κ_ser κ0.
+    rename ρ0 into ρi.
+    rename H1 into Hρi_kind.
+    clear Hτ_ser_kind Hτs'_kind.
+    pose proof (has_kind_agree _ _ _ _ Hτ_kind Hρi_kind) as H.
+    inversion H.
+    subst ρi ξi.
+    clear H Hρi_kind.
 
     inv_cg_bind Hcg ρ' ?wt ?wt ?wl ?wl ?es ?es Hcg_rep Hcg.
     inv_cg_try_option Hcg_rep.
@@ -117,6 +138,14 @@ Section inject_new.
     inversion H.
     subst ρ'.
     clear H.
+
+    pose proof (mapM_lookup _ _ _ i Hns) as Hns_i.
+    rewrite Hσ in Hns_i.
+    cbn in Hns_i.
+    rewrite Hιs in Hns_i.
+    cbn in Hns_i.
+    symmetry in Hns_i.
+    change (list_sum (map arep_size ιs)) with (areps_size ιs) in Hns_i.
 
     rewrite values_interp_one_eq value_interp_eq -type_interp_eq.
     iDestruct (type_interp_skind_svalue with "Hos") as "(%sκ & %Hsκ & %Hsv)".
@@ -375,6 +404,18 @@ Section inject_new.
       inversion Hws_len.
       clear Hws_len.
       rename H0 into Hws_len.
+
+      pose proof (list_elem_of_split_length _ _ _ Hns_i) as (ns1 & ns2 & Hns_sp & Hns1).
+      assert (areps_size ιs <= length ws) as Hws_lb.
+      {
+        rewrite -Hws_len.
+        pose proof (list_max_app ns1 (areps_size ιs :: ns2)) as H.
+        cbn in H.
+        rewrite -Hns_sp in H.
+        rewrite H Nat.max_assoc (Nat.max_comm (list_max ns1)) -Nat.max_assoc.
+        apply Nat.le_max_l.
+      }
+
       rewrite app_assoc.
       iApply (cwp_seq with "[Hf Hrun]").
       {
@@ -489,7 +530,7 @@ Section inject_new.
         - by subst ta.
         - done.
         - done.
-        - admit.
+        - iPureIntro. cbn. apply le_n_S. by rewrite drop_0 sum_list_with_list_sum.
         - done.
         - done.
         - done.
