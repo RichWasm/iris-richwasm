@@ -595,10 +595,46 @@ Section inject_new.
       + apply Is_true_true. apply has_values_to_consts.
       + iIntros (??) "%Har Hroot Hrt Hown %Har32 _".
         iSplitR; last iSplitL "Hframe"; last iSplitR "Hrt Hown"; last iSplitR "Hown"; last done.
-        * admit.
-        * admit.
+        * iPureIntro. split; last by (unfold set; destruct Hfrel as [_ <-]).
+          apply frame_rel_mask_mono with (lmask' := lmask) in Hfrel; last first.
+          { intros x Hx Hcontra. unfold lmask, wlmask in Hx. rewrite elem_of_seq in Hcontra. lia. }
+          intros x Hx. unfold set. rewrite !list_lookup_insert_ne.
+          -- destruct Hfrel as [H _]. by apply H.
+          -- subst laddr. cbn [localimm]. rewrite app_nil_r length_app !length_map.
+             intros Hcontra. unfold lmask, wlmask in Hx. lia.
+          -- subst ltag. cbn [localimm]. rewrite app_nil_r app_nil_l !length_app !length_map.
+             intros Hcontra. unfold lmask, wlmask in Hx. lia.
+        * unfold WL. rewrite !app_nil_l (app_assoc [W.T_i32]) (app_assoc wl).
+          iApply frame_interp_update_frame; last done.
+          -- cbn [length app plus].
+             by rewrite !length_app !length_map Nat.add_assoc -fe_wlocal_offset_length.
+          -- instantiate (1 := [VAL_int32 ta32; VAL_int32 (Wasm_int.int_of_Z i32m i)]).
+             constructor.
+             ++ rewrite list_lookup_insert_ne; last first.
+                {
+                  intros H. apply Hladdr_ltag_ne. rewrite H. subst laddr.
+                  by rewrite app_nil_r !length_app !length_map Nat.add_assoc.
+                }
+                unfold set. subst laddr. cbn. rewrite app_nil_r length_app !length_map Nat.add_assoc.
+                rewrite list_lookup_insert_eq; first done.
+                by rewrite app_nil_r length_app !length_map Nat.add_assoc in Hladdr_lt.
+             ++ constructor; last done. subst ltag.
+                rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc Nat.add_1_r.
+                unfold set. rewrite list_lookup_insert_eq; first done.
+                rewrite length_insert.
+                by rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc Nat.add_1_r
+                  in Hltag_lt.
+          -- constructor; first by eexists. by constructor; first eexists.
+          -- split; last done. intros x Hx. unfold set. cbn.
+             apply notin_seq_S in Hx as [H Hx1].
+             apply notin_seq_S in H as [_ Hx0].
+             rewrite Nat.add_0_r in Hx0.
+             rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_ne; first done.
+             ++ subst laddr. symmetry. by rewrite app_nil_r !length_app !length_map !Nat.add_assoc.
+             ++ subst ltag. symmetry.
+                by rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc.
         * iExists [PtrA (PtrHeap MemGC ℓ)]. admit.
-        * admit.
+        * iExists θ'. admit.
       + done.
       + done.
       + unfold set. destruct Hfrel as [_ <-].
