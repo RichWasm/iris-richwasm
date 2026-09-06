@@ -1115,8 +1115,12 @@ Section substitution.
   Qed.
 
   Lemma has_kind_rec_inv F κ τ κ' :
-    has_kind F (RecT κ τ) κ' → κ' = κ ∧ has_kind (F <| fc_type_vars ::= cons κ |>) τ κ.
-  Proof. by inversion 1; subst. Qed.
+    has_kind F (RecT κ τ) κ' →
+    κ' = κ ∧
+    ∃ κbody, subkind_of κbody κ ∧ has_kind (F <| fc_type_vars ::= cons κ |>) τ κbody.
+  Proof.
+    inversion 1; subst; eauto.
+  Qed.
 
   Lemma has_kind_existsmem_inv F κ τ κ' :
     has_kind F (ExistsMemT κ τ) κ' →

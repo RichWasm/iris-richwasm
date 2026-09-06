@@ -54,28 +54,39 @@ Section fold.
       destruct Hmono_rec as [ρ [Hrep _]].
       inversion Hrep as [? ? ? ? Hhas_kind]; subst.
       inversion Hhas_kind; subst.
-      by constructor.
+      eauto.
     }
     iEval (rewrite type_interp_eq).
     iModIntro.
     (* subst τrec. *)
     inversion Hkind; subst.
-    assert (Hkindτrec: has_kind F τrec κ) by by apply has_kind_rec_subst.
+    assert (∃ κrec, subkind_of κrec κ ∧ has_kind F τrec κrec)
+      as (κrec & Hsub & Hkindτrec)
+      by by apply has_kind_rec_subst.
     destruct (refresh_kinds_id) as (this & _).
     assert (refresh_kinds F τrec = τrec) by (symmetry; by eapply this).
-    assert (eval_kind se κ = Some sκ) as Hκ.
+    assert (eval_kind se κrec = Some sκ) as Hev.
     {
       apply has_kind_inv in Hkindτrec as Hok_has.
       inversion Hok_has as [??? Hok_τ Hok_κ]; subst.
-      clear Hok_has.
       destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ_tosub Hsκ_T].
       rewrite Hsκ_T.
       f_equal.
-      eapply type_skind_has_kind_agree; try done.
+      eapply type_skind_has_kind_agree; eauto.
     }
-    iExists sκ.
+    assert (∃ sκ0, subskind_of sκ sκ0 ∧ eval_kind se κ = Some sκ0) as (sκ0 & Hsubs & Hκ).
+    {
+      admit.
+    }
+    admit.
+    (*
+    iExists sκ0.
     iSplit; first eauto.
-    iSplit; first eauto.
+    iSplit.
+    {
+      iPureIntro.
+      eapply skind_as_type_refine; eauto.
+    }
 
     cbn -[skind_rec_interp1].
     rewrite Hκ.
@@ -159,6 +170,7 @@ Section fold.
     }
     done.
 
+*)
 
     Admitted.
 

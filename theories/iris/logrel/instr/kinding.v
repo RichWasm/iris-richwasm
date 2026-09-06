@@ -480,8 +480,8 @@ Section kinding.
       by inversion Heval_size.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      rewrite Heval_kind in H0.
-      by inversion H0.
+      rewrite Heval_kind in H2.
+      by inversion H2.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       rewrite Heval_kind in H1.
@@ -969,6 +969,45 @@ Section kinding.
     - done.
   Qed.
 
+  Lemma subskind_flag_le : ∀ sκ sκ',
+    subskind_of sκ sκ' →
+    ref_flag_le (skind_ref_flag sκ) (skind_ref_flag sκ').
+  Proof.
+    intros * Hsub.
+    by inversion Hsub.
+  Qed.
+
+  Lemma subkind_eval : ∀ (se : semantic_env (Σ:=Σ)) κ κ' sκ',
+    subkind_of κ κ' →
+    eval_kind se κ' = Some sκ' →
+    ∃ sκ, eval_kind se κ = Some sκ.
+  Proof.
+    intros * Hsub Hev.
+    inversion Hsub; subst; cbn; cbn in Hev.
+    - apply bind_Some in Hev.
+      destruct Hev as (ιs & Hev & Hret).
+      rewrite Hev; eauto.
+    - apply bind_Some in Hev.
+      destruct Hev as (ιs & Hev & Hret).
+      rewrite Hev; eauto.
+  Qed.
+
+  Lemma subkind_eval' : ∀ (se : semantic_env (Σ:=Σ)) κ κ' sκ,
+    subkind_of κ κ' →
+    eval_kind se κ = Some sκ →
+    ∃ sκ', eval_kind se κ' = Some sκ'.
+  Proof.
+    intros * Hsub Hev.
+    inversion Hsub; subst; cbn; cbn in Hev.
+    - apply bind_Some in Hev.
+      destruct Hev as (ιs & Hev & Hret).
+      rewrite Hev; eauto.
+    - apply bind_Some in Hev.
+      destruct Hev as (ιs & Hev & Hret).
+      rewrite Hev; eauto.
+  Qed.
+
+
   Lemma kinding_sound_ref_flag F se τ κ sκ :
     has_kind F τ κ ->
     sem_env_interp_refs F se ->
@@ -1407,6 +1446,9 @@ Section kinding.
       intros ?.
       typeclasses eauto.
     - (* RecT *)
+      assert (∃ sκbody, eval_kind se κbody = Some sκbody) as (sκbody & Hevbody)
+        by (eapply subkind_eval; eauto).
+      pose proof (subkind_subskind se _ _ _ _ Hevbody Hsκ ltac:(eauto)) as Hsub.
       setoid_rewrite type_interp_equiv.
       apply ref_flag_interp_pers.
       cbn -[rec_interp].
@@ -1415,6 +1457,7 @@ Section kinding.
       rewrite Hsκ.
       apply srec_interp_pers_aux.
       intros T Ht.
+      eapply ref_flag_stype_interp_refine; eauto; first by apply subskind_flag_le.
       apply IHHκ; eauto.
       + apply sem_env_interp_refs_insert_type; eauto using subskind_of_refl, refok_add_skind_closed.
       + by apply eval_kind_type_irrel.

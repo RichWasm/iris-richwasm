@@ -851,7 +851,6 @@ Section type_eq_sem.
       intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       inversion Hκ'; subst.
       inversion Hκ; subst.
-      specialize (IH (F <| fc_type_vars ::= cons κ |>) κ κ).
       assert (kind_ok (fc_kind_ctx F) κ) as Hok.
       { eapply has_kind_inv in Hκ. by inversion Hκ. }
       destruct (eval_kind_ok_Some F se κ Hsem Hok) as [sκ Heval].
@@ -900,7 +899,7 @@ Section type_eq_sem.
         rewrite (skind_rec_interp_unfold sκ (type_interp rti sr τ) se sv0).
         cbn.
         f_equiv.
-        apply (IH _ sv0 H4 H3 (Hself_sem τ Hκ)).
+        apply (IH (F <| fc_type_vars ::= cons κ |>) κbody0 κbody); eauto.
       }
       rewrite (Hrec_eq τ sv) (Hrec_eq τ' sv).
       f_equiv.

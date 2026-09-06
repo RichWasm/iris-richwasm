@@ -264,6 +264,15 @@ Lemma Forall3_map_12 {A B C A' B'} (f : A -> A') (g : B -> B') (P : A' -> B' -> 
   Forall3 (fun a b c => P (f a) (g b) c) l k k' -> Forall3 P (map f l) (map g k) k'.
 Proof. induction 1; cbn; constructor; auto. Qed.
 
+Lemma subkind_of_ren κ κ' :
+  subkind_of κ κ' →
+  ∀ ξr ξs,
+    subkind_of (ren_kind ξr ξs κ) (ren_kind ξr ξs κ').
+Proof.
+  intros Hsub.
+  inversion Hsub; subst; intros ξr ξs; cbn; by constructor.
+Qed.
+
 Lemma has_kind_ren :
   forall F τ κ, has_kind F τ κ ->
   forall ξm ξr ξs ξt F', ctx_ren ξm ξr ξs ξt F F' ->
@@ -311,8 +320,11 @@ Proof.
     apply KSpan.
     destruct Hctx as [? (? & Hr & Hsz)].
     by apply (proj1 (size_ok_ren ξr ξs _ _ _ Hr Hsz)).
-  - intros F τ κ IH; cbv zeta; intros ξm ξr ξs ξt F' Hctx.
-    apply KRec; by apply IH, ctx_ren_cons.
+  - intros F τ κ κbody Hok IH Hsub; cbv zeta; intros ξm ξr ξs ξt F' Hctx.
+    eapply KRec; try by apply IH, ctx_ren_cons.
+    + rewrite <- kind_ok_ren; eauto.
+      apply Hctx.
+    + by apply subkind_of_ren.
   - intros F τ κ Hok IH; cbv zeta; intros ξm ξr ξs ξt F' Hctx.
     apply KExistsMem.
     + by apply (proj1 (kind_ok_ren ξm ξr ξs _ _ _ (proj2 Hctx))).
@@ -530,9 +542,10 @@ Proof.
   - intros κ0 t IH ξm ξr ξs ξt F F' κ Hm Hr Hs Hctx H.
     cbn [ren_type] in H; rewrite (ren_kind_id ξr ξs κ0 Hr Hs) in H.
     inversion H; subst.
-    apply KRec.
-    eapply (IH ξm ξr ξs (unscoped.up_ren ξt) _ (F' <| fc_type_vars ::= cons κ |>));
-      eauto using ctx_str_cons.
+    eapply KRec; last done.
+    + by rewrite <- (proj1 Hctx).
+    + eapply (IH ξm ξr ξs (unscoped.up_ren ξt) _ (F' <| fc_type_vars ::= cons κ |>));
+        eauto using ctx_str_cons.
   - intros κ0 t IH ξm ξr ξs ξt F F' κ Hm Hr Hs Hctx H.
     cbn [ren_type] in H; rewrite (ren_kind_id ξr ξs κ0 Hr Hs) in H.
     inversion H; subst.
@@ -1127,8 +1140,9 @@ Proof.
     apply KSpan; by rewrite (proj1 Hctx).
   - intros κ0 t IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
     inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KRec.
-    eapply (IH (up_type_memory σm) (up_type_representation σr) (up_type_size σs)
+    eapply KRec; last done.
+    + by rewrite (proj1 Hctx).
+    + eapply (IH (up_type_memory σm) (up_type_representation σr) (up_type_size σs)
               (up_type_type σt) (F <| fc_type_vars ::= cons κ |>)
               (F' <| fc_type_vars ::= cons κ |>));
       eauto using sub_id_up_type_memory, sub_id_up_type_representation,
@@ -1792,22 +1806,20 @@ Proof.
   by rewrite list_lookup_fmap.
 Qed.
 
-Lemma has_kind_subst_rec_helper :
-  (∀ τ F κ, let τrec := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
-            has_kind F (RecT κ τ) κ -> has_kind F τrec κ) /\
-    (∀ (ϕ :Core.function_type), True) /\ (∀ (iϕ:inner_function_type), True).
-Proof.
-  split; [|done].
-  intros τ F κ; cbv zeta; intros Hrec.
-  inversion Hrec; subst.
-  by eapply (proj1 has_kind_subst);
-    [done|done|done|by apply (ctx_subst_scons F (RecT κ τ) κ)|eassumption].
-Qed.
-
 Lemma has_kind_rec_subst :
   (∀ τ F κ, let τrec := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
-            has_kind F (RecT κ τ) κ -> has_kind F τrec κ).
-Proof. destruct has_kind_subst_rec_helper as (this & _). exact this. Qed.
+            has_kind F (RecT κ τ) κ -> ∃ κrec, subkind_of κrec κ ∧ has_kind F τrec κrec).
+Proof.
+  intros τ F κ; cbv zeta; intros Hrec.
+  inversion Hrec; subst.
+  exists κbody.
+  split; first done.
+  eapply (proj1 has_kind_subst); last eauto.
+  - done.
+  - done.
+  - done.
+  - by apply (ctx_subst_scons F (RecT κ τ) κ).
+Qed.
 
 Lemma type_kind_kind_of_node F τ κ :
   layout.type_kind (fc_type_vars F) τ = Some κ →

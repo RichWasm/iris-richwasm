@@ -59,21 +59,10 @@ Lemma ift_shrink_kinded :
   has_kind_ift (fc_empty <| fc_type_vars ::= cons κ_any |>) ift_shrink.
 Proof.
   apply (KMonoFun _ _ _ [κ_any] []); repeat constructor.
-Qed.
-
-Lemma ift_shrunk_not_kinded F : ¬ has_kind_ift F ift_shrunk.
-Proof.
-  intros Hk.
-  inversion Hk; subst.
-  match goal with
-  | H : Forall2 _ [_] _ |- _ => inversion H; subst
-  end.
-  match goal with
-  | H : has_kind _ (RecT _ _) _ |- _ => inversion H; subst
-  end.
-  match goal with
-  | H : has_kind _ (I31T _) _ |- _ => inversion H
-  end.
+  econstructor; try eauto. constructor.
+  - constructor.
+  - repeat constructor.
+  - apply subkind_of_refl.
 Qed.
 
 Lemma inst_shrink :

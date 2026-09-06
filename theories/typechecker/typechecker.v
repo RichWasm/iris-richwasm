@@ -1756,7 +1756,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
   | RecT κ τ =>
       match has_kind_synther (F <| fc_type_vars ::= cons κ |>) τ with
       | inl κ' =>
-          if kind_beq κ κ'
+          if subkind_of_checker κ' κ
           then inl κ
           else inr (HasKindError "synthed kind for t in reft not equal to outer kind" [])
       | err => err
@@ -2002,7 +2002,16 @@ Proof.
 
 
   (* the rest are simple *)
-  all: do_it H; by constructor.
+  all: do_it H; try by constructor.
+  apply subkind_of_checker_correct in HMatch0.
+  econstructor; eauto.
+  eapply kind_ok_subkind_of; last eauto.
+  eauto.
+  eapply kinding_subst.has_kind_kind_ok in HMatch.
+  cbn in HMatch.
+  by erewrite <- kinding_subst.fc_kind_ctx_ty_update.
+
+
 
 Qed.
 

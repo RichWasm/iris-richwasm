@@ -405,8 +405,10 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   size_ok F.(fc_kind_ctx) σ ->
   let κ := MEMTYPE σ NoRefs in
   has_kind F (SpanT κ σ) κ
-| KRec F τ κ :
-  has_kind (F <| fc_type_vars ::= cons κ |>) τ κ ->
+| KRec F τ κ κbody :
+  kind_ok F.(fc_kind_ctx) κ ->
+  has_kind (F <| fc_type_vars ::= cons κ |>) τ κbody ->
+  subkind_of κbody κ →
   has_kind F (RecT κ τ) κ
 | KExistsMem F τ κ :
   kind_ok F.(fc_kind_ctx) κ ->
@@ -503,7 +505,10 @@ Section HasKindInd.
       (HSpan : forall F σ, size_ok F.(fc_kind_ctx) σ ->
                       let κ := MEMTYPE σ NoRefs in
                       P F (SpanT κ σ) κ)
-      (HRec : forall F τ κ, P (F <| fc_type_vars ::= cons κ |>) τ κ ->
+      (HRec : forall F τ κ κbody,
+                       kind_ok F.(fc_kind_ctx) κ ->
+                       P (F <| fc_type_vars ::= cons κ |>) τ κbody ->
+                       subkind_of κbody κ ->
                        P F (RecT κ τ) κ)
       (HExistsMem : forall F τ κ, kind_ok F.(fc_kind_ctx) κ ->
                              P (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
@@ -556,7 +561,7 @@ Section HasKindInd.
     | KSer F τ ρ ξ H1 => HSer F τ ρ ξ (has_kind_ind' _ _ _ H1)
     | KPlug F ρ H1 => HPlug F ρ H1
     | KSpan F σ H1 => HSpan F σ H1
-    | KRec F τ κ H1 => HRec F τ κ (has_kind_ind' _ _ _ H1)
+    | KRec F τ κ κbody H1 H2 H3 => HRec F τ κ κbody H1 (has_kind_ind' _ _ _ H2) H3
     | KExistsMem F τ κ H1 H2 => HExistsMem F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsRep F τ κ H1 H2 => HExistsRep F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsSize F τ κ H1 H2 => HExistsSize F τ κ H1 (has_kind_ind' _ _ _ H2)
@@ -593,19 +598,17 @@ Proof.
   intros H.
   induction H using has_kind_ind'
     with (P0 := λ F ft, function_type_ok F ft) (Pi := λ F ift, inner_function_type_ok F ift).
-  all: repeat constructor; try inversion IHhas_kind; try done.
-  13: by inversion H.
-  13-17: subst; try done.
-  13,14: by inversion H0.
-  13: by econstructor.
-  1-14: apply Forall_forall; intros ? Hin; apply list_elem_of_lookup in Hin as [??].
-  1-14: try (by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4)).
-  1-6: try (by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H).
-  1: by eapply Forall2_lookup_l in H as (?&?&H); first (inversion H; inversion H4).
-  1: by eapply Forall2_lookup_l in H0 as (?&?&H0); first (inversion H0; inversion H4).
+  all: repeat constructor; try inversion IHhas_kind;
+    try by subst;
+    try by inversion H;
+    try by inversion H0.
 
-  (* truly new cases *)
-  all: try (subst; done).
+  all: try (by econstructor; eauto).
+  all: try (apply Forall_forall; intros ? Hin; apply list_elem_of_lookup in Hin as [??]; subst).
+  all: try (by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4)).
+  all: try (by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H).
+  all: try (by eapply Forall2_lookup_l in H as (?&?&H); first (inversion H; inversion H4)).
+  all: try (by eapply Forall2_lookup_l in H0 as (?&?&H0); first (inversion H0; inversion H4)).
 Qed.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
@@ -739,7 +742,8 @@ Section TypeEqInd.
         type_eq τ τ' -> P τ τ' ->
         P (SerT κ τ) (SerT κ τ'))
     (HRec : forall κ τ τ',
-        type_eq τ τ' -> P τ τ' ->
+        type_eq τ τ' ->
+        P τ τ' ->
         P (RecT κ τ) (RecT κ τ'))
     (HExMem : forall κ τ τ',
         type_eq τ τ' -> P τ τ' ->
