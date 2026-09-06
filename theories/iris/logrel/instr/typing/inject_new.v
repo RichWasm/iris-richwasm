@@ -14,6 +14,26 @@ Section inject_new.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma flags_words_length_eq lmask θ ℓ fs ws :
+    lmask ℓ ->
+    rt_token rti sr lmask θ -∗
+    ℓ ↦layout fs -∗
+    ℓ ↦heap ws -∗
+    ⌜length fs = length ws⌝.
+  Proof.
+    iIntros (Hlmask) "Hrt Hlayout Hheap".
+    iDestruct "Hrt" as "(%rm & %lm & %hm &
+      Haddr_auth & Hroot & Hlayout_auth & Hheap_auth & Hrti &
+      %Hinj & %Hrootok & Hrootmem & %Hlayoutok & %Hheapok & Hheapmem)".
+    iCombine "Hlayout_auth" "Hlayout" gives "%Hlm_lookup".
+    iCombine "Hheap_auth" "Hheap" gives "%Hhm_lookup".
+    iPureIntro.
+    specialize (Hlayoutok ℓ).
+    rewrite Hlm_lookup Hhm_lookup in Hlayoutok.
+    inversion Hlayoutok; subst.
+    by apply Forall2_length in H1.
+  Qed.
+
   Lemma compat_inject_new M F L wt wt' wtf wl wl' wlf es' μ i τ τs κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -28,12 +48,29 @@ Section inject_new.
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
     iIntros (?????? Hτ [bm ->] [[Hτ_mono Href_mono] HL_ok] Hcg ????????) "@@@@@@@@@@@@".
+
     rewrite Forall_singleton in Hτ_mono.
     destruct Hτ_mono as (ρ & Hτρ & Hρ_mono).
     inversion Hτρ.
     rename H into Hτ_kind.
     subst F0 τ0 ρ0.
     destruct κv as [|σ ξ']; first inversion Hcg.
+
+    rewrite Forall_singleton in Href_mono.
+    destruct Href_mono as (ρ_rep & Hρ_rep & _).
+    inversion Hρ_rep.
+    subst F0 τ0 ρ0.
+    assert (has_kind F (VariantT (MEMTYPE σ ξ') τs') (MEMTYPE σ ξ')) as Hkind_variant.
+    {
+      inversion H.
+      - inversion H2. by subst.
+      - inversion H2. by subst.
+    }
+    clear H ξ0 Hρ_rep ρ_rep.
+    inversion Hkind_variant.
+    subst F0 σ ξ' τs0.
+    clear Hkind_variant.
+    rename H1 into Hτs'_kind.
 
     inv_cg_bind Hcg ρ' ?wt ?wt ?wl ?wl ?es ?es Hcg_rep Hcg.
     inv_cg_try_option Hcg_rep.
@@ -44,6 +81,11 @@ Section inject_new.
     inv_cg_bind Hcg n ?wt ?wt ?wl ?wl ?es ?es Hcg_n Hcg.
     inv_cg_try_option Hcg_n.
     rename Heq_some into Hn.
+    apply bind_Some in Hn as (ns & Hns & Hn).
+    fold (eval_size EmptyEnv) in Hns.
+    inversion Hn.
+    subst n.
+    clear Hn.
     inv_cg_bind Hcg xs ?wt ?wt ?wl ?wl ?es ?es Hcg_save Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_alloc Hcg.
     inv_cg_bind Hcg laddr ?wt ?wt ?wl ?wl ?es ?es Hcg_laddr Hcg.
@@ -162,7 +204,7 @@ Section inject_new.
                           rt_token rti sr lpall θ' ∗
                           na_own logrel_nais ⊤ ∗
                           ℓ ↦addr (MemMM, a) ∗
-                          ℓ ↦layout repeat FlagInt n ∗
+                          ℓ ↦layout repeat FlagInt (S (list_max ns)) ∗
                           ℓ ↦heap ws)%I).
           iExists _, _, _, _, _, _.
           by iFrame.
@@ -201,7 +243,7 @@ Section inject_new.
             (1 := fun f' vs' =>
                     (⌜f' = f0 <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>⌝ ∗
                        ⌜vs' = []⌝ ∗
-                       ℓ ↦layout set_flags_at 1 (flat_map arep_flags ιs) (repeat FlagInt n) ∗
+                       ℓ ↦layout set_flags_at 1 (flat_map arep_flags ιs) (repeat FlagInt (S (list_max ns))) ∗
                        rt_token rti sr (fun ℓ' => ℓ <> ℓ') θ' ∗
                        na_own logrel_nais ⊤)%I).
           by iFrame.
@@ -318,7 +360,7 @@ Section inject_new.
                         ⌜f = f'⌝ ∗ ⌜vs' = [VAL_int32 ta32]⌝ ∗
                         ⌜N_i32_repr ta ta32⌝ ∗ ⌜repr_pointer θ' (PtrHeap MemGC ℓ) ta⌝ ∗
                         na_own logrel_nais ⊤ ∗ rt_token rti sr lpall θ' ∗
-                        ℓ ↦layout repeat FlagInt n ∗ ℓ ↦heap ws)%I).
+                        ℓ ↦layout repeat FlagInt (S (list_max ns)) ∗ ℓ ↦heap ws)%I).
           iFrame.
           by iExists _, _.
       }
@@ -326,6 +368,13 @@ Section inject_new.
       clear Hes7.
       iIntros (??) "(% & % & % & % & % & <- & -> & %Hta32 & %Hta & Hown & Hrt & Hlayout & Hheap)
                     Hf Hrun".
+      iDestruct (flags_words_length_eq with "Hrt Hlayout Hheap") as "%Hws_len"; first done.
+      rewrite length_repeat in Hws_len.
+      destruct ws; first inversion Hws_len.
+      rewrite length_cons in Hws_len.
+      inversion Hws_len.
+      clear Hws_len.
+      rename H0 into Hws_len.
       rewrite app_assoc.
       iApply (cwp_seq with "[Hf Hrun]").
       {
@@ -354,7 +403,7 @@ Section inject_new.
             (1 := fun f' vs' =>
                     (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>⌝ ∗
                        ⌜vs' = []⌝ ∗
-                       ℓ ↦layout set_flags_at 1 (flat_map arep_flags ιs) (repeat FlagInt n) ∗
+                       ℓ ↦layout set_flags_at 1 (flat_map arep_flags ιs) (repeat FlagInt (S (list_max ns))) ∗
                        rt_token rti sr (λ ℓ' : location, ℓ ≠ ℓ') θ' ∗
                        na_own logrel_nais ⊤)%I).
           by iFrame.
@@ -395,7 +444,7 @@ Section inject_new.
         - by subst ta.
         - done.
         - done.
-        - admit.
+        - iPureIntro. cbn. lia.
         - by instantiate (1 := I32A (Wasm_int.Int32.repr i)).
         - done.
         - done.
@@ -408,8 +457,8 @@ Section inject_new.
                     (⌜f' = f <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
                              <| f_locs ::= <[ localimm ltag := VAL_int32 (Wasm_int.int_of_Z i32m i)]> |>⌝ ∗
                        ⌜vs' = []⌝ ∗
-                       ℓ ↦layout set_flags_at 1 (flat_map arep_flags ιs) (repeat FlagInt n) ∗
-                       ℓ ↦heap path.update_path_words 0 ws (serialize_atom (I32A (Wasm_int.Int32.repr i))) ∗
+                       ℓ ↦layout set_flags_at 1 (flat_map arep_flags ιs) (repeat FlagInt (S (list_max ns))) ∗
+                       ℓ ↦heap path.update_path_words 0 (w :: ws) (serialize_atom (I32A (Wasm_int.Int32.repr i))) ∗
                        na_own logrel_nais ⊤ ∗
                        rt_token rti sr (λ ℓ' : location, ℓ ≠ ℓ') θ')%I).
           by iFrame.
@@ -453,7 +502,7 @@ Section inject_new.
                              <| f_locs ::= <[localimm ltag := VAL_int32 (Wasm_int.int_of_Z i32m i) ]> |>⌝ ∗
                        ⌜vs' = []⌝ ∗
                        ℓ ↦heap path.update_path_words 1
-                                 (path.update_path_words 0 ws
+                                 (path.update_path_words 0 (w :: ws)
                                     (serialize_atom (I32A (Wasm_int.Int32.repr i))))
                                  (concat (map serialize_atom os)) ∗
                       na_own logrel_nais ⊤ ∗
