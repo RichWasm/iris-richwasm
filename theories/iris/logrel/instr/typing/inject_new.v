@@ -34,6 +34,40 @@ Section inject_new.
     by apply Forall2_length in H1.
   Qed.
 
+  Lemma elem_of_repeat_inv {A} (x y : A) n : x ∈ repeat y n -> x = y.
+  Proof.
+    intros H.
+    induction n.
+    - inversion H.
+    - inversion H; first done. by apply IHn.
+  Qed.
+
+  Lemma ref_flag_ptr_interp_flagint_words lmask θ ℓ n ws :
+    lmask ℓ ->
+    rt_token rti sr lmask θ -∗
+    ℓ ↦layout repeat FlagInt n -∗
+    ℓ ↦heap ws -∗
+    ⌜forall ξ, Forall (forall_ptr_word (ref_flag_ptr_interp ξ)) ws⌝.
+  Proof.
+    iIntros (Hlmask) "Hrt Hlayout Hheap".
+    iDestruct "Hrt" as "(%rm & %lm & %hm &
+      Haddr_auth & Hroot & Hlayout_auth & Hheap_auth & Hrti &
+      %Hinj & %Hrootok & Hrootmem & %Hlayoutok & %Hheapok & Hheapmem)".
+    iCombine "Hlayout_auth" "Hlayout" gives "%Hlm_lookup".
+    iCombine "Hheap_auth" "Hheap" gives "%Hhm_lookup".
+    iPureIntro.
+    specialize (Hlayoutok ℓ).
+    rewrite Hlm_lookup Hhm_lookup in Hlayoutok.
+    inversion Hlayoutok; subst.
+    specialize (H1 Hlmask).
+    intros ξ.
+    eapply Forall2_Forall_r; first done.
+    apply Forall_forall.
+    intros f Hf w Hw.
+    apply elem_of_repeat_inv in Hf as ->.
+    by destruct w; first inversion Hw.
+  Qed.
+
   Lemma elem_of_map_inj {A B} (f : A -> B) x (xs : list A) :
     (forall x y, f x = f y -> x = y) ->
     f x ∈ map f xs ->
@@ -414,6 +448,10 @@ Section inject_new.
       clear Hes7.
       iIntros (??) "(% & % & % & % & % & <- & -> & %Hta32 & %Hta & Hown & Hrt & Hlayout & Hheap)
                     Hf Hrun".
+
+      iDestruct (ref_flag_ptr_interp_flagint_words with "Hrt Hlayout Hheap") as "%Hws_rf"; first done.
+      specialize (Hws_rf NoRefs).
+
       iDestruct (flags_words_length_eq with "Hrt Hlayout Hheap") as "%Hws_len"; first done.
       rewrite length_repeat in Hws_len.
       destruct ws; first inversion Hws_len.
@@ -626,6 +664,9 @@ Section inject_new.
       rewrite app_nil_l.
       rewrite app_nil_l length_app in Hws_len, Hws_lb.
       rewrite H2 in Hws_len, Hws_lb.
+      cbn in Hws_rf.
+      apply Forall_cons in Hws_rf as [_ Hws_rf].
+      apply Forall_app in Hws_rf as [_ Hws_rf].
       clear H2 ws_old.
       rewrite -flat_map_concat_map.
       rewrite -flat_map_concat_map in Hws_len, Hws_lb.
@@ -652,8 +693,7 @@ Section inject_new.
         iSplitR.
         { iPureIntro. admit. }
         iSplitR; first done.
-        iSplitR.
-        { iPureIntro. admit. }
+        iSplitR; first done.
         change (list_lookup i (map (type_interp rti sr) τs')) with (map (type_interp rti sr) τs' !! i).
         erewrite map_lookup_helper_forwards; last done.
         rewrite (type_interp_eq _ _ (SerT _ _)).
