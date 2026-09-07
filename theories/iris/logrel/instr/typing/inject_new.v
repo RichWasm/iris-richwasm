@@ -70,16 +70,18 @@ Section inject_new.
     destruct κv as [|σ ξ']; first inversion Hcg.
 
     rewrite Forall_singleton in Href_mono.
-    destruct Href_mono as (ρ_rep & Hρ_rep & _).
-    inversion Hρ_rep.
+    destruct Href_mono as (ρref & Hρref & _).
+    inversion Hρref.
     subst F0 τ0 ρ0.
+    rename H into Href_kind.
     assert (has_kind F (VariantT (MEMTYPE σ ξ') τs') (MEMTYPE σ ξ')) as Hkind_variant.
     {
-      inversion H.
-      - inversion H2. by subst.
-      - inversion H2. by subst.
+      inversion Href_kind.
+      - inversion H1. by subst.
+      - inversion H1. by subst.
     }
-    clear H ξ0 Hρ_rep ρ_rep.
+    rename ξ0 into ξref.
+    clear Hρref.
     inversion Hkind_variant.
     subst F0 σ ξ' τs0.
     clear Hkind_variant.
@@ -386,6 +388,10 @@ Section inject_new.
       + iExists [PtrA (PtrHeap MemMM ℓ)]. admit.
       + iExists θ'. admit.
     - (* GC *)
+      assert (κr = VALTYPE (AtomR PtrR) GCRefs) by by inversion Href_kind.
+      subst κr.
+      clear Href_kind.
+
       eapply cwp_alloc_gc in Hcg_alloc as (_ & -> & -> & Hes7).
       rewrite app_nil_l.
       iApply (cwp_seq with "[Hrt Hown Hfr Hrun]").
@@ -588,6 +594,80 @@ Section inject_new.
       }
 
       iIntros (??) "[-> ->] Hf Hrun".
+      assert (1 + length (flat_map arep_flags ιs) <= length (repeat FlagInt (S (list_max ns)))) as H.
+      {
+        rewrite flat_map_concat_map length_arep_flags_size sum_list_with_list_sum length_repeat
+          Hws_len.
+        change (list_sum (map arep_size ιs)) with (areps_size ιs).
+        lia.
+      }
+      apply updating_flags in H as (fs1 & fs_old & fs2 & Hfs & -> & Hfs_old & Hfs1).
+      rewrite -Nat.add_1_l repeat_app in Hfs.
+      apply app_inj_1 in Hfs as [Hfs1' Hfs]; last done.
+      cbn in Hfs1'.
+      subst fs1.
+      clear Hfs1.
+      rewrite -separate1.
+      rewrite (Nat.le_add_sub (areps_size ιs) (list_max ns)) in Hfs; last lia.
+      rewrite repeat_app in Hfs.
+      apply app_inj_1 in Hfs as [H Hfs]; last by rewrite length_repeat Hfs_old flat_map_concat_map
+                                                   length_arep_flags_size sum_list_with_list_sum.
+      subst fs_old.
+      rename fs2 into fs.
+      symmetry in Hfs.
+      clear Hfs_old.
+
+      rewrite load_common.update_path_words_first load_common.update_path_words_empty_2
+        load_common.update_path_words_succ.
+      assert (0 + length (concat (map serialize_atom os)) <= length ws).
+      { by rewrite length_concat map_map (load_common.has_areps_size ιs). }
+      apply load_common.updating_words in H as (ws1 & ws_old & ws2 & -> & -> & H2 & H3).
+      apply nil_length_inv in H3 as ->.
+      rewrite app_nil_l.
+      rewrite app_nil_l length_app in Hws_len, Hws_lb.
+      rewrite H2 in Hws_len, Hws_lb.
+      clear H2 ws_old.
+      rewrite -flat_map_concat_map.
+      rewrite -flat_map_concat_map in Hws_len, Hws_lb.
+      apply Arith_base.plus_minus_stt in Hws_len as Hws_len'.
+      rename ws2 into ws.
+
+      iAssert (type_interp rti sr (VariantT (MEMTYPE (SumS σs) (ref_flag_lub ξs)) τs') se
+                 (SWords (WordInt (Wasm_int.N_of_uint i32m (Wasm_int.Int32.repr i))
+                            :: flat_map serialize_atom os ++ ws)))
+        with "[Hos]" as "Hvariant".
+      {
+        rewrite (type_interp_eq _ _ (VariantT _ _)).
+        iExists (SMEMTYPE (S (list_max ns)) (ref_flag_lub ξs)).
+        iSplitR.
+        { iPureIntro. apply (path.eval_sizes_emptyenv (se' := se)) in Hns. cbn. by rewrite Hns. }
+        iSplitR.
+        {
+          iPureIntro. split.
+          - cbn. f_equal. by rewrite length_app.
+          - cbn. admit.
+        }
+        cbn.
+        iExists i, (Z.to_N (Wasm_int.Int32.Z_mod_modulus i)), (flat_map serialize_atom os), ws.
+        iSplitR.
+        { iPureIntro. admit. }
+        iSplitR; first done.
+        iSplitR.
+        { iPureIntro. admit. }
+        change (list_lookup i (map (type_interp rti sr) τs')) with (map (type_interp rti sr) τs' !! i).
+        erewrite map_lookup_helper_forwards; last done.
+        rewrite (type_interp_eq _ _ (SerT _ _)).
+        iExists (SMEMTYPE (areps_size ιs) ξ).
+        iSplitR.
+        { iPureIntro. apply eval_rep_emptyenv with (se := se) in Hιs. cbn. by rewrite Hιs. }
+        iSplitR.
+        { iPureIntro. cbn. admit. }
+        iExists _. by iFrame.
+      }
+
+      iMod (na_inv_alloc logrel_nais _ (ns_ref ℓ) with "[Hlayout Hheap Hvariant]") as "#Hinv".
+      { iModIntro. iEval (rewrite (bi.later_intro (type_interp _ _ _ _ _))) in "Hvariant". iAccu. }
+
       eapply roots.wp_registerroot in Hcg_regroot as (_ & -> & -> & Hes24).
       iApply (Hes24 with "[-Hf Hrun Hown Hrt] [$Hf] [$Hrun] [] [] [$Hown] [$Hrt]").
       + done.
@@ -633,7 +713,21 @@ Section inject_new.
              ++ subst laddr. symmetry. by rewrite app_nil_r !length_app !length_map !Nat.add_assoc.
              ++ subst ltag. symmetry.
                 by rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc.
-        * iExists [PtrA (PtrHeap MemGC ℓ)]. admit.
+        * iExists [PtrA (PtrHeap MemGC ℓ)].
+          iSplitR "Hroot".
+          -- rewrite values_interp_one_eq value_interp_eq. iExists (SVALTYPE [PtrR] GCRefs).
+             iSplitR; first done. iSplitR.
+             {
+               iPureIntro. split.
+               - eexists. split; first done. repeat constructor.
+               - repeat constructor.
+             }
+             cbn.
+             iExists _, _, _.
+             by iSplitR.
+          -- cbn. iSplitL; last done. iExists _, _. iSplitR.
+             { iPureIntro. apply Har32. }
+             iSplitR; first done. iExists (RootHeap MemGC ar). by iFrame.
         * iExists θ'. admit.
       + done.
       + done.
