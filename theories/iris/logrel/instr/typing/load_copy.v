@@ -522,6 +522,8 @@ Section load_copy.
         first by eapply mod_bound_nonzero.
       replace a0 with a in * by lia; clear a0; subst.
       iPoseProof (Hload with "[$]") as "Hload"; clear Hload.
+      do 6 (iSpecialize ("Hload" with "[$]") || iSpecialize ("Hload" with "[//]")).
+      instantiate (4:= ⊤).
       repeat (iSpecialize ("Hload" with "[$]") || iSpecialize ("Hload" with "[//]")).
       iApply "Hload".
       + iPureIntro.
@@ -1267,6 +1269,7 @@ Section load_copy.
       iApply (Hcgload with "[$] [$] [$] [//] [$] [$] []").
       + eauto.
       + done.
+      + done.
       + iPureIntro.
         etransitivity; last eapply Hws1.
         rewrite Hm.
@@ -1595,6 +1598,7 @@ Section load_copy.
       destruct Hcgload as (_ & -> & -> & Hcgload).
       iApply (Hcgload with "[$] [$] [$] [//] [$] [$] []").
       + eauto.
+      + done.
       + done.
       + iPureIntro.
         etransitivity; last eapply Hws1.
