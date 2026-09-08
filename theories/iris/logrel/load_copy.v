@@ -238,15 +238,16 @@ Section load_copy.
   Lemma wp_load1_copy_gc (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
     let fe := fe_of_context F in
     run_codegen (memory.load1 mr fe MemGC Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
-    ∀ f ℓ a32 a o ws s E B R θ lmask Φ,
+    ∀ f ℓ a32 a o ws s E1 E2 B R θ lmask Φ,
     ⊢ "Hf" ∷ ↪[frame] f -∗
       "Hrun" ∷ ↪[RUN] -∗
       "Hptr" ∷ ℓ ↦heap ws -∗
       "%Haddr" ∷ ⌜θ !! ℓ = Some (MemGC, a)⌝ -∗
-      "Hown"  ∷ na_own logrel_nais E -∗
+      "Hown"  ∷ na_own logrel_nais E2 -∗
       "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hmask2" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
+      "%Hmask1" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E1⌝ -∗
       "%Hbound" ∷ ⌜off + arep_size ι ≤ length ws⌝ -∗
       "%Harep" ∷ ⌜has_arep ι o⌝ -∗
       "%Hser" ∷ ⌜serialize_atom o = get_path_words off (arep_size ι) ws⌝ -∗
@@ -263,12 +264,12 @@ Section load_copy.
            "%Hf'"  ∷ ⌜f' = mk_load1_frame fe f (length wl) vf⌝ -∗
            "%Hvf"  ∷ ⌜types_agree (translate_arep ι) vf⌝ -∗
            "Hptr"  ∷ ℓ ↦heap ws -∗
-           "Hown"  ∷ na_own logrel_nais E -∗
+           "Hown"  ∷ na_own logrel_nais E2 -∗
            "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Ho"    ∷ (⌜atom_copyable o⌝ -∗ atom_interp o v) -∗
            Φ f' [v]) -∗
-      CWP es @ s; E UNDER B; R {{ Φ }}.
+      CWP es @ s; E1 UNDER B; R {{ Φ }}.
   Proof.
     iIntros (fe Hcg).
     unfold load1.
@@ -451,13 +452,14 @@ Section load_copy.
       ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs ∧
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R θ lmask Φ,
+      ∀ f ℓ a32 a os ws E1 E2 B R θ lmask Φ,
     ⊢ "Hptr" ∷ ℓ ↦heap ws -∗
       "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-      "Hown"  ∷ na_own logrel_nais E -∗
+      "Hown"  ∷ na_own logrel_nais E2 -∗
       "Htok"  ∷ rt_token rti sr lmask θ -∗
       "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hmask2" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
+      "%Hmask1" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E1⌝ -∗
       "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
       "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
       "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
@@ -477,14 +479,14 @@ Section load_copy.
            "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
            "Hptr"  ∷ ℓ ↦heap ws -∗
            "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-           "Hown"  ∷ na_own logrel_nais E -∗
+           "Hown"  ∷ na_own logrel_nais E2 -∗
            "Htok"  ∷ rt_token rti sr lmask θ -∗
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
            Φ f' vs) -∗
       "Hf" ∷ ↪[frame] f -∗
       "Hrun" ∷ ↪[RUN] -∗
-      CWP es @ E UNDER B; R {{ Φ }}.
+      CWP es @ E1 UNDER B; R {{ Φ }}.
   Proof.
     induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg *.
     - cbn in Hcg.
@@ -642,15 +644,16 @@ Section load_copy.
       ret = () /\
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R θ lmask Φ,
+      ∀ f ℓ a32 a os ws E1 E2 B R θ lmask Φ,
       ⊢ "Hf" ∷ ↪[frame] f -∗
         "Hrun" ∷ ↪[RUN] -∗
         "Hptr" ∷ ℓ ↦heap ws -∗
         "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-        "Hown"  ∷ na_own logrel_nais E -∗
+        "Hown"  ∷ na_own logrel_nais E2 -∗
         "Htok"  ∷ rt_token rti sr lmask θ -∗
         "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-        "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+        "%Hmask2" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
+        "%Hmask1" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E1⌝ -∗
         "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
         "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
         "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
@@ -670,12 +673,12 @@ Section load_copy.
              "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
              "Hptr"  ∷ ℓ ↦heap ws -∗
              "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-             "Hown"  ∷ na_own logrel_nais E -∗
+             "Hown"  ∷ na_own logrel_nais E2 -∗
              "Htok"  ∷ rt_token rti sr lmask θ -∗
              "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
              "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
              Φ f' vs) -∗
-        CWP es @ E UNDER B; R {{ Φ }}.
+        CWP es @ E1 UNDER B; R {{ Φ }}.
   Proof.
     unfold memory.load.
     intros * Hcg.
@@ -702,15 +705,16 @@ Section load_copy.
       ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs ∧
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R θ lmask Φ,
+      ∀ f ℓ a32 a os ws E1 E2 B R θ lmask Φ,
       ⊢ "Hf" ∷ ↪[frame] f -∗
         "Hrun" ∷ ↪[RUN] -∗
         "Hptr" ∷ ℓ ↦heap ws -∗
         "%Haddr" ∷ ⌜θ !! ℓ = Some (MemGC, a)⌝ -∗
-        "Hown"  ∷ na_own logrel_nais E -∗
+        "Hown"  ∷ na_own logrel_nais E2 -∗
         "Htok"  ∷ rt_token rti sr lmask θ -∗
         "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-        "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+        "%Hmask2" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
+        "%Hmask1" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E1⌝ -∗
         "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
         "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
         "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
@@ -729,12 +733,12 @@ Section load_copy.
              "%Hf'"  ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
              "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
              "Hptr"  ∷ ℓ ↦heap ws -∗
-             "Hown"  ∷ na_own logrel_nais E -∗
+             "Hown"  ∷ na_own logrel_nais E2 -∗
              "Htok"  ∷ rt_token rti sr lmask θ -∗
              "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
              "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
              Φ f' vs) -∗
-        CWP es @ E UNDER B; R {{ Φ }}.
+        CWP es @ E1 UNDER B; R {{ Φ }}.
   Proof.
     induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg *.
     - cbn in Hcg.
@@ -900,15 +904,16 @@ Section load_copy.
       ret = () /\
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R θ lmask Φ,
+      ∀ f ℓ a32 a os ws E1 E2 B R θ lmask Φ,
       ⊢ "Hf" ∷ ↪[frame] f -∗
         "Hrun" ∷ ↪[RUN] -∗
         "Hptr" ∷ ℓ ↦heap ws -∗
         "%Haddr" ∷ ⌜θ !! ℓ = Some (MemGC, a)⌝ -∗
-        "Hown"  ∷ na_own logrel_nais E -∗
+        "Hown"  ∷ na_own logrel_nais E2 -∗
         "Htok"  ∷ rt_token rti sr lmask θ -∗
         "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-        "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+        "%Hmask2" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E2⌝ -∗
+        "%Hmask1" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E1⌝ -∗
         "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
         "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
         "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
@@ -927,12 +932,12 @@ Section load_copy.
              "%Hf'"  ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
              "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
              "Hptr"  ∷ ℓ ↦heap ws -∗
-             "Hown"  ∷ na_own logrel_nais E -∗
+             "Hown"  ∷ na_own logrel_nais E2 -∗
              "Htok"  ∷ rt_token rti sr lmask θ -∗
              "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
              "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
              Φ f' vs) -∗
-        CWP es @ E UNDER B; R {{ Φ }}.
+        CWP es @ E1 UNDER B; R {{ Φ }}.
   Proof.
     intros * Hcg ? ?.
     apply wp_ignore in Hcg.
