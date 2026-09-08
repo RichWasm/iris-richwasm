@@ -251,7 +251,8 @@ Section case_load.
       iApply (cwp_seq with "[Hfr Hrun Hv1 Hown Hheap Hrt Hclose Hlayout]"). {
         eapply wp_load1_copy_mm in Hcg_tag as H_tag.
         iPoseProof H_tag as "H_tag". clear H_tag.
-        iSpecialize ("H_tag" with "[$Hfr] [$Hrun] [$Hheap] [$Hv1] [$Hown] [$Hrt]").
+        iSpecialize ("H_tag" with "[$Hfr] [$Hrun] [$Hheap] [$Hv1]").
+        iSpecialize ("H_tag" with "[$Hown] [$Hrt]").
 
         iApply ("H_tag" with "[] [%] [%]  [%] [%] [%]  [//] [//] [//]
                 [//] [//] [//] [//] [] [] ").
@@ -386,6 +387,39 @@ Section case_load.
       destruct τ_ser; cbn in Heq_some2; inversion Heq_some2.
       subst τ0; clear Heq_some2.
       rename es8 into es_load; rename es10 into es_compiled.
+      eapply wp_mem_load_copy_mm in Hcg_load_tag.
+      destruct Hcg_load_tag as (_ & -> & -> & Hcg_load_tag).
+
+      (* need to open the invariant again~ *)
+      iApply fupd_cwp.
+      iMod (na_inv_acc with "Hinv Hown") as "U"; eauto.
+      iDestruct "U" as "(Hlh & Hown & Hclose)".
+      iModIntro.
+      iMod "Hlh". iDestruct "Hlh" as "(Hlayout & Hheap)".
+
+      iApply (cwp_seq with "[Hfr Hrun Hown Haddr Hrt Hheap Hclose Hlayout]"). {
+
+        iApply (Hcg_load_tag with "[$] [$] [$] [$] [$] [$] [] [%] [%] [%]
+             [%] [%] [//] [%] [%] [%] [%] [//] [//] [//] [] [] [-]"); clear Hcg_load_tag.
+        - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & that & _) & _)".
+        - eauto with ndisj.
+        - done.
+        - (* yeah kinding quarantine *) admit.
+        - admit.
+        - admit.
+        - clear_frame_things Hflen locsz WL. (* more frame things *)
+          admit.
+        - admit.
+        - clear_frame_things Hflen locsz WL.
+          admit.
+        - done.
+        - (* oh not pure thing *)
+          admit.
+        - admit.
+        - iIntros (???) "-> @@@@@@@".
+          admit.
+      }
+
 
 
       (* Save stack time! *)
