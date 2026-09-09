@@ -273,6 +273,15 @@ Proof.
   inversion Hsub; subst; intros ξr ξs; cbn; by constructor.
 Qed.
 
+Lemma subkind_of_ren_inv κ' ξr ξs κ :
+  subkind_of κ' (ren_kind ξr ξs κ) ->
+  exists κ0, κ' = ren_kind ξr ξs κ0 /\ subkind_of κ0 κ.
+Proof.
+  destruct κ as [ρ ξ|σ ξ]; cbn; inversion 1; subst.
+  - exists (VALTYPE ρ ξ0); split; [done|by constructor].
+  - exists (MEMTYPE σ ξ0); split; [done|by constructor].
+Qed.
+
 Lemma has_kind_ren :
   forall F τ κ, has_kind F τ κ ->
   forall ξm ξr ξs ξt F', ctx_ren ξm ξr ξs ξt F F' ->
@@ -369,6 +378,9 @@ Qed.
 Lemma pw_id_id : pw_id (@id nat).
 Proof. by intros n. Qed.
 
+Lemma pw_id_uid : pw_id unscoped.id.
+Proof. by intros n. Qed.
+
 Definition ctx_str (ξt : nat -> nat) (F F' : function_ctx) : Prop :=
   fc_kind_ctx F' = fc_kind_ctx F /\
   forall t, fc_type_vars F' !! ξt t = fc_type_vars F !! t.
@@ -440,6 +452,17 @@ Lemma Forall3_Forall_impl {A B C} (P Q : A -> B -> C -> Prop) (R : A -> Prop) l 
 Proof.
   induction 1 as [|a b c l k k' Hp Hall IH]; intros HR Himp; [constructor|].
   inversion HR; subst; constructor; [by apply Himp|by apply IH].
+Qed.
+
+Lemma Forall_mp {A} (P Q : A -> Prop) l :
+  Forall (fun x => P x -> Q x) l -> Forall P l -> Forall Q l.
+Proof. induction 1; inversion 1; subst; constructor; auto. Qed.
+
+Lemma Forall_map_impl {A B} (f : A -> B) (P : A -> Prop) (Q : B -> Prop) l :
+  Forall (fun x => P x -> Q (f x)) l -> Forall P l -> Forall Q (map f l).
+Proof.
+  induction 1 as [|x l Hx _ IH]; cbn; [done|].
+  inversion 1; subst; constructor; auto.
 Qed.
 
 Lemma Forall2_map_1_strip {A A' B} (f : A -> A') (P : A' -> B -> Prop)
@@ -648,6 +671,18 @@ Qed.
 Ltac fold_subst :=
   fold subst_type subst_size subst_representation subst_function_type.
 
+Lemma ref_flag_lub2_mono ξ1 ξ1' ξ2 ξ2' :
+  ref_flag_le ξ1 ξ1' -> ref_flag_le ξ2 ξ2' ->
+  ref_flag_le (ref_flag_lub2 ξ1 ξ2) (ref_flag_lub2 ξ1' ξ2').
+Proof. by destruct ξ1, ξ1', ξ2, ξ2'. Qed.
+
+Lemma ref_flag_lub_mono ξs ξs' :
+  Forall2 ref_flag_le ξs ξs' -> ref_flag_le (ref_flag_lub ξs) (ref_flag_lub ξs').
+Proof.
+  induction 1 as [|ξ ξ' ξs ξs' Hle _ IH]; first done.
+  by apply ref_flag_lub2_mono.
+Qed.
+
 Lemma subkind_of_subst s__rep s__size κ κ' :
   subkind_of κ κ' ->
   subkind_of (subst_kind s__rep s__size κ)
@@ -838,18 +873,51 @@ Proof.
   - intros a; constructor; auto.
 Qed.
 
+Lemma mem_ok_mono K K' μ : kc_mem_vars K <= kc_mem_vars K' -> mem_ok K μ -> mem_ok K' μ.
+Proof. intros Hle; inversion 1; subst; constructor; lia. Qed.
+
+Lemma rep_ok_mono K K' ρ : kc_rep_vars K <= kc_rep_vars K' -> rep_ok K ρ -> rep_ok K' ρ.
+Proof.
+  intros Hle; induction ρ using rep_ind; inversion 1; subst;
+    [apply OKVarR; lia|constructor|constructor|constructor]; eauto using Forall_mp.
+Qed.
+
+Lemma size_ok_mono K K' σ :
+  kc_rep_vars K <= kc_rep_vars K' -> kc_size_vars K <= kc_size_vars K' ->
+  size_ok K σ -> size_ok K' σ.
+Proof.
+  intros Hr Hs; induction σ using size_ind; inversion 1; subst;
+    [apply OKVarS; lia|constructor|constructor|constructor|constructor];
+    eauto using Forall_mp, rep_ok_mono.
+Qed.
+
+Lemma kind_ok_mono K K' κ :
+  kc_rep_vars K <= kc_rep_vars K' -> kc_size_vars K <= kc_size_vars K' ->
+  kind_ok K κ -> kind_ok K' κ.
+Proof. intros Hr Hs; inversion 1; subst; constructor; eauto using rep_ok_mono, size_ok_mono. Qed.
+
 Lemma kind_ok_kc K K' κ :
   kind_ok K κ ->
   kc_rep_vars K' = kc_rep_vars K -> kc_size_vars K' = kc_size_vars K ->
   kind_ok K' κ.
+Proof. intros Hok Hr Hs; eapply kind_ok_mono; [| |exact Hok]; lia. Qed.
+
+Lemma kind_ok_supkind_of K κ κ' : kind_ok K κ' -> subkind_of κ κ' -> kind_ok K κ.
+Proof. intros H1 H2; induction H2; constructor; by inversion H1. Qed.
+
+Lemma kc_ren_wk_mem K : kc_ren unscoped.shift (@id nat) (@id nat) K (set kc_mem_vars S K).
 Proof.
-  intros Hok Hr Hs.
-  assert (Hr' : forall n, n < kc_rep_vars K <-> (@id nat) n < kc_rep_vars K')
-    by (intros n; rewrite Hr; reflexivity).
-  assert (Hs' : forall n, n < kc_size_vars K <-> (@id nat) n < kc_size_vars K')
-    by (intros n; rewrite Hs; reflexivity).
-  rewrite -(ren_kind_id (@id nat) (@id nat) κ pw_id_id pw_id_id).
-  by apply (proj1 (kind_ok_ren' _ _ K K' κ Hr' Hs')).
+  destruct K; unfold kc_ren, unscoped.shift, Datatypes.id; cbn; split; [|split]; intros n; lia.
+Qed.
+
+Lemma kc_ren_wk_rep K : kc_ren (@id nat) unscoped.shift (@id nat) K (set kc_rep_vars S K).
+Proof.
+  destruct K; unfold kc_ren, unscoped.shift, Datatypes.id; cbn; split; [|split]; intros n; lia.
+Qed.
+
+Lemma kc_ren_wk_size K : kc_ren (@id nat) (@id nat) unscoped.shift K (set kc_size_vars S K).
+Proof.
+  destruct K; unfold kc_ren, unscoped.shift, Datatypes.id; cbn; split; [|split]; intros n; lia.
 Qed.
 
 Lemma ctx_ren_wk_mem F :
@@ -860,9 +928,7 @@ Proof.
   - intros t; destruct F as [? ? ? ? tvs]; cbn.
     destruct (tvs !! t) as [κ|]; cbn [fmap option_fmap option_map]; [|done].
     by rewrite (ren_kind_id (@id nat) (@id nat) κ pw_id_id pw_id_id).
-  - destruct F as [? ? ? [km kr ks] ?]; unfold kc_ren; cbn.
-    unfold unscoped.shift, Datatypes.id.
-    split; [|split]; intros n; lia.
+  - destruct F; apply kc_ren_wk_mem.
 Qed.
 
 Lemma ctx_ren_wk_rep F :
@@ -871,9 +937,7 @@ Proof.
   split.
   - intros t; destruct F as [? ? ? ? tvs]; unfold add_rep_var; cbn.
     by rewrite list_lookup_fmap.
-  - destruct F as [? ? ? [km kr ks] ?]; unfold add_rep_var, kc_ren; cbn.
-    unfold unscoped.shift, Datatypes.id.
-    split; [|split]; intros n; lia.
+  - destruct F; apply kc_ren_wk_rep.
 Qed.
 
 Lemma ctx_ren_wk_size F :
@@ -882,9 +946,7 @@ Proof.
   split.
   - intros t; destruct F as [? ? ? ? tvs]; unfold add_size_var; cbn.
     by rewrite list_lookup_fmap.
-  - destruct F as [? ? ? [km kr ks] ?]; unfold add_size_var, kc_ren; cbn.
-    unfold unscoped.shift, Datatypes.id.
-    split; [|split]; intros n; lia.
+  - destruct F; apply kc_ren_wk_size.
 Qed.
 
 Definition sub_id_memory (σ : nat -> memory) : Prop := forall n, σ n = VarM n.
@@ -904,51 +966,49 @@ Proof. intros H n; unfold up_size_memory, core.funcomp; by rewrite H. Qed.
 Lemma sub_id_up_type_memory σ : sub_id_memory σ -> sub_id_memory (up_type_memory σ).
 Proof. intros H n; unfold up_type_memory, core.funcomp; by rewrite H. Qed.
 
-Lemma sub_id_up_representation_representation σ :
-  sub_id_representation σ -> sub_id_representation (up_representation_representation σ).
-Proof.
-  intros H [|n];
-    unfold up_representation_representation, unscoped.scons, core.funcomp; cbn; by rewrite ?H.
-Qed.
-
-Lemma sub_id_up_memory_representation σ :
-  sub_id_representation σ -> sub_id_representation (up_memory_representation σ).
-Proof. intros H n; unfold up_memory_representation, core.funcomp; by rewrite H. Qed.
-
-Lemma sub_id_up_size_representation σ :
-  sub_id_representation σ -> sub_id_representation (up_size_representation σ).
-Proof. intros H n; unfold up_size_representation, core.funcomp; by rewrite H. Qed.
-
-Lemma sub_id_up_type_representation σ :
-  sub_id_representation σ -> sub_id_representation (up_type_representation σ).
-Proof. intros H n; unfold up_type_representation, core.funcomp; by rewrite H. Qed.
-
-Lemma sub_id_up_size_size σ : sub_id_size σ -> sub_id_size (up_size_size σ).
-Proof. intros H [|n]; unfold up_size_size, unscoped.scons, core.funcomp; cbn; by rewrite ?H. Qed.
-
-Lemma sub_id_up_representation_size σ : sub_id_size σ -> sub_id_size (up_representation_size σ).
-Proof. intros H n; unfold up_representation_size, core.funcomp; by rewrite H. Qed.
-
-Lemma sub_id_up_memory_size σ : sub_id_size σ -> sub_id_size (up_memory_size σ).
-Proof. intros H n; unfold up_memory_size, core.funcomp; by rewrite H. Qed.
-
-Lemma sub_id_up_type_size σ : sub_id_size σ -> sub_id_size (up_type_size σ).
-Proof. intros H n; unfold up_type_size, core.funcomp; by rewrite H. Qed.
-
 Lemma subst_kind_id σr σs κ :
   sub_id_representation σr -> sub_id_size σs -> subst_kind σr σs κ = κ.
 Proof. intros Hr Hs; by apply idSubst_kind. Qed.
 
-Lemma subst_memory_id σm μ : sub_id_memory σm -> subst_memory σm μ = μ.
-Proof. intros H; by apply idSubst_memory. Qed.
+Lemma subst_kind_up_type σr σs κ :
+  subst_kind (up_type_representation σr) (up_type_size σs) κ = subst_kind σr σs κ.
+Proof.
+  apply ext_kind; intros n; unfold up_type_representation, up_type_size, core.funcomp.
+  - apply rinstId'_representation.
+  - apply rinstId'_size.
+Qed.
 
-Lemma subst_representation_id σr ρ :
-  sub_id_representation σr -> subst_representation σr ρ = ρ.
-Proof. intros H; by apply idSubst_representation. Qed.
+Lemma subst_kind_up_mem σr σs κ :
+  subst_kind (up_memory_representation σr) (up_memory_size σs) κ = subst_kind σr σs κ.
+Proof.
+  apply ext_kind; intros n; unfold up_memory_representation, up_memory_size, core.funcomp.
+  - apply rinstId'_representation.
+  - apply rinstId'_size.
+Qed.
 
-Lemma subst_size_id σr σs σ :
-  sub_id_representation σr -> sub_id_size σs -> subst_size σr σs σ = σ.
-Proof. intros Hr Hs; by apply idSubst_size. Qed.
+Lemma subst_kind_up_rep σr σs κ :
+  subst_kind (up_representation_representation σr) (up_representation_size σs)
+    (ren_kind unscoped.shift unscoped.id κ)
+  = ren_kind unscoped.shift unscoped.id (subst_kind σr σs κ).
+Proof. rewrite renSubst_kind substRen_kind; apply ext_kind; intros n; reflexivity. Qed.
+
+Lemma subst_kind_up_size σr σs κ :
+  subst_kind (up_size_representation σr) (up_size_size σs)
+    (ren_kind unscoped.id unscoped.shift κ)
+  = ren_kind unscoped.id unscoped.shift (subst_kind σr σs κ).
+Proof. rewrite renSubst_kind substRen_kind; apply ext_kind; intros n; reflexivity. Qed.
+
+Lemma subst_kind_scons_rep ρ κ :
+  subst_kind (unscoped.scons ρ VarR) VarS (ren_kind unscoped.shift unscoped.id κ) = κ.
+Proof.
+  rewrite renSubst_kind -{2}(instId'_kind κ); apply ext_kind; intros n; reflexivity.
+Qed.
+
+Lemma subst_kind_scons_size σ κ :
+  subst_kind VarR (unscoped.scons σ VarS) (ren_kind unscoped.id unscoped.shift κ) = κ.
+Proof.
+  rewrite renSubst_kind -{2}(instId'_kind κ); apply ext_kind; intros n; reflexivity.
+Qed.
 
 Lemma has_kind_kind_ok F τ κ : has_kind F τ κ -> kind_ok (fc_kind_ctx F) κ.
 Proof. intros H; apply has_kind_inv in H; by inversion H. Qed.
@@ -965,109 +1025,373 @@ Lemma fc_type_vars_add_size F :
   fc_type_vars (add_size_var F) = map (ren_kind unscoped.id unscoped.shift) (fc_type_vars F).
 Proof. by destruct F. Qed.
 
-Definition ctx_subst (σt : nat -> type) (F F' : function_ctx) : Prop :=
-  fc_kind_ctx F' = fc_kind_ctx F /\
-  forall t κ, has_kind F (VarT t) κ -> has_kind F' (σt t) κ.
+Definition kc_subst (σm : nat -> memory) (σr : nat -> representation) (σs : nat -> size)
+    (K K' : kind_ctx) : Prop :=
+  (forall n, n < kc_mem_vars K -> mem_ok K' (σm n)) /\
+  (forall n, n < kc_rep_vars K -> rep_ok K' (σr n)) /\
+  (forall n, n < kc_size_vars K -> size_ok K' (σs n)).
 
-Lemma ctx_subst_cons σt F F' κ0 :
-  ctx_subst σt F F' ->
-  ctx_subst (up_type_type σt)
-    (F <| fc_type_vars ::= cons κ0 |>) (F' <| fc_type_vars ::= cons κ0 |>).
+Lemma mem_ok_subst σm σr σs K K' μ :
+  kc_subst σm σr σs K K' -> mem_ok K μ -> mem_ok K' (subst_memory σm μ).
 Proof.
-  intros [Hk Hs]; split; [by rewrite !fc_kind_ctx_ty_update|].
-  intros [|t] κ Hv.
-  - pose proof (has_kind_kind_ok _ _ _ Hv) as Hok.
-    pose proof (has_kind_type_kind _ _ _ Hv) as Hlk.
-    cbn [layout.type_kind] in Hlk.
-    rewrite fc_type_vars_get_upd in Hlk; cbn in Hlk.
-    rewrite fc_kind_ctx_ty_update in Hok.
-    injection Hlk as ->.
-    apply KVar; [by rewrite fc_type_vars_get_upd|].
-    by rewrite fc_kind_ctx_ty_update Hk.
-  - apply (proj1 (has_kind_var_wk_ty F t κ κ0)) in Hv.
-    apply Hs in Hv.
-    by apply (proj1 (has_kind_wk_ty F' (σt t) κ κ0)).
+  intros (Hm & _ & _) Hok; destruct μ; cbn; [|constructor].
+  inversion Hok; subst; by apply Hm.
 Qed.
 
-Lemma ctx_subst_mem σt F F' :
-  ctx_subst σt F F' ->
-  ctx_subst (up_memory_type σt)
+Lemma rep_ok_subst σm σr σs K K' ρ :
+  kc_subst σm σr σs K K' -> rep_ok K ρ -> rep_ok K' (subst_representation σr ρ).
+Proof.
+  intros (_ & Hr & _); induction ρ using rep_ind; cbn; inversion 1; subst;
+    [by apply Hr|constructor|constructor|constructor]; eauto using Forall_map_impl.
+Qed.
+
+Lemma size_ok_subst σm σr σs K K' σ :
+  kc_subst σm σr σs K K' -> size_ok K σ -> size_ok K' (subst_size σr σs σ).
+Proof.
+  intros Hkc; induction σ using size_ind; cbn; inversion 1; subst;
+    [by apply (proj2 (proj2 Hkc))|constructor|constructor|constructor|constructor];
+    eauto using Forall_map_impl, rep_ok_subst.
+Qed.
+
+Lemma kind_ok_subst σm σr σs K K' κ :
+  kc_subst σm σr σs K K' -> kind_ok K κ -> kind_ok K' (subst_kind σr σs κ).
+Proof.
+  intros Hkc; destruct κ; inversion 1; subst; constructor;
+    eauto using rep_ok_subst, size_ok_subst.
+Qed.
+
+Lemma kc_subst_type σm σr σs K K' :
+  kc_subst σm σr σs K K' ->
+  kc_subst (up_type_memory σm) (up_type_representation σr) (up_type_size σs) K K'.
+Proof.
+  intros (Hm & Hr & Hs); split; [|split]; intros n Hn;
+    unfold up_type_memory, up_type_representation, up_type_size, core.funcomp.
+  - rewrite (ren_memory_id _ _ pw_id_uid); by apply Hm.
+  - rewrite (ren_representation_id _ _ pw_id_uid); by apply Hr.
+  - rewrite (ren_size_id _ _ _ pw_id_uid pw_id_uid); by apply Hs.
+Qed.
+
+Lemma kc_subst_mem σm σr σs K K' :
+  kc_subst σm σr σs K K' ->
+  kc_subst (up_memory_memory σm) (up_memory_representation σr) (up_memory_size σs)
+    (set kc_mem_vars S K) (set kc_mem_vars S K').
+Proof.
+  intros (Hm & Hr & Hs); split; [|split].
+  - intros [|n] Hn; unfold up_memory_memory, unscoped.scons, core.funcomp; cbn.
+    + apply OKVarM; destruct K'; cbn; unfold unscoped.var_zero; lia.
+    + apply (proj1 (mem_ok_ren _ _ _ _ _ _ (kc_ren_wk_mem K'))), Hm.
+      destruct K; cbn in *; lia.
+  - intros n Hn; unfold up_memory_representation, core.funcomp.
+    rewrite (ren_representation_id _ _ pw_id_uid).
+    apply (rep_ok_mono K'); [by destruct K'|apply Hr; by destruct K].
+  - intros n Hn; unfold up_memory_size, core.funcomp.
+    rewrite (ren_size_id _ _ _ pw_id_uid pw_id_uid).
+    apply (size_ok_mono K'); [by destruct K'|by destruct K'|apply Hs; by destruct K].
+Qed.
+
+Lemma kc_subst_rep σm σr σs K K' :
+  kc_subst σm σr σs K K' ->
+  kc_subst (up_representation_memory σm) (up_representation_representation σr)
+    (up_representation_size σs) (set kc_rep_vars S K) (set kc_rep_vars S K').
+Proof.
+  intros (Hm & Hr & Hs); split; [|split].
+  - intros n Hn; unfold up_representation_memory, core.funcomp.
+    rewrite (ren_memory_id _ _ pw_id_uid).
+    apply (mem_ok_mono K'); [by destruct K'|apply Hm; by destruct K].
+  - intros [|n] Hn; unfold up_representation_representation, unscoped.scons, core.funcomp; cbn.
+    + apply OKVarR; destruct K'; cbn; unfold unscoped.var_zero; lia.
+    + apply (proj1 (rep_ok_ren _ _ _ _ (proj1 (proj2 (kc_ren_wk_rep K'))))), Hr.
+      destruct K; cbn in *; lia.
+  - intros n Hn; unfold up_representation_size, core.funcomp.
+    destruct (kc_ren_wk_rep K') as (_ & Hrr & Hss).
+    apply (proj1 (size_ok_ren _ _ _ _ _ Hrr Hss)).
+    apply Hs; by destruct K.
+Qed.
+
+Lemma kc_subst_size σm σr σs K K' :
+  kc_subst σm σr σs K K' ->
+  kc_subst (up_size_memory σm) (up_size_representation σr) (up_size_size σs)
+    (set kc_size_vars S K) (set kc_size_vars S K').
+Proof.
+  intros (Hm & Hr & Hs); split; [|split].
+  - intros n Hn; unfold up_size_memory, core.funcomp.
+    rewrite (ren_memory_id _ _ pw_id_uid).
+    apply (mem_ok_mono K'); [by destruct K'|apply Hm; by destruct K].
+  - intros n Hn; unfold up_size_representation, core.funcomp.
+    rewrite (ren_representation_id _ _ pw_id_uid).
+    apply (rep_ok_mono K'); [by destruct K'|apply Hr; by destruct K].
+  - intros [|n] Hn; unfold up_size_size, unscoped.scons, core.funcomp; cbn.
+    + apply OKVarS; destruct K'; cbn; unfold unscoped.var_zero; lia.
+    + destruct (kc_ren_wk_size K') as (_ & Hrr & Hss).
+      apply (proj1 (size_ok_ren _ _ _ _ _ Hrr Hss)), Hs.
+      destruct K; cbn in *; lia.
+Qed.
+
+Definition kind_rel_ok (R : kind -> kind -> Prop) : Prop :=
+  (forall κ, R κ κ) /\
+  (forall ξr ξs κ κ', R κ κ' -> R (ren_kind ξr ξs κ) (ren_kind ξr ξs κ')).
+
+Lemma kind_rel_ok_eq : kind_rel_ok eq.
+Proof. split; [done|by intros ???? ->]. Qed.
+
+Lemma kind_rel_ok_subkind : kind_rel_ok subkind_of.
+Proof. split; [apply subkind_of_refl|intros; by apply subkind_of_ren]. Qed.
+
+Definition ctx_rel (R : kind -> kind -> Prop)
+    (σm : nat -> memory) (σr : nat -> representation) (σs : nat -> size) (σt : nat -> type)
+    (F F' : function_ctx) : Prop :=
+  kc_subst σm σr σs (fc_kind_ctx F) (fc_kind_ctx F') /\
+  forall t κ, has_kind F (VarT t) κ ->
+    exists κ', R κ' (subst_kind σr σs κ) /\ has_kind F' (σt t) κ'.
+
+Lemma ctx_rel_cons R σm σr σs σt F F' κ0 :
+  kind_rel_ok R ->
+  ctx_rel R σm σr σs σt F F' ->
+  ctx_rel R (up_type_memory σm) (up_type_representation σr) (up_type_size σs) (up_type_type σt)
+    (F <| fc_type_vars ::= cons κ0 |>) (F' <| fc_type_vars ::= cons (subst_kind σr σs κ0) |>).
+Proof.
+  intros [Hrefl _] [Hkc Hv]; split; [rewrite !fc_kind_ctx_ty_update; by apply kc_subst_type|].
+  intros [|t] κ Hk.
+  - pose proof (has_kind_type_kind _ _ _ Hk) as Hlk.
+    cbn [layout.type_kind] in Hlk; rewrite fc_type_vars_get_upd in Hlk; cbn in Hlk.
+    injection Hlk as ->.
+    pose proof (has_kind_kind_ok _ _ _ Hk) as Hok; rewrite fc_kind_ctx_ty_update in Hok.
+    exists (subst_kind σr σs κ); split; [rewrite subst_kind_up_type; apply Hrefl|].
+    apply KVar; [by rewrite fc_type_vars_get_upd|].
+    rewrite fc_kind_ctx_ty_update; by eapply kind_ok_subst.
+  - apply (proj1 (has_kind_var_wk_ty F t κ κ0)) in Hk.
+    destruct (Hv t κ Hk) as (κ' & HR & Hk').
+    exists κ'; split; [by rewrite subst_kind_up_type|].
+    by apply (proj1 (has_kind_wk_ty F' (σt t) κ' _)).
+Qed.
+
+Lemma ctx_rel_mem R σm σr σs σt F F' :
+  ctx_rel R σm σr σs σt F F' ->
+  ctx_rel R (up_memory_memory σm) (up_memory_representation σr) (up_memory_size σs)
+    (up_memory_type σt)
     (F <| fc_kind_ctx ::= set kc_mem_vars S |>) (F' <| fc_kind_ctx ::= set kc_mem_vars S |>).
 Proof.
-  intros [Hk Hs]; split; [by destruct F, F'; cbn in *; rewrite Hk|].
-  intros t κ Hv.
-  pose proof (has_kind_kind_ok _ _ _ Hv) as Hok.
-  pose proof (has_kind_type_kind _ _ _ Hv) as Hlk.
+  intros [Hkc Hv]; split; [destruct F, F'; cbn in *; by apply kc_subst_mem|].
+  intros t κ Hk.
+  pose proof (has_kind_kind_ok _ _ _ Hk) as Hok.
+  pose proof (has_kind_type_kind _ _ _ Hk) as Hlk.
   cbn [layout.type_kind] in Hlk; rewrite fc_type_vars_kc_update in Hlk.
-  assert (Hv' : has_kind F (VarT t) κ).
+  assert (Hk' : has_kind F (VarT t) κ).
   { apply KVar; [done|].
     apply (kind_ok_kc _ _ _ Hok); by destruct F as [? ? ? [km kr ks] ?]. }
-  apply Hs in Hv'.
-  rewrite -(ren_kind_id (@id nat) (@id nat) κ pw_id_id pw_id_id).
-  by apply (has_kind_ren _ _ _ Hv'), ctx_ren_wk_mem.
+  destruct (Hv t κ Hk') as (κ' & HR & Hk'').
+  exists κ'; split; [by rewrite subst_kind_up_mem|].
+  unfold up_memory_type, core.funcomp.
+  rewrite -(ren_kind_id (@id nat) (@id nat) κ' pw_id_id pw_id_id).
+  by apply (has_kind_ren _ _ _ Hk''), ctx_ren_wk_mem.
 Qed.
 
-Lemma ctx_subst_rep σt F F' :
-  ctx_subst σt F F' ->
-  ctx_subst (up_representation_type σt) (add_rep_var F) (add_rep_var F').
+Lemma ctx_rel_rep R σm σr σs σt F F' :
+  kind_rel_ok R ->
+  ctx_rel R σm σr σs σt F F' ->
+  ctx_rel R (up_representation_memory σm) (up_representation_representation σr)
+    (up_representation_size σs) (up_representation_type σt) (add_rep_var F) (add_rep_var F').
 Proof.
-  intros [Hk Hs]; split; [by destruct F, F'; unfold add_rep_var; cbn in *; rewrite Hk|].
-  intros t κ Hv.
-  pose proof (has_kind_kind_ok _ _ _ Hv) as Hok.
-  pose proof (has_kind_type_kind _ _ _ Hv) as Hlk.
+  intros [_ Hren] [Hkc Hv]; split;
+    [destruct F, F'; unfold add_rep_var; cbn in *; by apply kc_subst_rep|].
+  intros t κ Hk.
+  pose proof (has_kind_kind_ok _ _ _ Hk) as Hok.
+  pose proof (has_kind_type_kind _ _ _ Hk) as Hlk.
   cbn [layout.type_kind] in Hlk.
   rewrite fc_type_vars_add_rep list_lookup_fmap in Hlk.
   destruct (fc_type_vars F !! t) as [κ0|] eqn:Ht;
     cbn [fmap option_fmap option_map] in Hlk; [|done].
   injection Hlk as <-.
-  assert (Hrr : forall n, n < kc_rep_vars (fc_kind_ctx F) <->
-                          unscoped.shift n < kc_rep_vars (fc_kind_ctx (add_rep_var F)))
-    by (intros n; destruct F as [? ? ? [km kr ks] ?]; unfold add_rep_var, unscoped.shift;
-        cbn; lia).
-  assert (Hss : forall n, n < kc_size_vars (fc_kind_ctx F) <->
-                          unscoped.id n < kc_size_vars (fc_kind_ctx (add_rep_var F)))
-    by (intros n; destruct F as [? ? ? [km kr ks] ?];
-        unfold add_rep_var, unscoped.id, Datatypes.id; cbn; lia).
+  destruct (proj2 (ctx_ren_wk_rep F)) as (_ & Hrr & Hss).
   apply (proj2 (kind_ok_ren' _ _ _ _ κ0 Hrr Hss)) in Hok.
-  assert (Hv' : has_kind F (VarT t) κ0) by by apply KVar.
-  apply Hs in Hv'.
-  by apply (has_kind_ren _ _ _ Hv'), ctx_ren_wk_rep.
+  assert (Hk0 : has_kind F (VarT t) κ0) by by apply KVar.
+  destruct (Hv t κ0 Hk0) as (κ' & HR & Hk').
+  exists (ren_kind unscoped.shift unscoped.id κ'); split;
+    [rewrite subst_kind_up_rep; by apply Hren|].
+  by apply (has_kind_ren _ _ _ Hk'), ctx_ren_wk_rep.
 Qed.
 
-Lemma ctx_subst_size σt F F' :
-  ctx_subst σt F F' ->
-  ctx_subst (up_size_type σt) (add_size_var F) (add_size_var F').
+Lemma ctx_rel_size R σm σr σs σt F F' :
+  kind_rel_ok R ->
+  ctx_rel R σm σr σs σt F F' ->
+  ctx_rel R (up_size_memory σm) (up_size_representation σr) (up_size_size σs)
+    (up_size_type σt) (add_size_var F) (add_size_var F').
 Proof.
-  intros [Hk Hs]; split; [by destruct F, F'; unfold add_size_var; cbn in *; rewrite Hk|].
-  intros t κ Hv.
-  pose proof (has_kind_kind_ok _ _ _ Hv) as Hok.
-  pose proof (has_kind_type_kind _ _ _ Hv) as Hlk.
+  intros [_ Hren] [Hkc Hv]; split;
+    [destruct F, F'; unfold add_size_var; cbn in *; by apply kc_subst_size|].
+  intros t κ Hk.
+  pose proof (has_kind_kind_ok _ _ _ Hk) as Hok.
+  pose proof (has_kind_type_kind _ _ _ Hk) as Hlk.
   cbn [layout.type_kind] in Hlk.
   rewrite fc_type_vars_add_size list_lookup_fmap in Hlk.
   destruct (fc_type_vars F !! t) as [κ0|] eqn:Ht;
     cbn [fmap option_fmap option_map] in Hlk; [|done].
   injection Hlk as <-.
-  assert (Hrr : forall n, n < kc_rep_vars (fc_kind_ctx F) <->
-                          unscoped.id n < kc_rep_vars (fc_kind_ctx (add_size_var F)))
-    by (intros n; destruct F as [? ? ? [km kr ks] ?];
-        unfold add_size_var, unscoped.id, Datatypes.id; cbn; lia).
-  assert (Hss : forall n, n < kc_size_vars (fc_kind_ctx F) <->
-                          unscoped.shift n < kc_size_vars (fc_kind_ctx (add_size_var F)))
-    by (intros n; destruct F as [? ? ? [km kr ks] ?]; unfold add_size_var, unscoped.shift;
-        cbn; lia).
+  destruct (proj2 (ctx_ren_wk_size F)) as (_ & Hrr & Hss).
   apply (proj2 (kind_ok_ren' _ _ _ _ κ0 Hrr Hss)) in Hok.
-  assert (Hv' : has_kind F (VarT t) κ0) by by apply KVar.
-  apply Hs in Hv'.
-  by apply (has_kind_ren _ _ _ Hv'), ctx_ren_wk_size.
+  assert (Hk0 : has_kind F (VarT t) κ0) by by apply KVar.
+  destruct (Hv t κ0 Hk0) as (κ' & HR & Hk').
+  exists (ren_kind unscoped.id unscoped.shift κ'); split;
+    [rewrite subst_kind_up_size; by apply Hren|].
+  by apply (has_kind_ren _ _ _ Hk'), ctx_ren_wk_size.
 Qed.
 
-Lemma Forall2_map_1 {A A' B} (f : A -> A') (P : A' -> B -> Prop) l k :
-  Forall2 (fun a b => P (f a) b) l k -> Forall2 P (map f l) k.
-Proof. induction 1; cbn; constructor; auto. Qed.
+Lemma has_kind_subst_gen :
+  (forall τ σm σr σs σt F F' κ,
+      sub_id_memory σm -> ctx_rel eq σm σr σs σt F F' ->
+      has_kind F τ κ -> has_kind F' (subst_type σm σr σs σt τ) (subst_kind σr σs κ)) /\
+  (forall ϕ σm σr σs σt F F',
+      sub_id_memory σm -> ctx_rel eq σm σr σs σt F F' ->
+      has_kind_ft F ϕ -> has_kind_ft F' (subst_function_type σm σr σs σt ϕ)) /\
+  (forall ϕ σm σr σs σt F F',
+      sub_id_memory σm -> ctx_rel eq σm σr σs σt F F' ->
+      has_kind_ift F ϕ -> has_kind_ift F' (subst_inner_function_type σm σr σs σt ϕ)).
+Proof.
+  apply type_and_function_ind.
+  - intros t σm σr σs σt F F' κ Hm Hctx Hk.
+    by destruct (proj2 Hctx _ _ Hk) as (κ' & -> & Hk').
+  - intros κ0 σm σr σs σt F F' κ Hm Hctx Hk.
+    by inversion Hk; subst; cbn; constructor.
+  - intros κ0 nt σm σr σs σt F F' κ Hm Hctx Hk.
+    by inversion Hk; subst; cbn; constructor.
+  - intros κ0 τs IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KSum, Forall3_map_12.
+    eapply Forall3_Forall_impl; [eassumption|exact IH|].
+    intros τ ρ ξ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hctx HP).
+  - intros κ0 τs IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KVariant, Forall3_map_12.
+    eapply Forall3_Forall_impl; [eassumption|exact IH|].
+    intros τ σ ξ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hctx HP).
+  - intros κ0 τs IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KProd, Forall3_map_12.
+    eapply Forall3_Forall_impl; [eassumption|exact IH|].
+    intros τ ρ ξ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hctx HP).
+  - intros κ0 τs IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KStruct, Forall3_map_12.
+    eapply Forall3_Forall_impl; [eassumption|exact IH|].
+    intros τ σ ξ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hctx HP).
+  - intros κ0 μ β t IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    + rewrite Hm.
+      apply KRefVar with (σ := subst_size σr σs σ) (ξ := ξ);
+        [|by apply (IH σm σr σs σt F F' (MEMTYPE σ ξ))].
+      pose proof (mem_ok_subst _ _ _ _ _ _ (proj1 Hctx) H5) as Hmo.
+      cbn in Hmo; by rewrite Hm in Hmo.
+    + apply KRefMM with (σ := subst_size σr σs σ) (ξ := ξ);
+        by apply (IH σm σr σs σt F F' (MEMTYPE σ ξ)).
+    + apply KRefGC with (σ := subst_size σr σs σ) (ξ := ξ);
+        by apply (IH σm σr σs σt F F' (MEMTYPE σ ξ)).
+  - intros κ0 ft IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KCodeRef; by eapply IH; eauto.
+  - intros κ0 t IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KSer; by apply (IH σm σr σs σt F F' (VALTYPE ρ ξ)).
+  - intros κ0 ρ σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KPlug; by eapply rep_ok_subst; [apply Hctx|].
+  - intros κ0 σ σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KSpan; by eapply size_ok_subst; [apply Hctx|].
+  - intros κ0 t IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    eapply KRec.
+    + by eapply kind_ok_subst; [apply Hctx|].
+    + eapply (IH (up_type_memory σm) (up_type_representation σr) (up_type_size σs)
+                (up_type_type σt) (F <| fc_type_vars ::= cons κ |>)
+                (F' <| fc_type_vars ::= cons (subst_kind σr σs κ) |>));
+        eauto using sub_id_up_type_memory, ctx_rel_cons, kind_rel_ok_eq.
+    + rewrite subst_kind_up_type; by apply subkind_of_subst.
+  - intros κ0 t IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KExistsMem; [by eapply kind_ok_subst; [apply Hctx|]|].
+    rewrite -subst_kind_up_mem.
+    eapply (IH (up_memory_memory σm) (up_memory_representation σr) (up_memory_size σs)
+              (up_memory_type σt) (F <| fc_kind_ctx ::= set kc_mem_vars S |>)
+              (F' <| fc_kind_ctx ::= set kc_mem_vars S |>));
+      eauto using sub_id_up_memory_memory, ctx_rel_mem.
+  - intros κ0 t IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KExistsRep; [by eapply kind_ok_subst; [apply Hctx|]|].
+    rewrite -subst_kind_up_rep.
+    eapply (IH (up_representation_memory σm) (up_representation_representation σr)
+              (up_representation_size σs) (up_representation_type σt)
+              (add_rep_var F) (add_rep_var F'));
+      eauto using sub_id_up_representation_memory, ctx_rel_rep, kind_rel_ok_eq.
+  - intros κ0 t IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KExistsSize; [by eapply kind_ok_subst; [apply Hctx|]|].
+    rewrite -subst_kind_up_size.
+    eapply (IH (up_size_memory σm) (up_size_representation σr) (up_size_size σs)
+              (up_size_type σt) (add_size_var F) (add_size_var F'));
+      eauto using sub_id_up_size_memory, ctx_rel_size, kind_rel_ok_eq.
+  - intros κ1 κ2 t IH σm σr σs σt F F' κ Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KExistsType; [by eapply kind_ok_subst; [apply Hctx|]|by eapply kind_ok_subst; [apply Hctx|]|].
+    rewrite -(subst_kind_up_type σr σs κ).
+    eapply (IH (up_type_memory σm) (up_type_representation σr) (up_type_size σs)
+              (up_type_type σt) (F <| fc_type_vars ::= cons κ2 |>)
+              (F' <| fc_type_vars ::= cons (subst_kind σr σs κ2) |>));
+      eauto using sub_id_up_type_memory, ctx_rel_cons, kind_rel_ok_eq.
+  - intros τs1 τs2 IH1 IH2 σm σr σs σt F F' Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply (KMonoFun _ _ _ (map (subst_kind σr σs) κs1) (map (subst_kind σr σs) κs2)).
+    + apply Forall2_map_12.
+      eapply Forall2_Forall_impl; [eassumption|exact IH1|].
+      intros τ κ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hctx HP).
+    + apply Forall2_map_12.
+      eapply Forall2_Forall_impl; [eassumption|exact IH2|].
+      intros τ κ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hctx HP).
+  - intros κ0 ft IH σm σr σs σt F F' Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KForallType; [by eapply kind_ok_subst; [apply Hctx|]|].
+    eapply (IH (up_type_memory σm) (up_type_representation σr) (up_type_size σs)
+              (up_type_type σt) (F <| fc_type_vars ::= cons κ0 |>)
+              (F' <| fc_type_vars ::= cons (subst_kind σr σs κ0) |>));
+      eauto using sub_id_up_type_memory, ctx_rel_cons, kind_rel_ok_eq.
+  - intros ft IH σm σr σs σt F F' Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KInnerFun; by eapply IH; eauto.
+  - intros ft IH σm σr σs σt F F' Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KForallMem.
+    eapply (IH (up_memory_memory σm) (up_memory_representation σr) (up_memory_size σs)
+              (up_memory_type σt) (F <| fc_kind_ctx ::= set kc_mem_vars S |>)
+              (F' <| fc_kind_ctx ::= set kc_mem_vars S |>));
+      eauto using sub_id_up_memory_memory, ctx_rel_mem.
+  - intros ft IH σm σr σs σt F F' Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KForallRep.
+    eapply (IH (up_representation_memory σm) (up_representation_representation σr)
+              (up_representation_size σs) (up_representation_type σt)
+              (add_rep_var F) (add_rep_var F'));
+      eauto using sub_id_up_representation_memory, ctx_rel_rep, kind_rel_ok_eq.
+  - intros ft IH σm σr σs σt F F' Hm Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KForallSize.
+    eapply (IH (up_size_memory σm) (up_size_representation σr) (up_size_size σs)
+              (up_size_type σt) (add_size_var F) (add_size_var F'));
+      eauto using sub_id_up_size_memory, ctx_rel_size, kind_rel_ok_eq.
+Qed.
 
-Lemma Forall3_map_1 {A A' B C} (f : A -> A') (P : A' -> B -> C -> Prop) l k k' :
-  Forall3 (fun a b c => P (f a) b c) l k k' -> Forall3 P (map f l) k k'.
-Proof. induction 1; cbn; constructor; auto. Qed.
+(* The single-substitution form the callers below use: kinds are untouched and the type
+   substitution is exact. *)
+Definition ctx_subst (σt : nat -> type) (F F' : function_ctx) : Prop :=
+  fc_kind_ctx F' = fc_kind_ctx F /\
+  forall t κ, has_kind F (VarT t) κ -> has_kind F' (σt t) κ.
+
+Lemma ctx_subst_rel σm σr σs σt F F' :
+  sub_id_memory σm -> sub_id_representation σr -> sub_id_size σs ->
+  ctx_subst σt F F' -> ctx_rel eq σm σr σs σt F F'.
+Proof.
+  intros Hm Hr Hs [Hkc Hv]; split.
+  - rewrite Hkc; split; [|split]; intros n Hn; [rewrite Hm|rewrite Hr|rewrite Hs]; by constructor.
+  - intros t κ Hk; exists κ; split; [by rewrite (subst_kind_id σr σs _ Hr Hs)|by apply Hv].
+Qed.
 
 Lemma has_kind_subst :
   (forall τ σm σr σs σt F F' κ,
@@ -1083,140 +1407,11 @@ Lemma has_kind_subst :
       ctx_subst σt F F' ->
       has_kind_ift F ϕ -> has_kind_ift F' (subst_inner_function_type σm σr σs σt ϕ)).
 Proof.
-  apply type_and_function_ind.
-  - intros idx σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    by apply (proj2 Hctx).
-  - intros κ0 σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    by inversion Hk; subst; cbn [subst_type];
-      rewrite (subst_kind_id σr σs _ Hr Hs); constructor.
-  - intros κ0 nt σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    by inversion Hk; subst; cbn [subst_type];
-      rewrite (subst_kind_id σr σs _ Hr Hs); constructor.
-  - intros κ0 τs IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KSum, Forall3_map_1.
-    eapply Forall3_Forall_impl; [eassumption|exact IH|].
-    intros τ ρ ξ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hr Hs Hctx HP).
-  - intros κ0 τs IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KVariant, Forall3_map_1.
-    eapply Forall3_Forall_impl; [eassumption|exact IH|].
-    intros τ σ ξ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hr Hs Hctx HP).
-  - intros κ0 τs IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KProd, Forall3_map_1.
-    eapply Forall3_Forall_impl; [eassumption|exact IH|].
-    intros τ ρ ξ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hr Hs Hctx HP).
-  - intros κ0 τs IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KStruct, Forall3_map_1.
-    eapply Forall3_Forall_impl; [eassumption|exact IH|].
-    intros τ σ ξ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hr Hs Hctx HP).
-  - intros κ0 μ β t IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type];
-      rewrite (subst_kind_id σr σs _ Hr Hs) (subst_memory_id σm _ Hm).
-    + eapply KRefVar; [by rewrite (proj1 Hctx)|by eapply IH; eauto].
-    + eapply KRefMM; by eapply IH; eauto.
-    + eapply KRefGC; by eapply IH; eauto.
-  - intros κ0 ft IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KCodeRef; by eapply IH; eauto.
-  - intros κ0 t IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KSer; by eapply IH; eauto.
-  - intros κ0 ρ σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type];
-      rewrite (subst_kind_id σr σs _ Hr Hs) (subst_representation_id σr _ Hr).
-    apply KPlug; by rewrite (proj1 Hctx).
-  - intros κ0 σ σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type];
-      rewrite (subst_kind_id σr σs _ Hr Hs) (subst_size_id σr σs _ Hr Hs).
-    apply KSpan; by rewrite (proj1 Hctx).
-  - intros κ0 t IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    eapply KRec; last done.
-    + by rewrite (proj1 Hctx).
-    + eapply (IH (up_type_memory σm) (up_type_representation σr) (up_type_size σs)
-              (up_type_type σt) (F <| fc_type_vars ::= cons κ |>)
-              (F' <| fc_type_vars ::= cons κ |>));
-      eauto using sub_id_up_type_memory, sub_id_up_type_representation,
-                  sub_id_up_type_size, ctx_subst_cons.
-  - intros κ0 t IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KExistsMem; [by rewrite (proj1 Hctx)|].
-    eapply (IH (up_memory_memory σm) (up_memory_representation σr) (up_memory_size σs)
-              (up_memory_type σt) (F <| fc_kind_ctx ::= set kc_mem_vars S |>)
-              (F' <| fc_kind_ctx ::= set kc_mem_vars S |>));
-      eauto using sub_id_up_memory_memory, sub_id_up_memory_representation,
-                  sub_id_up_memory_size, ctx_subst_mem.
-  - intros κ0 t IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KExistsRep; [by rewrite (proj1 Hctx)|].
-    eapply (IH (up_representation_memory σm) (up_representation_representation σr)
-              (up_representation_size σs) (up_representation_type σt)
-              (add_rep_var F) (add_rep_var F'));
-      eauto using sub_id_up_representation_memory, sub_id_up_representation_representation,
-                  sub_id_up_representation_size, ctx_subst_rep.
-  - intros κ0 t IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type]; rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KExistsSize; [by rewrite (proj1 Hctx)|].
-    eapply (IH (up_size_memory σm) (up_size_representation σr) (up_size_size σs)
-              (up_size_type σt) (add_size_var F) (add_size_var F'));
-      eauto using sub_id_up_size_memory, sub_id_up_size_representation,
-                  sub_id_up_size_size, ctx_subst_size.
-  - intros κ1 κ2 t IH σm σr σs σt F F' κ Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_type];
-      rewrite (subst_kind_id σr σs κ Hr Hs) (subst_kind_id σr σs κ2 Hr Hs).
-    apply KExistsType; [by rewrite (proj1 Hctx)|by rewrite (proj1 Hctx)|].
-    eapply (IH (up_type_memory σm) (up_type_representation σr) (up_type_size σs)
-              (up_type_type σt) (F <| fc_type_vars ::= cons κ2 |>)
-              (F' <| fc_type_vars ::= cons κ2 |>));
-      eauto using sub_id_up_type_memory, sub_id_up_type_representation,
-                  sub_id_up_type_size, ctx_subst_cons.
-  - intros τs1 τs2 IH1 IH2 σm σr σs σt F F' Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_inner_function_type].
-    eapply KMonoFun.
-    + apply Forall2_map_1.
-      eapply Forall2_Forall_impl; [eassumption|exact IH1|].
-      intros τ κ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hr Hs Hctx HP).
-    + apply Forall2_map_1.
-      eapply Forall2_Forall_impl; [eassumption|exact IH2|].
-      intros τ κ HR HP; by apply (HR σm σr σs σt F F' _ Hm Hr Hs Hctx HP).
-  - intros κ0 ft IH σm σr σs σt F F' Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_inner_function_type];
-      rewrite (subst_kind_id σr σs _ Hr Hs).
-    apply KForallType; [by rewrite (proj1 Hctx)|].
-    eapply (IH (up_type_memory σm) (up_type_representation σr) (up_type_size σs)
-              (up_type_type σt) (F <| fc_type_vars ::= cons κ0 |>)
-              (F' <| fc_type_vars ::= cons κ0 |>));
-      eauto using sub_id_up_type_memory, sub_id_up_type_representation,
-                  sub_id_up_type_size, ctx_subst_cons.
-  - intros ft IH σm σr σs σt F F' Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_function_type].
-    apply KInnerFun; by eapply IH; eauto.
-  - intros ft IH σm σr σs σt F F' Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_function_type].
-    apply KForallMem.
-    eapply (IH (up_memory_memory σm) (up_memory_representation σr) (up_memory_size σs)
-              (up_memory_type σt) (F <| fc_kind_ctx ::= set kc_mem_vars S |>)
-              (F' <| fc_kind_ctx ::= set kc_mem_vars S |>));
-      eauto using sub_id_up_memory_memory, sub_id_up_memory_representation,
-                  sub_id_up_memory_size, ctx_subst_mem.
-  - intros ft IH σm σr σs σt F F' Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_function_type].
-    apply KForallRep.
-    eapply (IH (up_representation_memory σm) (up_representation_representation σr)
-              (up_representation_size σs) (up_representation_type σt)
-              (add_rep_var F) (add_rep_var F'));
-      eauto using sub_id_up_representation_memory, sub_id_up_representation_representation,
-                  sub_id_up_representation_size, ctx_subst_rep.
-  - intros ft IH σm σr σs σt F F' Hm Hr Hs Hctx Hk.
-    inversion Hk; subst; cbn [subst_function_type].
-    apply KForallSize.
-    eapply (IH (up_size_memory σm) (up_size_representation σr) (up_size_size σs)
-              (up_size_type σt) (add_size_var F) (add_size_var F'));
-      eauto using sub_id_up_size_memory, sub_id_up_size_representation,
-                  sub_id_up_size_size, ctx_subst_size.
+  destruct has_kind_subst_gen as (Hτ & Hft & Hift).
+  split; [|split]; intros * Hm Hr Hs Hctx Hk.
+  - rewrite -(subst_kind_id σr σs κ Hr Hs); by eapply Hτ; eauto using ctx_subst_rel.
+  - by eapply Hft; eauto using ctx_subst_rel.
+  - by eapply Hift; eauto using ctx_subst_rel.
 Qed.
 
 Lemma ctx_subst_scons F τv κv :
@@ -1298,24 +1493,6 @@ Proof.
   apply KInnerFun.
   eapply has_kind_ift_through_inst; [exact Hi|exact Ht|exact Hk'].
 Qed.
-
-Lemma has_kind_ift_through_inst_forwards F ϕ ϕ' ix :
-  inner_function_type_inst F ix ϕ ϕ' ->
-  has_kind_ift F ϕ ->
-  has_kind_ift F ϕ'.
-Proof.
-Admitted.
-
-
-Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
-  function_type_inst F ix ϕ ϕ' ->
-  has_kind_ft F ϕ ->
-  has_kind_ft F ϕ'.
-Proof.
-  intros Hty; induction Hty.
-  - intros Hif; inversion Hif; subst.
-    constructor; eapply has_kind_ift_through_inst_forwards; eauto.
-Admitted.
 
   (* copied from typechecker.v *)
 Fixpoint get_all_lefts {A B : Type} (l: list (A + B)) : list A :=
@@ -1905,4 +2082,491 @@ Lemma refreshed_kinds_refresh_kinds:
 Proof.
   destruct refreshed_kinds_refresh as (Hτ & Hft & Hift).
   split; [|split]; intros; eauto.
+Qed.
+
+(* Instantiation preserves kinding.  Type and memory instantiation refresh their result
+   and may lower ref flags (the witness only has a subkind of the bound; a memory variable
+   becomes GC), so those two go through has_kind_subst_refresh: every node of the refreshed
+   substitution instance has a subkind of the substituted original.  Representation and
+   size instantiation do not refresh; they are exact and go through has_kind_subst_gen. *)
+
+Definition subst_refresh_ok (τ : type) : Prop :=
+  forall σm σr σs σt F F' κ,
+    ctx_rel subkind_of σm σr σs σt F F' ->
+    has_kind F τ κ ->
+    exists κ', subkind_of κ' (subst_kind σr σs κ) /\
+               has_kind F' (refresh_kinds F' (subst_type σm σr σs σt τ)) κ'.
+
+Lemma subst_refresh_list_val σm σr σs σt F F' τs ρs ξs :
+  ctx_rel subkind_of σm σr σs σt F F' ->
+  Forall subst_refresh_ok τs ->
+  Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+  let τs' := map (refresh_kinds F') (map (subst_type σm σr σs σt) τs) in
+  exists ξs',
+    Forall2 ref_flag_le ξs' ξs /\
+    Forall3 (fun τ ρ ξ => has_kind F' τ (VALTYPE ρ ξ)) τs' (map (subst_representation σr) ρs) ξs' /\
+    get_all_lefts (map get_rep_or_size (map (kind_of_node F') τs'))
+    = map (subst_representation σr) ρs /\
+    map kind_ref_flag (map (kind_of_node F') τs') = ξs'.
+Proof.
+  intros Hctx HIH H3; cbv zeta.
+  induction H3 as [|τ ρ ξ τs ρs ξs Hk _ IHl]; cbn; [exists []; repeat split; constructor|].
+  inversion HIH as [|? ? Hhd Htl]; subst.
+  destruct (Hhd _ _ _ _ _ _ _ Hctx Hk) as (κ' & Hsub & Hk').
+  cbn in Hsub; inversion Hsub as [ρ0 ξ0 ξ1 Hle0|]; subst.
+  destruct (IHl Htl) as (ξs' & Hle & H3' & Hl & Hf).
+  exists (ξ0 :: ξs'); split; [by constructor|]; split; [by constructor|].
+  rewrite -(kind_of_node_good _ _ _ Hk'); cbn.
+  by rewrite Hl Hf.
+Qed.
+
+Lemma subst_refresh_list_mem σm σr σs σt F F' τs σs' ξs :
+  ctx_rel subkind_of σm σr σs σt F F' ->
+  Forall subst_refresh_ok τs ->
+  Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs σs' ξs ->
+  let τs' := map (refresh_kinds F') (map (subst_type σm σr σs σt) τs) in
+  exists ξs',
+    Forall2 ref_flag_le ξs' ξs /\
+    Forall3 (fun τ σ ξ => has_kind F' τ (MEMTYPE σ ξ)) τs' (map (subst_size σr σs) σs') ξs' /\
+    get_all_rights (map get_rep_or_size (map (kind_of_node F') τs'))
+    = map (subst_size σr σs) σs' /\
+    map kind_ref_flag (map (kind_of_node F') τs') = ξs'.
+Proof.
+  intros Hctx HIH H3; cbv zeta.
+  induction H3 as [|τ σ ξ τs σs0 ξs Hk _ IHl]; cbn; [exists []; repeat split; constructor|].
+  inversion HIH as [|? ? Hhd Htl]; subst.
+  destruct (Hhd _ _ _ _ _ _ _ Hctx Hk) as (κ' & Hsub & Hk').
+  cbn in Hsub; inversion Hsub as [|σ0 ξ0 ξ1 Hle0]; subst.
+  destruct (IHl Htl) as (ξs' & Hle & H3' & Hl & Hf).
+  exists (ξ0 :: ξs'); split; [by constructor|]; split; [by constructor|].
+  rewrite -(kind_of_node_good _ _ _ Hk'); cbn.
+  by rewrite Hl Hf.
+Qed.
+
+Lemma subst_refresh_list2 σm σr σs σt F F' τs κs :
+  ctx_rel subkind_of σm σr σs σt F F' ->
+  Forall subst_refresh_ok τs ->
+  Forall2 (has_kind F) τs κs ->
+  exists κs',
+    Forall2 (has_kind F') (map (refresh_kinds F') (map (subst_type σm σr σs σt) τs)) κs'.
+Proof.
+  intros Hctx HIH H2.
+  induction H2 as [|τ κ τs κs Hk _ IHl]; cbn; [by exists []|].
+  inversion HIH as [|? ? Hhd Htl]; subst.
+  destruct (IHl Htl) as (κs' & H2').
+  destruct (Hhd _ _ _ _ _ _ _ Hctx Hk) as (κ' & _ & Hk').
+  exists (κ' :: κs'); by constructor.
+Qed.
+
+Lemma has_kind_subst_refresh :
+  (forall τ, subst_refresh_ok τ) /\
+  (forall ϕ σm σr σs σt F F',
+      ctx_rel subkind_of σm σr σs σt F F' ->
+      has_kind_ft F ϕ ->
+      has_kind_ft F' (refresh_kinds_ft F' (subst_function_type σm σr σs σt ϕ))) /\
+  (forall ϕ σm σr σs σt F F',
+      ctx_rel subkind_of σm σr σs σt F F' ->
+      has_kind_ift F ϕ ->
+      has_kind_ift F' (refresh_kinds_ift F' (subst_inner_function_type σm σr σs σt ϕ))).
+Proof.
+  apply type_and_function_ind.
+  - intros t σm σr σs σt F F' κ Hctx Hk.
+    destruct (proj2 Hctx _ _ Hk) as (κ' & Hsub & Hk').
+    exists κ'; split; [done|].
+    cbn; by rewrite -(proj1 refresh_kinds_id _ _ _ Hk').
+  - intros κ0 σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn; eexists; split; [apply subkind_of_refl|constructor].
+  - intros κ0 nt σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn; eexists; (split; [apply subkind_of_refl|constructor]).
+  - intros κ0 τs IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst.
+    match goal with H : Forall3 _ τs _ _ |- _ =>
+      destruct (subst_refresh_list_val _ _ _ _ _ _ _ _ _ Hctx IH H) as (ξs' & Hle & H3' & Hl & Hf)
+    end.
+    cbn; rewrite Hl Hf.
+    eexists; split; last by apply KSum.
+    constructor; by apply ref_flag_lub_mono.
+  - intros κ0 τs IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst.
+    match goal with H : Forall3 _ τs _ _ |- _ =>
+      destruct (subst_refresh_list_mem _ _ _ _ _ _ _ _ _ Hctx IH H) as (ξs' & Hle & H3' & Hl & Hf)
+    end.
+    cbn; rewrite Hl Hf.
+    eexists; split; last by apply KVariant.
+    constructor; by apply ref_flag_lub_mono.
+  - intros κ0 τs IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst.
+    match goal with H : Forall3 _ τs _ _ |- _ =>
+      destruct (subst_refresh_list_val _ _ _ _ _ _ _ _ _ Hctx IH H) as (ξs' & Hle & H3' & Hl & Hf)
+    end.
+    cbn; rewrite Hl Hf.
+    eexists; split; last by apply KProd.
+    constructor; by apply ref_flag_lub_mono.
+  - intros κ0 τs IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst.
+    match goal with H : Forall3 _ τs _ _ |- _ =>
+      destruct (subst_refresh_list_mem _ _ _ _ _ _ _ _ _ Hctx IH H) as (ξs' & Hle & H3' & Hl & Hf)
+    end.
+    cbn; rewrite Hl Hf.
+    eexists; split; last by apply KStruct.
+    constructor; by apply ref_flag_lub_mono.
+  - intros κ0 μ β t IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn;
+      match goal with H : has_kind F t (MEMTYPE _ _) |- _ =>
+        destruct (IH _ _ _ _ _ _ _ Hctx H) as (κ' & Hsub & Hk')
+      end;
+      cbn in Hsub; inversion Hsub as [|σ0 ξ0 ξ1 Hle0]; subst.
+    + match goal with H : mem_ok _ (VarM _) |- _ =>
+        pose proof (mem_ok_subst _ _ _ _ _ _ (proj1 Hctx) H) as Hmo; cbn in Hmo
+      end.
+      revert Hmo; destruct (σm m) as [m'|[|]]; intros Hmo.
+      * eexists; split; [apply subkind_of_refl|]; by eapply KRefVar.
+      * eexists; split; [apply subkind_of_refl|]; by eapply KRefMM.
+      * exists (VALTYPE (AtomR PtrR) GCRefs); split; [by constructor|]; by eapply KRefGC.
+    + eexists; split; [apply subkind_of_refl|]; by eapply KRefMM.
+    + eexists; split; [apply subkind_of_refl|]; by eapply KRefGC.
+  - intros κ0 ft IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn.
+    eexists; split; [apply subkind_of_refl|].
+    apply KCodeRef; by eapply IH; eauto.
+  - intros κ0 t IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn.
+    match goal with H : has_kind F t (VALTYPE _ _) |- _ =>
+      destruct (IH _ _ _ _ _ _ _ Hctx H) as (κ' & Hsub & Hk')
+    end.
+    cbn in Hsub; inversion Hsub as [ρ0 ξ0 ξ1 Hle0|]; subst.
+    rewrite -(kind_of_node_good _ _ _ Hk').
+    exists (MEMTYPE (RepS (subst_representation σr ρ)) ξ0); split; [by constructor|by apply KSer].
+  - intros κ0 ρ σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn.
+    eexists; split; [apply subkind_of_refl|].
+    apply KPlug; by eapply rep_ok_subst; [apply Hctx|].
+  - intros κ0 σ σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn.
+    eexists; split; [apply subkind_of_refl|].
+    apply KSpan; by eapply size_ok_subst; [apply Hctx|].
+  - intros κ0 t IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn.
+    match goal with H : has_kind (F <| fc_type_vars ::= cons κ |>) t _ |- _ =>
+      destruct (IH _ _ _ _ _ _ _ (ctx_rel_cons _ _ _ _ _ _ _ κ kind_rel_ok_subkind Hctx) H)
+        as (κ' & Hsub & Hk')
+    end.
+    rewrite subst_kind_up_type in Hsub.
+    exists (subst_kind σr σs κ); split; [apply subkind_of_refl|].
+    eapply KRec; [by eapply kind_ok_subst; [apply Hctx|]|exact Hk'|].
+    eapply subkind_of_trans; [exact Hsub|by apply subkind_of_subst].
+  - intros κ0 t IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn.
+    match goal with H : has_kind _ t _ |- _ =>
+      destruct (IH _ _ _ _ _ _ _ (ctx_rel_mem _ _ _ _ _ _ _ Hctx) H) as (κ' & Hsub & Hk')
+    end.
+    rewrite subst_kind_up_mem in Hsub.
+    rewrite -(kind_of_node_good _ _ _ Hk').
+    exists κ'; split; [done|].
+    apply KExistsMem; [|done].
+    apply (kind_ok_supkind_of _ _ (subst_kind σr σs κ)); [by eapply kind_ok_subst; [apply Hctx|]|done].
+  - intros κ0 t IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn -[add_rep_var].
+    match goal with H : has_kind _ t _ |- _ =>
+      destruct (IH _ _ _ _ _ _ _ (ctx_rel_rep _ _ _ _ _ _ _ kind_rel_ok_subkind Hctx) H)
+        as (κ' & Hsub & Hk')
+    end.
+    rewrite subst_kind_up_rep in Hsub.
+    destruct (subkind_of_ren_inv _ _ _ _ Hsub) as (κ1 & -> & Hsub1).
+    rewrite -(kind_of_node_good _ _ _ Hk') unshift_rep_kind_ren.
+    exists κ1; split; [done|].
+    apply KExistsRep; [|done].
+    apply (kind_ok_supkind_of _ _ (subst_kind σr σs κ)); [by eapply kind_ok_subst; [apply Hctx|]|done].
+  - intros κ0 t IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn -[add_size_var].
+    match goal with H : has_kind _ t _ |- _ =>
+      destruct (IH _ _ _ _ _ _ _ (ctx_rel_size _ _ _ _ _ _ _ kind_rel_ok_subkind Hctx) H)
+        as (κ' & Hsub & Hk')
+    end.
+    rewrite subst_kind_up_size in Hsub.
+    destruct (subkind_of_ren_inv _ _ _ _ Hsub) as (κ1 & -> & Hsub1).
+    rewrite -(kind_of_node_good _ _ _ Hk') unshift_size_kind_ren.
+    exists κ1; split; [done|].
+    apply KExistsSize; [|done].
+    apply (kind_ok_supkind_of _ _ (subst_kind σr σs κ)); [by eapply kind_ok_subst; [apply Hctx|]|done].
+  - intros κ1 κ2 t IH σm σr σs σt F F' κ Hctx Hk.
+    inversion Hk; subst; cbn.
+    match goal with H : has_kind _ t _ |- _ =>
+      destruct (IH _ _ _ _ _ _ _ (ctx_rel_cons _ _ _ _ _ _ _ κ2 kind_rel_ok_subkind Hctx) H)
+        as (κ' & Hsub & Hk')
+    end.
+    rewrite subst_kind_up_type in Hsub.
+    rewrite -(kind_of_node_good _ _ _ Hk').
+    exists κ'; split; [done|].
+    apply KExistsType; [by eapply kind_ok_subst; [apply Hctx|]| |done].
+    apply (kind_ok_supkind_of _ _ (subst_kind σr σs κ)); [by eapply kind_ok_subst; [apply Hctx|]|done].
+  - intros τs1 τs2 IH1 IH2 σm σr σs σt F F' Hctx Hk.
+    inversion Hk; subst; cbn.
+    match goal with H : Forall2 (has_kind F) τs1 _ |- _ =>
+      destruct (subst_refresh_list2 _ _ _ _ _ _ _ _ Hctx IH1 H) as (κs1' & H1')
+    end.
+    match goal with H : Forall2 (has_kind F) τs2 _ |- _ =>
+      destruct (subst_refresh_list2 _ _ _ _ _ _ _ _ Hctx IH2 H) as (κs2' & H2')
+    end.
+    by eapply KMonoFun.
+  - intros κ0 ft IH σm σr σs σt F F' Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KForallType; [by eapply kind_ok_subst; [apply Hctx|]|].
+    eapply (IH _ _ _ _ (F <| fc_type_vars ::= cons κ0 |>) _);
+      [by apply ctx_rel_cons; [exact kind_rel_ok_subkind|exact Hctx]|done].
+  - intros ft IH σm σr σs σt F F' Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KInnerFun; by eapply IH; eauto.
+  - intros ft IH σm σr σs σt F F' Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KForallMem.
+    eapply (IH _ _ _ _ (F <| fc_kind_ctx ::= set kc_mem_vars S |>) _);
+      [by apply ctx_rel_mem|done].
+  - intros ft IH σm σr σs σt F F' Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KForallRep.
+    eapply (IH _ _ _ _ (add_rep_var F) _);
+      [by apply ctx_rel_rep; [exact kind_rel_ok_subkind|exact Hctx]|done].
+  - intros ft IH σm σr σs σt F F' Hctx Hk.
+    inversion Hk; subst; cbn.
+    apply KForallSize.
+    eapply (IH _ _ _ _ (add_size_var F) _);
+      [by apply ctx_rel_size; [exact kind_rel_ok_subkind|exact Hctx]|done].
+Qed.
+
+Lemma ctx_rel_inst_type F τ κ κ' :
+  has_kind F τ κ' -> subkind_of κ' κ ->
+  ctx_rel subkind_of VarM VarR VarS (unscoped.scons τ VarT)
+    (F <| fc_type_vars ::= cons κ |>) F.
+Proof.
+  intros Ht Hsub; split.
+  - rewrite fc_kind_ctx_ty_update; split; [|split]; intros n Hn; by constructor.
+  - intros [|t] κ0 Hk.
+    + pose proof (has_kind_type_kind _ _ _ Hk) as Hlk.
+      cbn [layout.type_kind] in Hlk; rewrite fc_type_vars_get_upd in Hlk; cbn in Hlk.
+      injection Hlk as ->.
+      exists κ'; split; [by rewrite instId'_kind|done].
+    + apply (proj1 (has_kind_var_wk_ty F t κ0 κ)) in Hk.
+      exists κ0; split; [rewrite instId'_kind; apply subkind_of_refl|done].
+Qed.
+
+Lemma ctx_rel_inst_mem F μ :
+  mem_ok (fc_kind_ctx F) μ ->
+  ctx_rel subkind_of (unscoped.scons μ VarM) VarR VarS VarT
+    (F <| fc_kind_ctx ::= set kc_mem_vars S |>) F.
+Proof.
+  intros Hμ; split.
+  - split; [|split].
+    + intros [|n] Hn; [done|].
+      apply OKVarM; destruct F as [? ? ? [km kr ks] ?]; cbn in *; lia.
+    + intros n Hn; apply OKVarR; by destruct F as [? ? ? [km kr ks] ?].
+    + intros n Hn; apply OKVarS; by destruct F as [? ? ? [km kr ks] ?].
+  - intros t κ Hk.
+    exists κ; split; [rewrite instId'_kind; apply subkind_of_refl|].
+    inversion Hk; subst.
+    apply KVar; [done|].
+    match goal with H : kind_ok _ κ |- _ =>
+      apply (kind_ok_kc _ _ _ H); by destruct F as [? ? ? [km kr ks] ?]
+    end.
+Qed.
+
+Lemma ctx_rel_inst_rep F ρ :
+  rep_ok (fc_kind_ctx F) ρ ->
+  ctx_rel eq VarM (unscoped.scons ρ VarR) VarS VarT (add_rep_var F) F.
+Proof.
+  intros Hρ; split.
+  - split; [|split].
+    + intros n Hn; apply OKVarM; by destruct F as [? ? ? [km kr ks] ?].
+    + intros [|n] Hn; [done|].
+      apply OKVarR; destruct F as [? ? ? [km kr ks] ?]; cbn in *; lia.
+    + intros n Hn; apply OKVarS; by destruct F as [? ? ? [km kr ks] ?].
+  - intros t κ Hk.
+    inversion Hk; subst.
+    match goal with H : fc_type_vars (add_rep_var F) !! t = Some κ |- _ =>
+      rewrite fc_type_vars_add_rep list_lookup_fmap in H;
+      destruct (fc_type_vars F !! t) as [κ0|] eqn:Ht; [|done];
+      cbn [fmap option_fmap option_map] in H; injection H as <-
+    end.
+    exists κ0; split; [by rewrite subst_kind_scons_rep|].
+    apply KVar; [done|].
+    destruct (proj2 (ctx_ren_wk_rep F)) as (_ & Hrr & Hss).
+    match goal with H : kind_ok _ (ren_kind _ _ κ0) |- _ =>
+      by apply (proj2 (kind_ok_ren' _ _ _ _ κ0 Hrr Hss)) in H
+    end.
+Qed.
+
+Lemma ctx_rel_inst_size F σ :
+  size_ok (fc_kind_ctx F) σ ->
+  ctx_rel eq VarM VarR (unscoped.scons σ VarS) VarT (add_size_var F) F.
+Proof.
+  intros Hσ; split.
+  - split; [|split].
+    + intros n Hn; apply OKVarM; by destruct F as [? ? ? [km kr ks] ?].
+    + intros n Hn; apply OKVarR; by destruct F as [? ? ? [km kr ks] ?].
+    + intros [|n] Hn; [done|].
+      apply OKVarS; destruct F as [? ? ? [km kr ks] ?]; cbn in *; lia.
+  - intros t κ Hk.
+    inversion Hk; subst.
+    match goal with H : fc_type_vars (add_size_var F) !! t = Some κ |- _ =>
+      rewrite fc_type_vars_add_size list_lookup_fmap in H;
+      destruct (fc_type_vars F !! t) as [κ0|] eqn:Ht; [|done];
+      cbn [fmap option_fmap option_map] in H; injection H as <-
+    end.
+    exists κ0; split; [by rewrite subst_kind_scons_size|].
+    apply KVar; [done|].
+    destruct (proj2 (ctx_ren_wk_size F)) as (_ & Hrr & Hss).
+    match goal with H : kind_ok _ (ren_kind _ _ κ0) |- _ =>
+      by apply (proj2 (kind_ok_ren' _ _ _ _ κ0 Hrr Hss)) in H
+    end.
+Qed.
+
+Lemma has_kind_ift_through_inst_forwards F ϕ ϕ' ix :
+  inner_function_type_inst F ix ϕ ϕ' ->
+  has_kind_ift F ϕ ->
+  has_kind_ift F ϕ'.
+Proof.
+  intros Hinst Hk.
+  inversion Hinst as [F1 ϕ1 τ κ κ' ϕ1' Ht Hsub Hrf]; subst.
+  inversion Hk as [|F2 κ2 ϕ2 Hok Hk']; subst.
+  rewrite (proj2 (proj2 refreshed_kinds_refresh) _ _ _ Hrf).
+  eapply (proj2 (proj2 has_kind_subst_refresh)); [|exact Hk'].
+  by eapply ctx_rel_inst_type.
+Qed.
+
+Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
+  function_type_inst F ix ϕ ϕ' ->
+  has_kind_ft F ϕ ->
+  has_kind_ft F ϕ'.
+Proof.
+  intros Hinst Hk; inversion Hinst; subst; inversion Hk; subst.
+  - constructor; by eapply has_kind_ift_through_inst_forwards.
+  - match goal with H : refreshed_kinds_ft _ _ _ |- _ =>
+      rewrite (proj1 (proj2 refreshed_kinds_refresh) _ _ _ H)
+    end.
+    eapply (proj1 (proj2 has_kind_subst_refresh)); [by apply ctx_rel_inst_mem|done].
+  - eapply (proj1 (proj2 has_kind_subst_gen)); [done|by apply ctx_rel_inst_rep|done].
+  - eapply (proj1 (proj2 has_kind_subst_gen)); [done|by apply ctx_rel_inst_size|done].
+Qed.
+
+(* Context weakening: more variables in scope, the same bindings for the existing ones.
+   has_kind_empty is what the module kinding invariant (module_ctx_ok) hands the compat
+   lemmas. *)
+
+Definition kc_le (K K' : kind_ctx) : Prop :=
+  kc_mem_vars K <= kc_mem_vars K' /\
+  kc_rep_vars K <= kc_rep_vars K' /\
+  kc_size_vars K <= kc_size_vars K'.
+
+Definition ctx_le (F F' : function_ctx) : Prop :=
+  kc_le (fc_kind_ctx F) (fc_kind_ctx F') /\
+  forall t κ, fc_type_vars F !! t = Some κ -> fc_type_vars F' !! t = Some κ.
+
+Lemma ctx_le_cons F F' κ :
+  ctx_le F F' -> ctx_le (F <| fc_type_vars ::= cons κ |>) (F' <| fc_type_vars ::= cons κ |>).
+Proof.
+  intros [Hkc Hv]; split; [by rewrite !fc_kind_ctx_ty_update|].
+  intros [|t] κ0; rewrite !fc_type_vars_get_upd; [done|by apply Hv].
+Qed.
+
+Lemma ctx_le_mem F F' :
+  ctx_le F F' ->
+  ctx_le (F <| fc_kind_ctx ::= set kc_mem_vars S |>) (F' <| fc_kind_ctx ::= set kc_mem_vars S |>).
+Proof.
+  intros [(Hm & Hr & Hs) Hv]; split; [|by rewrite !fc_type_vars_kc_update].
+  destruct F as [? ? ? [] ?], F' as [? ? ? [] ?]; unfold kc_le in *; cbn in *; split; [|split]; lia.
+Qed.
+
+Lemma ctx_le_rep F F' : ctx_le F F' -> ctx_le (add_rep_var F) (add_rep_var F').
+Proof.
+  intros [(Hm & Hr & Hs) Hv]; split.
+  - destruct F as [? ? ? [] ?], F' as [? ? ? [] ?]; unfold add_rep_var, add_size_var, kc_le in *; cbn in *; split; [|split]; lia.
+  - intros t κ; rewrite !fc_type_vars_add_rep !list_lookup_fmap.
+    destruct (fc_type_vars F !! t) as [κ0|] eqn:Ht; [|done].
+    by rewrite (Hv _ _ Ht).
+Qed.
+
+Lemma ctx_le_size F F' : ctx_le F F' -> ctx_le (add_size_var F) (add_size_var F').
+Proof.
+  intros [(Hm & Hr & Hs) Hv]; split.
+  - destruct F as [? ? ? [] ?], F' as [? ? ? [] ?]; unfold add_rep_var, add_size_var, kc_le in *; cbn in *; split; [|split]; lia.
+  - intros t κ; rewrite !fc_type_vars_add_size !list_lookup_fmap.
+    destruct (fc_type_vars F !! t) as [κ0|] eqn:Ht; [|done].
+    by rewrite (Hv _ _ Ht).
+Qed.
+
+Lemma kind_ok_le K K' κ : kc_le K K' -> kind_ok K κ -> kind_ok K' κ.
+Proof. intros (_ & Hr & Hs); by apply kind_ok_mono. Qed.
+
+Lemma has_kind_weaken F τ κ :
+  has_kind F τ κ -> forall F', ctx_le F F' -> has_kind F' τ κ.
+Proof.
+  apply (has_kind_ind'
+           (fun F τ κ => forall F', ctx_le F F' -> has_kind F' τ κ)
+           (fun F ϕ => forall F', ctx_le F F' -> has_kind_ift F' ϕ)
+           (fun F ϕ => forall F', ctx_le F F' -> has_kind_ft F' ϕ)).
+  all: try (intros F0; cbv zeta; intros; by constructor).
+  all: try (intros F0 τs xs ξs IH; cbv zeta; intros F' Hle;
+            constructor; eapply Forall3_impl; [exact IH|]; intros; by eauto).
+  - intros F0 m β τ0 σ ξ Hm IH; cbv zeta; intros F' Hle.
+    eapply KRefVar; [|by apply IH].
+    eapply mem_ok_mono; [apply Hle|done].
+  - intros F0 β τ0 σ ξ IH; cbv zeta; intros F' Hle; eapply KRefMM; by apply IH.
+  - intros F0 β τ0 σ ξ IH; cbv zeta; intros F' Hle; eapply KRefGC; by apply IH.
+  - intros F0 ϕ IH; cbv zeta; intros F' Hle; apply KCodeRef; by apply IH.
+  - intros F0 τ0 ρ ξ IH; cbv zeta; intros F' Hle; apply KSer; by apply IH.
+  - intros F0 ρ Hρ; cbv zeta; intros F' Hle; apply KPlug.
+    eapply rep_ok_mono; [apply Hle|done].
+  - intros F0 σ Hσ; cbv zeta; intros F' Hle; apply KSpan.
+    eapply size_ok_mono; [apply Hle|apply Hle|done].
+  - intros F0 τ0 κ0 κbody Hok IH Hsub F' Hle.
+    eapply KRec; [by eapply kind_ok_le; [apply Hle|]|by apply IH, ctx_le_cons|done].
+  - intros F0 τ0 κ0 Hok IH F' Hle.
+    apply KExistsMem; [by eapply kind_ok_le; [apply Hle|]|by apply IH, ctx_le_mem].
+  - intros F0 τ0 κ0 Hok IH F' Hle.
+    apply KExistsRep; [by eapply kind_ok_le; [apply Hle|]|by apply IH, ctx_le_rep].
+  - intros F0 τ0 κ0 Hok IH F' Hle.
+    apply KExistsSize; [by eapply kind_ok_le; [apply Hle|]|by apply IH, ctx_le_size].
+  - intros F0 τ0 κ0 κ1 Hok0 Hok IH F' Hle.
+    apply KExistsType;
+      [by eapply kind_ok_le; [apply Hle|]|by eapply kind_ok_le; [apply Hle|]|by apply IH, ctx_le_cons].
+  - intros F0 t κ0 Hlook Hok F' Hle.
+    apply KVar; [by apply Hle|by eapply kind_ok_le; [apply Hle|]].
+  - intros F0 τs1 τs2 κs1 κs2 IH1 IH2 F' Hle.
+    apply (KMonoFun _ _ _ κs1 κs2); eapply Forall2_impl; [exact IH1| |exact IH2|]; by eauto.
+  - intros F0 ϕ IH F' Hle; apply KInnerFun; by apply IH.
+  - intros F0 ϕ IH F' Hle; apply KForallMem; by apply IH, ctx_le_mem.
+  - intros F0 ϕ IH F' Hle; apply KForallRep; by apply IH, ctx_le_rep.
+  - intros F0 ϕ IH F' Hle; apply KForallSize; by apply IH, ctx_le_size.
+  - intros F0 κ0 ϕ Hok IH F' Hle.
+    apply KForallType; [by eapply kind_ok_le; [apply Hle|]|by apply IH, ctx_le_cons].
+Qed.
+
+Lemma has_kind_ift_weaken ϕ : forall F F',
+  ctx_le F F' -> has_kind_ift F ϕ -> has_kind_ift F' ϕ.
+Proof.
+  induction ϕ as [τs1 τs2|κ ϕ IH]; intros F F' Hle Hk; inversion Hk; subst.
+  - eapply KMonoFun; (eapply Forall2_impl; try eassumption; intros; by eapply has_kind_weaken).
+  - apply KForallType; [by eapply kind_ok_le; [apply Hle|]|by eapply IH; [apply ctx_le_cons|]].
+Qed.
+
+Lemma has_kind_ft_weaken ϕ : forall F F',
+  ctx_le F F' -> has_kind_ft F ϕ -> has_kind_ft F' ϕ.
+Proof.
+  induction ϕ as [ϕ|ϕ IH|ϕ IH|ϕ IH]; intros F F' Hle Hk; inversion Hk; subst.
+  - apply KInnerFun; by eapply has_kind_ift_weaken.
+  - apply KForallMem; by eapply IH; [apply ctx_le_mem|].
+  - apply KForallRep; by eapply IH; [apply ctx_le_rep|].
+  - apply KForallSize; by eapply IH; [apply ctx_le_size|].
+Qed.
+
+Lemma ctx_le_empty F : ctx_le fc_empty F.
+Proof. split; [unfold kc_le; cbn; split; [|split]; lia|by intros []]. Qed.
+
+Lemma has_kind_empty :
+  (forall τ κ, has_kind fc_empty τ κ -> forall F, has_kind F τ κ) /\
+  (forall ϕ, has_kind_ft fc_empty ϕ -> forall F, has_kind_ft F ϕ) /\
+  (forall ϕ, has_kind_ift fc_empty ϕ -> forall F, has_kind_ift F ϕ).
+Proof.
+  split; [|split]; intros;
+    eauto using has_kind_weaken, has_kind_ft_weaken, has_kind_ift_weaken, ctx_le_empty.
 Qed.
