@@ -305,3 +305,25 @@ Proof.
     | Hb : has_kind _ (I31T _) _ |- _ => inversion Hb
     end.
 Qed.
+
+(* has_kind_ft_through_inst_iff is still false, and is a live assumption of
+   fundamental_typing.  Keeping the RecT annotation killed its old cause-B witness --
+   RecT κ_any (RefT κ_gc (BaseM MemGC) Mut _) is well kinded now -- but cause A is
+   untouched: function_type_inst refreshes its result, so a derivation for ϕ' says nothing
+   about the annotations of the ϕ it came from, and the ← direction fails on any
+   ill-annotated source. *)
+Lemma has_kind_ft_through_inst_iff_false :
+  ¬ (∀ F ϕ ϕ' ix,
+        function_type_inst F ix ϕ ϕ' → (has_kind_ft F ϕ ↔ has_kind_ft F ϕ')).
+Proof.
+  intros Hbogus.
+  assert (Hk : has_kind_ft fc_empty (InnerFunT ift_good))
+    by (by apply KInnerFun, ift_good_kinded).
+  have Hiff := Hbogus fc_empty (InnerFunT (ForallTypeT κ_no ift_bad))
+                 (InnerFunT ift_good) (TypeI (I31T κ_no))
+                 (FTInstInner _ _ _ _ inst_bad).
+  apply Hiff in Hk.
+  inversion Hk as [? ? Hift| | | ]; subst.
+  inversion Hift as [|? ? ? ? Hbad]; subst.
+  by eapply ift_bad_not_kinded, Hbad.
+Qed.
