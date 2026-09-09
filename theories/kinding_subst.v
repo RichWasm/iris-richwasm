@@ -1259,20 +1259,6 @@ Proof.
     + exact (IH F τv κv _ _ Htl Hv Hkt).
 Qed.
 
-Lemma has_kinds_subst_to_has_kinds_env τs : ∀ F τv κv κs τs',
-  Forall2 (refreshed_kinds F) (map (subst_type VarM VarR VarS (unscoped.scons τv VarT)) τs) τs' →
-  has_kind F τv κv →
-  Forall2 (has_kind F) τs' κs →
-  Forall2 (has_kind (F <| fc_type_vars ::= cons κv |>)) τs κs.
-Proof.
-Admitted.
-
-(* The lemmas below (needs_name, and the two _backwards directions) are refutable as
-   stated; see
-   theories/kinding_subst_counterexamples.v.  Only the forward direction
-   holds, and only when the instantiating type has exactly the bound kind:
-   subkind_of κ' κ is not enough, and the memory instantiation fails outright. *)
-
 Lemma needs_name_fwd ϕ F τ κ ϕ' :
   has_kind F τ κ →
   refreshed_kinds_ift F
@@ -1313,30 +1299,6 @@ Proof.
   eapply has_kind_ift_through_inst; [exact Hi|exact Ht|exact Hk'].
 Qed.
 
-Lemma needs_name ϕ : ∀ ϕsub F τ κ ϕ',
-  has_kind F τ κ →
-  ϕsub = subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ →
-  refreshed_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ϕ' →
-  has_kind_ift (F <| fc_type_vars ::= cons κ |>) ϕ ↔ has_kind_ift F ϕ'.
-Proof.
-  induction ϕ; intros * Ht Hsub Heq.
-  - subst ϕsub; cbn in Heq.
-    inversion Heq; subst.
-    split; intros Hk.
-    + inversion Hk; subst.
-      econstructor.
-      * eapply has_kinds_env_to_has_kinds_subst; eauto.
-      * eapply has_kinds_env_to_has_kinds_subst; eauto.
-    + inversion Hk; subst.
-      econstructor;
-        eapply has_kinds_subst_to_has_kinds_env; eauto.
-  - admit.
-Admitted.
-
-(* Split out of the former has_kind_ft_through_inst_iff.  The two directions fail for
-   unrelated reasons and only the forward one is a metatheorem worth chasing, so the iff
-   was holding the good half hostage to the bad one. *)
-
 Lemma has_kind_ift_through_inst_forwards F ϕ ϕ' ix :
   inner_function_type_inst F ix ϕ ϕ' ->
   has_kind_ift F ϕ ->
@@ -1344,18 +1306,7 @@ Lemma has_kind_ift_through_inst_forwards F ϕ ϕ' ix :
 Proof.
 Admitted.
 
-(* Refutable as stated: inst refreshes its result, so ϕ ↦ ϕ' overwrites every derived
-   annotation and two sources -- one well annotated, one not -- reach the same ϕ'.  The
-   callers want has_kind_ift F ϕ threaded in from wherever ϕ came from.  See
-   RichWasm.kinding_subst_counterexamples. 
-Lemma has_kind_ift_through_inst_backwards F ϕ ϕ' ix :
-  inner_function_type_inst F ix ϕ ϕ' ->
-  has_kind_ift F ϕ' ->
-  has_kind_ift F ϕ.
-Proof.
-Admitted.
- *)
- 
+
 Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
   function_type_inst F ix ϕ ϕ' ->
   has_kind_ft F ϕ ->
@@ -1366,15 +1317,6 @@ Proof.
     constructor; eapply has_kind_ift_through_inst_forwards; eauto.
 Admitted.
 
-(* Refutable as stated, for the same reason as the _ift form above. 
-Lemma has_kind_ft_through_inst_backwards F ϕ ϕ' ix :
-  function_type_inst F ix ϕ ϕ' ->
-  has_kind_ft F ϕ' ->
-  has_kind_ft F ϕ.
-Proof.
-Admitted.
-  *)
-  
   (* copied from typechecker.v *)
 Fixpoint get_all_lefts {A B : Type} (l: list (A + B)) : list A :=
   match l with

@@ -82,7 +82,14 @@ Section call.
         apply this in Hkind_ϕ_middle as torew.
         apply refreshed_kinds_refresh_kinds in H1.
         iDestruct "Hcl" as "#Hcl".
-        admit.
+        iPoseProof (closure_interp_scons_insert_mem rti sr mr _ _ with "[$Hcl]") as "Hcl2"; try done.
+        * fold ϕ'0.
+          admit.
+        * inversion Hkind_ϕ; try done.
+        * fold ϕ'0.
+          specialize (IHHfinst ltac:(auto) eq_refl ltac:(auto) ltac:(auto)).
+          iApply IHHfinst.
+          admit.
       + rewrite closure_interp_eq. iEval (cbn -[senv_insert_rep]) in "Hcl".
         pose proof (refresh_kinds_id) as (_ & this & _); try done.
         apply this in Hkind_ϕ_middle as torew.
