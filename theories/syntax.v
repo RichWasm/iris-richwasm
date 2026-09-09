@@ -66,6 +66,27 @@ Definition kind_ref_flag (κ : kind) : ref_flag :=
   | MEMTYPE _ ξ => ξ
   end.
 
+Definition set_kind_ref_flag (κ : kind) (ξ : ref_flag) : kind :=
+  match κ with
+  | VALTYPE ρ _ => VALTYPE ρ ξ
+  | MEMTYPE σ _ => MEMTYPE σ ξ
+  end.
+
+Lemma set_kind_ref_flag_same κ : set_kind_ref_flag κ (kind_ref_flag κ) = κ.
+Proof. destruct κ; reflexivity. Qed.
+
+Lemma kind_ref_flag_ren ξr ξs κ : kind_ref_flag (ren_kind ξr ξs κ) = kind_ref_flag κ.
+Proof. destruct κ; reflexivity. Qed.
+
+Lemma set_kind_ref_flag_ren ξr ξs κ ξ :
+  set_kind_ref_flag (ren_kind ξr ξs κ) ξ = ren_kind ξr ξs (set_kind_ref_flag κ ξ).
+Proof. destruct κ; reflexivity. Qed.
+
+Lemma set_kind_ref_flag_ren_flag ξr ξs ζr ζs κ κ' :
+  set_kind_ref_flag (ren_kind ξr ξs κ) (kind_ref_flag (ren_kind ζr ζs κ'))
+  = ren_kind ξr ξs (set_kind_ref_flag κ (kind_ref_flag κ')).
+Proof. destruct κ, κ'; reflexivity. Qed.
+
 Inductive skind :=
 | SVALTYPE : list atomic_rep -> ref_flag -> skind
 | SMEMTYPE : nat -> ref_flag -> skind.

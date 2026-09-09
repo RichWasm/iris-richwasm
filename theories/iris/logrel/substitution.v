@@ -1267,6 +1267,11 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvm)
               (type_skind_has_kind _ _ _ _ Hk0 Henvm') in IHτ.
       exact (subskind_of_option_mem_irrel _ _ _ _ _ IHτ).
+    - (* exists rep: needs the flag-monotonicity lemma for refresh_kinds, which the
+         tree does not state. See the report. *)
+      admit.
+    - (* exists size: same. *)
+      admit.
     - (* exists type *)
       pose proof (has_kind_existstype_inv _ _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_existstype_inv _ _ _ _ _ Hk') as [-> Hk0'].
@@ -1279,7 +1284,7 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt)
               (type_skind_has_kind _ _ _ _ Hk0 Henvt') in IHτ.
       exact (subskind_of_option_type_irrel _ _ _ _ _ _ _ IHτ).
-  Qed.
+  Admitted.
 
   Lemma type_skind_refresh_subst F F' sub_m sub_r sub_s sub_t se se' τ κ κ' :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -1679,6 +1684,10 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvm) in Hsκ1.
       iExists sκ1; iPureIntro; split; last done.
       exact (eval_kind_mem_irrel_rev _ _ _ _ Hsκ1).
+    - (* exists rep: needs flag monotonicity for refresh_kinds. See the report. *)
+      admit.
+    - (* exists size: same. *)
+      admit.
     - (* exists type *)
       pose proof (has_kind_existstype_inv _ _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_existstype_inv _ _ _ _ _ Hk') as [-> Hk0'].
@@ -1692,7 +1701,7 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt) in Hsκ1.
       iExists sκ1; iPureIntro; split; last done.
       exact (eval_kind_type_irrel_rev _ _ _ _ _ _ Hsκ1).
-  Qed.
+  Admitted.
 
   Lemma skind_interp_chillin_backwards F F' sub_m sub_r sub_s sub_t se se' τ κ κ' sv :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →

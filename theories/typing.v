@@ -1314,12 +1314,16 @@ Inductive refreshed_kinds : function_ctx → type → type → Prop :=
   refreshed_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ τ' →
   type_kind (fc_type_vars ((F <| fc_kind_ctx ::= set kc_mem_vars S |>))) τ' = Some κ' ->
   refreshed_kinds F (ExistsMemT κ τ) (ExistsMemT κ' τ')
-| RKExistsRep F κ τ τ' :
+| RKExistsRep F κ κ' τ τ' :
   refreshed_kinds (add_rep_var F) τ τ' →
-  refreshed_kinds F (ExistsRepT κ τ) (ExistsRepT κ τ')
-| RKExistsSize F κ τ τ' :
+  type_kind (fc_type_vars (add_rep_var F)) τ' = Some κ' ->
+  refreshed_kinds F (ExistsRepT κ τ)
+    (ExistsRepT (set_kind_ref_flag κ (kind_ref_flag κ')) τ')
+| RKExistsSize F κ κ' τ τ' :
   refreshed_kinds (add_size_var F) τ τ' →
-  refreshed_kinds F (ExistsSizeT κ τ) (ExistsSizeT κ τ')
+  type_kind (fc_type_vars (add_size_var F)) τ' = Some κ' ->
+  refreshed_kinds F (ExistsSizeT κ τ)
+    (ExistsSizeT (set_kind_ref_flag κ (kind_ref_flag κ')) τ')
 | RKExistsType F κ κ' κv τ τ' :
   refreshed_kinds (F <| fc_type_vars ::= cons κv |>) τ τ' →
   type_kind (fc_type_vars ((F <| fc_type_vars ::= cons κv |>))) τ' = Some κ' ->

@@ -201,7 +201,7 @@ Section call.
     - subst ϕ''.
       specialize (IHHfinst eq_refl Hok).
       rename IHHfinst into Hkind_ϕ'.
-      by apply (has_kind_ft_through_inst_iff F ϕ ϕ' ix H).
+      by apply (has_kind_ft_through_inst_backwards F ϕ ϕ' ix H).
   Qed.
 
 

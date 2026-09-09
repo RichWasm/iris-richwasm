@@ -264,113 +264,41 @@ Definition τ_selfvar : type := RecT κ_no (VarT 0).
 Lemma τ_selfvar_refresh_fixed : refresh_kinds fc_empty τ_selfvar = τ_selfvar.
 Proof. by cbv. Qed.
 
-(* ExistsRepT and ExistsSizeT are the same class of bug in the other direction, and are
-   still live: their rules admit no slack, but refresh keeps their annotation, so a stale
-   annotation survives instantiation and the refreshed result is ill-kinded.  This is
-   cause B, which 34849c4c fixed for ExistsMemT and ExistsTypeT only.  Independent of
-   RecT: it predates 634281ef and nothing currently proved depends on it. *)
+(* ExistsRepT and ExistsSizeT used to keep their annotation while KExistsRep/KExistsSize
+   demand the body's kind exactly, so instantiation produced an ill-kinded type -- the
+   cause-B bug 34849c4c fixed for ExistsMemT and ExistsTypeT only.  refresh now recomputes
+   their ref flag, which is the only component that can go stale: FTInstType requires
+   subkind_of κ_wit κ_declared, so substitution fixes the representation and can only
+   lower the flag.  These pin the repaired behaviour down. *)
 
-Definition F_one_any : function_ctx := fc_empty <| fc_type_vars ::= cons κ_any |>.
-
-Lemma exists_rep_stale_after_inst :
-  has_kind F_one_any (ExistsRepT κ_any (VarT 0)) κ_any ∧
-  subst_type VarM VarR VarS (unscoped.scons (I31T κ_no) VarT) (ExistsRepT κ_any (VarT 0))
-    = ExistsRepT κ_any (I31T κ_no) ∧
-  refresh_kinds fc_empty (ExistsRepT κ_any (I31T κ_no)) = ExistsRepT κ_any (I31T κ_no) ∧
-  ∀ κ, ¬ has_kind fc_empty (ExistsRepT κ_any (I31T κ_no)) κ.
+Lemma exists_rep_refresh_lowers_flag :
+  refresh_kinds fc_empty (ExistsRepT κ_any (I31T κ_no)) = ExistsRepT κ_no (I31T κ_no)
+  ∧ has_kind fc_empty (ExistsRepT κ_no (I31T κ_no)) κ_no.
 Proof.
-  split; [|split; [|split]].
-  - apply KExistsRep; [repeat constructor|apply KVar; [done|repeat constructor]].
-  - by cbv.
-  - by cbv.
-  - intros κ H; inversion H; subst.
-    match goal with
-    | Hb : has_kind _ (I31T _) _ |- _ => inversion Hb
-    end.
+  split; [by cbv|apply KExistsRep; [repeat constructor|constructor]].
 Qed.
 
-Lemma exists_size_stale_after_inst :
-  has_kind F_one_any (ExistsSizeT κ_any (VarT 0)) κ_any ∧
-  subst_type VarM VarR VarS (unscoped.scons (I31T κ_no) VarT) (ExistsSizeT κ_any (VarT 0))
-    = ExistsSizeT κ_any (I31T κ_no) ∧
-  refresh_kinds fc_empty (ExistsSizeT κ_any (I31T κ_no)) = ExistsSizeT κ_any (I31T κ_no) ∧
-  ∀ κ, ¬ has_kind fc_empty (ExistsSizeT κ_any (I31T κ_no)) κ.
+Lemma exists_size_refresh_lowers_flag :
+  refresh_kinds fc_empty (ExistsSizeT κ_any (I31T κ_no)) = ExistsSizeT κ_no (I31T κ_no)
+  ∧ has_kind fc_empty (ExistsSizeT κ_no (I31T κ_no)) κ_no.
 Proof.
-  split; [|split; [|split]].
-  - apply KExistsSize; [repeat constructor|apply KVar; [done|repeat constructor]].
-  - by cbv.
-  - by cbv.
-  - intros κ H; inversion H; subst.
-    match goal with
-    | Hb : has_kind _ (I31T _) _ |- _ => inversion Hb
-    end.
+  split; [by cbv|apply KExistsSize; [repeat constructor|constructor]].
 Qed.
 
-(* has_kind_ft_through_inst_iff is still false, and is a live assumption of
-   fundamental_typing.  Keeping the RecT annotation killed its old cause-B witness --
-   RecT κ_any (RefT κ_gc (BaseM MemGC) Mut _) is well kinded now -- but cause A is
-   untouched: function_type_inst refreshes its result, so a derivation for ϕ' says nothing
-   about the annotations of the ϕ it came from, and the ← direction fails on any
-   ill-annotated source. *)
-Lemma has_kind_ft_through_inst_iff_false :
-  ¬ (∀ F ϕ ϕ' ix,
-        function_type_inst F ix ϕ ϕ' → (has_kind_ft F ϕ ↔ has_kind_ft F ϕ')).
+(* The backward direction of the old has_kind_ft_through_inst_iff is unaffected by any of
+   this: inst refreshes its result, so a derivation for ϕ' says nothing about the
+   annotations of the ϕ it came from.  ift_bad is ill kinded, ift_good is not, and
+   inst_bad relates them. *)
+Lemma has_kind_ft_through_inst_backwards_false :
+  ¬ (∀ F ϕ ϕ' ix, function_type_inst F ix ϕ ϕ' → has_kind_ft F ϕ' → has_kind_ft F ϕ).
 Proof.
   intros Hbogus.
   assert (Hk : has_kind_ft fc_empty (InnerFunT ift_good))
     by (by apply KInnerFun, ift_good_kinded).
-  have Hiff := Hbogus fc_empty (InnerFunT (ForallTypeT κ_no ift_bad))
+  have Hbad := Hbogus fc_empty (InnerFunT (ForallTypeT κ_no ift_bad))
                  (InnerFunT ift_good) (TypeI (I31T κ_no))
-                 (FTInstInner _ _ _ _ inst_bad).
-  apply Hiff in Hk.
-  inversion Hk as [? ? Hift| | | ]; subst.
-  inversion Hift as [|? ? ? ? Hbad]; subst.
-  by eapply ift_bad_not_kinded, Hbad.
-Qed.
-
-(* The forward direction fails too, and for a different reason than the iff: not cause A
-   but the ExistsRepT staleness above.  Instantiating a well-kinded polymorphic type at an
-   admissible witness drops the body's flag, refresh keeps ExistsRepT's annotation, and
-   KExistsRep's exactness rejects the result.  So has_kind_ft_through_inst -- the
-   direction compat_call actually needs -- is blocked by ExistsRepT, not by RecT. *)
-
-Definition ift_exrep : inner_function_type :=
-  MonoFunT [ExistsRepT κ_any (VarT 0)] [].
-Definition ift_exrep' : inner_function_type :=
-  MonoFunT [ExistsRepT κ_any (I31T κ_no)] [].
-
-Lemma ift_exrep_kinded : has_kind_ift F_one_any ift_exrep.
-Proof.
-  apply (KMonoFun _ _ _ [κ_any] []); [|constructor].
-  constructor; [|constructor].
-  apply KExistsRep; [repeat constructor|apply KVar; [done|repeat constructor]].
-Qed.
-
-Lemma ift_exrep'_not_kinded F : ¬ has_kind_ift F ift_exrep'.
-Proof.
-  intros Hk; inversion Hk; subst.
-  match goal with H : Forall2 _ [_] _ |- _ => inversion H; subst end.
-  match goal with H : has_kind _ (ExistsRepT _ _) _ |- _ => inversion H; subst end.
-  match goal with H : has_kind _ (I31T _) _ |- _ => inversion H end.
-Qed.
-
-Lemma inst_exrep :
-  inner_function_type_inst fc_empty (TypeI (I31T κ_no))
-    (ForallTypeT κ_any ift_exrep) ift_exrep'.
-Proof.
-  eapply FTInstType with (κ' := κ_no).
-  - constructor.
-  - repeat constructor.
-  - apply RKMonoFun; repeat constructor.
-Qed.
-
-Lemma has_kind_ft_through_inst_forward_false :
-  ¬ (∀ F ϕ ϕ' ix, function_type_inst F ix ϕ ϕ' → has_kind_ft F ϕ → has_kind_ft F ϕ').
-Proof.
-  intros Hbogus.
-  eapply (ift_exrep'_not_kinded fc_empty).
-  assert (Hk : has_kind_ft fc_empty (InnerFunT (ForallTypeT κ_any ift_exrep))).
-  { apply KInnerFun, KForallType; [repeat constructor|apply ift_exrep_kinded]. }
-  have Hk' := Hbogus _ _ _ _ (FTInstInner _ _ _ _ inst_exrep) Hk.
-  by inversion Hk'.
+                 (FTInstInner _ _ _ _ inst_bad) Hk.
+  inversion Hbad as [? ? Hift| | | ]; subst.
+  inversion Hift as [|? ? ? ? Hb]; subst.
+  by eapply ift_bad_not_kinded, Hb.
 Qed.

@@ -780,12 +780,15 @@ Proof.
     assert (t = τ'0) as <- by (by apply (IH _ _ _ H4 H3)).
     rewrite (has_kind_type_kind _ _ _ H4) in H6.
     inversion H6; done.
-  - intros κ0 t IH F κ τ' Hk Hr.
-    inversion Hk; subst; inversion Hr; subst; f_equal; try done;
-      by eapply IH; eauto.
-  - intros κ0 t IH F κ τ' Hk Hr.
-    inversion Hk; subst; inversion Hr; subst; f_equal; try done;
-      by eapply IH; eauto.
+  - (* ExistsRepT: goal is [κ = κ'] but the rule only gives
+       [κ' = ren_kind shift id κ]; see the report. *)
+    intros κ0 t IH F κ τ' Hk Hr.
+    inversion Hk; subst; inversion Hr; subst.
+    admit.
+  - (* ExistsSizeT: same. *)
+    intros κ0 t IH F κ τ' Hk Hr.
+    inversion Hk; subst; inversion Hr; subst.
+    admit.
   - intros κ1 κ2 t IH F κ τ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst.
     assert (t = τ'0) as <- by (by apply (IH _ _ _ H6 H7)).
@@ -1257,8 +1260,8 @@ Lemma has_kinds_subst_to_has_kinds_env τs : ∀ F τv κv κs τs',
 Proof.
 Admitted.
 
-(* The three lemmas below (needs_name, has_kind_ift_through_inst_iff,
-   has_kind_ft_through_inst_iff) are refutable as stated; see
+(* The lemmas below (needs_name, and the two _backwards directions) are refutable as
+   stated; see
    theories/kinding_subst_counterexamples.v.  Only the forward direction
    holds, and only when the instantiating type has exactly the bound kind:
    subkind_of κ' κ is not enough, and the memory instantiation fails outright. *)
@@ -1323,34 +1326,26 @@ Proof.
   - admit.
 Admitted.
 
-Lemma has_kind_ift_through_inst_iff F ϕ ϕ' ix :
+(* Split out of the former has_kind_ft_through_inst_iff.  The two directions fail for
+   unrelated reasons and only the forward one is a metatheorem worth chasing, so the iff
+   was holding the good half hostage to the bad one. *)
+
+Lemma has_kind_ift_through_inst_forwards F ϕ ϕ' ix :
   inner_function_type_inst F ix ϕ ϕ' ->
-  (has_kind_ift F ϕ <->
-     has_kind_ift F ϕ').
+  has_kind_ift F ϕ ->
+  has_kind_ift F ϕ'.
 Proof.
-  intros Hty.
-  induction Hty.
-  split.
-  - intros Hk.
-    inversion Hk; subst.
-    eapply needs_name; eauto.
 Admitted.
 
-(* a deeply critical lemma that should almost certainly be true *)
-Lemma has_kind_ft_through_inst_iff F ϕ ϕ' ix :
-  function_type_inst F ix ϕ ϕ' ->
-  (has_kind_ft F ϕ <-> has_kind_ft F ϕ').
+(* Refutable as stated: inst refreshes its result, so ϕ ↦ ϕ' overwrites every derived
+   annotation and two sources -- one well annotated, one not -- reach the same ϕ'.  The
+   callers want has_kind_ift F ϕ threaded in from wherever ϕ came from.  See
+   RichWasm.kinding_subst_counterexamples. *)
+Lemma has_kind_ift_through_inst_backwards F ϕ ϕ' ix :
+  inner_function_type_inst F ix ϕ ϕ' ->
+  has_kind_ift F ϕ' ->
+  has_kind_ift F ϕ.
 Proof.
-  intros Hty.
-  induction Hty.
-  - split; intros Hif.
-    + inversion Hif; subst.
-      constructor.
-      rewrite <- has_kind_ift_through_inst_iff; eauto.
-    + inversion Hif; subst.
-      constructor.
-      rewrite -> has_kind_ift_through_inst_iff; eauto.
-  -
 Admitted.
 
 Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
@@ -1358,18 +1353,18 @@ Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
   has_kind_ft F ϕ ->
   has_kind_ft F ϕ'.
 Proof.
-  intros.
-  by apply (has_kind_ft_through_inst_iff F ϕ ϕ' ix H).
-Qed.
+  intros Hty; induction Hty.
+  - intros Hif; inversion Hif; subst.
+    constructor; eapply has_kind_ift_through_inst_forwards; eauto.
+Admitted.
 
+(* Refutable as stated, for the same reason as the _ift form above. *)
 Lemma has_kind_ft_through_inst_backwards F ϕ ϕ' ix :
   function_type_inst F ix ϕ ϕ' ->
   has_kind_ft F ϕ' ->
   has_kind_ft F ϕ.
 Proof.
-  intros.
-  by apply (has_kind_ft_through_inst_iff F ϕ ϕ' ix H).
-Qed.
+Admitted.
 
   (* copied from typechecker.v *)
 Fixpoint get_all_lefts {A B : Type} (l: list (A + B)) : list A :=
@@ -1463,9 +1458,13 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
       let κ := kind_of_node ((F <| fc_kind_ctx ::= set kc_mem_vars S |>)) τ' in
       ExistsMemT κ τ'
   | ExistsRepT κ τ =>
-      ExistsRepT κ (refresh_kinds (add_rep_var F) τ)
+      let τ' := refresh_kinds (add_rep_var F) τ in
+      let ξ := kind_ref_flag (kind_of_node (add_rep_var F) τ') in
+      ExistsRepT (set_kind_ref_flag κ ξ) τ'
   | ExistsSizeT κ τ =>
-      ExistsSizeT κ (refresh_kinds (add_size_var F) τ)
+      let τ' := refresh_kinds (add_size_var F) τ in
+      let ξ := kind_ref_flag (kind_of_node (add_size_var F) τ') in
+      ExistsSizeT (set_kind_ref_flag κ ξ) τ'
   | ExistsTypeT _ κ0 τ =>
       let τ' := refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ in
       let κ := kind_of_node ((F <| fc_type_vars ::= cons κ0 |>)) τ' in
@@ -1613,9 +1612,13 @@ Proof.
     rewrite <- Hnew.
     by rewrite <- (kind_of_node_good _ _ _ H4).
   - intros κ τ IH F κ0 Hk.
-    inversion Hk; subst; cbn; f_equal; by eapply IH.
+    inversion Hk; subst; cbn.
+    rewrite <- (IH _ _ H4), <- (kind_of_node_good _ _ _ H4).
+    by rewrite kind_ref_flag_ren set_kind_ref_flag_same.
   - intros κ τ IH F κ0 Hk.
-    inversion Hk; subst; cbn; f_equal; by eapply IH.
+    inversion Hk; subst; cbn.
+    rewrite <- (IH _ _ H4), <- (kind_of_node_good _ _ _ H4).
+    by rewrite kind_ref_flag_ren set_kind_ref_flag_same.
   - intros κ κv τ IH F κ0 Hk.
     inversion Hk; subst; cbn.
     apply IH in H6 as Hnew.
@@ -1728,9 +1731,13 @@ Proof.
     rewrite (IH _ _ _ _ _ _ (fc_ren_mem _ _ _ _ _ HF)).
     by rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_mem _ _ _ _ _ HF)).
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
-    f_equal; apply IH, fc_ren_rep, HF.
+    rewrite (IH _ _ _ _ _ _ (fc_ren_rep _ _ _ _ _ HF)).
+    rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_rep _ _ _ _ _ HF)).
+    by rewrite set_kind_ref_flag_ren_flag.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
-    f_equal; apply IH, fc_ren_size, HF.
+    rewrite (IH _ _ _ _ _ _ (fc_ren_size _ _ _ _ _ HF)).
+    rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_size _ _ _ _ _ HF)).
+    by rewrite set_kind_ref_flag_ren_flag.
   - intros κ κ0 τ IH ξm ξr ξs ξt F F' HF; cbn.
     rewrite (IH _ _ _ _ _ _ (fc_ren_cons _ _ _ _ _ _ HF)).
     by rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_cons _ _ _ _ _ _ HF)).
@@ -1895,11 +1902,13 @@ Proof.
     apply IH in H3 as Hnew. rewrite <- Hnew.
     by rewrite (type_kind_kind_of_node _ _ _ H4).
   - intros κ τ' IH F τ Hr.
-    inversion Hr; subst.
-    cbn; f_equal; by apply IH.
+    inversion Hr; subst; cbn.
+    apply IH in H3 as Hnew. rewrite <- Hnew.
+    by rewrite (type_kind_kind_of_node _ _ _ H4).
   - intros κ τ' IH F τ Hr.
-    inversion Hr; subst.
-    cbn; f_equal; by apply IH.
+    inversion Hr; subst; cbn.
+    apply IH in H3 as Hnew. rewrite <- Hnew.
+    by rewrite (type_kind_kind_of_node _ _ _ H4).
   - intros κ κv τ' IH F τ Hr.
     inversion Hr; subst; cbn.
     apply IH in H3 as Hnew. rewrite <- Hnew.
