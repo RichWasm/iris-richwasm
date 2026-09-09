@@ -587,6 +587,10 @@ Section HasKindInd.
 
 End HasKindInd.
 
+Definition module_ctx_ok M :=
+  (Forall (has_kind_ft fc_empty) (M.(mc_functions))) /\
+  (Forall (has_kind_ft fc_empty) (M.(mc_table))).
+
 Lemma kind_ok_subkind_of F κ κ' : kind_ok F κ -> subkind_of κ κ' -> kind_ok F κ'.
 Proof.
   intros H1 H2.
@@ -1447,8 +1451,8 @@ Inductive unpacked_existential :
 Definition local_ctx_ok (F : function_ctx) (L : local_ctx) : Prop :=
   Forall2 (type_rep_eq_prim F) L F.(fc_locals).
 
-Definition has_instruction_type_ok (F : function_ctx) (ψ : instruction_type) (L' : local_ctx) : Prop :=
-  has_mono_rep_instr F ψ /\ local_ctx_ok F L'.
+Definition has_instruction_type_ok (M: module_ctx) (F : function_ctx) (ψ : instruction_type) (L' : local_ctx) : Prop :=
+  has_mono_rep_instr F ψ /\ local_ctx_ok F L' /\ module_ctx_ok M.
 
 Inductive has_instruction_type_cvt : conversion_op -> instruction_type -> Prop :=
 | TWrapC :
@@ -1502,119 +1506,119 @@ Inductive has_instruction_type :
   module_ctx -> function_ctx -> local_ctx -> instruction -> instruction_type -> local_ctx -> Prop :=
 | TNop M F L :
   let ψ := InstrT [] [] in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (INop ψ) ψ L
 | TUnreachable M F L L' ψ :
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (IUnreachable ψ) ψ L'
 | TCopy M F L τ :
   let ψ := InstrT [τ] [τ; τ] in
   has_ref_flag F τ GCRefs ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ICopy ψ) ψ L
 | TDrop M F L τ :
   let ψ := InstrT [τ] [] in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IDrop ψ) ψ L
 | TNum M F L e ψ :
   has_instruction_type_num e ψ ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (INum ψ e) ψ L
 | TNumConst M F L ν n :
   let ψ := InstrT [] [num_type_type ν] in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (INumConst ψ n) ψ L
 | TBlock M F L L' τs1 τs2 es :
   let F' := F <| fc_labels ::= cons (τs2, L') |> in
   let ψ := InstrT τs1 τs2 in
   have_instruction_type M F' L es ψ L' ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (IBlock ψ L' es) ψ L'
 | TLoop M F L τs1 τs2 es :
   let F' := F <| fc_labels ::= cons (τs1, L) |> in
   let ψ := InstrT τs1 τs2 in
   have_instruction_type M F' L es ψ L ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ILoop ψ es) ψ L
 | TIte M F L L' τs1 τs2 es1 es2 :
   let F' := F <| fc_labels ::= cons (τs2, L') |> in
   let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
   have_instruction_type M F' L es1 (InstrT τs1 τs2) L' ->
   have_instruction_type M F' L es2 (InstrT τs1 τs2) L' ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (IIte ψ L' es1 es2) ψ L'
 | TBr M F L L' i τs τs1 τs2 :
   let ψ := InstrT (τs1 ++ τs) τs2 in
   F.(fc_labels) !! i = Some (τs, L) ->
   Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (IBr ψ i) ψ L'
 | TReturn M F L L' τs τs1 τs2 :
   let ψ := InstrT (τs1 ++ τs) τs2 in
   F.(fc_return) = τs ->
   Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (IReturn ψ) ψ L'
 | TLocalGetCopy M F L i τ :
   let ψ := InstrT [] [τ] in
   L !! i = Some τ ->
   has_ref_flag F τ NoRefs ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ILocalGet ψ Copy i) ψ L
 | TLocalGetMove M F L i τ ηs :
   let ψ := InstrT [] [τ] in
   let L' := <[ i := type_plug_prim ηs ]> L in
   F.(fc_locals) !! i = Some ηs ->
   L !! i = Some τ ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (ILocalGet ψ Move i) ψ L'
 | TLocalSet M F L i τ τ0 :
   let ψ := InstrT [τ] [] in
   let L' := <[ i := τ ]> L in
   L !! i = Some τ0 ->
   has_ref_flag F τ0 NoRefs ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (ILocalSet ψ i) ψ L'
 | TCodeRef M F L i ϕ :
   let τ := CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ in
   let ψ := InstrT [] [τ] in
   M.(mc_table) !! i = Some ϕ ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ICodeRef ψ i) ψ L
 | TInst M F L ix ϕ ϕ' :
   let κ := VALTYPE (AtomR I32R) NoRefs in
   let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
   function_type_inst F ix ϕ ϕ' ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IInst ψ ix) ψ L
 | TCall M F L i ixs ϕ τs1 τs2 :
   let ψ := InstrT τs1 τs2 in
   M.(mc_functions) !! i = Some ϕ ->
   function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ICall ψ i ixs) ψ L
 | TCallIndirect M F L τs1 τs2 :
   let κ := VALTYPE (AtomR I32R) NoRefs in
   let ψ := InstrT (τs1 ++ [CodeRefT κ (InnerFunT (MonoFunT τs1 τs2))]) τs2 in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ICallIndirect ψ) ψ L
 | TInject M F L i τ τs κ :
   let ψ := InstrT [τ] [SumT κ τs] in
   τs !! i = Some τ ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IInject ψ i) ψ L
 | TInjectNew M F L i μ τ τs κr κv κs :
   let τs' := zip_with SerT κs τs in
   let ψ := InstrT [τ] [RefT κr μ Imm (VariantT κv τs')] in
   τs !! i = Some τ ->
   mono_mem μ ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IInjectNew ψ i) ψ L
 | TCase M F L L' ess τs τs' κ :
   let F' := F <| fc_labels ::= cons (τs', L') |> in
   let ψ := InstrT [SumT κ τs] τs' in
   Forall2 (fun τ es => have_instruction_type M F' L es (InstrT [τ] τs') L') τs ess ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (ICase ψ L' ess) ψ L'
 | TCaseLoadCopy M F L L' ess τs τs' κr κv κs μ :
   let F' := F <| fc_labels ::= cons (τs', L') |> in
@@ -1623,7 +1627,7 @@ Inductive has_instruction_type :
   length κs = length τs ->
   Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
   Forall2 (fun τ es => have_instruction_type M F' L es (InstrT [τ] τs') L') τs ess ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (ICaseLoad ψ Copy L' ess) ψ L'
 | TCaseLoadMove M F L L' ess τs τs' κr κv κs :
   let F' := F <| fc_labels ::= cons (τs', L') |> in
@@ -1631,55 +1635,55 @@ Inductive has_instruction_type :
   let ψ := InstrT [RefT κr (BaseM MemMM) Imm (VariantT κv τs_ser)] τs' in
   length κs = length τs ->
   Forall2 (fun τ es => have_instruction_type M F' L es (InstrT [τ] τs') L') τs ess ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (ICaseLoad ψ Move L' ess) ψ L'
 | TGroup M F L τs κ :
   let ψ := InstrT τs [ProdT κ τs] in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IGroup ψ) ψ L
 | TUngroup M F L τs κ :
   let ψ := InstrT [ProdT κ τs] τs in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IUngroup ψ) ψ L
 | TFold M F L τ κ :
   let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
   let ψ := InstrT [τ0] [RecT κ τ] in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IFold ψ) ψ L
 | TUnfold M F L τ κ :
   let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
   let ψ := InstrT [RecT κ τ] [τ0] in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IUnfold ψ) ψ L
 | TPack M F L τ τ' :
   let ψ := InstrT [τ] [τ'] in
   packed_existential F τ τ' ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IPack ψ) ψ L
 | TUnpack M F F0' L L' L0 L0' es τs1 τs2 ψ0 :
   let F' := F <| fc_labels ::= cons (τs2, L') |> in
   let ψ := InstrT τs1 τs2 in
   unpacked_existential F' L ψ L' F0' L0 ψ0 L0' ->
   have_instruction_type M F0' L0 es ψ0 L0' ->
-  has_instruction_type_ok F ψ L' ->
+  has_instruction_type_ok M F ψ L' ->
   has_instruction_type M F L (IUnpack ψ L' es) ψ L'
 | TTag M F L :
   let ψ := InstrT [type_i32] [type_i31] in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ITag ψ) ψ L
 | TUntag M F L :
   let ψ := InstrT [type_i31] [type_i32] in
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IUntag ψ) ψ L
 | TCast M F L τ τ' :
   let ψ := InstrT [τ] [τ'] in
   type_eq τ τ' ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ICast ψ) ψ L
 | TNew M F L μ β τ κ κser :
   let ψ := InstrT [τ] [RefT κ μ β (SerT κser τ)] in
   mono_mem μ ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (INew ψ) ψ L
 | TLoadCopy M F L π μ β τ τval pr κ κser :
   let ψ := InstrT [RefT κ μ β τ] [RefT κ μ β τ; τval] in
@@ -1687,7 +1691,7 @@ Inductive has_instruction_type :
   resolves_path τ π None pr ->
   pr.(pr_target) = SerT κser τval ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ILoad ψ π Copy) ψ L
 | TLoadMove M F L π τ τval κ κ' κser σ pr :
   let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ] [RefT κ' (BaseM MemMM) Mut pr.(pr_replaced); τval] in
@@ -1695,7 +1699,7 @@ Inductive has_instruction_type :
   has_size F pr.(pr_target) σ ->
   pr.(pr_target) = SerT κser τval ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ILoad ψ π Move) ψ L
 | TStoreWeak M F L π μ τ τval pr κ κser :
   let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
@@ -1703,7 +1707,7 @@ Inductive has_instruction_type :
   has_ref_flag F pr.(pr_target) GCRefs ->
   pr.(pr_target) = SerT κser τval ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IStore ψ π) ψ L
 | TStoreStrong M F L π τ τval pr σ ρ κ κ' κser :
   let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ; τval] [RefT κ' (BaseM MemMM) Mut pr.(pr_replaced)] in
@@ -1713,19 +1717,20 @@ Inductive has_instruction_type :
   has_rep F τval ρ ->
   eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (IStore ψ π) ψ L
 | TSwap M F L π τ τval pr κ κser μ :
   let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ; τval] in
   resolves_path τ π None pr ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
   pr.(pr_target) = SerT κser τval ->
-  has_instruction_type_ok F ψ L ->
+  has_instruction_type_ok M F ψ L ->
   has_instruction_type M F L (ISwap ψ π) ψ L
 
 with have_instruction_type :
   module_ctx -> function_ctx -> local_ctx -> list instruction -> instruction_type -> local_ctx -> Prop :=
 | TNil M F L :
+  module_ctx_ok M ->
   local_ctx_ok F L ->
   have_instruction_type M F L [] (InstrT [] []) L
 | TApp M F L1 L2 L3 es es' τs1 τs2 τs3 :
@@ -1750,119 +1755,119 @@ Section HasHaveInstructionTypeMind.
   Hypotheses
     (HNop : forall M F L,
         let ψ := InstrT [] [] in
-        has_instruction_type_ok F ψ L ->
+        has_instruction_type_ok M F ψ L ->
         P1 M F L (INop ψ) ψ L)
       (HUnreachable : forall M F L L' ψ,
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (IUnreachable ψ) ψ L')
       (HCopy : forall M F L τ,
           let ψ := InstrT [τ] [τ; τ] in
           has_ref_flag F τ GCRefs ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ICopy ψ) ψ L)
       (HDrop : forall M F L τ,
           let ψ := InstrT [τ] [] in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IDrop ψ) ψ L)
       (HNum : forall M F L e ψ,
           has_instruction_type_num e ψ ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (INum ψ e) ψ L)
       (HNumConst : forall M F L ν n,
           let ψ := InstrT [] [num_type_type ν] in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (INumConst ψ n) ψ L)
       (HBlock : forall M F L L' τs1 τs2 es,
           let F' := F <| fc_labels ::= cons (τs2, L') |> in
           let ψ := InstrT τs1 τs2 in
           P2 M F' L es ψ L' ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (IBlock ψ L' es) ψ L')
       (HLoop : forall M F L τs1 τs2 es,
           let F' := F <| fc_labels ::= cons (τs1, L) |> in
           let ψ := InstrT τs1 τs2 in
           P2 M F' L es ψ L ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ILoop ψ es) ψ L)
       (HIte : forall M F L L' τs1 τs2 es1 es2,
           let F' := F <| fc_labels ::= cons (τs2, L') |> in
           let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
           P2 M F' L es1 (InstrT τs1 τs2) L' ->
           P2 M F' L es2 (InstrT τs1 τs2) L' ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (IIte ψ L' es1 es2) ψ L')
       (HBr : forall M F L L' i τs τs1 τs2,
           let ψ := InstrT (τs1 ++ τs) τs2 in
           F.(fc_labels) !! i = Some (τs, L) ->
           Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (IBr ψ i) ψ L')
       (HReturn : forall M F L L' τs τs1 τs2,
           let ψ := InstrT (τs1 ++ τs) τs2 in
           F.(fc_return) = τs ->
           Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (IReturn ψ) ψ L')
       (HLocalGetCopy : forall M F L i τ,
           let ψ := InstrT [] [τ] in
           L !! i = Some τ ->
           has_ref_flag F τ NoRefs ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ILocalGet ψ Copy i) ψ L)
       (HLocalGetMove : forall M F L i τ ηs,
           let ψ := InstrT [] [τ] in
           let L' := <[ i := type_plug_prim ηs ]> L in
           F.(fc_locals) !! i = Some ηs ->
           L !! i = Some τ ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (ILocalGet ψ Move i) ψ L')
       (HLocalSet : forall M F L i τ τ0,
           let ψ := InstrT [τ] [] in
           let L' := <[ i := τ ]> L in
           L !! i = Some τ0 ->
           has_ref_flag F τ0 NoRefs ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (ILocalSet ψ i) ψ L')
       (HCodeRef : forall M F L i ϕ,
           let τ := CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ in
           let ψ := InstrT [] [τ] in
           M.(mc_table) !! i = Some ϕ ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ICodeRef ψ i) ψ L)
       (HInst : forall M F L ix ϕ ϕ',
           let κ := VALTYPE (AtomR I32R) NoRefs in
           let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
           function_type_inst F ix ϕ ϕ' ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IInst ψ ix) ψ L)
       (HCall : forall M F L i ixs ϕ τs1 τs2,
           let ψ := InstrT τs1 τs2 in
           M.(mc_functions) !! i = Some ϕ ->
           function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ICall ψ i ixs) ψ L)
       (HCallIndirect : forall M F L τs1 τs2,
           let κ := VALTYPE (AtomR I32R) NoRefs in
           let ψ := InstrT (τs1 ++ [CodeRefT κ (InnerFunT (MonoFunT τs1 τs2))]) τs2 in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ICallIndirect ψ) ψ L)
       (HInject : forall M F L i τ τs κ,
           let ψ := InstrT [τ] [SumT κ τs] in
           τs !! i = Some τ ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IInject ψ i) ψ L)
       (HInjectNew : forall M F L i μ τ τs κr κv κs,
           let τs' := zip_with SerT κs τs in
           let ψ := InstrT [τ] [RefT κr μ Imm (VariantT κv τs')] in
           τs !! i = Some τ ->
           mono_mem μ ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IInjectNew ψ i) ψ L)
       (HCase : forall M F L L' ess τs τs' κ,
           let F' := F <| fc_labels ::= cons (τs', L') |> in
           let ψ := InstrT [SumT κ τs] τs' in
           Forall2 (fun τ es => P2 M F' L es (InstrT [τ] τs') L') τs ess ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (ICase ψ L' ess) ψ L')
       (HCaseLoadCopy : forall M F L L' ess τs τs' κr κv κs μ,
           let F' := F <| fc_labels ::= cons (τs', L') |> in
@@ -1872,7 +1877,7 @@ Section HasHaveInstructionTypeMind.
           length κs = length τs ->
           Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
           Forall2 (fun τ es => P2 M F' L es (InstrT [τ] τs') L') τs ess ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (ICaseLoad ψ Copy L' ess) ψ L')
       (HCaseLoadMove : forall M F L L' ess τs τs' κr κv κs,
           let F' := F <| fc_labels ::= cons (τs', L') |> in
@@ -1880,55 +1885,55 @@ Section HasHaveInstructionTypeMind.
           let ψ := InstrT [RefT κr (BaseM MemMM) Imm (VariantT κv τs_ser)] τs' in
           length κs = length τs ->
           Forall2 (fun τ es => P2 M F' L es (InstrT [τ] τs') L') τs ess ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (ICaseLoad ψ Move L' ess) ψ L')
       (HGroup : forall M F L τs κ,
           let ψ := InstrT τs [ProdT κ τs] in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IGroup ψ) ψ L)
       (HUngroup : forall M F L τs κ,
           let ψ := InstrT [ProdT κ τs] τs in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IUngroup ψ) ψ L)
       (HFold : forall M F L τ κ,
           let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
           let ψ := InstrT [τ0] [RecT κ τ] in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IFold ψ) ψ L)
       (HUnfold : forall M F L τ κ,
           let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
           let ψ := InstrT [RecT κ τ] [τ0] in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IUnfold ψ) ψ L)
       (HPack : forall M F L τ τ',
           let ψ := InstrT [τ] [τ'] in
           packed_existential F τ τ' ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IPack ψ) ψ L)
       (HUnpack : forall M F F0' L L' L0 L0' es τs1 τs2 ψ0,
           let F' := F <| fc_labels ::= cons (τs2, L') |> in
           let ψ := InstrT τs1 τs2 in
           unpacked_existential F' L ψ L' F0' L0 ψ0 L0' ->
           P2 M F0' L0 es ψ0 L0' ->
-          has_instruction_type_ok F ψ L' ->
+          has_instruction_type_ok M F ψ L' ->
           P1 M F L (IUnpack ψ L' es) ψ L')
       (HTag : forall M F L,
           let ψ := InstrT [type_i32] [type_i31] in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ITag ψ) ψ L)
       (HUntag : forall M F L,
           let ψ := InstrT [type_i31] [type_i32] in
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IUntag ψ) ψ L)
       (HCast : forall M F L τ τ',
           let ψ := InstrT [τ] [τ'] in
           type_eq τ τ' ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ICast ψ) ψ L)
       (HNew : forall M F L μ β τ κ κser,
           let ψ := InstrT [τ] [RefT κ μ β (SerT κser τ)] in
           mono_mem μ ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (INew ψ) ψ L)
       (HLoadCopy : forall M F L π μ β τ τval pr κ κser,
           let ψ := InstrT [RefT κ μ β τ] [RefT κ μ β τ; τval] in
@@ -1936,7 +1941,7 @@ Section HasHaveInstructionTypeMind.
           resolves_path τ π None pr ->
           pr.(pr_target) = SerT κser τval ->
           Forall (has_mono_size F) pr.(pr_prefix) ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ILoad ψ π Copy) ψ L)
       (HLoadMove : forall M F L π τ τval κ κ' κser σ pr,
           let ψ :=
@@ -1945,7 +1950,7 @@ Section HasHaveInstructionTypeMind.
           has_size F pr.(pr_target) σ ->
           pr.(pr_target) = SerT κser τval ->
           Forall (has_mono_size F) pr.(pr_prefix) ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ILoad ψ π Move) ψ L)
       (HStoreWeak : forall M F L π μ τ τval pr κ κser,
           let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
@@ -1953,7 +1958,7 @@ Section HasHaveInstructionTypeMind.
           has_ref_flag F pr.(pr_target) GCRefs ->
           pr.(pr_target) = SerT κser τval ->
           Forall (has_mono_size F) pr.(pr_prefix) ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IStore ψ π) ψ L)
       (HStoreStrong : forall M F L π τ τval pr σ ρ κ κ' κser,
           let ψ :=
@@ -1964,16 +1969,17 @@ Section HasHaveInstructionTypeMind.
           has_rep F τval ρ ->
           eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
           Forall (has_mono_size F) pr.(pr_prefix) ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (IStore ψ π) ψ L)
       (HSwap : forall M F L π τ τval pr κ κser μ,
           let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ; τval] in
           resolves_path τ π None pr ->
           Forall (has_mono_size F) pr.(pr_prefix) ->
           pr.(pr_target) = SerT κser τval ->
-          has_instruction_type_ok F ψ L ->
+          has_instruction_type_ok M F ψ L ->
           P1 M F L (ISwap ψ π) ψ L)
       (HNil : forall M F L,
+          module_ctx_ok M ->
           local_ctx_ok F L ->
           P2 M F L [] (InstrT [] []) L)
       (HApp : forall M F L1 L2 L3 es es' τs1 τs2 τs3,
@@ -2067,7 +2073,7 @@ Section HasHaveInstructionTypeMind.
     (H : have_instruction_type M F L es ψ L') :
     P2 M F L es ψ L' :=
     match H with
-    | TNil M F L H1 => HNil M F L H1
+    | TNil M F L H1 H2 => HNil M F L H1 H2
     | TApp M F L1 L2 L3 es es' τs1 τs2 τs3 H1 H2 =>
         HApp M F L1 L2 L3 es es' τs1 τs2 τs3
           (have_instruction_type_mind _ _ _ _ _ _ H1)
@@ -2081,18 +2087,24 @@ Section HasHaveInstructionTypeMind.
 End HasHaveInstructionTypeMind.
 
 Lemma have_instruction_type_inv M F L e ψ L' :
-  have_instruction_type M F L e ψ L' -> has_instruction_type_ok F ψ L'.
+  have_instruction_type M F L e ψ L' -> has_instruction_type_ok M F ψ L'.
 Proof.
   intros H.
   induction H using have_instruction_type_mind with
-    (P1 := fun _ F _ _ ψ L' => has_instruction_type_ok F ψ L');
+    (P1 := fun M F _ _ ψ L' => has_instruction_type_ok M F ψ L');
     try assumption; repeat constructor; try assumption.
+  - by destruct H.
+  - by destruct H.
   - inversion IHhave_instruction_type. by inversion H.
   - inversion IHhave_instruction_type0. by inversion H.
-  - by inversion IHhave_instruction_type0.
+  - inversion IHhave_instruction_type0. by destruct H0.
+  - inversion IHhave_instruction_type. by destruct H0 as [_ [H' _]].
+  - inversion IHhave_instruction_type. by destruct H0 as [_ [_ H']].
   - inversion IHhave_instruction_type. by inversion H0.
   - inversion IHhave_instruction_type. by inversion H0.
-  - by inversion IHhave_instruction_type.
+  - inversion IHhave_instruction_type. by inversion H1.
+  - inversion IHhave_instruction_type. inversion H1. by inversion H3.
+  - inversion IHhave_instruction_type. inversion H1. by inversion H3.
 Qed.
 
 Inductive body_has_ifun_type (M : module_ctx) (K : kind_ctx) (mf_locs : list representation) (body : list instruction)
