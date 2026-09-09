@@ -76,21 +76,22 @@ Section fold.
     }
     assert (∃ sκ0, subskind_of sκ sκ0 ∧ eval_kind se κ = Some sκ0) as (sκ0 & Hsubs & Hκ).
     {
-      admit.
+      destruct (subkind_eval' se _ _ _ Hsub Hev) as [sκ0 Hκ].
+      exists sκ0.
+      split; last done.
+      by eapply subkind_subskind.
     }
-    admit.
-    (*
     iExists sκ0.
-    iSplit; first eauto.
+    iSplit; first done.
     iSplit.
     {
       iPureIntro.
-      eapply skind_as_type_refine; eauto.
+      by eapply skind_as_type_refine.
     }
 
     cbn -[skind_rec_interp1].
     rewrite Hκ.
-    pose proof (fixpoint_unfold (skind_rec_interp1 sκ (type_interp rti sr τ) se)) as Hunf.
+    pose proof (fixpoint_unfold (skind_rec_interp1 sκ0 (type_interp rti sr τ) se)) as Hunf.
     specialize (Hunf (SAtoms os)).
     rewrite Hunf.
     Opaque skind_has_svalue. Opaque senv_insert_type.
@@ -102,9 +103,8 @@ Section fold.
     rewrite <- H.
     pose proof (sem_well_formed_from_interp F se Hse) as HseF.
 
-
     iAssert (type_interp rti sr τ
-               (senv_insert_type sκ sκ (value_interp rti sr se (RecT κ τ)) se) (SAtoms os))
+               (senv_insert_type sκ0 sκ0 (value_interp rti sr se (RecT κ τ)) se) (SAtoms os))
     with "[Hval]" as "Hos". {
       iApply (type_interp_subst_type_backwards with "[$Hval]"); try exact mr.
       11: exact H3.
@@ -149,29 +149,23 @@ Section fold.
         done.
       - intros i; destruct i; try done.
         cbn.
-        apply this in H3.
-        (* rewrite <- H3. *)
-        (* done. *)
-        admit.
-      - (* this is whatever the kinding admit above is *)
-        rewrite H.
+        symmetry.
+        by apply (this _ _ _ Hkind).
+      - rewrite H.
         exact Hkindτrec.
         Transparent skind_has_svalue.
     }
 
-    pose proof (add_skind_interp_closed_equiv_value_interp rti sr sκ τ κ se Hκ).
+    pose proof (add_skind_interp_closed_equiv_value_interp rti sr sκ0 τ κ se Hκ) as Hequiv.
     assert (Hproper: Proper (equiv ==> equiv) (type_interp rti sr τ)). {
       typeclasses eauto.
     }
     iApply Hproper.
     {
       apply senv_insert_type_proper.
-      apply H0.
+      apply Hequiv.
     }
     done.
-
-*)
-
-    Admitted.
+  Qed.
 
 End fold.

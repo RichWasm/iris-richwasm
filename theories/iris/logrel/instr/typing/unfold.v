@@ -143,14 +143,11 @@ Section unfold.
       done.
     - intros i; destruct i; try done.
       cbn.
-      apply this in H4.
-      (* rewrite <- H4. *)
-      (* done. *)
-      admit.
-    - (* this is whatever the kinding admit above is *)
-      rewrite H0.
+      symmetry.
+      by apply (this _ _ _ Hkind).
+    - rewrite H0.
       exact Hkindτrec.
       Transparent skind_has_svalue.
-  Admitted.
+  Qed.
 
 End unfold.
