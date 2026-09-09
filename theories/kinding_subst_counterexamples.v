@@ -196,7 +196,7 @@ Qed.
 Lemma has_kind_ft_from_insts_and_ok_false :
   ¬ (∀ F ixs ϕ τs1 τs2 L,
         function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) →
-        has_instruction_type_ok F (InstrT τs1 τs2) L →
+        has_instruction_type_ok M F (InstrT τs1 τs2) L →
         has_kind_ft F ϕ).
 Proof.
   intros Hbogus.

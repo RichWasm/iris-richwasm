@@ -68,7 +68,7 @@ Section copy.
     let lmask := wlmask fe wl in
     let ψ := InstrT [τ] [τ; τ] in
     has_ref_flag F τ GCRefs ->
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (ICopy ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.

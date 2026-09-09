@@ -246,7 +246,7 @@ Section load_copy.
     resolves_path τ π None pr ->
     pr.(pr_target) = SerT κser τval ->
     Forall (has_mono_size F) (pr_prefix pr) ->
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π Copy)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
@@ -318,7 +318,7 @@ Section load_copy.
     {
       repeat
         match goal with
-        | H : has_instruction_type_ok _ _ _ |- _ => inversion H; clear H; subst
+        | H : has_instruction_type_ok _ _ _ _ |- _ => inversion H; clear H; subst
         | H : has_mono_rep_instr _ _ |- _ => inversion H; clear H; subst
         | H : Forall _ (_ :: _) |- _ => inversion H; clear H; subst
         | H : Forall _ [] |- _ =>  clear H

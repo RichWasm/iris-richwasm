@@ -30,7 +30,7 @@ Section store_weak.
   Lemma get_all_kinding_info_store_weak_general τ κ μ τval π pr :
     let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
     resolves_path τ π None pr ->
-    ∀ F off ρ se sκ κser L ιs o1,
+    ∀ M F off ρ se sκ κser L ιs o1,
       sem_env_interp F se ->
       path_offset (fe_of_context F) τ π = Some off ->
       Forall (has_mono_size F) pr.(pr_prefix) ->
@@ -39,7 +39,7 @@ Section store_weak.
       (* eval_mem se μ = Some MemMM -> *)
       has_ref_flag F (pr_target pr) GCRefs ->
       pr_target pr = SerT κser τval ->
-      has_instruction_type_ok F ψ L ->
+      has_instruction_type_ok M F ψ L ->
       type_rep (fe_type_vars (fe_of_context F)) τval = Some ρ ->
       eval_rep EmptyEnv ρ = Some ιs ->
       skind_has_svalue sκ (SAtoms [o1]) ->
@@ -73,7 +73,7 @@ Section store_weak.
     {
       repeat
         match goal with
-        | H : has_instruction_type_ok _ _ _ |- _ => inversion H; clear H; subst
+        | H : has_instruction_type_ok _ _ _ _ |- _ => inversion H; clear H; subst
         | H : has_mono_rep_instr _ _ |- _ => inversion H; clear H; subst
         | H : Forall _ (_ :: _) |- _ => inversion H; clear H; subst
         | H : Forall _ [] |- _ =>  clear H
@@ -225,7 +225,7 @@ Section store_weak.
     has_ref_flag F pr.(pr_target) GCRefs ->
     pr.(pr_target) = SerT κser τval ->
     Forall (has_mono_size F) (pr_prefix pr) ->
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
@@ -299,7 +299,7 @@ Section store_weak.
     pose proof
       (get_all_kinding_info_store_weak_general
          τ κ μ τval π pr Hresolves
-         F off ρ se sκ κser L ιs o1
+         M F off ρ se sκ κser L ιs o1
          H Hoff Hmonosize Hsκ Hevalκ Hdrop Hser Htype Hρ Hιs skindsv
       ) as AllKinding.
     destruct AllKinding as

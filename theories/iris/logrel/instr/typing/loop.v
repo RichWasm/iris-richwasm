@@ -20,7 +20,7 @@ Section loop.
     let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs1, L) |> in
     let ψ := InstrT τs1 τs2 in
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     (forall wt wt' wtf wl wl' wlf es',
         let fe' := fe_of_context F' in
         let WT := wt ++ wt' ++ wtf in

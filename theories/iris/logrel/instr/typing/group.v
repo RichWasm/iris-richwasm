@@ -19,7 +19,7 @@ Section group.
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
     let ψ := InstrT τs [ProdT κ τs] in
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (IGroup ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.

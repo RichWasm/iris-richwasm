@@ -27,7 +27,7 @@ Section store_strong.
     let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ; τval]
                [RefT κ' (BaseM MemMM) Mut (pr_replaced pr)] in
     resolves_path τ π (Some (SerT κser τval)) pr ->
-    ∀ F se σ_target ρ_τval L ρ ιs off sκ,
+    ∀ M F se σ_target ρ_τval L ρ ιs off sκ,
       sem_env_interp (Σ:=Σ) F se ->
       path_offset (fe_of_context F) τ π = Some off ->
       Forall (has_mono_size F) (pr_prefix pr) ->
@@ -37,7 +37,7 @@ Section store_strong.
       has_size F (pr_target pr) σ_target ->
       has_rep F τval ρ_τval ->
       eval_size EmptyEnv σ_target = eval_rep_size EmptyEnv ρ_τval ->
-      has_instruction_type_ok F ψ L ->
+      has_instruction_type_ok M F ψ L ->
       type_rep (fe_type_vars (fe_of_context F)) τval = Some ρ ->
       eval_rep EmptyEnv ρ = Some ιs ->
       (∃ σ_τ ξ_τ ξ_τval σ_rep ξ_rep ξ_target sz,
@@ -207,7 +207,7 @@ Section store_strong.
     has_rep F τval ρ ->
     eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
     Forall (has_mono_size F) (pr_prefix pr) ->
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
@@ -282,7 +282,7 @@ Section store_strong.
     pose proof
       (get_all_kinding_info_store_strong
          τ κ τval κ' π pr κser Hresolves
-         F se σ_target ρ_τval L ρ ιs off sκ_ref
+         M F se σ_target ρ_τval L ρ ιs off sκ_ref
          H Hoff Hmonosize Hsκ_ref Hevalκ_ref Hasflag Hsize Hrep Hevalσρ Htype Hρ Hιs
       ) as AllKinding.
     destruct AllKinding as

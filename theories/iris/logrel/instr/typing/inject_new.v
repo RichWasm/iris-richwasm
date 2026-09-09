@@ -22,7 +22,7 @@ Section inject_new.
     let ψ := InstrT [τ] [RefT κr μ Imm (VariantT κv τs')] in
     τs !! i = Some τ ->
     mono_mem μ ->
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (IInjectNew ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Admitted.

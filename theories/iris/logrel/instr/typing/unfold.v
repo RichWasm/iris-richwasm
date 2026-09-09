@@ -23,7 +23,7 @@ Section unfold.
     let lmask := wlmask fe wl in
     let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
     let ψ := InstrT [RecT κ τ] [τ0] in
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (IUnfold ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.

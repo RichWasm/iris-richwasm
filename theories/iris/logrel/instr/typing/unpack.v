@@ -21,7 +21,7 @@ Section unpack.
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
     unpacked_existential F' L ψ L' F0' L0 ψ0 L0' ->
-    has_instruction_type_ok F ψ L' ->
+    has_instruction_type_ok M F ψ L' ->
     (forall wt wt' wtf wl wl' wlf es',
         let fe0' := fe_of_context F0' in
         let WT := wt ++ wt' ++ wtf in

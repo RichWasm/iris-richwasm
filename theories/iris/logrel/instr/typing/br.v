@@ -21,7 +21,7 @@ Section br.
     let ψ := InstrT (τs1 ++ τs) τs2 in
     F.(fc_labels) !! i = Some (τs, L) ->
     Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
-    has_instruction_type_ok F ψ L' ->
+    has_instruction_type_ok M F ψ L' ->
     run_codegen (compile_instr mr fe (IBr ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.

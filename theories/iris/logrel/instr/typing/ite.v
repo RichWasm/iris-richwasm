@@ -20,7 +20,7 @@ Section ite.
     let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
-    has_instruction_type_ok F ψ L' ->
+    has_instruction_type_ok M F ψ L' ->
     (forall wt wt' wtf wl wl' wlf es',
         let fe := fe_of_context F' in
         let WT := wt ++ wt' ++ wtf in

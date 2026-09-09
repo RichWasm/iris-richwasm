@@ -4398,18 +4398,40 @@ Qed.
 
 
 (* And from here on, we move onto has_instruction_type stuff *)
-Definition has_instruction_type_ok_checker F ψ L' : type_checker_res :=
+Definition module_ctx_ok_checker (M : module_ctx) : type_checker_res :=
+  if foldr (λ ϕ, andb (check_ok (has_kind_ft_checker fc_empty) ϕ)) true
+       (M.(mc_functions) ++ M.(mc_table))
+  then ok_term
+  else INR "module ctx not ok".
+
+Lemma module_ctx_ok_checker_correct :
+  ∀ M, module_ctx_ok_checker M = ok_term -> module_ctx_ok M.
+Proof.
+  intros * H.
+  unfold module_ctx_ok_checker in H.
+  destruct foldr eqn:Hfold; last done.
+  apply Forall_app.
+  eapply convert_foldr_to_Forall_check_ok; first done.
+  intros. by apply has_kind_ft_checker_correct.
+Qed.
+
+Definition has_instruction_type_ok_checker M F ψ L' : type_checker_res :=
   match has_mono_rep_instr_checker F ψ with
-  | inl () => local_ctx_ok_checker F L'
+  | inl () =>
+      match local_ctx_ok_checker F L' with
+      | inl () => module_ctx_ok_checker M
+      | err => err
+      end
   | err => err
   end.
 Lemma has_instruction_type_ok_checker_correct :
-  ∀ F ψ L', has_instruction_type_ok_checker F ψ L' = ok_term -> has_instruction_type_ok F ψ L'.
+  ∀ M F ψ L', has_instruction_type_ok_checker M F ψ L' = ok_term -> has_instruction_type_ok M F ψ L'.
 Proof.
   intros. unfold has_instruction_type_ok_checker in H.
   repeat my_auto3.
   apply has_mono_rep_instr_checker_correct in HMatch.
-  apply local_ctx_ok_checker_correct in H.
+  apply local_ctx_ok_checker_correct in HMatch0.
+  apply module_ctx_ok_checker_correct in H.
   split; auto.
 Qed.
 
@@ -4751,7 +4773,11 @@ Fixpoint has_instruction_type_checker
               if list_beq type type_beq τs1 τs2
               then (* Oh and monorep *)
                 if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1
-                then local_ctx_ok_checker F L
+                then
+                  match local_ctx_ok_checker F L with
+                  | inl () => module_ctx_ok_checker M
+                  | err => err
+                  end
                 else INR "bad empty instruction type (can't frame non mono rep)"
               else INR "bad empty instructions type (not empties or frame)"
           end
@@ -4806,11 +4832,11 @@ Fixpoint has_instruction_type_checker
   | INop ψ_inner =>
       if andb (andb (instruction_type_beq ψ (InstrT [] []))
            (instruction_type_beq ψ_inner (InstrT [] []))) (local_ctx_beq L L')
-      then has_instruction_type_ok_checker F ψ L
+      then has_instruction_type_ok_checker M F ψ L
       else INR "incorrect instruction type for nop"
   | IUnreachable ψ_inner =>
       if instruction_type_beq ψ ψ_inner
-      then has_instruction_type_ok_checker F ψ L'
+      then has_instruction_type_ok_checker M F ψ L'
       else INR "incorrect instruction type for unreachable"
   | ICopy ψ_inner =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
@@ -4820,7 +4846,7 @@ Fixpoint has_instruction_type_checker
             if andb (type_beq τ τ1) (type_beq τ1 τ2)
             then
               match has_ref_flag_checker F τ GCRefs with
-              | inl () => has_instruction_type_ok_checker F ψ L
+              | inl () => has_instruction_type_ok_checker M F ψ L
               | _ => INR "incorrect copyability for instruction type for copy"
               end
             else INR "incorrect instruction type for copy"
@@ -4833,7 +4859,7 @@ Fixpoint has_instruction_type_checker
         if (local_ctx_beq L L')
         then
           match ψ with
-          | InstrT [τ] [] => has_instruction_type_ok_checker F ψ L
+          | InstrT [τ] [] => has_instruction_type_ok_checker M F ψ L
           | _ => INR "incorrect instruction type for drop (bad shape)"
           end
         else INR "incorrect instruction type for drop (local ctxs not equal)"
@@ -4842,7 +4868,7 @@ Fixpoint has_instruction_type_checker
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
         match has_instruction_type_num_checker e ψ with
-        | inl () => has_instruction_type_ok_checker F ψ L
+        | inl () => has_instruction_type_ok_checker M F ψ L
         | err => err
         end
       else INR "incorrect instruction type for num"
@@ -4852,7 +4878,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT [] [τ] =>
             if has_num_type_type τ
-            then has_instruction_type_ok_checker F ψ L
+            then has_instruction_type_ok_checker M F ψ L
             else INR "incorrect instruction type for numconst"
         | _ => INR "incorrect instruction type for numconst"
         end
@@ -4864,7 +4890,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT τs1 τs2 =>
             match have_instruction_type_checker M (F <| fc_labels ::= cons (τs2, L') |>) L es ψ L' with
-            | inl () => has_instruction_type_ok_checker F ψ L'
+            | inl () => has_instruction_type_ok_checker M F ψ L'
             | err => err
             end
         end
@@ -4875,7 +4901,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT τs1 τs2 =>
             match have_instruction_type_checker M (F <| fc_labels ::= cons (τs1, L) |>) L es ψ L with
-            | inl () => has_instruction_type_ok_checker F ψ L
+            | inl () => has_instruction_type_ok_checker M F ψ L
             | err => err
             end
         end
@@ -4894,7 +4920,7 @@ Fixpoint has_instruction_type_checker
                   | inl () =>
                       match have_instruction_type_checker M (F <| fc_labels ::= cons (τs2, L') |>) L
                           es2 (InstrT τs1 τs2) L' with
-                      | inl () => has_instruction_type_ok_checker F ψ L'
+                      | inl () => has_instruction_type_ok_checker M F ψ L'
                       | err => err
                       end
                   | err => err
@@ -4916,7 +4942,7 @@ Fixpoint has_instruction_type_checker
                   match list_suffix τs1_full τs with
                   | Some τs1 =>
                       if foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true τs1
-                      then has_instruction_type_ok_checker F ψ L'
+                      then has_instruction_type_ok_checker M F ψ L'
                       else INR "incorrect instruction type for br"
                   | None => INR "incorrect instruction type for br"
                   end
@@ -4934,7 +4960,7 @@ Fixpoint has_instruction_type_checker
             match list_suffix τs1_full τs with
             | Some τs1 =>
                 if foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true τs1
-                then has_instruction_type_ok_checker F ψ L'
+                then has_instruction_type_ok_checker M F ψ L'
                 else INR "incorrect instruction type for return"
             | None => INR "incorrect instruction type for return"
             end
@@ -4954,7 +4980,7 @@ Fixpoint has_instruction_type_checker
                       match has_ref_flag_checker F τ NoRefs with
                       | inl () =>
                           if local_ctx_beq L L'
-                          then has_instruction_type_ok_checker F ψ L
+                          then has_instruction_type_ok_checker M F ψ L
                           else INR "incorrect instruction type for local get"
                       | inr a => inr a
                       end
@@ -4962,7 +4988,7 @@ Fixpoint has_instruction_type_checker
                       match F.(fc_locals) !! i with
                       | Some ηs =>
                           if local_ctx_beq L' (<[ i := type_plug_prim ηs ]> L)
-                          then has_instruction_type_ok_checker F ψ L'
+                          then has_instruction_type_ok_checker M F ψ L'
                           else INR "incorrect instruction type for local get"
                       | None => INR "incorrect instruction type for local get"
                       end
@@ -4984,7 +5010,7 @@ Fixpoint has_instruction_type_checker
                 | InstrT [τ] [] =>
                     let Ltrue := <[ i := τ ]> L in
                     if local_ctx_beq L' Ltrue
-                    then has_instruction_type_ok_checker F ψ L'
+                    then has_instruction_type_ok_checker M F ψ L'
                     else INR "incorrect instruction type for local set (bad resulting local context)"
                 | _ => INR "incorrect instruction type for local set (shape not [τ] -> [])"
                 end
@@ -5001,7 +5027,7 @@ Fixpoint has_instruction_type_checker
             match M.(mc_table) !! i with
             | Some ϕ =>
                 if type_beq τ' (CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ)
-                then has_instruction_type_ok_checker F ψ L
+                then has_instruction_type_ok_checker M F ψ L
                 else INR "incorrect instruction type for coderef"
             | None => INR "incorrect instruction type for coderef"
             end
@@ -5018,7 +5044,7 @@ Fixpoint has_instruction_type_checker
                 if andb (kind_beq κ (VALTYPE (AtomR I32R) NoRefs)) (kind_beq κ κ')
                 then
                   match function_type_inst_checker F ix ϕ ϕ' with
-                  | inl () => has_instruction_type_ok_checker F ψ L
+                  | inl () => has_instruction_type_ok_checker M F ψ L
                   | err => err
                   end
                 else INR "incorrect instruction type for IInst"
@@ -5035,7 +5061,7 @@ Fixpoint has_instruction_type_checker
             match M.(mc_functions) !! i with
             | Some ϕ =>
                 match function_type_insts_checker F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) with
-                | inl () => has_instruction_type_ok_checker F ψ L
+                | inl () => has_instruction_type_ok_checker M F ψ L
                 | err => err
                 end
             | None => INR "incorrect instruction type for call"
@@ -5050,7 +5076,7 @@ Fixpoint has_instruction_type_checker
             match split_list_all_last τs1_full with
             | Some (τs1, τ) =>
                 if type_beq τ (CodeRefT (VALTYPE (AtomR I32R) NoRefs) (InnerFunT (MonoFunT τs1 τs2)))
-                then has_instruction_type_ok_checker F ψ L
+                then has_instruction_type_ok_checker M F ψ L
                 else INR "incorrect instruction type for call indirect"
             | None => INR "incorrect instruction type for call indirect"
             end
@@ -5066,7 +5092,7 @@ Fixpoint has_instruction_type_checker
                 match τs !! i with
                 | Some τ =>
                     if type_beq τ' τ
-                    then has_instruction_type_ok_checker F ψ L
+                    then has_instruction_type_ok_checker M F ψ L
                     else INR "incorrect instruction type for inject"
                 | None => INR "incorrect instruction type for inject"
                 end
@@ -5089,7 +5115,7 @@ Fixpoint has_instruction_type_checker
                         if type_beq τ τ'
                         then
                           match mono_mem_checker μ with
-                          | inl () => has_instruction_type_ok_checker F ψ L
+                          | inl () => has_instruction_type_ok_checker M F ψ L
                           | err => err
                           end
                         else INR "incorrect instruction type for inject new (not matching injections?)"
@@ -5115,7 +5141,7 @@ Fixpoint has_instruction_type_checker
                            andb (check_ok_output
                                    (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
                      ) true false ess τs
-                then has_instruction_type_ok_checker F ψ L'
+                then has_instruction_type_ok_checker M F ψ L'
                 else INR "incorrect instruction type for case (failed looping check)"
             | _ => INR "incorrect instruction type for case (not casing on sum)"
             end
@@ -5148,7 +5174,7 @@ Fixpoint has_instruction_type_checker
                                          andb (check_ok_output
                                                  (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
                                      ) true false ess τs
-                                then has_instruction_type_ok_checker F ψ L'
+                                then has_instruction_type_ok_checker M F ψ L'
                                 else INR "incorrect instruction type for caseloadcopy (failed looping check)"
                               else INR "incorrect instruction type for caseloadcopy (potentially copying mm refs)"
                           | None => INR "incorrect instruction type for caseloadcopy (τs_ser isn't all SerT)"
@@ -5173,7 +5199,7 @@ Fixpoint has_instruction_type_checker
                                  andb (check_ok_output
                                          (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
                              ) true false ess τs
-                        then has_instruction_type_ok_checker F ψ L'
+                        then has_instruction_type_ok_checker M F ψ L'
                         else INR "incorrect instruction type for caseloadmove (failed looping check)"
                     | None => INR "incorrect instruction type for caseloadmove (τs_ser isn't all SerT)"
                     end
@@ -5191,7 +5217,7 @@ Fixpoint has_instruction_type_checker
             match a with
             | ProdT κ τs' =>
                 if list_beq type type_beq τs τs'
-                then has_instruction_type_ok_checker F ψ L
+                then has_instruction_type_ok_checker M F ψ L
                 else INR "incorrect instruction type for group"
             | _ => INR "incorrect instruction type for group (wrong shape)"
             end
@@ -5206,7 +5232,7 @@ Fixpoint has_instruction_type_checker
             match a with
             | ProdT κ τs' =>
                 if list_beq type type_beq τs τs'
-                then has_instruction_type_ok_checker F ψ L
+                then has_instruction_type_ok_checker M F ψ L
                 else INR "incorrect instruction type for ungroup"
             | _ => INR "incorrect instruction type for ungroup (wrong shape)"
             end
@@ -5221,7 +5247,7 @@ Fixpoint has_instruction_type_checker
             match a with
             | RecT κ τ =>
                 if type_beq τ0 (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ)
-                then has_instruction_type_ok_checker F ψ L
+                then has_instruction_type_ok_checker M F ψ L
                 else INR "incorrect instruction type for fold"
             | _ => INR "incorrect instruction type for fold (wrong shape)"
             end
@@ -5236,7 +5262,7 @@ Fixpoint has_instruction_type_checker
             match a with
             | RecT κ τ =>
                 if type_beq τ0 (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ)
-                then has_instruction_type_ok_checker F ψ L
+                then has_instruction_type_ok_checker M F ψ L
                 else INR "incorrect instruction type for unfold"
             | _ => INR "incorrect instruction type for unfold (wrong shape)"
             end
@@ -5249,7 +5275,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT [τ] [τ'] =>
             match packed_existential_checker F τ τ' with
-            | inl () => has_instruction_type_ok_checker F ψ L
+            | inl () => has_instruction_type_ok_checker M F ψ L
             | err => err
             end
         | _ => INR "incorrect instruction type for pack"
@@ -5265,7 +5291,7 @@ Fixpoint has_instruction_type_checker
             | Some (F0', L0, ψ0, L0') =>
                 (* ISSUE RIGHT HERE: the es should be es0 TODO but bad fixpoint  *)
                 match have_instruction_type_checker M F0' L0 es ψ0 L0' with
-                | inl () => has_instruction_type_ok_checker F ψ L'
+                | inl () => has_instruction_type_ok_checker M F ψ L'
                 | err => err
                 end
             | None => INR "incorrect instruction type for unpack (can't construct unpacked)"
@@ -5278,7 +5304,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT [a] [b] =>
             if andb (type_beq a type_i32) (type_beq b type_i31)
-            then has_instruction_type_ok_checker F ψ L
+            then has_instruction_type_ok_checker M F ψ L
             else INR "incorrect instruction type for tag"
         | _ => INR "incorrect instruction type for tag (wrong shape)"
         end
@@ -5289,7 +5315,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT [b] [a] =>
             if andb (type_beq a type_i32) (type_beq b type_i31)
-            then has_instruction_type_ok_checker F ψ L
+            then has_instruction_type_ok_checker M F ψ L
             else INR "incorrect instruction type for untag"
         | _ => INR "incorrect instruction type for untag (wrong shape)"
         end
@@ -5300,7 +5326,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT [τ] [τ'] =>
             match type_eq_checker τ τ' with
-            | inl () => has_instruction_type_ok_checker F ψ L
+            | inl () => has_instruction_type_ok_checker M F ψ L
             | err => err
             end
         | _ => INR "incorrect instruction type for cast (wrong shape)"
@@ -5316,7 +5342,7 @@ Fixpoint has_instruction_type_checker
                 if type_beq τ τ'
                 then
                   match mono_mem_checker μ with
-                  | inl () => has_instruction_type_ok_checker F ψ L
+                  | inl () => has_instruction_type_ok_checker M F ψ L
                   | err => err
                   end
                 else INR "incorrect instruction type for new"
@@ -5345,7 +5371,7 @@ Fixpoint has_instruction_type_checker
                                 match has_ref_flag_checker F τval GCRefs with
                                 | inl () =>
                                     if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
-                                    then has_instruction_type_ok_checker F ψ L
+                                    then has_instruction_type_ok_checker M F ψ L
                                     else INR "incorrect instruction type for load copy (prefix not all mono size)"
                                 | inr a => inr a
                                 end
@@ -5372,7 +5398,7 @@ Fixpoint has_instruction_type_checker
                             match has_size_checker F pr.(pr_target) σ with
                             | inl () =>
                                 if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
-                                    then has_instruction_type_ok_checker F ψ L
+                                    then has_instruction_type_ok_checker M F ψ L
                                     else INR "incorrect instruction type for load move (prefix not all mono size)"
                             | inr a => inr a
                             end
@@ -5404,7 +5430,7 @@ Fixpoint has_instruction_type_checker
                               if type_beq τval τval_inner
                               then
                                 if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
-                                then has_instruction_type_ok_checker F ψ L
+                                then has_instruction_type_ok_checker M F ψ L
                                 else INR "incorrect instruction type for weak store (prefix not all mono size)"
                               else INR "incorrect instruction type for weak store (target ser bad inner type)"
                           | _ => INR "inocrrect instruction type for weak store (target not ser)"
@@ -5433,7 +5459,7 @@ Fixpoint has_instruction_type_checker
                                         match eval_size EmptyEnv σ, eval_rep_size EmptyEnv ρ with
                                         | Some n1, Some n2 =>
                                             if andb (n1 =? n2) (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
-                                            then has_instruction_type_ok_checker F ψ L
+                                            then has_instruction_type_ok_checker M F ψ L
                                             else INR "incorrect instruction type for strong store (prefix not all mono size)"
                                         | _, _ => INR "inc instr type for strong store (unmatching sizes)"
                                         end
@@ -5471,7 +5497,7 @@ Fixpoint has_instruction_type_checker
                               if type_beq τval τval_inner
                               then
                                 if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
-                                then has_instruction_type_ok_checker F ψ L
+                                then has_instruction_type_ok_checker M F ψ L
                                 else INR "improper synthesized path target"
                               else INR "improper synthesized path target"
                           | _ => INR "improper synthesized path target"
@@ -5501,7 +5527,11 @@ Fixpoint have_instruction_type_checker
               if list_beq type type_beq τs1 τs2
               then
                 if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1
-                then local_ctx_ok_checker F L
+                then
+                  match local_ctx_ok_checker F L with
+                  | inl () => module_ctx_ok_checker M
+                  | err => err
+                  end
                 else INR "bad empty instruction type (can't frame non mono rep)"
               else INR "bad empty instructions type (not empties or frame)"
           end
@@ -5801,8 +5831,8 @@ Ltac my_auto5 :=
   | H: (function_type_insts_checker _ _ _ _ = ok_term) |- _ => apply function_type_insts_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = inl ()) |- _ => apply has_kind_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = ok_term) |- _ => apply has_kind_checker_correct in H; auto
-  | H: (has_instruction_type_ok_checker _ _ _ = ok_term) |- _ => apply has_instruction_type_ok_checker_correct in H; auto
-  | H: (has_instruction_type_ok_checker _ _ _ = inl ()) |- _ => apply has_instruction_type_ok_checker_correct in H; auto
+  | H: (has_instruction_type_ok_checker _ _ _ _ = ok_term) |- _ => apply has_instruction_type_ok_checker_correct in H; auto
+  | H: (has_instruction_type_ok_checker _ _ _ _ = inl ()) |- _ => apply has_instruction_type_ok_checker_correct in H; auto
   | H: (has_instruction_type_num_checker _ _ = ok_term) |- _ => apply has_instruction_type_num_checker_correct in H; auto
   | H: (has_instruction_type_num_checker _ _ = inl ()) |- _ => apply has_instruction_type_num_checker_correct in H; auto
   | H: (has_ref_flag_checker _ _ _ = ok_term) |- _ => apply has_ref_flag_checker_correct in H; auto
@@ -5930,7 +5960,11 @@ Proof.
               if list_beq type type_beq τs1 τs2
               then
                 if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1
-                then local_ctx_ok_checker F L
+                then
+                  match local_ctx_ok_checker F L with
+                  | inl () => module_ctx_ok_checker M
+                  | err => err
+                  end
                 else INR "bad empty instruction type (can't frame non mono rep)"
               else INR "bad empty instructions type (not empties or frame)"
           end
@@ -6013,6 +6047,7 @@ Proof.
     convert_foldr
       (λ t:type, check_ok_output (has_mono_rep_checker F t ))
       (fun t => has_mono_rep F t) τs HMatch0.
+    apply module_ctx_ok_checker_correct in H1.
     induction τs.
     - by constructor.
     - apply Forall_cons_1 in HMatch0 as [Ha Hτs].
@@ -6225,6 +6260,7 @@ Proof.
     convert_foldr
       (λ t:type, check_ok_output (has_mono_rep_checker F t ))
       (fun t => has_mono_rep F t) τs HMatch0.
+    apply module_ctx_ok_checker_correct in H1.
     induction τs.
     + by constructor.
     + apply Forall_cons_1 in HMatch0 as [Ha Hτs].

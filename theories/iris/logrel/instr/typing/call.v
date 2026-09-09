@@ -125,8 +125,8 @@ Section call.
     iPoseProof (H3 with "[$Hcl]") as "Hcl2"; try done.
   Qed.
 
-  Lemma has_kind_ft_from_ok F τs1 τs2 L :
-    has_instruction_type_ok F (InstrT τs1 τs2) L ->
+  Lemma has_kind_ft_from_ok M F τs1 τs2 L :
+    has_instruction_type_ok M F (InstrT τs1 τs2) L ->
     has_kind_ft F (InnerFunT (MonoFunT τs1 τs2)).
   Proof.
     intros Hok.
@@ -162,9 +162,9 @@ Section call.
   (* should be true, but requires an actual fully fleged subsitution lemma most likely *)
   (* but for has_kind which. not now. *)
   (* base case is fine though *)
-  Lemma has_kind_ft_from_insts_and_ok F ixs ϕ τs1 τs2 L :
+  Lemma has_kind_ft_from_insts_and_ok M F ixs ϕ τs1 τs2 L :
     function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
-    has_instruction_type_ok F (InstrT τs1 τs2) L ->
+    has_instruction_type_ok M F (InstrT τs1 τs2) L ->
     has_kind_ft F ϕ.
   Proof.
     remember (InnerFunT (MonoFunT τs1 τs2)) as ϕ'.
@@ -213,7 +213,7 @@ Section call.
     let ψ := InstrT τs1 τs2 in
     M.(mc_functions) !! i = Some ϕ ->
     function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (ICall ψ i ixs)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.

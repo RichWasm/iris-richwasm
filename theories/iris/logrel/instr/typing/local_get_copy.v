@@ -21,7 +21,7 @@ Section local_get_copy.
     let ψ := InstrT [] [τ] in
     L !! i = Some τ ->
     has_ref_flag F τ NoRefs ->
-    has_instruction_type_ok F ψ L ->
+    has_instruction_type_ok M F ψ L ->
     run_codegen (compile_instr mr fe (ILocalGet ψ Copy i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
@@ -122,7 +122,7 @@ Section local_get_copy.
     iIntros (?? [-> ->]).
     iSplit; first done.
 
-    inversion Hok; subst.
+    destruct Hok as (H & H0 & Hok_M); subst.
     have Htype_rep := Forall2_lookup_lr _ _ _ _ _ _ H0 Hlookup_L_i Hlookup_fe_i.
     destruct Htype_rep as (ρ & Hhas_rep & Heval_rep_prim).
 
