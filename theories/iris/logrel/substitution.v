@@ -260,6 +260,47 @@ Section substitution.
     mem_ref_flag μ = mem_ref_flag (ren_memory ξm μ).
   Proof. by destruct μ. Qed.
 
+  Lemma ref_flag_le_any ξ : ref_flag_le ξ AnyRefs.
+  Proof. by destruct ξ. Qed.
+
+  Lemma mem_ref_flag_subst sub_m μ :
+    ref_flag_le (mem_ref_flag (subst_memory sub_m μ)) (mem_ref_flag μ).
+  Proof.
+    destruct μ; cbn; [apply ref_flag_le_any | apply ref_flag_le_refl].
+  Qed.
+
+  Lemma ref_flag_lub2_mono a a' b b' :
+    ref_flag_le a a' -> ref_flag_le b b' -> ref_flag_le (ref_flag_lub2 a b) (ref_flag_lub2 a' b').
+  Proof.
+    intros Ha Hb.
+    destruct a, a', b, b'; cbn in *; done.
+  Qed.
+
+  Lemma ref_flag_lub_mono ξs' ξs :
+    Forall2 ref_flag_le ξs' ξs ->
+    ref_flag_le (ref_flag_lub ξs') (ref_flag_lub ξs).
+  Proof.
+    induction 1 as [|ξ' ξ ξs0' ξs0 Hle Hrest IH].
+    - done.
+    - cbn. apply ref_flag_lub2_mono; done.
+  Qed.
+
+  Lemma has_kind_ref_kind F μ β τ κ :
+    has_kind F (RefT μ β τ) κ -> κ = VALTYPE (AtomR PtrR) (mem_ref_flag μ).
+  Proof.
+    destruct μ as [m|[]]; intros H; inversion H; subst; done.
+  Qed.
+
+  Lemma Forall3_map_l_inv {A B C A' : Type} (f : A -> A') (P : A' -> B -> C -> Prop)
+    (l : list A) (k : list B) (k' : list C) :
+    Forall3 P (map f l) k k' -> Forall3 (fun x y z => P (f x) y z) l k k'.
+  Proof.
+    revert k k'.
+    induction l as [|x l IH]; intros k k' H.
+    - cbn in H. inversion H; subst. constructor.
+    - cbn in H. inversion H; subst. constructor; auto.
+  Qed.
+
   Lemma type_skind_ren τ :
     forall ξm ξr ξs ξt se se',
     sem_env_ren ξm ξr ξs ξt se se' →
@@ -925,9 +966,323 @@ Section substitution.
     cbn.
     iSplitR; iIntros; done.
   Qed.
-(* NOT DONE P:H QUITE FUNDAMENTAL *)
-  (* I wonder if some of of the hypotheses can be deleted *)
-  (* probably, but maybe not  *)
+  Lemma type_skind_agg_val τs :
+    Forall (fun τ0 => forall F F' κ0 κ0' se se' sub_m sub_r sub_s sub_t,
+      has_kind F' τ0 κ0 -> has_kind F (subst_type sub_m sub_r sub_s sub_t τ0) κ0' ->
+      sem_env_rel_rep_eq se' se sub_r -> sem_env_rel_size_eq se' se sub_s ->
+      sem_env_rel_sκ_eq se' se sub_t -> sem_env_interp F' se' -> sem_env_interp F se ->
+      subskind_of_option (type_skind se (subst_type sub_m sub_r sub_s sub_t τ0)) (type_skind se' τ0)) τs ->
+    forall F F' se se' sub_m sub_r sub_s sub_t ρs ξs ρs' ξs',
+    Forall3 (fun τ ρ ξ => has_kind F' τ (VALTYPE ρ ξ)) τs ρs ξs ->
+    Forall3 (fun τ ρ' ξ' => has_kind F (subst_type sub_m sub_r sub_s sub_t τ) (VALTYPE ρ' ξ')) τs ρs' ξs' ->
+    sem_env_rel_rep_eq se' se sub_r -> sem_env_rel_size_eq se' se sub_s ->
+    sem_env_rel_sκ_eq se' se sub_t -> sem_env_interp F' se' -> sem_env_interp F se ->
+    Forall2 (fun ρ0' ρ0 => eval_rep se ρ0' = eval_rep se' ρ0) ρs' ρs /\ Forall2 ref_flag_le ξs' ξs.
+  Proof.
+    induction τs as [|τ0 τs IH];
+      intros HallIH F F' se se' sub_m sub_r sub_s sub_t ρs ξs ρs' ξs' HF3_1 HF3_2 Hsr Hss Hst Hse' Hse.
+    - inversion HF3_1; subst. inversion HF3_2; subst. done.
+    - apply Forall_cons_1 in HallIH as [Hτ0_IH HallIH'].
+      inversion HF3_1 as [|? ρ ξ ? ρs0 ξs0 Hτ0κ HF3_1' Heq1 Heq2 Heq3]; subst.
+      inversion HF3_2 as [|? ρ' ξ' ? ρs0' ξs0' Hτ0κ' HF3_2' Heq1' Heq2' Heq3']; subst.
+      specialize (IH HallIH' F F' se se' sub_m sub_r sub_s sub_t ρs0 ξs0 ρs0' ξs0' HF3_1' HF3_2' Hsr Hss Hst Hse' Hse)
+        as [Hmm Hle].
+      specialize (Hτ0_IH F F' (VALTYPE ρ ξ) (VALTYPE ρ' ξ') se se' sub_m sub_r sub_s sub_t
+                    Hτ0κ Hτ0κ' Hsr Hss Hst Hse' Hse).
+      destruct (eval_kind_ok_Some F' se' (VALTYPE ρ ξ) Hse'
+                  (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hτ0κ))) as [skκ Hevalκ].
+      destruct (eval_kind_ok_Some F se (VALTYPE ρ' ξ') Hse
+                  (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hτ0κ'))) as [skκ' Hevalκ'].
+      pose proof (type_skind_has_kind_Some F' se' τ0 (VALTYPE ρ ξ) skκ Hτ0κ Hse' Hevalκ) as Ht1.
+      pose proof (type_skind_has_kind_Some F se (subst_type sub_m sub_r sub_s sub_t τ0) (VALTYPE ρ' ξ') skκ'
+                    Hτ0κ' Hse Hevalκ') as Ht2.
+      rewrite Ht1 Ht2 in Hτ0_IH.
+      cbn in Hτ0_IH.
+      cbn in Hevalκ; apply bind_Some in Hevalκ as (sρ & Hsρ & Heqk); inversion Heqk; subst skκ.
+      cbn in Hevalκ'; apply bind_Some in Hevalκ' as (sρ' & Hsρ' & Heqk'); inversion Heqk'; subst skκ'.
+      inversion Hτ0_IH; subst.
+      split; constructor; auto.
+      by rewrite Hsρ Hsρ'.
+  Qed.
+
+  Lemma type_skind_agg_mem τs :
+    Forall (fun τ0 => forall F F' κ0 κ0' se se' sub_m sub_r sub_s sub_t,
+      has_kind F' τ0 κ0 -> has_kind F (subst_type sub_m sub_r sub_s sub_t τ0) κ0' ->
+      sem_env_rel_rep_eq se' se sub_r -> sem_env_rel_size_eq se' se sub_s ->
+      sem_env_rel_sκ_eq se' se sub_t -> sem_env_interp F' se' -> sem_env_interp F se ->
+      subskind_of_option (type_skind se (subst_type sub_m sub_r sub_s sub_t τ0)) (type_skind se' τ0)) τs ->
+    forall F F' se se' sub_m sub_r sub_s sub_t σs ξs σs' ξs',
+    Forall3 (fun τ σ ξ => has_kind F' τ (MEMTYPE σ ξ)) τs σs ξs ->
+    Forall3 (fun τ σ' ξ' => has_kind F (subst_type sub_m sub_r sub_s sub_t τ) (MEMTYPE σ' ξ')) τs σs' ξs' ->
+    sem_env_rel_rep_eq se' se sub_r -> sem_env_rel_size_eq se' se sub_s ->
+    sem_env_rel_sκ_eq se' se sub_t -> sem_env_interp F' se' -> sem_env_interp F se ->
+    Forall2 (fun σ0' σ0 => eval_size se σ0' = eval_size se' σ0) σs' σs /\ Forall2 ref_flag_le ξs' ξs.
+  Proof.
+    induction τs as [|τ0 τs IH];
+      intros HallIH F F' se se' sub_m sub_r sub_s sub_t σs ξs σs' ξs' HF3_1 HF3_2 Hsr Hss Hst Hse' Hse.
+    - inversion HF3_1; subst. inversion HF3_2; subst. done.
+    - apply Forall_cons_1 in HallIH as [Hτ0_IH HallIH'].
+      inversion HF3_1 as [|? σ ξ ? σs0 ξs0 Hτ0κ HF3_1' Heq1 Heq2 Heq3]; subst.
+      inversion HF3_2 as [|? σ' ξ' ? σs0' ξs0' Hτ0κ' HF3_2' Heq1' Heq2' Heq3']; subst.
+      specialize (IH HallIH' F F' se se' sub_m sub_r sub_s sub_t σs0 ξs0 σs0' ξs0' HF3_1' HF3_2' Hsr Hss Hst Hse' Hse)
+        as [Hmm Hle].
+      specialize (Hτ0_IH F F' (MEMTYPE σ ξ) (MEMTYPE σ' ξ') se se' sub_m sub_r sub_s sub_t
+                    Hτ0κ Hτ0κ' Hsr Hss Hst Hse' Hse).
+      destruct (eval_kind_ok_Some F' se' (MEMTYPE σ ξ) Hse'
+                  (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hτ0κ))) as [skκ Hevalκ].
+      destruct (eval_kind_ok_Some F se (MEMTYPE σ' ξ') Hse
+                  (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hτ0κ'))) as [skκ' Hevalκ'].
+      pose proof (type_skind_has_kind_Some F' se' τ0 (MEMTYPE σ ξ) skκ Hτ0κ Hse' Hevalκ) as Ht1.
+      pose proof (type_skind_has_kind_Some F se (subst_type sub_m sub_r sub_s sub_t τ0) (MEMTYPE σ' ξ') skκ'
+                    Hτ0κ' Hse Hevalκ') as Ht2.
+      rewrite Ht1 Ht2 in Hτ0_IH.
+      cbn in Hτ0_IH.
+      cbn in Hevalκ; apply bind_Some in Hevalκ as (sσ & Hsσ & Heqk); inversion Heqk; subst skκ.
+      cbn in Hevalκ'; apply bind_Some in Hevalκ' as (sσ' & Hsσ' & Heqk'); inversion Heqk'; subst skκ'.
+      inversion Hτ0_IH; subst.
+      split; constructor; auto.
+      by rewrite Hsσ Hsσ'.
+  Qed.
+
+  Lemma type_skind_refresh_subst_senv_eq_aux τ :
+    forall F F' κ κ' (se se' : semantic_env (Σ:=Σ)) sub_m sub_r sub_s sub_t,
+    has_kind F' τ κ ->
+    has_kind F (subst_type sub_m sub_r sub_s sub_t τ) κ' ->
+    sem_env_rel_rep_eq se' se sub_r ->
+    sem_env_rel_size_eq se' se sub_s ->
+    sem_env_rel_sκ_eq se' se sub_t ->
+    sem_env_interp F' se' ->
+    sem_env_interp F se ->
+    subskind_of_option (type_skind se (subst_type sub_m sub_r sub_s sub_t τ)) (type_skind se' τ).
+  Proof.
+    induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True);
+      try (intros F F' κ κ' se se' sub_m sub_r sub_s sub_t Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hse' Hse;
+           cbn [type_skind subst_type]; cbn -[type_skind_go]).
+    - (* VarT *)
+      cbn [type_skind_go].
+      exact (Hsub_t idx).
+    - (* I31T *)
+      apply subskind_of_option_refl.
+    - (* NumT *)
+      destruct nt as [[]|[]]; apply subskind_of_option_refl.
+    - (* SumT *)
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      match goal with
+      | H1 : Forall3 (fun τ ρ ξ => has_kind F' τ (VALTYPE ρ ξ)) _ ?ρs0 ?ξs0 |- _ =>
+          rename H1 into HF3_1; rename ρs0 into ρs; rename ξs0 into ξs
+      end.
+      match goal with
+      | H1 : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) _ ?ρs0 ?ξs0 |- _ =>
+          rename H1 into HF3_2; rename ρs0 into ρs'; rename ξs0 into ξs'
+      end.
+      apply Forall3_map_l_inv in HF3_2.
+      destruct (type_skind_agg_val τs H F F' se se' sub_m sub_r sub_s sub_t ρs ξs ρs' ξs'
+                  HF3_1 HF3_2 Hsub_r Hsub_s Hsub_t Hse' Hse) as [Hmm Hle].
+      apply Forall2_mapM_ext in Hmm.
+      destruct (eval_kind_ok_Some F' se' _ Hse' (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ)))
+        as [skκ Hevalκ].
+      destruct (eval_kind_ok_Some F se _ Hse (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ')))
+        as [skκ' Hevalκ'].
+      pose proof (type_skind_has_kind_Some F' se' (SumT τs) _ skκ Hkind_τ Hse' Hevalκ) as Ht1.
+      pose proof (type_skind_has_kind_Some F se (subst_type sub_m sub_r sub_s sub_t (SumT τs)) _ skκ'
+                    Hkind_τ' Hse Hevalκ') as Ht2.
+      cbn -[type_skind_go] in Ht1, Ht2.
+      cbn [type_skind subst_type].
+      rewrite Ht1 Ht2.
+      assert (Heqrep : eval_rep se (SumR ρs') = eval_rep se' (SumR ρs)) by (cbn; by rewrite Hmm).
+      cbn -[eval_rep eval_size] in Hevalκ, Hevalκ'.
+      rewrite Heqrep in Hevalκ'.
+      destruct (eval_rep se' (SumR ρs)) as [sρ|] eqn:Heqsp; cbn in Hevalκ, Hevalκ'; try done.
+      inversion Hevalκ; inversion Hevalκ'; subst.
+      cbn.
+      constructor.
+      apply ref_flag_lub_mono, Hle.
+    - (* VariantT *)
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      match goal with
+      | H1 : Forall3 (fun τ σ ξ => has_kind F' τ (MEMTYPE σ ξ)) _ ?σs0 ?ξs0 |- _ =>
+          rename H1 into HF3_1; rename σs0 into σs; rename ξs0 into ξs
+      end.
+      match goal with
+      | H1 : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) _ ?σs0 ?ξs0 |- _ =>
+          rename H1 into HF3_2; rename σs0 into σs'; rename ξs0 into ξs'
+      end.
+      apply Forall3_map_l_inv in HF3_2.
+      destruct (type_skind_agg_mem τs H F F' se se' sub_m sub_r sub_s sub_t σs ξs σs' ξs'
+                  HF3_1 HF3_2 Hsub_r Hsub_s Hsub_t Hse' Hse) as [Hmm Hle].
+      apply Forall2_mapM_ext in Hmm.
+      destruct (eval_kind_ok_Some F' se' _ Hse' (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ)))
+        as [skκ Hevalκ].
+      destruct (eval_kind_ok_Some F se _ Hse (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ')))
+        as [skκ' Hevalκ'].
+      pose proof (type_skind_has_kind_Some F' se' (VariantT τs) _ skκ Hkind_τ Hse' Hevalκ) as Ht1.
+      pose proof (type_skind_has_kind_Some F se (subst_type sub_m sub_r sub_s sub_t (VariantT τs)) _ skκ'
+                    Hkind_τ' Hse Hevalκ') as Ht2.
+      cbn -[type_skind_go] in Ht1, Ht2.
+      cbn [type_skind subst_type].
+      rewrite Ht1 Ht2.
+      assert (Heqsize : eval_size se (SumS σs') = eval_size se' (SumS σs)) by (cbn; by rewrite Hmm).
+      cbn -[eval_rep eval_size] in Hevalκ, Hevalκ'.
+      rewrite Heqsize in Hevalκ'.
+      destruct (eval_size se' (SumS σs)) as [sσ|] eqn:Heqsz; cbn in Hevalκ, Hevalκ'; try done.
+      inversion Hevalκ; inversion Hevalκ'; subst.
+      cbn.
+      constructor.
+      apply ref_flag_lub_mono, Hle.
+    - (* ProdT *)
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      match goal with
+      | H1 : Forall3 (fun τ ρ ξ => has_kind F' τ (VALTYPE ρ ξ)) _ ?ρs0 ?ξs0 |- _ =>
+          rename H1 into HF3_1; rename ρs0 into ρs; rename ξs0 into ξs
+      end.
+      match goal with
+      | H1 : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) _ ?ρs0 ?ξs0 |- _ =>
+          rename H1 into HF3_2; rename ρs0 into ρs'; rename ξs0 into ξs'
+      end.
+      apply Forall3_map_l_inv in HF3_2.
+      destruct (type_skind_agg_val τs H F F' se se' sub_m sub_r sub_s sub_t ρs ξs ρs' ξs'
+                  HF3_1 HF3_2 Hsub_r Hsub_s Hsub_t Hse' Hse) as [Hmm Hle].
+      apply Forall2_mapM_ext in Hmm.
+      destruct (eval_kind_ok_Some F' se' _ Hse' (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ)))
+        as [skκ Hevalκ].
+      destruct (eval_kind_ok_Some F se _ Hse (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ')))
+        as [skκ' Hevalκ'].
+      pose proof (type_skind_has_kind_Some F' se' (ProdT τs) _ skκ Hkind_τ Hse' Hevalκ) as Ht1.
+      pose proof (type_skind_has_kind_Some F se (subst_type sub_m sub_r sub_s sub_t (ProdT τs)) _ skκ'
+                    Hkind_τ' Hse Hevalκ') as Ht2.
+      cbn -[type_skind_go] in Ht1, Ht2.
+      cbn [type_skind subst_type].
+      rewrite Ht1 Ht2.
+      assert (Heqrep : eval_rep se (ProdR ρs') = eval_rep se' (ProdR ρs)) by (cbn; by rewrite Hmm).
+      cbn -[eval_rep eval_size] in Hevalκ, Hevalκ'.
+      rewrite Heqrep in Hevalκ'.
+      destruct (eval_rep se' (ProdR ρs)) as [sρ|] eqn:Heqsp; cbn in Hevalκ, Hevalκ'; try done.
+      inversion Hevalκ; inversion Hevalκ'; subst.
+      cbn.
+      constructor.
+      apply ref_flag_lub_mono, Hle.
+    - (* StructT *)
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      match goal with
+      | H1 : Forall3 (fun τ σ ξ => has_kind F' τ (MEMTYPE σ ξ)) _ ?σs0 ?ξs0 |- _ =>
+          rename H1 into HF3_1; rename σs0 into σs; rename ξs0 into ξs
+      end.
+      match goal with
+      | H1 : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) _ ?σs0 ?ξs0 |- _ =>
+          rename H1 into HF3_2; rename σs0 into σs'; rename ξs0 into ξs'
+      end.
+      apply Forall3_map_l_inv in HF3_2.
+      destruct (type_skind_agg_mem τs H F F' se se' sub_m sub_r sub_s sub_t σs ξs σs' ξs'
+                  HF3_1 HF3_2 Hsub_r Hsub_s Hsub_t Hse' Hse) as [Hmm Hle].
+      apply Forall2_mapM_ext in Hmm.
+      destruct (eval_kind_ok_Some F' se' _ Hse' (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ)))
+        as [skκ Hevalκ].
+      destruct (eval_kind_ok_Some F se _ Hse (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ')))
+        as [skκ' Hevalκ'].
+      pose proof (type_skind_has_kind_Some F' se' (StructT τs) _ skκ Hkind_τ Hse' Hevalκ) as Ht1.
+      pose proof (type_skind_has_kind_Some F se (subst_type sub_m sub_r sub_s sub_t (StructT τs)) _ skκ'
+                    Hkind_τ' Hse Hevalκ') as Ht2.
+      cbn -[type_skind_go] in Ht1, Ht2.
+      cbn [type_skind subst_type].
+      rewrite Ht1 Ht2.
+      assert (Heqsize : eval_size se (ProdS σs') = eval_size se' (ProdS σs)) by (cbn; by rewrite Hmm).
+      cbn -[eval_rep eval_size] in Hevalκ, Hevalκ'.
+      rewrite Heqsize in Hevalκ'.
+      destruct (eval_size se' (ProdS σs)) as [sσ|] eqn:Heqsz; cbn in Hevalκ, Hevalκ'; try done.
+      inversion Hevalκ; inversion Hevalκ'; subst.
+      cbn.
+      constructor.
+      apply ref_flag_lub_mono, Hle.
+    - (* RefT *)
+      pose proof (has_kind_ref_kind _ _ _ _ _ Hkind_τ) as Hκeq.
+      pose proof (has_kind_ref_kind _ _ _ _ _ Hkind_τ') as Hκeq'.
+      subst κ κ'.
+      destruct (eval_kind_ok_Some F' se' _ Hse' (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ)))
+        as [skκ Hevalκ].
+      destruct (eval_kind_ok_Some F se _ Hse (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ')))
+        as [skκ' Hevalκ'].
+      pose proof (type_skind_has_kind_Some F' se' _ _ skκ Hkind_τ Hse' Hevalκ) as Ht1.
+      pose proof (type_skind_has_kind_Some F se _ _ skκ' Hkind_τ' Hse Hevalκ') as Ht2.
+      cbn -[type_skind_go] in Ht1, Ht2.
+      cbn [type_skind subst_type].
+      rewrite Ht1 Ht2.
+      cbn in Hevalκ, Hevalκ'.
+      inversion Hevalκ; subst skκ; clear Hevalκ.
+      inversion Hevalκ'; subst skκ'; clear Hevalκ'.
+      cbn.
+      constructor.
+      apply mem_ref_flag_subst.
+    - (* CodeRefT *)
+      apply subskind_of_option_refl.
+    - (* SerT *)
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      match goal with
+      | H1 : has_kind F' τ (VALTYPE _ _) |- _ => rename H1 into Hchild
+      end.
+      match goal with
+      | H1 : has_kind F (subst_type sub_m sub_r sub_s sub_t τ) (VALTYPE _ _) |- _ => rename H1 into Hchild'
+      end.
+      destruct (eval_kind_ok_Some F' se' _ Hse' (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hchild)))
+        as [skκ Hevalκ].
+      destruct (eval_kind_ok_Some F se _ Hse (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hchild')))
+        as [skκ' Hevalκ'].
+      pose proof (type_skind_has_kind_Some F' se' τ _ skκ Hchild Hse' Hevalκ) as Ht1.
+      pose proof (type_skind_has_kind_Some F se (subst_type sub_m sub_r sub_s sub_t τ) _ skκ'
+                    Hchild' Hse Hevalκ') as Ht2.
+      match goal with
+      | IH : forall F0 F0' κ0 κ0' se0 se0' sub_m0 sub_r0 sub_s0 sub_t0, _ |- _ =>
+          pose proof (IH F F' _ _ se se' sub_m sub_r sub_s sub_t Hchild Hchild' Hsub_r Hsub_s Hsub_t Hse' Hse)
+            as Hτ0_IH
+      end.
+      rewrite Ht1 Ht2 in Hτ0_IH.
+      cbn in Hτ0_IH.
+      cbn in Hevalκ; apply bind_Some in Hevalκ as (sρ & Hsρ & Heqκ); inversion Heqκ; subst skκ.
+      cbn in Hevalκ'; apply bind_Some in Hevalκ' as (sρ' & Hsρ' & Heqκ'); inversion Heqκ'; subst skκ'.
+      inversion Hτ0_IH; subst.
+      cbn -[type_skind_go] in Ht1, Ht2.
+      cbn [type_skind_go].
+      rewrite Ht1 Ht2.
+      cbn.
+      constructor.
+      done.
+    - (* PlugT *)
+      cbn.
+      by rewrite <- (eval_rep_subst_senv_eq se se' sub_r _ Hsub_r); apply subskind_of_option_refl.
+    - (* SpanT *)
+      cbn.
+      by rewrite <- (eval_size_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s); apply subskind_of_option_refl.
+    - (* RecT *)
+      intros F F' κ0 κ0' se se' sub_m sub_r sub_s sub_t Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hse' Hse.
+      cbn.
+      by rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s); apply subskind_of_option_refl.
+    - (* ExistsMemT *)
+      intros F F' κ0 κ0' se se' sub_m sub_r sub_s sub_t Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hse' Hse.
+      cbn.
+      by rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s); apply subskind_of_option_refl.
+    - (* ExistsRepT *)
+      intros F F' κ0 κ0' se se' sub_m sub_r sub_s sub_t Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hse' Hse.
+      cbn.
+      by rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s); apply subskind_of_option_refl.
+    - (* ExistsSizeT *)
+      intros F F' κ0 κ0' se se' sub_m sub_r sub_s sub_t Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hse' Hse.
+      cbn.
+      by rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s); apply subskind_of_option_refl.
+    - (* ExistsTypeT *)
+      cbn.
+      by rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s); apply subskind_of_option_refl.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+  Qed.
+
   Lemma type_skind_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s sub_t τ κ κ' :
     let τ' := (subst_type sub_m sub_r sub_s sub_t τ) in
     has_kind F' τ κ ->
@@ -942,14 +1297,10 @@ Section substitution.
       (type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ))
       (type_skind (Σ:=Σ) se' τ).
   Proof.
-    (* Relied on [kind_of_node]/[kind_of_node_good] (deleted): the aggregate
-       kind of a substituted Sum/Variant/Prod/Struct/Ser now has to be
-       derived directly from the substituted children's [has_kind]
-       derivations rather than by comparing against a cached node kind. Was
-       already only partially proved (ending in [Admitted], several cases
-       via fragile bullet numbers) before this refactor too. Left admitted.
-    *)
-  Admitted.
+    intros τ' Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hsub_t_good Hse' Hse.
+    exact (type_skind_refresh_subst_senv_eq_aux τ F F' κ κ' se se' sub_m sub_r sub_s sub_t
+             Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hse' Hse).
+  Qed.
   (*
     unfold_sem_rels.
     intros Hkind_τ.
@@ -1103,11 +1454,25 @@ Section substitution.
 
     assert (Y: mapM (translate_type se') τs =
                  mapM (translate_type se) τs'). {
-      (* okay we use Forall_mapM_ext along with translate_type_subst_senv_eq and we're done *)
-      admit.
+      subst τs'.
+      assert (HF : Forall (fun τ => translate_type se' τ =
+                                     translate_type se (subst_type sub_m sub_r sub_s sub_t τ)) τs).
+      { generalize dependent κs'.
+        generalize dependent κs.
+        induction τs as [|τ τs0 IHτs]; intros κs Hkind_τs κs' Hkind_τs'.
+        - constructor.
+        - apply Forall2_cons_inv_l in Hkind_τs as (κ & κs00 & Hkτ & Hkτs & ->).
+          apply Forall2_cons_inv_l in Hkind_τs' as (κ' & κs00' & Hkτ' & Hkτs' & ->).
+          constructor.
+          + exact (translate_type_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s sub_t τ κ κ'
+                     Hkτ Hkτ' Hsub_r Hsub_s Hsub_t Hsub_t_good Hse' Hse).
+          + exact (IHτs κs00 Hkτs κs00' Hkτs').
+      }
+      exact (Forall_mapM_map_ext (translate_type se') (translate_type se)
+               (subst_type sub_m sub_r sub_s sub_t) τs HF).
     }
     rewrite Y; done.
-  Admitted.
+  Qed.
 
   (* probably move elsewhere *)
   Lemma ref_flag_le_preserves_atoms_interp ξ ξ' os:
@@ -1193,7 +1558,55 @@ Section substitution.
       iSplitR; first done.
       iSplitR; first done.
       done.
-  Admitted.
+    - (* substed -> unsubted *)
+      iIntros "Ht".
+      rewrite !type_interp_eq.
+      unfold add_skind_interp.
+      cbn.
+      iDestruct "Ht" as "(%sκ & %toinv & %NoRefsSk & Ht)".
+      inversion toinv; subst; clear toinv.
+      destruct NoRefsSk as (HasArepsSV & NoRefsSV).
+      iExists (SVALTYPE [PtrR;I32R] AnyRefs).
+      iSplitR; first done.
+      iDestruct "Ht" as "(%wss & -> & Ht)".
+      iPoseProof (big_sepL2_cons_inv_l with "[$Ht]") as "Ht".
+      iDestruct "Ht" as "(%osvar & %oss32 & -> & Htvar & Ht32)".
+      iPoseProof (big_sepL2_cons_inv_l with "[$Ht32]") as "Ht32".
+      iDestruct "Ht32" as "(%os32 & %ostoinv & -> & Ht32 & Hempty)".
+      iPoseProof (big_sepL2_length with "[$Hempty]") as "%leninv".
+      destruct ostoinv; try (inversion leninv; done); clear leninv.
+      iClear "Hempty".
+      Transparent type_interp.
+      iEval (unfold nt31; unfold type_interp) in "Htvar".
+      Opaque type_interp.
+      iEval (cbn) in "Htvar".
+      iDestruct "Htvar" as "(%sκ0 & %toinv0 & %osvarintp & _)".
+      inversion toinv0; subst; clear toinv0.
+      destruct osvarintp as (Harepvar & HNoRefvar).
+      iSplitR.
+      { iPureIntro. split; first done.
+        apply (ref_flag_le_preserves_atoms_interp NoRefs); [done | exact NoRefsSV]. }
+      iExists ([osvar;os32]).
+      iSplitR; first done.
+      iFrame.
+      cbn.
+      iSplitR; last done.
+      rewrite type_interp_eq.
+      unfold add_skind_interp.
+      cbn.
+      iExists (SVALTYPE [PtrR] AnyRefs).
+      iSplitR; first done.
+      iSplitR; first (iPureIntro; split;
+                       [done | apply (ref_flag_le_preserves_atoms_interp NoRefs); [done | exact HNoRefvar]]).
+      rewrite value_interp_eq.
+      unfold nt31.
+      unfold add_skind_interp.
+      cbn.
+      iExists (SVALTYPE [PtrR] NoRefs).
+      iSplitR; first done.
+      iSplitR; first (iPureIntro; split; done).
+      done.
+  Qed.
 
   (* the big scary one P:H *)
   Lemma skind_interp_chillin :
@@ -1214,13 +1627,250 @@ Section substitution.
     type_interp rti sr τ se' sv -∗
      ∃ sκ, ⌜type_skind se τ' = Some sκ /\ skind_has_svalue sκ sv⌝.
   Proof.
-    (* This proof relied on [kind_of_node]/[refresh_kinds] (both deleted:
-       with no cached kind annotation left to aggregate/refresh, the
-       aggregate-kind bookkeeping this lemma was doing has to be redone
-       directly against [has_kind]'s [Forall3] structure). It was already
-       only partially proved (ending in [Admitted] with an internal
-       [admit]) before this refactor too. Left admitted. *)
-  Admitted.
+    intros τ.
+    induction τ using type_ind with (P0 := const True) (Pi := const True);
+      try (intros F F' κ κ' se se' sub_m sub_r sub_s sub_t sv τ' Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T
+             Hsub_t_good Hse' Hse Hkind_τ Hkind_τ');
+      try unfold_sem_rels.
+    - (* VarT *)
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn in τ'.
+      subst τ'.
+      iDestruct "Ht" as "(%sκ_big & %one & %two & Ht)".
+      cbn -[lookup_type] in one.
+      specialize (Hsub_sκ idx).
+      rewrite one in Hsub_sκ.
+      apply subskind_of_option_invr in Hsub_sκ as (sκ_small & jo & subsk).
+      iExists sκ_small.
+      rewrite jo.
+      iEval (cbn) in "Ht".
+      specialize (Hsub_T idx sv).
+      cbn in Hsub_T.
+      apply fmap_Some in one as ([sκ [sκ_T T]] & lookp & ->).
+      cbn in lookp.
+      rewrite lookp in Hsub_T; rewrite lookp.
+      cbn -[skind_has_svalue]; cbn in Hsub_T.
+      rewrite Hsub_T.
+      rewrite value_interp_eq.
+      unfold add_skind_interp.
+      iDestruct "Ht" as "(%sκfake & %ah & %no & _)".
+      rewrite jo in ah; inversion ah; subst.
+      iPureIntro; done.
+    - (* I31T *)
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iPureIntro; done.
+    - (* NumT *)
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      destruct nt as [[]|[]];
+        inversion Hkind_τ; subst;
+        inversion Hkind_τ'; subst;
+        iDestruct "Ht" as "(%sκ & %one & %two & _)";
+        iExists sκ;
+        iPureIntro; done.
+    - (* SumT *)
+      iIntros "Ht".
+      pose proof (type_skind_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s
+                    sub_t (SumT τs) κ κ') as Hsubk.
+      do 8 (specialize (Hsubk ltac:(auto))).
+      rewrite type_interp_eq.
+      iDestruct "Ht" as "(%sκ_old & %Htsold & %Hsvold & Ht)".
+      rewrite Htsold in Hsubk.
+      apply subskind_of_option_invr in Hsubk as (sκ & Hts & Hsubsk).
+      iExists sκ.
+      iSplitR; first done.
+      (* Hsubsk : subskind_of sκ sκ_old goes the WRONG way for
+         skind_as_type_refine here (that only lifts a NARROWER value's
+         skind_has_svalue to a WIDER one, not the reverse) -- this needs the
+         same "digging into the aggregate's own per-element resources"
+         argument the original draft left admitted (see its ProdT case).
+         Left admitted; everything else in this lemma is proved. *)
+      admit.
+    - (* VariantT *)
+      iIntros "Ht".
+      pose proof (type_skind_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s
+                    sub_t (VariantT τs) κ κ') as Hsubk.
+      do 8 (specialize (Hsubk ltac:(auto))).
+      rewrite type_interp_eq.
+      iDestruct "Ht" as "(%sκ_old & %Htsold & %Hsvold & Ht)".
+      rewrite Htsold in Hsubk.
+      apply subskind_of_option_invr in Hsubk as (sκ & Hts & Hsubsk).
+      iExists sκ.
+      iSplitR; first done.
+      (* Hsubsk : subskind_of sκ sκ_old goes the WRONG way for
+         skind_as_type_refine here (that only lifts a NARROWER value's
+         skind_has_svalue to a WIDER one, not the reverse) -- this needs the
+         same "digging into the aggregate's own per-element resources"
+         argument the original draft left admitted (see its ProdT case).
+         Left admitted; everything else in this lemma is proved. *)
+      admit.
+    - (* ProdT *)
+      iIntros "Ht".
+      pose proof (type_skind_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s
+                    sub_t (ProdT τs) κ κ') as Hsubk.
+      do 8 (specialize (Hsubk ltac:(auto))).
+      rewrite type_interp_eq.
+      iDestruct "Ht" as "(%sκ_old & %Htsold & %Hsvold & Ht)".
+      rewrite Htsold in Hsubk.
+      apply subskind_of_option_invr in Hsubk as (sκ & Hts & Hsubsk).
+      iExists sκ.
+      iSplitR; first done.
+      (* Hsubsk : subskind_of sκ sκ_old goes the WRONG way for
+         skind_as_type_refine here (that only lifts a NARROWER value's
+         skind_has_svalue to a WIDER one, not the reverse) -- this needs the
+         same "digging into the aggregate's own per-element resources"
+         argument the original draft left admitted (see its ProdT case).
+         Left admitted; everything else in this lemma is proved. *)
+      admit.
+    - (* StructT *)
+      iIntros "Ht".
+      pose proof (type_skind_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s
+                    sub_t (StructT τs) κ κ') as Hsubk.
+      do 8 (specialize (Hsubk ltac:(auto))).
+      rewrite type_interp_eq.
+      iDestruct "Ht" as "(%sκ_old & %Htsold & %Hsvold & Ht)".
+      rewrite Htsold in Hsubk.
+      apply subskind_of_option_invr in Hsubk as (sκ & Hts & Hsubsk).
+      iExists sκ.
+      iSplitR; first done.
+      (* Hsubsk : subskind_of sκ sκ_old goes the WRONG way for
+         skind_as_type_refine here (that only lifts a NARROWER value's
+         skind_has_svalue to a WIDER one, not the reverse) -- this needs the
+         same "digging into the aggregate's own per-element resources"
+         argument the original draft left admitted (see its ProdT case).
+         Left admitted; everything else in this lemma is proved. *)
+      admit.
+    - (* RefT *)
+      (* The dead draft's version of this case (comment-marked "qed") never
+         actually established that the substituted referee's own
+         [type_skind] succeeds before appealing to [done] on the outer
+         [type_skind se (RefT ...) = Some (SVALTYPE [PtrR] ξ)] goal -- that
+         needs [Hkind_τ'] inverted (per memory shape) and
+         [type_skind_has_kind_Some] applied to the referee, which the draft
+         never did. Left admitted; every other case in this lemma is
+         proved. See [type_skind_refresh_subst_senv_eq_aux]'s own RefT case
+         (already Qed'd, same file) for the shape of reasoning needed. *)
+      admit.
+    - (* CodeRefT *)
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iPureIntro; done.
+    - (* SerT *)
+      (* Needs the same "digging" argument as RefT/the aggregate cases,
+         since Ser's outer ref_flag can narrow transitively through its
+         child. Left admitted; everything else in this lemma is proved. *)
+      admit.
+    - (* PlugT *)
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iSplitR; last done.
+      iPureIntro.
+      rewrite <- (eval_rep_subst_senv_eq se se' sub_r _ Hsub_r).
+      done.
+    - (* SpanT *)
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iSplitR; last done.
+      iPureIntro.
+      rewrite <- (eval_size_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s).
+      done.
+    - (* RecT *)
+      intros F F' κ0 κ' se se' sub_m sub_r sub_s sub_t sv Hsub_r Hsub_s Hsub_m
+        Hsub_sκ Hsub_T Hsub_t_good Hse' Hse Hkind_τ Hkind_τ'.
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iSplitR; last done.
+      iPureIntro.
+      rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s).
+      done.
+    - (* ExistsMemT *)
+      intros F F' κ0 κ' se se' sub_m sub_r sub_s sub_t sv Hsub_r Hsub_s Hsub_m
+        Hsub_sκ Hsub_T Hsub_t_good Hse' Hse Hkind_τ Hkind_τ'.
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iSplitR; last done.
+      iPureIntro.
+      rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s).
+      done.
+    - (* ExistsRepT *)
+      intros F F' κ0 κ' se se' sub_m sub_r sub_s sub_t sv Hsub_r Hsub_s Hsub_m
+        Hsub_sκ Hsub_T Hsub_t_good Hse' Hse Hkind_τ Hkind_τ'.
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iSplitR; last done.
+      iPureIntro.
+      rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s).
+      done.
+    - (* ExistsSizeT *)
+      intros F F' κ0 κ' se se' sub_m sub_r sub_s sub_t sv Hsub_r Hsub_s Hsub_m
+        Hsub_sκ Hsub_T Hsub_t_good Hse' Hse Hkind_τ Hkind_τ'.
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iSplitR; last done.
+      iPureIntro.
+      rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s).
+      done.
+    - (* ExistsTypeT *)
+      iIntros "Ht".
+      rewrite type_interp_eq.
+      cbn.
+      inversion Hkind_τ; subst.
+      inversion Hkind_τ'; subst.
+      iDestruct "Ht" as "(%sκ & %one & %two & _)".
+      iExists sκ.
+      iSplitR; last done.
+      iPureIntro.
+      rewrite <- (eval_kind_subst_senv_eq se se' sub_r sub_s _ Hsub_r Hsub_s).
+      done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+  Admitted. (* NOTE: SumT, VariantT, ProdT, StructT, RefT, and SerT cases above are
+          [admit]-ted (see per-case comments for exactly why); every other case
+          (VarT, I31T, NumT, CodeRefT, PlugT, SpanT, RecT, ExistsMemT, ExistsRepT,
+          ExistsSizeT, ExistsTypeT, and the 6 trivial Pi/P0 cases) is fully proved. *)
   (*
     induction τ using type_ind with (P0 := const True) (Pi := const True);
       try (intros * Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T Hsub_t_good Hse' Hse Hkind_τ Hkind_τ'); try done;
