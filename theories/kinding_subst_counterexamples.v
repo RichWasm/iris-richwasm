@@ -327,3 +327,50 @@ Proof.
   inversion Hift as [|? ? ? ? Hbad]; subst.
   by eapply ift_bad_not_kinded, Hbad.
 Qed.
+
+(* The forward direction fails too, and for a different reason than the iff: not cause A
+   but the ExistsRepT staleness above.  Instantiating a well-kinded polymorphic type at an
+   admissible witness drops the body's flag, refresh keeps ExistsRepT's annotation, and
+   KExistsRep's exactness rejects the result.  So has_kind_ft_through_inst -- the
+   direction compat_call actually needs -- is blocked by ExistsRepT, not by RecT. *)
+
+Definition ift_exrep : inner_function_type :=
+  MonoFunT [ExistsRepT κ_any (VarT 0)] [].
+Definition ift_exrep' : inner_function_type :=
+  MonoFunT [ExistsRepT κ_any (I31T κ_no)] [].
+
+Lemma ift_exrep_kinded : has_kind_ift F_one_any ift_exrep.
+Proof.
+  apply (KMonoFun _ _ _ [κ_any] []); [|constructor].
+  constructor; [|constructor].
+  apply KExistsRep; [repeat constructor|apply KVar; [done|repeat constructor]].
+Qed.
+
+Lemma ift_exrep'_not_kinded F : ¬ has_kind_ift F ift_exrep'.
+Proof.
+  intros Hk; inversion Hk; subst.
+  match goal with H : Forall2 _ [_] _ |- _ => inversion H; subst end.
+  match goal with H : has_kind _ (ExistsRepT _ _) _ |- _ => inversion H; subst end.
+  match goal with H : has_kind _ (I31T _) _ |- _ => inversion H end.
+Qed.
+
+Lemma inst_exrep :
+  inner_function_type_inst fc_empty (TypeI (I31T κ_no))
+    (ForallTypeT κ_any ift_exrep) ift_exrep'.
+Proof.
+  eapply FTInstType with (κ' := κ_no).
+  - constructor.
+  - repeat constructor.
+  - apply RKMonoFun; repeat constructor.
+Qed.
+
+Lemma has_kind_ft_through_inst_forward_false :
+  ¬ (∀ F ϕ ϕ' ix, function_type_inst F ix ϕ ϕ' → has_kind_ft F ϕ → has_kind_ft F ϕ').
+Proof.
+  intros Hbogus.
+  eapply (ift_exrep'_not_kinded fc_empty).
+  assert (Hk : has_kind_ft fc_empty (InnerFunT (ForallTypeT κ_any ift_exrep))).
+  { apply KInnerFun, KForallType; [repeat constructor|apply ift_exrep_kinded]. }
+  have Hk' := Hbogus _ _ _ _ (FTInstInner _ _ _ _ inst_exrep) Hk.
+  by inversion Hk'.
+Qed.
