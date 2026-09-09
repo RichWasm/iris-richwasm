@@ -1056,18 +1056,6 @@ Section substitution.
     ∃ ρ ξ, κ' = MEMTYPE (RepS ρ) ξ ∧ κ = κ' ∧ has_kind F τ (VALTYPE ρ ξ).
   Proof. inversion 1; subst; eauto. Qed.
 
-  Lemma ref_flag_lub2_mono ξ1 ξ1' ξ2 ξ2' :
-    ref_flag_le ξ1 ξ1' → ref_flag_le ξ2 ξ2' →
-    ref_flag_le (ref_flag_lub2 ξ1 ξ2) (ref_flag_lub2 ξ1' ξ2').
-  Proof. by destruct ξ1, ξ1', ξ2, ξ2'. Qed.
-
-  Lemma ref_flag_lub_mono ξs ξs' :
-    Forall2 ref_flag_le ξs ξs' → ref_flag_le (ref_flag_lub ξs) (ref_flag_lub ξs').
-  Proof.
-    induction 1 as [|ξ ξ' ξs ξs' Hle _ IH]; first done.
-    by apply ref_flag_lub2_mono.
-  Qed.
-
   Definition refresh_subskind (rs : type → type) F F' (se se' : semantic_env (Σ:=Σ)) (τ : type) : Prop :=
     ∀ κ κ', has_kind F' τ κ → has_kind F (rs τ) κ' →
             subskind_of_option (type_skind se (rs τ)) (type_skind se' τ).
@@ -2830,5 +2818,56 @@ Section substitution.
     - exact Hkind_ϕ'.
   Qed.
 
+
+  (* One instantiation step, the semantic side of has_kind_ft_through_inst. *)
+  Lemma closure_interp_inst F ix ϕ ϕ' se cl :
+    sem_env_interp (Σ:=Σ) F se ->
+    function_type_inst F ix ϕ ϕ' ->
+    has_kind_ft F ϕ ->
+    closure_interp rti sr ϕ se cl -∗ closure_interp rti sr ϕ' se cl.
+  Proof.
+    intros Hse Hinst Hkind_ϕ.
+    pose proof (has_kind_ft_through_inst _ _ _ _ Hinst Hkind_ϕ) as Hkind_ϕ'.
+    iIntros "#Hcl".
+    inversion Hinst; subst.
+    - inversion H; subst.
+      apply refreshed_kinds_refresh_kinds in H2.
+      assert (∃ sκ, eval_kind se κ = Some sκ) as (sκ & Hsκ). {
+        inversion Hkind_ϕ as [? ? Hift| | |]; subst.
+        inversion Hift as [|? ? ? Hok]; subst.
+        by eapply eval_kind_ok_Some.
+      }
+      rewrite closure_interp_eq. iEval (cbn -[senv_insert_type]) in "Hcl".
+      rewrite closure_interp_eq. iEval (cbn -[senv_insert_type]).
+      rewrite -inner_closure_interp_eq H2.
+      iApply (inner_closure_interp_scons_insert_type _ _ _ _ _ with "[$Hcl]"); try done.
+      + rewrite <- H2.
+        by inversion Hkind_ϕ'.
+      + inversion Hkind_ϕ as [? ? Hift| | |]; subst.
+        by inversion Hift.
+    - apply refreshed_kinds_refresh_kinds in H0.
+      rewrite closure_interp_eq. iEval (cbn -[senv_insert_mem]) in "Hcl".
+      fold ϕ'0.
+      rewrite H0.
+      iApply (closure_interp_scons_insert_mem F se μ ϕ0 cl with "[]"); try done.
+      + by rewrite <- H0.
+      + by inversion Hkind_ϕ.
+    - pose proof (refresh_kinds_id) as (_ & this & _).
+      apply this in Hkind_ϕ' as Hrf.
+      rewrite closure_interp_eq. iEval (cbn -[senv_insert_rep]) in "Hcl".
+      fold ϕ'0.
+      rewrite Hrf.
+      iApply (closure_interp_scons_insert_rep F se ρ ϕ0 cl with "[]"); try done.
+      + fold ϕ'0. by rewrite <- Hrf.
+      + by inversion Hkind_ϕ.
+    - pose proof (refresh_kinds_id) as (_ & this & _).
+      apply this in Hkind_ϕ' as Hrf.
+      rewrite closure_interp_eq. iEval (cbn -[senv_insert_size]) in "Hcl".
+      fold ϕ'0.
+      rewrite Hrf.
+      iApply (closure_interp_scons_insert_size F se σ ϕ0 cl with "[]"); try done.
+      + fold ϕ'0. by rewrite <- Hrf.
+      + by inversion Hkind_ϕ.
+  Qed.
 
 End substitution.

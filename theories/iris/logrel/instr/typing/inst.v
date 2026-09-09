@@ -32,108 +32,24 @@ Section inst.
   Proof.
     intros fe WT WL lmask κ ψ Hfinst Hok Hcg.
     cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg.
-
-    iIntros (??????????) "@@@@@@@@@@".
-    clear_nils.
-
-    iApply (cwp_val with "[$Hfr] [$Hrun]"); [apply H0|].
-    iSplitR; auto.
-    iFrame.
-    iPoseProof (values_interp_one_eq with "Hos") as "Hos".
-    iPoseProof (value_interp_coderef with "Hos") as "%Hos".
-    destruct Hos as (n32 & ->).
-    iApply values_interp_one_eq.
-    setoid_rewrite value_interp_eq.
-
-    (* mini kinding quarantine *)
-    assert (Hkind_first: has_kind F (CodeRefT κ ϕ) κ). {
-        inversion Hok.
-        inversion H1; subst.
-        inversion H3; subst. clear H8.
-        inversion H7; subst.
-        destruct H5 as (pls & hlp).
-        inversion pls; subst.
-        inversion H5; subst.
-        constructor. done.
+    subst WT WL; clear_nils.
+    have Hkind : has_kind_ft F ϕ.
+    {
+      destruct Hok as [[Hmono _] _].
+      rewrite Forall_cons_iff in Hmono.
+      destruct Hmono as [[ρ [Hrep _]] _].
+      inversion Hrep as [? ? ? ? Hhas_kind]; subst.
+      by inversion Hhas_kind.
     }
-    assert (Hkind: has_kind F (CodeRefT κ ϕ') κ). {
-        inversion Hok.
-        inversion H1; subst.
-        inversion H4; subst. clear H8.
-        inversion H7; subst.
-        destruct H5 as (pls & hlp).
-        inversion pls; subst.
-        inversion H5; subst.
-        constructor. done.
-    }
-    inversion Hkind; subst. rename H3 into Hkind_ft.
-    (* now we need to use the key hypothesis: Hfinst *)
-    destruct Hfinst.
-
-    1: destruct H1.
-    (*
-    1: assert (Hϕ': ϕ' = refresh_kinds_ift F
-            (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)) by
-        (pose proof (has_kind_ft_function_type_eq_mod_kinds) as (_ & H10);
-         eapply H10; try done; inversion Hkind_ft; subst; done).
-    1: rewrite Hϕ'.
-    2-4: unfold ϕ'.
-    (* dig into all at once down to closure interp *)
-
-    all: iDestruct "Hos" as "(%sκ & %toinvert & HKindInterp & Rest)".
-    all: inversion toinvert; subst; clear toinvert.
-
-    all: iExists (SVALTYPE [I32R] NoRefs).
-    all: iFrame.
-    all: iSplitR; auto.
-
-    all: iDestruct "Rest" as
-      "(%n & %n32subst & %j & %cl & %HRepr & %toinvert &
-          Hclosure & Hwt & Hwf)".
-    all: inversion toinvert; subst n32subst; clear toinvert.
-
-    all: iExists n, n32.
-    all: iExists j, cl.
-    all: iFrame.
-    all: iSplitR; auto; iSplitR; auto.
-
-    - rewrite !closure_interp_eq.
-      Opaque senv_insert_type.
-      cbn.
-      Transparent senv_insert_type.
-      rewrite <- inner_closure_interp_eq.
-      assert (∃ x, eval_kind se κ0 = Some x). {
-        inversion Hkind_first; subst.
-        inversion H6; subst.
-        inversion H7; subst.
-        pose proof (eval_kind_ok_Some _ _ _ H H9).
-        inversion H4.
-        eexists; exact H5.
-      }
-      destruct H4 as (x & hevalx).
-      inversion Hkind_first; subst.
-      inversion Hkind_ft; subst; inversion H6; subst.
-      inversion H8; subst.
-      iApply inner_closure_interp_scons_insert_type; try done.
-    - pose proof (refresh_kinds_id) as (_ & Hid); try done.
-      apply Hid in Hkind_ft as Htorewrite.
-      fold ϕ'; rewrite Htorewrite; unfold ϕ'.
-      inversion Hkind_first; subst. inversion H4; subst.
-      rewrite Htorewrite in Hkind_ft.
-      by iApply closure_interp_scons_insert_mem.
-    - pose proof (refresh_kinds_id) as (_ & Hid); try done.
-      apply Hid in Hkind_ft as Htorewrite.
-      fold ϕ'; rewrite Htorewrite; unfold ϕ'.
-      inversion Hkind_first; subst. inversion H4; subst.
-      rewrite Htorewrite in Hkind_ft.
-      by iApply closure_interp_scons_insert_rep.
-    - pose proof (refresh_kinds_id) as (_ & Hid); try done.
-      apply Hid in Hkind_ft as Htorewrite.
-      fold ϕ'; rewrite Htorewrite; unfold ϕ'.
-      inversion Hkind_first; subst. inversion H4; subst.
-      rewrite Htorewrite in Hkind_ft.
-      by iApply closure_interp_scons_insert_size.
-*)
-  Admitted.
+    iApply sem_type_erased; first done.
+    iIntros (se vs Hse) "Hval".
+    rewrite !values_interp_one_eq !value_interp_eq.
+    iDestruct "Hval" as (sκ) "(%Hsk & %Hsv & Hval)".
+    iExists sκ; iSplit; [done|]; iSplit; [done|].
+    cbn.
+    iDestruct "Hval" as (i i32 j cl) "(%Hrepr & %Hsv' & Hcl & Hinv1 & Hinv2)".
+    iExists i, i32, j, cl; iFrame "Hinv1 Hinv2"; iSplit; [done|]; iSplit; [done|].
+    by iApply (closure_interp_inst with "Hcl").
+  Qed.
 
 End inst.
