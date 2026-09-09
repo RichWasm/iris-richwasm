@@ -670,12 +670,6 @@ Proof. by inversion 1. Qed.
    clearly write out a counter example before moving and trying to add additional
    hypotheses.
  *)
-Lemma refreshed_rec_good F κ κ' τ τ' :
-  refreshed_kinds F (RecT κ τ) (RecT κ' τ') ->
-  refreshed_kinds (F <| fc_type_vars ::= cons κ' |>) τ τ'.
-Proof.
-Admitted.
-
 
 Definition refresh_det (τ : type) : Prop :=
   forall F κ τ', has_kind F τ κ -> refreshed_kinds F τ τ' -> τ = τ'.
