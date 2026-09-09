@@ -248,6 +248,9 @@ Section case_load.
       assert (i < length τs_ser) as Hi_lt.
       { apply lookup_lt_is_Some. by eexists. }
 
+      (* for other places, we need some other facts *)
+
+      (* load the tag! *)
       iApply (cwp_seq with "[Hfr Hrun Hv1 Hown Hheap Hrt Hclose Hlayout]"). {
         eapply wp_load1_copy_mm in Hcg_tag as H_tag.
         iPoseProof H_tag as "H_tag". clear H_tag.
@@ -352,9 +355,11 @@ Section case_load.
 
       specialize (H cases (on_each_case (compile_instrs mr fe es))).
       specialize (H i es_case_switch ltac:(auto) ltac:(auto)).
-
+      (* NOTE: I think es_case_switch needs to be slightly more precise with wt_c
+       cuz currently they're just floating around with no context *)
       apply H in Hcg_case_switch; clear H.
-      destruct Hcg_case_switch as (?wt & ?wt & ?wl & ?wl & es_case & Hcg_case & Hcg_case_switch).
+      destruct Hcg_case_switch as (?wt_pre & ?wt_c & ?wt_post & ?wl_pre & ?wl_c & ?wl_post &
+                                     es_case & Hcg_case & -> & -> & Hcg_case_switch).
 
       iApply (Hcg_case_switch with "[$] [$] [-]").
       { admit. } (* wl interp, later *)
@@ -388,7 +393,32 @@ Section case_load.
       subst τ0; clear Heq_some2.
       rename es8 into es_load; rename es10 into es_compiled.
       eapply wp_mem_load_copy_mm in Hcg_load_tag.
-      destruct Hcg_load_tag as (_ & -> & -> & Hcg_load_tag).
+      destruct Hcg_load_tag as (_ & -> & -> & Hcg_load_payload).
+      clear_nils.
+
+      (* time to dig into SerT k τ_ser. This can't be earlier lol *)
+      rewrite Hτ in Heq_some1; inversion Heq_some1; subst; clear Heq_some1.
+      rewrite type_interp_eq. iEval (cbn) in "Hos".
+      iDestruct "Hos" as "(%sκ_τ & %Heval_k_τ & %Hsksv & (%os & %ToInv & Hos))".
+      destruct sκ_τ as [ιs_τ ξ_τ | n_τ σ_τ]; cbn in Hsksv; try by inversion Hsksv.
+      inversion ToInv; subst; clear ToInv.
+      destruct Hsksv as [Hn_τ Hrefinterp].
+
+      (* now to dig into τ_ser. the most important fact to find is that
+       length (flat_map serialize_atom os) = sum_list_with arep_flags ιs and
+       that should just be through Forall2 has_arep ιs os or smthn like that *)
+      rewrite type_interp_eq.
+      Opaque type_skind.
+      iEval (cbn) in "Hos".
+      (* iDestruct "Hos" as "(%sκ_τ)" *)
+      Transparent type_skind.
+
+      (* Lemma yeah: *)
+      (*   has_kind (VariantT (MEMTYPE σ ξ) τs_ser) (MEMTYPE σ ξ) -> *)
+      (*   eval_size EmptyEnv σ = Some n (or length words) -> *)
+      (*   τs_ser !! i = Some (SerT k τ_ser) -> *)
+      (*   eval_kind se k = Some (SMEMTYPE n_τ σ_τ) -> *)
+      (*   n_τ <= n. *)
 
       (* need to open the invariant again~ *)
       iApply fupd_cwp.
@@ -399,24 +429,28 @@ Section case_load.
 
       iApply (cwp_seq with "[Hfr Hrun Hown Haddr Hrt Hheap Hclose Hlayout]"). {
 
-        iApply (Hcg_load_tag with "[$] [$] [$] [$] [$] [$] [] [%] [%] [%]
-             [%] [%] [//] [%] [%] [%] [%] [//] [//] [//] [] [] [-]"); clear Hcg_load_tag.
+        iApply (Hcg_load_payload with "[$] [$] [$] [$] [$] [$] [] [%] [%] [%]
+             [%] [%] [//] [%] [%] [%] [%] [//] [//] [//] [] [] [-]"); clear Hcg_load_payload.
         - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & that & _) & _)".
         - eauto with ndisj.
         - done.
-        - (* yeah kinding quarantine *) admit.
-        - admit.
+        - (* yeah kinding quarantine *)
+          (* this seems annoying. need to prove that the inner things fit in the bigger *)
+          admit.
+        - instantiate (1:= os).
+          admit.
         - admit.
         - clear_frame_things Hflen locsz WL. (* more frame things *)
-          admit.
+          lia.
         - admit.
         - clear_frame_things Hflen locsz WL.
-          admit.
+          lia.
         - done.
         - (* oh not pure thing *)
           admit.
         - admit.
         - iIntros (???) "-> @@@@@@@".
+          iClear "Hregf".
           admit.
       }
 
