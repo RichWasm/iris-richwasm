@@ -1340,14 +1340,15 @@ Admitted.
 (* Refutable as stated: inst refreshes its result, so ϕ ↦ ϕ' overwrites every derived
    annotation and two sources -- one well annotated, one not -- reach the same ϕ'.  The
    callers want has_kind_ift F ϕ threaded in from wherever ϕ came from.  See
-   RichWasm.kinding_subst_counterexamples. *)
+   RichWasm.kinding_subst_counterexamples. 
 Lemma has_kind_ift_through_inst_backwards F ϕ ϕ' ix :
   inner_function_type_inst F ix ϕ ϕ' ->
   has_kind_ift F ϕ' ->
   has_kind_ift F ϕ.
 Proof.
 Admitted.
-
+ *)
+ 
 Lemma has_kind_ft_through_inst F ϕ ϕ' ix :
   function_type_inst F ix ϕ ϕ' ->
   has_kind_ft F ϕ ->
@@ -1358,14 +1359,15 @@ Proof.
     constructor; eapply has_kind_ift_through_inst_forwards; eauto.
 Admitted.
 
-(* Refutable as stated, for the same reason as the _ift form above. *)
+(* Refutable as stated, for the same reason as the _ift form above. 
 Lemma has_kind_ft_through_inst_backwards F ϕ ϕ' ix :
   function_type_inst F ix ϕ ϕ' ->
   has_kind_ft F ϕ' ->
   has_kind_ft F ϕ.
 Proof.
 Admitted.
-
+  *)
+  
   (* copied from typechecker.v *)
 Fixpoint get_all_lefts {A B : Type} (l: list (A + B)) : list A :=
   match l with
