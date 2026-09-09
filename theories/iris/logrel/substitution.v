@@ -1267,11 +1267,24 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvm)
               (type_skind_has_kind _ _ _ _ Hk0 Henvm') in IHτ.
       exact (subskind_of_option_mem_irrel _ _ _ _ _ IHτ).
-    - (* exists rep: needs the flag-monotonicity lemma for refresh_kinds, which the
-         tree does not state. See the report. *)
-      admit.
-    - (* exists size: same. *)
-      admit.
+    - (* exists rep *)
+      pose proof (has_kind_existsrep_inv _ _ _ _ Hk) as [-> Hk0].
+      pose proof (has_kind_existsrep_inv _ _ _ _ Hk') as [-> Hk0'].
+      pose proof (subst_rel_insert_rep _ _ _ _ _ _ _ _ [] HR) as HRr.
+      pose proof HRr as [Henvr' Henvr _ _ _ _ _ _].
+      specialize (IHτ _ _ _ _ _ _ _ _ _ _ HRr Hk0 Hk0').
+      rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvr)
+              (type_skind_has_kind _ _ _ _ Hk0 Henvr') in IHτ.
+      by rewrite -!eval_kind_up_shift_rep_eq in IHτ.
+    - (* exists size *)
+      pose proof (has_kind_existssize_inv _ _ _ _ Hk) as [-> Hk0].
+      pose proof (has_kind_existssize_inv _ _ _ _ Hk') as [-> Hk0'].
+      pose proof (subst_rel_insert_size _ _ _ _ _ _ _ _ 0 HR) as HRs.
+      pose proof HRs as [Henvs' Henvs _ _ _ _ _ _].
+      specialize (IHτ _ _ _ _ _ _ _ _ _ _ HRs Hk0 Hk0').
+      rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvs)
+              (type_skind_has_kind _ _ _ _ Hk0 Henvs') in IHτ.
+      by rewrite -!eval_kind_up_shift_size_eq in IHτ.
     - (* exists type *)
       pose proof (has_kind_existstype_inv _ _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_existstype_inv _ _ _ _ _ Hk') as [-> Hk0'].
@@ -1284,7 +1297,7 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt)
               (type_skind_has_kind _ _ _ _ Hk0 Henvt') in IHτ.
       exact (subskind_of_option_type_irrel _ _ _ _ _ _ _ IHτ).
-  Admitted.
+  Qed.
 
   Lemma type_skind_refresh_subst F F' sub_m sub_r sub_s sub_t se se' τ κ κ' :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -1684,10 +1697,32 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvm) in Hsκ1.
       iExists sκ1; iPureIntro; split; last done.
       exact (eval_kind_mem_irrel_rev _ _ _ _ Hsκ1).
-    - (* exists rep: needs flag monotonicity for refresh_kinds. See the report. *)
-      admit.
-    - (* exists size: same. *)
-      admit.
+    - (* exists rep *)
+      pose proof (has_kind_existsrep_inv _ _ _ _ Hk) as [-> Hk0].
+      pose proof (has_kind_existsrep_inv _ _ _ _ Hk') as [-> Hk0'].
+      iIntros "H".
+      iEval (rewrite type_interp_eq; cbn -[type_skind senv_insert_rep]) in "H".
+      iDestruct "H" as (sκ0) "(_ & _ & H)".
+      iDestruct "H" as (ιs) "H".
+      pose proof (subst_rel_insert_rep _ _ _ _ _ _ _ _ ιs HR) as HRr.
+      pose proof HRr as [Henvr' Henvr _ _ _ _ _ _].
+      iDestruct (IHτ _ _ _ _ _ _ _ _ _ _ _ HRr Hk0 Hk0' with "H") as %(sκ1 & Hsκ1 & Hsv1).
+      rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvr) in Hsκ1.
+      rewrite -eval_kind_up_shift_rep_eq in Hsκ1.
+      by iExists sκ1.
+    - (* exists size *)
+      pose proof (has_kind_existssize_inv _ _ _ _ Hk) as [-> Hk0].
+      pose proof (has_kind_existssize_inv _ _ _ _ Hk') as [-> Hk0'].
+      iIntros "H".
+      iEval (rewrite type_interp_eq; cbn -[type_skind senv_insert_size]) in "H".
+      iDestruct "H" as (sκ0) "(_ & _ & H)".
+      iDestruct "H" as (n) "H".
+      pose proof (subst_rel_insert_size _ _ _ _ _ _ _ _ n HR) as HRs.
+      pose proof HRs as [Henvs' Henvs _ _ _ _ _ _].
+      iDestruct (IHτ _ _ _ _ _ _ _ _ _ _ _ HRs Hk0 Hk0' with "H") as %(sκ1 & Hsκ1 & Hsv1).
+      rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvs) in Hsκ1.
+      rewrite -eval_kind_up_shift_size_eq in Hsκ1.
+      by iExists sκ1.
     - (* exists type *)
       pose proof (has_kind_existstype_inv _ _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_existstype_inv _ _ _ _ _ Hk') as [-> Hk0'].
@@ -1701,7 +1736,7 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt) in Hsκ1.
       iExists sκ1; iPureIntro; split; last done.
       exact (eval_kind_type_irrel_rev _ _ _ _ _ _ Hsκ1).
-  Admitted.
+  Qed.
 
   Lemma skind_interp_chillin_backwards F F' sub_m sub_r sub_s sub_t se se' τ κ κ' sv :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -2160,16 +2195,15 @@ Section substitution.
       peel; by intros; cbn.
     - (* rec *)
       intros κ0 τ0 IH; subst_case_intro.
-      pose proof (has_kind_rec_inv _ _ _ _ Hk) as [-> Hk0].
-      pose proof (has_kind_rec_inv _ _ _ _ Hk') as [-> Hk0'].
+      pose proof (has_kind_rec_inv _ _ _ _ Hk) as [-> (κbody & Hsub0 & Hk0)].
+      pose proof (has_kind_rec_inv _ _ _ _ Hk') as [-> (κbody' & Hsub0' & Hk0')].
       peel.
-      (* refine (rec_interp_equiv _ _ _ _ _ _ (eval_kind_subst_senv_eq _ _ _ _ _ Hsub_r Hsub_s) _ _ sv). *)
-      (* + intros sκ X Hsκ HX. *)
-      (*   apply (type_subst_ok_equiv _ _ _ _ _ _ _ _ _ _ _ IH *)
-      (*            (subst_rel_insert_type _ _ _ _ _ _ _ _ _ _ _ _ HR Hsκ (subskind_of_refl _) HX) Hk0 Hk0'). *)
-      (* + intros sκ Hsκ. *)
-      (*   by eapply refresh_subst_rec_stype. *)
-      admit.
+      refine (rec_interp_equiv _ _ _ _ _ _ (eval_kind_subst_senv_eq _ _ _ _ _ Hsub_r Hsub_s) _ _ sv).
+      + intros sκ X Hsκ HX.
+        apply (type_subst_ok_equiv _ _ _ _ _ _ _ _ _ _ _ IH
+                 (subst_rel_insert_type _ _ _ _ _ _ _ _ _ _ _ _ HR Hsκ (subskind_of_refl _) HX) Hk0 Hk0').
+      + intros sκ Hsκ.
+        by eapply refresh_subst_rec_stype.
     - (* exists mem *)
       intros κ0 τ0 IH; subst_case_intro.
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk) as [-> Hk0].
@@ -2255,7 +2289,7 @@ Section substitution.
       apply bi.equiv_wand_iff.
       refine (forall_size_interp_ren _ _ _ _ _ cl); intros n.
       exact (function_type_subst_ok_equiv _ _ _ _ _ _ _ _ _ IH (subst_rel_insert_size _ _ _ _ _ _ _ _ n HR) Hk0 Hk0').
-  Admitted.
+  Qed.
 
   Lemma subst_rel_of F F' se se' sub_m sub_r sub_s sub_t :
     sem_env_interp F' se' →

@@ -87,6 +87,38 @@ Lemma set_kind_ref_flag_ren_flag ξr ξs ζr ζs κ κ' :
   = ren_kind ξr ξs (set_kind_ref_flag κ (kind_ref_flag κ')).
 Proof. destruct κ, κ'; reflexivity. Qed.
 
+Definition unshift_rep_kind (κ : kind) : kind :=
+  subst_kind (unscoped.scons (ProdR []) VarR) VarS κ.
+
+Definition unshift_size_kind (κ : kind) : kind :=
+  subst_kind VarR (unscoped.scons (ConstS 0) VarS) κ.
+
+Lemma unshift_rep_kind_ren κ :
+  unshift_rep_kind (ren_kind unscoped.shift unscoped.id κ) = κ.
+Proof. unfold unshift_rep_kind; asimpl; reflexivity. Qed.
+
+Lemma unshift_size_kind_ren κ :
+  unshift_size_kind (ren_kind unscoped.id unscoped.shift κ) = κ.
+Proof. unfold unshift_size_kind; asimpl; reflexivity. Qed.
+
+Lemma unshift_rep_kind_up_ren ξr ξs κ :
+  unshift_rep_kind (ren_kind (upRen_representation_representation ξr) ξs κ)
+  = ren_kind ξr ξs (unshift_rep_kind κ).
+Proof. unfold unshift_rep_kind; asimpl. apply ext_kind; intros [|?]; reflexivity. Qed.
+
+Lemma unshift_size_kind_up_ren ξr ξs κ :
+  unshift_size_kind (ren_kind ξr (upRen_size_size ξs) κ)
+  = ren_kind ξr ξs (unshift_size_kind κ).
+Proof. unfold unshift_size_kind; asimpl. apply ext_kind; intros [|?]; reflexivity. Qed.
+
+Lemma kind_ref_flag_unshift_rep κ :
+  kind_ref_flag (unshift_rep_kind κ) = kind_ref_flag κ.
+Proof. destruct κ; reflexivity. Qed.
+
+Lemma kind_ref_flag_unshift_size κ :
+  kind_ref_flag (unshift_size_kind κ) = kind_ref_flag κ.
+Proof. destruct κ; reflexivity. Qed.
+
 Inductive skind :=
 | SVALTYPE : list atomic_rep -> ref_flag -> skind
 | SMEMTYPE : nat -> ref_flag -> skind.

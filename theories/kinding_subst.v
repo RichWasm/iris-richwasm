@@ -773,22 +773,29 @@ Proof.
   - intros κ0 t IH F κ τ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst.
     unfold refresh_det in IH.
-    admit.
+    f_equal; by eapply IH.
   - intros κ0 t IH F κ τ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst.
     unfold refresh_det in IH.
     assert (t = τ'0) as <- by (by apply (IH _ _ _ H4 H3)).
     rewrite (has_kind_type_kind _ _ _ H4) in H6.
     inversion H6; done.
-  - (* ExistsRepT: goal is [κ = κ'] but the rule only gives
-       [κ' = ren_kind shift id κ]; see the report. *)
-    intros κ0 t IH F κ τ' Hk Hr.
+  - intros κ0 t IH F κ τ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst.
-    admit.
-  - (* ExistsSizeT: same. *)
-    intros κ0 t IH F κ τ' Hk Hr.
+    assert (t = τ'0) as <- by (by eapply IH).
+    match goal with H : layout.type_kind _ _ = Some _ |- _ =>
+      rewrite (has_kind_type_kind _ _ _ H4) in H; injection H as H;
+      apply (f_equal unshift_rep_kind) in H;
+      rewrite !unshift_rep_kind_ren in H; by rewrite H
+    end.
+  - intros κ0 t IH F κ τ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst.
-    admit.
+    assert (t = τ'0) as <- by (by eapply IH).
+    match goal with H : layout.type_kind _ _ = Some _ |- _ =>
+      rewrite (has_kind_type_kind _ _ _ H4) in H; injection H as H;
+      apply (f_equal unshift_size_kind) in H;
+      rewrite !unshift_size_kind_ren in H; by rewrite H
+    end.
   - intros κ1 κ2 t IH F κ τ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst.
     assert (t = τ'0) as <- by (by apply (IH _ _ _ H6 H7)).
@@ -812,7 +819,7 @@ Proof.
   - intros ft IH F ϕ' Hk Hr.
     inversion Hk; subst; inversion Hr; subst; f_equal; try done;
       by eapply IH; eauto.
-Admitted.
+Qed.
 
 Lemma refreshed_kinds_has_kind F τ κ τ' :
   has_kind F τ κ →
@@ -1459,14 +1466,12 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
       let τ' := refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ in
       let κ := kind_of_node ((F <| fc_kind_ctx ::= set kc_mem_vars S |>)) τ' in
       ExistsMemT κ τ'
-  | ExistsRepT κ τ =>
+  | ExistsRepT _ τ =>
       let τ' := refresh_kinds (add_rep_var F) τ in
-      let ξ := kind_ref_flag (kind_of_node (add_rep_var F) τ') in
-      ExistsRepT (set_kind_ref_flag κ ξ) τ'
-  | ExistsSizeT κ τ =>
+      ExistsRepT (unshift_rep_kind (kind_of_node (add_rep_var F) τ')) τ'
+  | ExistsSizeT _ τ =>
       let τ' := refresh_kinds (add_size_var F) τ in
-      let ξ := kind_ref_flag (kind_of_node (add_size_var F) τ') in
-      ExistsSizeT (set_kind_ref_flag κ ξ) τ'
+      ExistsSizeT (unshift_size_kind (kind_of_node (add_size_var F) τ')) τ'
   | ExistsTypeT _ κ0 τ =>
       let τ' := refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ in
       let κ := kind_of_node ((F <| fc_type_vars ::= cons κ0 |>)) τ' in
@@ -1616,11 +1621,11 @@ Proof.
   - intros κ τ IH F κ0 Hk.
     inversion Hk; subst; cbn.
     rewrite <- (IH _ _ H4), <- (kind_of_node_good _ _ _ H4).
-    by rewrite kind_ref_flag_ren set_kind_ref_flag_same.
+    by rewrite unshift_rep_kind_ren.
   - intros κ τ IH F κ0 Hk.
     inversion Hk; subst; cbn.
     rewrite <- (IH _ _ H4), <- (kind_of_node_good _ _ _ H4).
-    by rewrite kind_ref_flag_ren set_kind_ref_flag_same.
+    by rewrite unshift_size_kind_ren.
   - intros κ κv τ IH F κ0 Hk.
     inversion Hk; subst; cbn.
     apply IH in H6 as Hnew.
@@ -1735,11 +1740,11 @@ Proof.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     rewrite (IH _ _ _ _ _ _ (fc_ren_rep _ _ _ _ _ HF)).
     rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_rep _ _ _ _ _ HF)).
-    by rewrite set_kind_ref_flag_ren_flag.
+    by rewrite unshift_rep_kind_up_ren.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     rewrite (IH _ _ _ _ _ _ (fc_ren_size _ _ _ _ _ HF)).
     rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_size _ _ _ _ _ HF)).
-    by rewrite set_kind_ref_flag_ren_flag.
+    by rewrite unshift_size_kind_up_ren.
   - intros κ κ0 τ IH ξm ξr ξs ξt F F' HF; cbn.
     rewrite (IH _ _ _ _ _ _ (fc_ren_cons _ _ _ _ _ _ HF)).
     by rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_cons _ _ _ _ _ _ HF)).
@@ -1905,12 +1910,18 @@ Proof.
     by rewrite (type_kind_kind_of_node _ _ _ H4).
   - intros κ τ' IH F τ Hr.
     inversion Hr; subst; cbn.
-    apply IH in H3 as Hnew. rewrite <- Hnew.
-    by rewrite (type_kind_kind_of_node _ _ _ H4).
+    match goal with H : refreshed_kinds _ _ _ |- _ => apply IH in H as Hnew end.
+    rewrite <- Hnew.
+    match goal with H : layout.type_kind _ _ = Some _ |- _ =>
+      rewrite (type_kind_kind_of_node _ _ _ H) end.
+    by rewrite unshift_rep_kind_ren.
   - intros κ τ' IH F τ Hr.
     inversion Hr; subst; cbn.
-    apply IH in H3 as Hnew. rewrite <- Hnew.
-    by rewrite (type_kind_kind_of_node _ _ _ H4).
+    match goal with H : refreshed_kinds _ _ _ |- _ => apply IH in H as Hnew end.
+    rewrite <- Hnew.
+    match goal with H : layout.type_kind _ _ = Some _ |- _ =>
+      rewrite (type_kind_kind_of_node _ _ _ H) end.
+    by rewrite unshift_size_kind_ren.
   - intros κ κv τ' IH F τ Hr.
     inversion Hr; subst; cbn.
     apply IH in H3 as Hnew. rewrite <- Hnew.

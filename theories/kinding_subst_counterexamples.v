@@ -225,6 +225,54 @@ Qed.
    canonicalizes, and a well-kinded RecT is no longer canonical.  Both refresh_kinds and
    RKRec now keep the annotation; these pin that down. *)
 
+
+(* Elan's 06608975 commented out everything from τ_span down to
+   has_kind_ft_from_insts_and_ok_false: the RecT/MemGC witnesses in there died when KRec
+   gained its subkind_of slack, since RecT κ_any (RefT κ_gc …) is now well kinded.  The two
+   cause-A refutations below do not depend on RecT at all, so they are lifted back out. *)
+
+(* Cause A: refreshed_kinds accepts any annotation on its input, so the ← direction
+   holds of ill-annotated ϕ. *)
+Lemma needs_name_false :
+  ¬ (∀ ϕ ϕsub F τ κ ϕ',
+        has_kind F τ κ →
+        ϕsub = subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ →
+        refreshed_kinds_ift F
+          (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ϕ' →
+        has_kind_ift (F <| fc_type_vars ::= cons κ |>) ϕ ↔ has_kind_ift F ϕ').
+Proof.
+  intros Hbogus.
+  eapply ift_bad_not_kinded.
+  eapply (Hbogus ift_bad ift_bad fc_empty (I31T κ_no) κ_no ift_good).
+  - constructor.
+  - reflexivity.
+  - repeat constructor.
+  - apply ift_good_kinded.
+Qed.
+
+(* Cause A: the refreshed τs' are well kinded while the ill-annotated τs are not. *)
+Lemma has_kinds_subst_to_has_kinds_env_false :
+  ¬ (∀ τs F τv κv κs τs',
+        Forall2 (refreshed_kinds F)
+          (map (subst_type VarM VarR VarS (unscoped.scons τv VarT)) τs) τs' →
+        has_kind F τv κv →
+        Forall2 (has_kind F) τs' κs →
+        Forall2 (has_kind (F <| fc_type_vars ::= cons κv |>)) τs κs).
+Proof.
+  intros Hbogus.
+  unshelve epose proof
+    (Hbogus [I31T (VALTYPE (AtomR I64R) NoRefs)] fc_empty (I31T κ_no) κ_no [κ_no]
+       [I31T κ_no] _ _ _) as Hk.
+  - repeat constructor.
+  - constructor.
+  - repeat constructor.
+  - inversion Hk; subst.
+    match goal with
+    | H : has_kind _ (I31T _) _ |- _ => inversion H
+    end.
+Qed.
+
+
 Definition κ_i64 : kind := VALTYPE (AtomR I64R) NoRefs.
 
 (* A RecT annotation is not a function of its body, so it cannot be synthesized: it is a

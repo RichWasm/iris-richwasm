@@ -3259,12 +3259,12 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
   | RecT κ τ => RecT κ (refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ)
   | ExistsMemT κ τ =>
       ExistsMemT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ)
-  | ExistsRepT κ τ =>
+  | ExistsRepT _ τ =>
       let τ' := refresh_kinds (add_rep_var F) τ in
-      ExistsRepT (set_kind_ref_flag κ (kind_ref_flag (kind_of_node (add_rep_var F) τ'))) τ'
-  | ExistsSizeT κ τ =>
+      ExistsRepT (unshift_rep_kind (kind_of_node (add_rep_var F) τ')) τ'
+  | ExistsSizeT _ τ =>
       let τ' := refresh_kinds (add_size_var F) τ in
-      ExistsSizeT (set_kind_ref_flag κ (kind_ref_flag (kind_of_node (add_size_var F) τ'))) τ'
+      ExistsSizeT (unshift_size_kind (kind_of_node (add_size_var F) τ')) τ'
   | ExistsTypeT κ κ0 τ =>
       ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
   end
