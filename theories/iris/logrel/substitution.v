@@ -1279,7 +1279,7 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt)
               (type_skind_has_kind _ _ _ _ Hk0 Henvt') in IHτ.
       exact (subskind_of_option_type_irrel _ _ _ _ _ _ _ IHτ).
-  Admitted.
+  Qed.
 
   Lemma type_skind_refresh_subst F F' sub_m sub_r sub_s sub_t se se' τ κ κ' :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
@@ -1692,7 +1692,7 @@ Section substitution.
       rewrite (type_skind_has_kind _ _ _ _ Hk0' Henvt) in Hsκ1.
       iExists sκ1; iPureIntro; split; last done.
       exact (eval_kind_type_irrel_rev _ _ _ _ _ _ Hsκ1).
-  Admitted.
+  Qed.
 
   Lemma skind_interp_chillin_backwards F F' sub_m sub_r sub_s sub_t se se' τ κ κ' sv :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
