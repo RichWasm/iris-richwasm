@@ -216,118 +216,59 @@ Proof.
 Qed.
 *)
 
-(* Refutations added after 634281ef gave KRec a [subkind_of κbody κ] premise.  A RecT
-   annotation may now over-approximate its body's kind, while refresh_kinds still
-   recomputes it (06608975).  The two are incompatible: recomputation canonicalizes,
-   subkinding admits non-canonical annotations, and refresh_kinds_id asserts that every
-   well-kinded type is already canonical. *)
 
-Definition κ_i32 : kind := VALTYPE (AtomR I32R) NoRefs.
+(* Regression witnesses for the RecT annotation.
+
+   634281ef gave KRec a [subkind_of κbody κ] premise, so a RecT annotation is allowed to
+   over-approximate its body's kind.  refresh_kinds recomputing that annotation
+   (06608975) was therefore incompatible with refresh_kinds_id -- recomputation
+   canonicalizes, and a well-kinded RecT is no longer canonical.  Both refresh_kinds and
+   RKRec now keep the annotation; these pin that down. *)
+
 Definition κ_i64 : kind := VALTYPE (AtomR I64R) NoRefs.
 
-(* refresh_kinds_id: refresh tightens a sound over-approximation. *)
-
-Definition τ_slack : type := RecT κ_any (I31T κ_no).
-
-Lemma τ_slack_kinded : has_kind fc_empty τ_slack κ_any.
-Proof. eapply KRec; [repeat constructor|constructor|repeat constructor]. Qed.
-
-Lemma τ_slack_refresh : refresh_kinds fc_empty τ_slack = RecT κ_no (I31T κ_no).
-Proof. by cbv. Qed.
-
-Lemma refresh_kinds_id_false :
-  ¬ (∀ τ F κ, has_kind F τ κ -> τ = refresh_kinds F τ).
-Proof.
-  intros Hbogus.
-  have Heq := Hbogus _ _ _ τ_slack_kinded.
-  rewrite τ_slack_refresh in Heq.
-  by inversion Heq.
-Qed.
-
-(* The same case moves the REPRESENTATION, not just the ref flag: kind_of_node reads the
-   unextended F, misses the rec binder, and falls through to its VALTYPE (AtomR I32R)
-   NoRefs default.  So no subkind-bounded weakening of refresh_kinds_id survives either. *)
-
-Definition τ_selfvar : type := RecT κ_no (VarT 0).
-
-Lemma τ_selfvar_kinded : has_kind fc_empty τ_selfvar κ_no.
-Proof.
-  eapply KRec;
-    [repeat constructor|apply KVar; [done|repeat constructor]|apply subkind_of_refl].
-Qed.
-
-Lemma τ_selfvar_refresh : refresh_kinds fc_empty τ_selfvar = RecT κ_i32 (VarT 0).
-Proof. by cbv. Qed.
-
-Lemma τ_selfvar_incomparable : ¬ subkind_of κ_i32 κ_no ∧ ¬ subkind_of κ_no κ_i32.
-Proof. split; intros H; by inversion H. Qed.
-
 (* A RecT annotation is not a function of its body, so it cannot be synthesized: it is a
-   declaration, not a cache.  Adding representation variables introduces new forms; it
-   does not remove these two, so this stays true under that extension. *)
-
+   declaration, not a cache, which is why refresh must leave it alone.  Representation
+   variables would add forms, not remove these two, so this stays true under them. *)
 Lemma rec_kind_not_determined_by_body :
   has_kind fc_empty (RecT κ_no (VarT 0)) κ_no ∧
   has_kind fc_empty (RecT κ_i64 (VarT 0)) κ_i64 ∧
   κ_no ≠ κ_i64.
 Proof.
   split; [|split].
-  - exact τ_selfvar_kinded.
+  - eapply KRec;
+      [repeat constructor|apply KVar; [done|repeat constructor]|apply subkind_of_refl].
   - eapply KRec;
       [repeat constructor|apply KVar; [done|repeat constructor]|apply subkind_of_refl].
   - discriminate.
 Qed.
 
-(* refreshed_rec_good (kinding_subst.v) answers Ryan's NOTE there: the lowering trick is
-   not an inductive invariant.  RKRec refreshes the body under the flag-lowered κ but
-   reports the recomputed κ', and the context that was used is not recoverable from κ'. *)
+(* The witness that broke the recomputing version: well kinded only through KRec's
+   subkind premise, so recomputation tightened κ_any to κ_no and refresh_kinds_id failed. *)
+Definition τ_slack : type := RecT κ_any (I31T κ_no).
 
-Definition κ_rec_sum : kind := VALTYPE (SumR [AtomR PtrR]) AnyRefs.
-Definition τ_sum_body : type := SumT (VALTYPE (AtomR PtrR) NoRefs) [VarT 0].
-Definition κ_rec_sum' : kind := VALTYPE (SumR [SumR [AtomR PtrR]]) NoRefs.
-Definition τ_sum_body' : type := SumT κ_rec_sum' [VarT 0].
+Lemma τ_slack_kinded : has_kind fc_empty τ_slack κ_any.
+Proof. eapply KRec; [repeat constructor|constructor|repeat constructor]. Qed.
 
-Lemma rec_sum_refreshed :
-  refreshed_kinds fc_empty (RecT κ_rec_sum τ_sum_body) (RecT κ_rec_sum' τ_sum_body').
-Proof.
-  eapply RKRec.
-  - eapply (RKSum _ _ [VarT 0] [VarT 0]
-              [VALTYPE (SumR [AtomR PtrR]) NoRefs] [SumR [AtomR PtrR]] [NoRefs]).
-    + repeat constructor.
-    + reflexivity.
-    + repeat constructor.
-  - reflexivity.
-Qed.
+Lemma τ_slack_refresh_fixed : refresh_kinds fc_empty τ_slack = τ_slack.
+Proof. by cbv. Qed.
 
-Lemma rec_sum_body_not_refreshed :
-  ¬ refreshed_kinds (fc_empty <| fc_type_vars ::= cons κ_rec_sum' |>) τ_sum_body τ_sum_body'.
-Proof.
-  intros H; inversion H; subst.
-  match goal with
-  | Hm : mapM _ _ = Some _ |- _ => cbn in Hm; inversion Hm; subst
-  end.
-  match goal with
-  | H3 : Forall3 _ _ _ _ |- _ => inversion H3; subst
-  end.
-  match goal with
-  | Heq : κ_rec_sum' = VALTYPE _ _ |- _ => cbv in Heq; inversion Heq
-  end.
-Qed.
+Lemma τ_slack_refreshed : refreshed_kinds fc_empty τ_slack τ_slack.
+Proof. by repeat constructor. Qed.
 
-Lemma refreshed_rec_good_false :
-  ¬ (∀ F κ κ' τ τ',
-        refreshed_kinds F (RecT κ τ) (RecT κ' τ') →
-        refreshed_kinds (F <| fc_type_vars ::= cons κ' |>) τ τ').
-Proof.
-  intros Hbogus.
-  exact (rec_sum_body_not_refreshed (Hbogus _ _ _ _ _ rec_sum_refreshed)).
-Qed.
+(* And the witness where recomputation moved the representation, not just the ref flag:
+   kind_of_node was called in the unextended F, missed the rec binder, and fell through
+   to its VALTYPE (AtomR I32R) NoRefs default. *)
+Definition τ_selfvar : type := RecT κ_no (VarT 0).
 
-(* ExistsRepT and ExistsSizeT sit on the wrong side of the same line in the other
-   direction: their rules admit no slack, but refresh keeps their annotation, so a stale
-   annotation survives instantiation and the refreshed result is ill-kinded.  This is the
-   cause-B bug 34849c4c fixed for ExistsMemT and ExistsTypeT, still live in the two
-   neighbours.  Independent of the RecT question above. *)
+Lemma τ_selfvar_refresh_fixed : refresh_kinds fc_empty τ_selfvar = τ_selfvar.
+Proof. by cbv. Qed.
+
+(* ExistsRepT and ExistsSizeT are the same class of bug in the other direction, and are
+   still live: their rules admit no slack, but refresh keeps their annotation, so a stale
+   annotation survives instantiation and the refreshed result is ill-kinded.  This is
+   cause B, which 34849c4c fixed for ExistsMemT and ExistsTypeT only.  Independent of
+   RecT: it predates 634281ef and nothing currently proved depends on it. *)
 
 Definition F_one_any : function_ctx := fc_empty <| fc_type_vars ::= cons κ_any |>.
 

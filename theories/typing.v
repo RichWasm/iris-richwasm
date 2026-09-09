@@ -1268,12 +1268,6 @@ Definition mk_ser_kind (κ : kind) : kind :=
   | MEMTYPE σ ξ => MEMTYPE σ ξ
   end.
 
-Definition lower_kind_flag_to_no_refs κ : kind :=
-  match κ with
-  | VALTYPE ρ _ => VALTYPE ρ NoRefs
-  | MEMTYPE σ _ => MEMTYPE σ NoRefs
-  end.
-
 
 Inductive refreshed_kinds : function_ctx → type → type → Prop :=
 | RKVar F t : refreshed_kinds F (VarT t) (VarT t)
@@ -1313,10 +1307,9 @@ Inductive refreshed_kinds : function_ctx → type → type → Prop :=
   refreshed_kinds F (PlugT κ ρ) (PlugT (VALTYPE ρ NoRefs) ρ)
 | RKSpan F κ σ :
   refreshed_kinds F (SpanT κ σ) (SpanT (MEMTYPE σ NoRefs) σ)
-| RKRec F κ κ' τ τ' :
-  refreshed_kinds (F <| fc_type_vars ::= cons (lower_kind_flag_to_no_refs κ) |>) τ τ' →
-  type_kind (fc_type_vars F) τ' = Some κ' ->
-  refreshed_kinds F (RecT κ τ) (RecT κ' τ') (* does the κ here need to be adjusted..? *)
+| RKRec F κ τ τ' :
+  refreshed_kinds (F <| fc_type_vars ::= cons κ |>) τ τ' →
+  refreshed_kinds F (RecT κ τ) (RecT κ τ')
 | RKExistsMem F κ κ' τ τ' :
   refreshed_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ τ' →
   type_kind (fc_type_vars ((F <| fc_kind_ctx ::= set kc_mem_vars S |>))) τ' = Some κ' ->

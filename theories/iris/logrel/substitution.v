@@ -1258,8 +1258,6 @@ Section substitution.
       cbn in IHτ |- *.
       destruct (eval_rep se ρ'), (eval_rep se' ρ); cbn in IHτ |- *; try done.
       inversion IHτ; subst; by constructor.
-    - (* rec *)
-      admit.
     - (* exists mem *)
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk') as [-> Hk0'].
@@ -1668,8 +1666,6 @@ Section substitution.
       split; last by apply ref_flag_serialize.
       cbn; unfold compose.
       by rewrite (has_areps_serialize_length _ _ Hareps).
-    - (* rec *)
-      admit.
     - (* exists mem *)
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk) as [-> Hk0].
       pose proof (has_kind_existsmem_inv _ _ _ _ Hk') as [-> Hk0'].

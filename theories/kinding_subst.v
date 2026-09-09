@@ -660,16 +660,6 @@ Qed.
 Lemma has_kind_type_kind F τ κ : has_kind F τ κ -> layout.type_kind (fc_type_vars F) τ = Some κ.
 Proof. by inversion 1. Qed.
 
-(* NOTE: the change made in refreshed_kinds, aka the lower_kind_flag_to_no_refs, was made
-   to simulate the fixpoint-like determination of the kind of a recursive type. This lemma
-   attempts to state that doing so is valid.
-
-   This lemma may require some additional information, like kinding information.
-
-   First, attempt proving this lemma without any additional hypotheses. If it is false,
-   clearly write out a counter example before moving and trying to add additional
-   hypotheses.
- *)
 
 Definition refresh_det (τ : type) : Prop :=
   forall F κ τ', has_kind F τ κ -> refreshed_kinds F τ τ' -> τ = τ'.
@@ -1467,10 +1457,7 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
       SerT κ τ'
   | PlugT _ ρ => PlugT (VALTYPE ρ NoRefs) ρ
   | SpanT _ σ => SpanT (MEMTYPE σ NoRefs) σ
-  | RecT κ τ =>
-      let τ' := refresh_kinds (F <| fc_type_vars ::= cons (lower_kind_flag_to_no_refs κ) |>) τ in
-      let κ' := kind_of_node F τ' in
-      RecT κ' τ'
+  | RecT κ τ => RecT κ (refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ)
   | ExistsMemT _ τ =>
       let τ' := refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ in
       let κ := kind_of_node ((F <| fc_kind_ctx ::= set kc_mem_vars S |>)) τ' in
@@ -1619,7 +1606,7 @@ Proof.
   - intros κ σ F κ0 Hk; by inversion Hk.
   - intros κ τ IH F κ0 Hk.
     inversion Hk; subst; cbn.
-    admit.
+    f_equal; by eapply IH.
   - intros κ τ IH F κ0 Hk.
     inversion Hk; subst; cbn.
     apply IH in H4 as Hnew.
@@ -1646,7 +1633,7 @@ Proof.
     inversion Hk; subst; cbn; f_equal; by eapply IH.
   - intros ϕ IH F Hk.
     inversion Hk; subst; cbn; f_equal; by eapply IH.
-Admitted.
+Qed.
 
 Lemma kind_of_node_ren ξm ξr ξs ξt F F' τ :
   fc_ren ξr ξs ξt F F' →
@@ -1736,8 +1723,7 @@ Proof.
   - done.
   - done.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
-    (* f_equal; apply IH, fc_ren_cons, HF. *)
-    admit.
+    f_equal; apply IH, fc_ren_cons, HF.
   - intros κ τ IH ξm ξr ξs ξt F F' HF; cbn.
     rewrite (IH _ _ _ _ _ _ (fc_ren_mem _ _ _ _ _ HF)).
     by rewrite (kind_of_node_ren _ _ _ _ _ _ _ (fc_ren_mem _ _ _ _ _ HF)).
@@ -1760,7 +1746,7 @@ Proof.
     f_equal; apply IH, fc_ren_rep, HF.
   - intros ϕ IH ξm ξr ξs ξt F F' HF; cbn.
     f_equal; apply IH, fc_ren_size, HF.
-Admitted.
+Qed.
 
 Lemma refresh_kinds_up_shift_type F κ τ :
   refresh_kinds (F <| fc_type_vars ::= cons κ |>)
@@ -1903,8 +1889,7 @@ Proof.
   - intros κ σ F τ Hr; by inversion Hr.
   - intros κ τ' IH F τ Hr.
     inversion Hr; subst.
-    cbn.
-    admit.
+    cbn; f_equal; by apply IH.
   - intros κ τ' IH F τ Hr.
     inversion Hr; subst; cbn.
     apply IH in H3 as Hnew. rewrite <- Hnew.
@@ -1937,7 +1922,7 @@ Proof.
   - intros ϕ' IH F ϕ Hr.
     inversion Hr; subst.
     cbn; f_equal; by apply IH.
-Admitted.
+Qed.
 
 Lemma refreshed_kinds_refresh_kinds:
   (∀ τ F subm subr subs subt,
