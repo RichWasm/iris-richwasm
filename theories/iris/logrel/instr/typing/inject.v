@@ -13,12 +13,12 @@ Section inject.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_inject M F L wt wt' wtf wl wl' wlf es' i τs τ κ :
+  Lemma compat_inject M F L wt wt' wtf wl wl' wlf es' i τs τ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [τ] [SumT κ τs] in
+    let ψ := InstrT [τ] [SumT τs] in
     τs !! i = Some τ ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IInject ψ i)) wt wl = inr ((), wt', wl', es') ->
@@ -27,8 +27,41 @@ Section inject.
     intros fe WT WL lmask Ψ Hlookup_i Hok Hcg.
     subst Ψ.
     cbn [compile_instr] in Hcg.
-    destruct κ as [ ρ rf | ]; last inversion Hcg.
-    destruct ρ  as [ | ρs_sum | | ]; try done.
+
+    inv_cg_bind Hcg ρs_cg ?wt ?wt ?wl ?wl ?es ?es Hρs_cg Hcg.
+    inv_cg_try_option Hρs_cg.
+    rename Heq_some into Hρs_cg_eq.
+    clear Heq_wt Heq_wl Heq_nil.
+
+    (* Recover [ρs_sum] (the SumT's per-branch representations) and the
+       [has_kind]-level [Hkinds] fact from [Hok] up front (as [compat_group]
+       does), then show the codegen's own [Hρs_cg_eq]-derived [ρs_cg] agrees
+       with [ρs_sum] -- replacing the old strategy of destructuring the
+       instruction type's embedded kind. *)
+    destruct Hok as [[Hmono_τ Hmono_Sum] Hok_L].
+    rewrite Forall_singleton in Hmono_τ.
+    destruct Hmono_τ as (ρ & Hρ & Hmono_ρ).
+    rewrite Forall_singleton in Hmono_Sum.
+    destruct Hmono_Sum as (ρ_sum & Hρ_sum & Hmono_ρ_sum).
+    inversion Hρ_sum as [F0 τ0 ρ0 ξ0 Hkind_sum].
+    subst F0 τ0 ρ0.
+    pose proof Hkind_sum as Hkind_sum_copy.
+    inversion Hkind_sum_copy; subst.
+    match goal with
+    | H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into Hkinds
+    end.
+    rename ρs into ρs_sum.
+    rename ξs into ξs_sum.
+    assert (Hkinds_tk : Forall3
+              (fun τ' ρ' ξ' => type_kind F.(fc_type_vars) τ' = Some (VALTYPE ρ' ξ'))
+              τs ρs_sum ξs_sum).
+    { eapply Forall3_impl; first exact Hkinds.
+      intros τ' ρ' ξ' Hk; by apply type_kind_has_kind_Some. }
+    pose proof (forall3_mapM_type_rep_val _ _ _ _ Hkinds_tk) as Hmapm_rep.
+    rewrite Hρs_cg_eq in Hmapm_rep.
+    apply Some_inj in Hmapm_rep as <-.
+    rename ρs_cg into ρs_sum.
+    clear Hkind_sum_copy.
 
     inv_cg_bind Hcg ιss ?wt ?wt ?wl ?wl ?es ?es Hιss Hcg.
     inv_cg_try_option Hιss; subst.
@@ -106,18 +139,6 @@ Section inject.
 
     destruct κ; last destruct Hskind_as_type as [[] _].
 
-    destruct Hok as [[Hmono_τ Hmono_Sum] Hok_L].
-    rewrite Forall_singleton in Hmono_τ.
-    destruct Hmono_τ as (ρ & Hρ & Hmono_ρ).
-    rewrite Forall_singleton in Hmono_Sum.
-    destruct Hmono_Sum as (ρ_sum & Hρ_sum & Hmono_ρ_sum).
-    inversion Hρ_sum.
-    subst F0 τ0 ρ0.
-    rename H into Hkind.
-    inversion Hkind.
-    subst F0 ρs κ0 rf τs0 ρ_sum ξ.
-    clear Hkind.
-    rename H1 into Hkinds.
     apply Forall3_length_lr in Hkinds as Hlen_ξs.
     rewrite Hρs_sum_eq Hτs_eq in Hkinds.
     apply Forall3_app_inv_l in Hkinds as (ρs_sum_pre' & ρs_sum_post' & ξs_pre & ξs_post & Hρs_sum_eq' & -> & Hkind_pre & Hkind_post).
@@ -406,14 +427,69 @@ Section inject.
     - iEval (rewrite values_interp_one_eq value_interp_eq).
       iSimpl.
       iExists (SVALTYPE (_ :: (concat ιss_pre) ++ ιs ++ (concat ιss_post)) _).
+      assert (Hpre_tk : Forall3
+                (fun τ' ρ' ξ' => ∀ sκ', eval_kind se (VALTYPE ρ' ξ') = Some sκ' -> type_skind_go se τ' = Some sκ')
+                τs_pre ρs_sum_pre ξs_pre).
+      { eapply Forall3_impl; first exact Hkind_pre.
+        intros τ' ρ' ξ' Hk sκ' Heval.
+        pose proof (type_skind_has_kind_Some F se τ' (VALTYPE ρ' ξ') sκ' Hk Hsem Heval) as Hres.
+        by cbn in Hres. }
+      assert (Hpost_tk : Forall3
+                (fun τ' ρ' ξ' => ∀ sκ', eval_kind se (VALTYPE ρ' ξ') = Some sκ' -> type_skind_go se τ' = Some sκ')
+                τs_post ρs_sum_post ξs_post).
+      { eapply Forall3_impl; first exact Hkind_post.
+        intros τ' ρ' ξ' Hk sκ' Heval.
+        pose proof (type_skind_has_kind_Some F se τ' (VALTYPE ρ' ξ') sκ' Hk Hsem Heval) as Hres.
+        by cbn in Hres. }
+      pose proof (mapM_eval_rep_emptyenv _ _ se Heval_ρs_sum_pre) as Heval_pre_se.
+      pose proof (mapM_eval_rep_emptyenv _ _ se Heval_ρs_sum_post) as Heval_post_se.
+      pose proof (eval_rep_emptyenv _ _ Heval_ρ_i se) as Heval_i_se.
+      pose proof (forall3_mapM_type_skind_val se _ _ _ Hpre_tk _ Heval_pre_se) as Hskind_pre.
+      pose proof (forall3_mapM_type_skind_val se _ _ _ Hpost_tk _ Heval_post_se) as Hskind_post.
+      pose proof (type_skind_has_kind_Some F se τ (VALTYPE ρ_i ξ) (SVALTYPE ιs ξ)
+                    Hkind_i Hsem (eval_kind_of_eval_rep se ρ_i ιs Heval_i_se ξ)) as Hskind_i0.
+      pose proof Hskind_i0 as Hskind_i.
+      cbn in Hskind_i.
+      assert (Hlen_pre : length ιss_pre = length ξs_pre).
+      { pose proof (length_mapM _ _ _ Heval_ρs_sum_pre) as H1.
+        pose proof (Forall3_length_lm _ _ _ _ Hkind_pre) as H2.
+        pose proof (Forall3_length_lr _ _ _ _ Hkind_pre) as H3.
+        lia. }
+      assert (Hlen_post : length ιss_post = length ξs_post).
+      { pose proof (length_mapM _ _ _ Heval_ρs_sum_post) as H1.
+        pose proof (Forall3_length_lm _ _ _ _ Hkind_post) as H2.
+        pose proof (Forall3_length_lr _ _ _ _ Hkind_post) as H3.
+        lia. }
+      assert (Hmm : mapM skind_rep
+                (zip_with SVALTYPE ιss_pre ξs_pre ++ [SVALTYPE ιs ξ] ++ zip_with SVALTYPE ιss_post ξs_post)
+              = Some (ιss_pre ++ [ιs] ++ ιss_post)).
+      { apply mapM_Some_2.
+        apply Forall2_app; first by apply mapM_Some_1, mapM_skind_rep_zip.
+        apply Forall2_cons; split; first done.
+        by apply mapM_Some_1, mapM_skind_rep_zip. }
+      assert (Hmap_ref : map skind_ref_flag
+                (zip_with SVALTYPE ιss_pre ξs_pre ++ [SVALTYPE ιs ξ] ++ zip_with SVALTYPE ιss_post ξs_post)
+              = ξs_pre ++ [ξ] ++ ξs_post).
+      { rewrite !map_app; cbn.
+        by rewrite (map_skind_ref_flag_zip_val _ _ Hlen_pre) (map_skind_ref_flag_zip_val _ _ Hlen_post). }
+      assert (Harep_pre : mapM (type_arep se) τs_pre = Some ιss_pre).
+      { apply mapM_Some_2.
+        eapply (forall3_forall2_type_arep se F τs_pre ρs_sum_pre ιss_pre ξs_pre Hsem Hkind_pre).
+        by apply mapM_Some_1. }
+      assert (Harep_i : type_arep se τ = Some ιs).
+      { unfold type_arep. cbn -[type_skind]. rewrite Hskind_i0. done. }
       repeat iSplit.
       + iPureIntro.
         rewrite bind_Some.
-        eexists; split; last done.
-        apply mapM_eval_rep_emptyenv with (se := se) in Heq_some.
-        rewrite bind_Some.
-        eexists; split; first done.
-        simpl.
+        exists (zip_with SVALTYPE ιss_pre ξs_pre ++ [SVALTYPE ιs ξ] ++ zip_with SVALTYPE ιss_post ξs_post).
+        split.
+        { rewrite Hτs_eq.
+          apply mapM_Some_2.
+          apply Forall2_app; first by apply mapM_Some_1, Hskind_pre.
+          apply Forall2_cons; split; first exact Hskind_i.
+          by apply mapM_Some_1, Hskind_post. }
+        rewrite Hmm.
+        cbn.
         by rewrite !concat_app concat_cons.
       + iPureIntro.
         rewrite -has_areps_cons.
@@ -427,6 +503,7 @@ Section inject.
         1: by apply (ref_flag_atoms_refine NoRefs); first done.
         2: by apply (ref_flag_atoms_refine NoRefs); first done.
         eapply ref_flag_atoms_refine; last done.
+        rewrite Hmap_ref.
         apply ref_flag_lub_ub.
         rewrite elem_of_app.
         right.
@@ -434,27 +511,23 @@ Section inject.
       + iExists _, _, _, _.
         iSplit; first done.
         iSplit.
-        { iPureIntro. by apply sum_offset_emptyenv. }
+        { iPureIntro.
+          unfold sum_interp_offset.
+          rewrite Hτs_eq Hτs_pre_len take_app_length Harep_pre.
+          done. }
         iSplit.
-        {
-          iPureIntro.
-          subst ρs_sum.
-          rewrite list_lookup_middle; last done.
-          simpl.
-          apply eval_rep_emptyenv with (se := se) in Heval_ρ_i.
-          rewrite Heval_ρ_i.
-          done.
-        }
+        { iPureIntro.
+          unfold sum_interp_count.
+          rewrite Hlookup_i.
+          cbn -[type_arep].
+          rewrite Harep_i.
+          done. }
         change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i).
         rewrite list_lookup_fmap.
         rewrite Hlookup_i.
         rewrite (has_areps_length _ _ Hareps_pre).
         rewrite (has_areps_length _ _ Hhas_areps).
-        iSplitR; last by rewrite drop_app_length take_app_length.
-        rewrite Forall_app.
-        iSplitR.
-        * by rewrite take_app_length.
-        * by rewrite -length_app (app_assoc os_pre) drop_app_length.
+        by rewrite drop_app_length take_app_length.
     - iApply atoms_interp_cons.
       iSplit; first done.
       iApply atoms_interp_app_split_r; first done.

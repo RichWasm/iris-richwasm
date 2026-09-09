@@ -32,6 +32,7 @@ Section loop.
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
     iIntros (?????? Hok IH Hcg ????????) "@@@@@@@@@@@@".
+    pose proof (has_instruction_type_ok_type_ok F τs1 τs2 L Hok) as [Htoks1 Htoks2].
     inv_cg_bind Hcg ?res ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
     inv_cg_try_option Hcg.
     inv_cg_bind Hcg0 [[] ?res] ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
@@ -44,8 +45,8 @@ Section loop.
     inversion Hts.
     subst.
     clear_nils.
-    iDestruct (translate_types_comp_interp_length with "Hos") as "%Hlen_ts1".
-    1, 2: done.
+    iDestruct (translate_types_comp_interp_length rti sr with "Hos") as "%Hlen_ts1".
+    1, 2, 3: done.
     iDestruct (big_sepL2_length with "Hvs") as "%Hlen_vs".
     eapply IH in Hcg.
     iApply (cwp_loop' with "[$] [$] [Hvs Hos Hframe Hown Hrt]"); first done.
@@ -61,8 +62,8 @@ Section loop.
       + done.
       + iPureIntro. apply has_values_to_consts.
       + by destruct Hrel as [_ ->].
-      + iSimpl. iApply labels_interp_cons.
-        1, 2: done.
+      + iSimpl. iApply (labels_interp_cons rti sr).
+        1, 2, 3: done.
         * iIntros "!> %fr'' %vs'' (%Hfrel & Hframe & (%os'' & Hos & Hvs) & [%θ'' Hrt] & Hown)".
           iFrame.
           iPureIntro.

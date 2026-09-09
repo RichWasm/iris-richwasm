@@ -39,6 +39,8 @@ Section ite.
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
     iIntros (?????? Hok IH1 IH2 Hcg ????????) "@@@@@@@@@@@@".
+    pose proof (has_instruction_type_ok_type_ok F (τs1 ++ [type_i32]) τs2 L' Hok) as [Htoks1' Htoks2].
+    apply Forall_app in Htoks1' as [Htoks1 _].
     inv_cg_bind Hcg res1 wt1 wt2 wl1 wl2 es1' es2' Hcg1 Hcg2.
     inv_cg_bind Hcg2 res2 wt3 wt4 wl3 wl4 es3' es4' Hcg2 Hcg3.
     apply wp_ignore in Hcg3 as (_ & [] & Hcg3).
@@ -69,8 +71,8 @@ Section ite.
     change (map BI_const [v]) with [BI_const v].
     iDestruct "Hv" as "->".
     rewrite removelast_last in Heq_some.
-    iDestruct (translate_types_comp_interp_length with "Hos1") as "%Hlen_res".
-    1, 2: done.
+    iDestruct (translate_types_comp_interp_length rti sr with "Hos1") as "%Hlen_res".
+    1, 2, 3: done.
     iDestruct (big_sepL2_length with "Hvs1") as "%Hlen_vs1".
     eapply cwp_if_c in Hcg3 as (wt5 & wt6 & wl5 & wl6 & es5 & es6 & Hes1 & Hes2 & -> & -> & Hite).
     do 2 rewrite <- app_assoc.
@@ -92,8 +94,8 @@ Section ite.
         first iApply (IH2 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
       1, 2, 5: done.
       + iPureIntro. apply has_values_to_consts.
-      + iSimpl. iApply labels_interp_cons.
-        1, 2: done.
+      + iSimpl. iApply (labels_interp_cons rti sr).
+        1, 2, 3: done.
         * iModIntro.
           iIntros (??) "(%Hfrel & Hframe & Hvalues & Hrt)".
           iFrame.
@@ -124,8 +126,8 @@ Section ite.
       1, 2: done.
       { iPureIntro. apply has_values_to_consts. }
       iSimpl.
-      iApply labels_interp_cons.
-      3: by iIntros (fr' vs') "!> H".
+      iApply (labels_interp_cons rti sr).
+      4: by iIntros (fr' vs') "!> H".
       all: done.
   Qed.
 

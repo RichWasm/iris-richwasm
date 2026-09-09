@@ -61,8 +61,6 @@ Section fold.
     (* subst τrec. *)
     inversion Hkind; subst.
     assert (Hkindτrec: has_kind F τrec κ) by by apply has_kind_rec_subst.
-    destruct (refresh_kinds_id) as (this & _).
-    assert (refresh_kinds F τrec = τrec) by (symmetry; by eapply this).
     assert (eval_kind se κ = Some sκ) as Hκ.
     {
       apply has_kind_inv in Hkindτrec as Hok_has.
@@ -86,9 +84,7 @@ Section fold.
     unfold skind_rec_interp1. iEval (cbn -[add_skind_interp_closed]).
     Transparent senv_insert_type.
     iModIntro.
-    unfold τrec in H.
     unfold τrec.
-    rewrite <- H.
     pose proof (sem_well_formed_from_interp F se Hse) as HseF.
 
 
@@ -138,24 +134,19 @@ Section fold.
         }
         done.
       - intros i; destruct i; try done.
-        cbn.
-        apply this in H3.
-        rewrite <- H3.
-        done.
       - (* this is whatever the kinding admit above is *)
-        rewrite H.
         exact Hkindτrec.
         Transparent skind_has_svalue.
     }
 
-    pose proof (add_skind_interp_closed_equiv_value_interp rti sr sκ τ κ se Hκ).
+    pose proof (add_skind_interp_closed_equiv_value_interp rti sr sκ τ κ se Hκ) as Hequivri.
     assert (Hproper: Proper (equiv ==> equiv) (type_interp rti sr τ)). {
       typeclasses eauto.
     }
     iApply Hproper.
     {
       apply senv_insert_type_proper.
-      apply H0.
+      apply Hequivri.
     }
     done.
 

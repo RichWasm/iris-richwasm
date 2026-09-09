@@ -361,50 +361,111 @@ Section instr.
       by eapply eval_size_se.
   Qed.
 
-  Program Definition type_skind : semantic_env -n> leibnizO type -n> leibnizO (option skind) :=
-    λne se τ,
+  Definition skind_rep (κ : skind) : option (list atomic_rep) :=
+    match κ with
+    | SVALTYPE ιs _ => Some ιs
+    | _ => None
+    end.
+
+  Definition skind_size (κ : skind) : option nat :=
+    match κ with
+    | SMEMTYPE n _ => Some n
+    | _ => None
+    end.
+
+  (* [type_skind] is no longer a cached annotation on [τ] -- it is recomputed
+     bottom-up, in a context of [se] for the type's free type variables,
+     mirroring [type_kind] in layout.v (but evaluated at [se]). *)
+  Fixpoint type_skind_go (se : semantic_env) (τ : type) : option skind :=
     match τ with
     | VarT x => fst <$> lookup_type se x (* NOTE: this is looking up the less specific skind *)
-    | NumT κ _
-    | SumT κ _
-    | VariantT κ _
-    | ProdT κ _
-    | StructT κ _
-    | RefT κ _ _ _
-    | I31T κ
-    | CodeRefT κ _
-    | SerT κ _
+    | I31T => eval_kind_se se (VALTYPE (AtomR PtrR) NoRefs)
+    | NumT nt => eval_kind_se se (kind_of_num nt)
+    | SumT τs =>
+        κs ← mapM (type_skind_go se) τs;
+        ρs ← mapM skind_rep κs;
+        Some (SVALTYPE (I32R :: concat ρs) (ref_flag_lub (map skind_ref_flag κs)))
+    | VariantT τs =>
+        κs ← mapM (type_skind_go se) τs;
+        σs ← mapM skind_size κs;
+        Some (SMEMTYPE (1 + list_max σs) (ref_flag_lub (map skind_ref_flag κs)))
+    | ProdT τs =>
+        κs ← mapM (type_skind_go se) τs;
+        ρs ← mapM skind_rep κs;
+        Some (SVALTYPE (concat ρs) (ref_flag_lub (map skind_ref_flag κs)))
+    | StructT τs =>
+        κs ← mapM (type_skind_go se) τs;
+        σs ← mapM skind_size κs;
+        Some (SMEMTYPE (list_sum σs) (ref_flag_lub (map skind_ref_flag κs)))
+    | RefT μ _ τ =>
+        κ ← type_skind_go se τ;
+        match κ with
+        | SMEMTYPE _ _ => Some (SVALTYPE [PtrR] (mem_ref_flag μ))
+        | SVALTYPE _ _ => None
+        end
+    | CodeRefT _ => eval_kind_se se (VALTYPE (AtomR I32R) NoRefs)
+    | SerT τ =>
+        κ ← type_skind_go se τ;
+        match κ with
+        | SVALTYPE ιs ξ => Some (SMEMTYPE (areps_size ιs) ξ)
+        | SMEMTYPE _ _ => None
+        end
+    | PlugT ρ =>
+        ιs ← eval_rep_se se ρ;
+        Some (SVALTYPE ιs NoRefs)
+    | SpanT σ =>
+        n ← eval_size_se se σ;
+        Some (SMEMTYPE n NoRefs)
     | RecT κ _
-    | PlugT κ _
-    | SpanT κ _
     | ExistsMemT κ _
     | ExistsRepT κ _
     | ExistsSizeT κ _
     | ExistsTypeT κ _ _ => eval_kind_se se κ
     end.
+
+  Lemma type_entry_dist_skind n
+    (o o' : option (prodO (leibnizO skind) (prodO (leibnizO skind) SVR))) :
+    o ≡{n}≡ o' → fst <$> o = fst <$> o'.
+  Proof.
+    intros H; inversion H as [u v Huv|]; subst; cbn; [f_equal|done].
+    by destruct Huv as [Hfst _].
+  Qed.
+
+  Program Definition type_skind : semantic_env -n> leibnizO type -n> leibnizO (option skind) :=
+    λne se τ, type_skind_go se τ.
   Next Obligation.
+    Proof using Σ.
     cbn.
     repeat intros ?; cbn.
     rewrite H.
     solve_proper.
   Qed.
   Final Obligation.
-    intros n se se' [Hse Htys] τ; cbn.
-    destruct τ;
-      try by eapply eval_kind_se.
-    eapply (list_lookup_ne n0) in Htys.
-    inversion Htys as [u v Huv Hl Hr|Hl Hr].
-    - rewrite -Hl -Hr; cbn.
-      f_equiv.
-      by inversion Huv.
-    - by rewrite -Hl -Hr.
+    Proof using Σ.
+    intros n se se' [Hse Htys] τ; cbn -[eval_rep_se eval_size_se eval_kind_se].
+    revert se se' Hse Htys.
+    induction τ using type_ind
+      with (Pi := const True) (P0 := const True).
+    all: try (intros se se' Hse Htys); cbn -[eval_rep_se eval_size_se eval_kind_se].
+    all: try exact I.
+    all: try (by eapply eval_kind_se).
+    all: try (f_equiv; by eapply eval_rep_se).
+    all: try (f_equiv; by eapply eval_size_se).
+    all: first
+      [ (match goal with n : num_type |- _ => destruct n as [[]|[]] end; done)
+      | (cbn [type_skind_go lookup_type];
+         apply (type_entry_dist_skind n);
+         by apply list_dist_lookup)
+      | (cbn [type_skind_go];
+         erewrite (Forall_mapM_ext (type_skind_go se) (type_skind_go se')); last first;
+         [ eapply Forall_impl; first eassumption; intros τ' IH'; by apply IH'
+         | done ])
+      | (cbn [type_skind_go];
+         match goal with
+         | IH : context[type_skind_go] |- _ => rewrite (IH se se' Hse Htys)
+         end;
+         done) ].
   Qed.
-
-  Definition skind_rep (κ : skind) : option (list atomic_rep) :=
-    match κ with
-    | SVALTYPE ιs _ => Some ιs
-    | _ => None
-    end.
 
   Program Definition type_arep : semantic_env -n> leibnizO type -n> leibnizO (option (list atomic_rep)) :=
     λne se τ,
@@ -487,53 +548,51 @@ Section instr.
     eapply H.
   Qed.
 
-  Program Definition sum_interp κ : list SVRO -> SVRO :=
-    match κ with
-    | VALTYPE (SumR ρs) _ =>
-        λ (τs : list SVRO), λne (se : semantic_env) sv,
-          ∃ (i : nat) os off count,
-            ⌜sv = SAtoms (I32A (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: os)⌝ ∗
-            ⌜sum_offset_se se ρs i = Some off⌝ ∗
-            ⌜length <$> ρs !! i ≫= eval_rep se = Some count⌝ ∗
-            ⌜ref_flag_atoms_interp NoRefs (SAtoms (take off os ++ drop (off + count) os))⌝ ∗
-            match list_lookup i τs with
-            | Some τi => τi se (SAtoms (take count (drop off os)))
-            | None => False%I
-            end
-    | _ => λne _ _ _, False
-    end%I.
+  (* [sum_interp] used to be driven by the sum's own (cached) kind; now it
+     recomputes each branch's representation via [type_arep] at [se]-time. *)
+  Definition sum_interp_offset (se : semantic_env) (τs : list type) (i : nat) : option nat :=
+    ιss ← mapM (type_arep se) (take i τs);
+    Some (length (concat ιss)).
+
+  Definition sum_interp_count (se : semantic_env) (τs : list type) (i : nat) : option nat :=
+    τ ← τs !! i;
+    ιs ← type_arep se τ;
+    Some (length ιs).
+
+  Program Definition sum_interp (τs : list type) : list SVRO -> SVRO :=
+    λ (vrels : list SVRO), λne (se : semantic_env) sv,
+      (∃ (i : nat) os off count,
+        ⌜sv = SAtoms (I32A (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: os)⌝ ∗
+        ⌜sum_interp_offset se τs i = Some off⌝ ∗
+        ⌜sum_interp_count se τs i = Some count⌝ ∗
+        match list_lookup i vrels with
+        | Some τi => τi se (SAtoms (take count (drop off os)))
+        | None => False
+        end)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
-    intros.
-    intros se se' Hse sv; cbn.
-    f_equiv; intros i; cbn.
-    f_equiv; intros os; cbn.
-    f_equiv; intros off; cbn.
-    f_equiv; intros count; cbn.
-    f_equiv.
-    f_equiv.
-    {
-      unfold sum_offset.
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      apply mapM_ext.
-      by eapply eval_rep_se.
-    }
-    f_equiv.
-    {
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      eapply option_bind_ext; eauto.
-      by eapply eval_rep_se.
-    }
-    destruct (list_lookup i τs) eqn:Hi; solve_proper.
+  Proof using Σ.
+    intros τs vrels n se se' Hse sv.
+    assert (Hoff : forall i, sum_interp_offset se τs i = sum_interp_offset se' τs i).
+    { intros i. unfold sum_interp_offset.
+      erewrite (Forall_mapM_ext (type_arep se) (type_arep se')); first done.
+      apply Forall_forall; intros τ _; by eapply type_arep. }
+    assert (Hcount : forall i, sum_interp_count se τs i = sum_interp_count se' τs i).
+    { intros i. unfold sum_interp_count.
+      destruct (τs !! i) as [τ|]; last done.
+      cbn -[type_arep].
+      assert (type_arep se τ = type_arep se' τ) as -> by (by eapply type_arep).
+      done. }
+    cbn.
+    f_equiv; intros i.
+    f_equiv; intros os.
+    f_equiv; intros off.
+    f_equiv; intros count.
+    rewrite Hoff Hcount.
+    repeat f_equiv.
+    destruct (list_lookup i vrels) as [τi|]; last done.
+    by eapply τi.
   Qed.
-  Next Obligation. cbn; congruence. Qed.
-  Next Obligation. cbn; congruence. Qed.
-  Next Obligation. cbn; congruence. Qed.
-  Final Obligation. cbn; congruence. Qed.
 
   Program Definition variant_interp : list semantic_type -> semantic_env -n> SVR :=
     λne (τs : listO semantic_type) se sv,
@@ -1034,22 +1093,22 @@ Section instr.
     add_skind_interp τ $
       match τ with
       | VarT t => type_var_interp t
-      | I31T _ => i31_interp
-      | NumT _ nt => num_interp nt
-      | SumT κ τs => sum_interp κ (map type_interp τs)
-      | VariantT _ τs => variant_interp (map type_interp τs)
-      | ProdT _ τs => prod_interp (map type_interp τs)
-      | StructT _ τs => struct_interp (map type_interp τs)
-      | RefT _ μ β τ => ref_interp μ β (type_interp τ)
-      | SerT _ τ => ser_interp (type_interp τ)
-      | PlugT _ ρ => plug_interp
-      | SpanT _ σ => span_interp
+      | I31T => i31_interp
+      | NumT nt => num_interp nt
+      | SumT τs => sum_interp τs (map type_interp τs)
+      | VariantT τs => variant_interp (map type_interp τs)
+      | ProdT τs => prod_interp (map type_interp τs)
+      | StructT τs => struct_interp (map type_interp τs)
+      | RefT μ β τ => ref_interp μ β (type_interp τ)
+      | SerT τ => ser_interp (type_interp τ)
+      | PlugT ρ => plug_interp
+      | SpanT σ => span_interp
       | RecT κ τ => rec_interp κ (type_interp τ)
       | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
       | ExistsRepT _ τ => exists_rep_interp (type_interp τ)
       | ExistsSizeT _ τ => exists_size_interp (type_interp τ)
       | ExistsTypeT _ κ τ => exists_type_interp κ (type_interp τ)
-      | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
+      | CodeRefT ϕ => coderef_interp (closure_interp ϕ)
       end%I
   with inner_closure_interp (ϕ : inner_function_type) : semantic_env -n> ClR :=
     match ϕ with
@@ -1067,22 +1126,22 @@ Section instr.
   Definition pre_type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
     match τ with
     | VarT t => type_var_interp t
-    | I31T _ => i31_interp
-    | NumT _ nt => num_interp nt
-    | SumT κ τs => sum_interp κ (map type_interp τs)
-    | VariantT _ τs => variant_interp (map type_interp τs)
-    | ProdT _ τs => prod_interp (map type_interp τs)
-    | StructT _ τs => struct_interp (map type_interp τs)
-    | RefT _ μ β τ => ref_interp μ β (type_interp τ)
-    | SerT _ τ => ser_interp (type_interp τ)
-    | PlugT _ ρ => plug_interp
-    | SpanT _ σ => span_interp
+    | I31T => i31_interp
+    | NumT nt => num_interp nt
+    | SumT τs => sum_interp τs (map type_interp τs)
+    | VariantT τs => variant_interp (map type_interp τs)
+    | ProdT τs => prod_interp (map type_interp τs)
+    | StructT τs => struct_interp (map type_interp τs)
+    | RefT μ β τ => ref_interp μ β (type_interp τ)
+    | SerT τ => ser_interp (type_interp τ)
+    | PlugT ρ => plug_interp
+    | SpanT σ => span_interp
     | RecT κ τ => rec_interp κ (type_interp τ)
     | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
     | ExistsRepT _ τ => exists_rep_interp (type_interp τ)
     | ExistsSizeT _ τ => exists_size_interp (type_interp τ)
     | ExistsTypeT _ κ τ => exists_type_interp κ (type_interp τ)
-    | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
+    | CodeRefT ϕ => coderef_interp (closure_interp ϕ)
     end%I.
 
   Lemma type_interp_eq τ se sv :

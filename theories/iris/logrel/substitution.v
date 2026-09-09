@@ -67,8 +67,11 @@ Section substitution.
   Definition sem_env_rel_type_eq (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
     (forall i, default (λne _, False%I) (snd <$> (snd <$> lookup_type se' i)) ≡
                   (value_interp rti sr se (sub_t i))).
-  Definition sub_t_well_formed F (sub_t : nat → type) :=
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i).
+  (* Used to require [∀ i, refresh_kinds F (sub_t i) = sub_t i]: since there
+     is no more cached kind annotation to go stale, [refresh_kinds] was
+     deleted (it would have been the identity) and this side-condition is
+     now vacuously true. *)
+  Definition sub_t_well_formed (F : function_ctx) (sub_t : nat → type) := True.
 
   Ltac unfold_sem_rels :=
     unfold
@@ -253,12 +256,98 @@ Section substitution.
     by destruct Huv as [Hfst _].
   Qed.
 
-  Lemma type_skind_ren ξm ξr ξs ξt se se' τ :
+  Lemma mem_ref_flag_ren ξm μ :
+    mem_ref_flag μ = mem_ref_flag (ren_memory ξm μ).
+  Proof. by destruct μ. Qed.
+
+  Lemma type_skind_ren τ :
+    forall ξm ξr ξs ξt se se',
     sem_env_ren ξm ξr ξs ξt se se' →
     type_skind se τ = type_skind se' (ren_type ξm ξr ξs ξt τ).
   Proof.
-    intros HR; destruct τ; cbn; try by eapply eval_kind_ren.
-    apply type_entry_equiv_skind, (sem_env_ren_type _ _ _ _ _ _ HR).
+    induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True);
+      try (intros ξm ξr ξs ξt se se' HR; cbn [type_skind ren_type]; cbn -[type_skind_go]).
+    - (* VarT *)
+      cbn [type_skind_go lookup_type].
+      exact (type_entry_equiv_skind _ _ (sem_env_ren_type _ _ _ _ _ _ HR idx)).
+    - (* I31T *)
+      cbn [type_skind_go ren_type].
+      exact (eval_kind_ren ξm ξr ξs ξt se se' (VALTYPE (AtomR PtrR) NoRefs) HR).
+    - (* NumT *)
+      destruct nt as [[]|[]]; cbn [type_skind_go ren_type];
+        exact (eval_kind_ren ξm ξr ξs ξt se se' _ HR).
+    - (* SumT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se) (type_skind_go se')
+                  (ren_type ξm ξr ξs ξt) τs); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'. by apply IH'. }
+      done.
+    - (* VariantT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se) (type_skind_go se')
+                  (ren_type ξm ξr ξs ξt) τs); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'. by apply IH'. }
+      done.
+    - (* ProdT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se) (type_skind_go se')
+                  (ren_type ξm ξr ξs ξt) τs); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'. by apply IH'. }
+      done.
+    - (* StructT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se) (type_skind_go se')
+                  (ren_type ξm ξr ξs ξt) τs); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'. by apply IH'. }
+      done.
+    - (* RefT *)
+      cbn [type_skind_go].
+      match goal with
+      | IH : context[sem_env_ren] |- _ =>
+          pose proof (IH _ _ _ _ _ _ HR) as Heq
+      end.
+      cbn in Heq.
+      rewrite Heq.
+      rewrite <- (mem_ref_flag_ren ξm μ).
+      done.
+    - (* CodeRefT *)
+      cbn [type_skind_go ren_type].
+      exact (eval_kind_ren ξm ξr ξs ξt se se' (VALTYPE (AtomR I32R) NoRefs) HR).
+    - (* SerT *)
+      cbn [type_skind_go].
+      match goal with
+      | IH : context[sem_env_ren] |- _ =>
+          pose proof (IH _ _ _ _ _ _ HR) as Heq
+      end.
+      cbn in Heq.
+      by rewrite Heq.
+    - (* PlugT *)
+      cbn.
+      by rewrite (eval_rep_ren _ _ _ _ _ _ _ HR).
+    - (* SpanT *)
+      cbn.
+      by rewrite (eval_size_ren _ _ _ _ _ _ _ HR).
+    - (* RecT *)
+      cbn [type_skind_go ren_type].
+      exact (eval_kind_ren ξm ξr ξs ξt se se' κ HR).
+    - (* ExistsMemT *)
+      cbn [type_skind_go ren_type].
+      exact (eval_kind_ren ξm ξr ξs ξt se se' κ HR).
+    - (* ExistsRepT *)
+      cbn [type_skind_go ren_type].
+      exact (eval_kind_ren ξm ξr ξs ξt se se' κ HR).
+    - (* ExistsSizeT *)
+      cbn [type_skind_go ren_type].
+      exact (eval_kind_ren ξm ξr ξs ξt se se' κ HR).
+    - (* ExistsTypeT *)
+      cbn [type_skind_go ren_type].
+      exact (eval_kind_ren ξm ξr ξs ξt se se' κ1 HR).
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
   Qed.
 
   Lemma translate_type_ren ξm ξr ξs ξt se se' τ :
@@ -266,7 +355,7 @@ Section substitution.
     translate_type se τ = translate_type se' (ren_type ξm ξr ξs ξt τ).
   Proof.
     intros HR; cbn -[type_skind].
-    by rewrite (type_skind_ren _ _ _ _ _ _ τ HR).
+    by rewrite (type_skind_ren τ _ _ _ _ _ _ HR).
   Qed.
 
   Lemma translate_types_ren ξm ξr ξs ξt se se' τs :
@@ -328,20 +417,47 @@ Section substitution.
     repeat (f_equiv; try done).
   Qed.
 
-  Lemma sum_interp_ren ξm ξr ξs ξt se se' κ Ts Ts' :
+  Lemma type_arep_ren ξm ξr ξs ξt se se' τ :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    type_arep se τ = type_arep se' (ren_type ξm ξr ξs ξt τ).
+  Proof.
+    intros HR; cbn -[type_skind].
+    by rewrite (type_skind_ren τ _ _ _ _ _ _ HR).
+  Qed.
+
+  Lemma sum_interp_offset_ren ξm ξr ξs ξt se se' τs i :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    sum_interp_offset se τs i = sum_interp_offset se' (map (ren_type ξm ξr ξs ξt) τs) i.
+  Proof.
+    intros HR. unfold sum_interp_offset.
+    rewrite <- fmap_take.
+    erewrite (Forall_mapM_map_ext (type_arep se) (type_arep se')
+                (ren_type ξm ξr ξs ξt) (take i τs)); first done.
+    apply Forall_forall; intros τ _; by eapply type_arep_ren.
+  Qed.
+
+  Lemma sum_interp_count_ren ξm ξr ξs ξt se se' τs i :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    sum_interp_count se τs i = sum_interp_count se' (map (ren_type ξm ξr ξs ξt) τs) i.
+  Proof.
+    intros HR. unfold sum_interp_count.
+    rewrite list_lookup_fmap.
+    destruct (τs !! i) as [τ|]; last done.
+    cbn -[type_arep].
+    by erewrite (type_arep_ren _ _ _ _ _ _ _ HR).
+  Qed.
+
+  Lemma sum_interp_ren ξm ξr ξs ξt se se' τs Ts Ts' :
     sem_env_ren ξm ξr ξs ξt se se' →
     Forall2 (λ T T' : semantic_type, T se ≡ T' se') Ts Ts' →
-    sum_interp κ Ts se ≡ sum_interp (ren_kind ξr ξs κ) Ts' se'.
+    sum_interp τs Ts se ≡ sum_interp (map (ren_type ξm ξr ξs ξt) τs) Ts' se'.
   Proof.
-    intros HR HF.
-    destruct κ as [[|ρs|ρs|ι] ξ|σ ξ]; try done.
-    intros sv; cbn.
+    intros HR HF sv; cbn.
     do 4 (f_equiv; intros ?).
-    rewrite (sum_offset_ren _ _ _ _ _ _ ρs _ HR).
-    rewrite map_fmap list_lookup_fmap.
-    destruct (ρs !! _) as [ρ|]; cbn; [rewrite (eval_rep_ren _ _ _ _ _ _ ρ HR)|].
-    all: repeat (f_equiv; try done).
-    all: apply lookup_interp_ren, HF.
+    rewrite (sum_interp_offset_ren _ _ _ _ _ _ τs _ HR).
+    rewrite (sum_interp_count_ren _ _ _ _ _ _ τs _ HR).
+    repeat (f_equiv; try done).
+    apply lookup_interp_ren, HF.
   Qed.
 
   Lemma variant_interp_ren Ts Ts' (se se' : semantic_env (Σ:=Σ)) :
@@ -629,47 +745,47 @@ Section substitution.
       apply type_interp_ext; [by eapply type_skind_ren|].
       cbn_interp.
       by eapply type_var_interp_ren.
-    - intros κ ξm ξr ξs ξt se se' HR.
+    - intros ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       by intros sv; cbn.
-    - intros κ nt ξm ξr ξs ξt se se' HR.
+    - intros nt ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       by intros sv; cbn.
-    - intros κ τs IH ξm ξr ξs ξt se se' HR.
+    - intros τs IH ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       cbn_interp.
       apply (sum_interp_ren _ _ _ _ _ _ _ _ _ HR), (map_type_interp_ren _ _ _ _ _ _ _ HR IH).
-    - intros κ τs IH ξm ξr ξs ξt se se' HR.
+    - intros τs IH ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       cbn_interp.
       apply variant_interp_ren, (map_type_interp_ren _ _ _ _ _ _ _ HR IH).
-    - intros κ τs IH ξm ξr ξs ξt se se' HR.
+    - intros τs IH ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       cbn_interp.
       apply prod_interp_ren, (map_type_interp_ren _ _ _ _ _ _ _ HR IH).
-    - intros κ τs IH ξm ξr ξs ξt se se' HR.
+    - intros τs IH ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       cbn_interp.
       apply struct_interp_ren, (map_type_interp_ren _ _ _ _ _ _ _ HR IH).
-    - intros κ μ β τ IH ξm ξr ξs ξt se se' HR.
+    - intros μ β τ IH ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       cbn_interp.
       apply (ref_interp_ren _ _ _ _ _ _ _ _ _ _ HR).
       by apply IH.
-    - intros κ ϕ IH ξm ξr ξs ξt se se' HR.
+    - intros ϕ IH ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       cbn_interp.
       apply coderef_interp_ren.
       by apply IH.
-    - intros κ τ IH ξm ξr ξs ξt se se' HR.
+    - intros τ IH ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       cbn_interp.
       apply ser_interp_ren.
       by apply IH.
-    - intros κ ρ ξm ξr ξs ξt se se' HR.
+    - intros ρ ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       by intros sv; cbn.
-    - intros κ σ ξm ξr ξs ξt se se' HR.
+    - intros σ ξm ξr ξs ξt se se' HR.
       apply type_interp_ext; [by eapply type_skind_ren|].
       by intros sv; cbn.
     - intros κ τ IH ξm ξr ξs ξt se se' HR.
@@ -813,19 +929,28 @@ Section substitution.
   (* I wonder if some of of the hypotheses can be deleted *)
   (* probably, but maybe not  *)
   Lemma type_skind_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s sub_t τ κ κ' :
-    let τ' := (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)) in
+    let τ' := (subst_type sub_m sub_r sub_s sub_t τ) in
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
     sem_env_rel_rep_eq se' se sub_r ->
     sem_env_rel_size_eq se' se sub_s ->
     sem_env_rel_sκ_eq se' se sub_t ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     sem_env_interp F' se' ->
     sem_env_interp F se ->
     subskind_of_option
-      (type_skind (Σ:=Σ) se (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)))
+      (type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ))
       (type_skind (Σ:=Σ) se' τ).
   Proof.
+    (* Relied on [kind_of_node]/[kind_of_node_good] (deleted): the aggregate
+       kind of a substituted Sum/Variant/Prod/Struct/Ser now has to be
+       derived directly from the substituted children's [has_kind]
+       derivations rather than by comparing against a cached node kind. Was
+       already only partially proved (ending in [Admitted], several cases
+       via fragile bullet numbers) before this refactor too. Left admitted.
+    *)
+  Admitted.
+  (*
     unfold_sem_rels.
     intros Hkind_τ.
     generalize dependent κ'.
@@ -855,7 +980,7 @@ Section substitution.
       rewrite <- H4 in *.
       move IHHkind_τ at bottom.
 
-      set (τ' := (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ))) in *.
+      set (τ' := (subst_type sub_m sub_r sub_s sub_t τ)) in *.
       apply has_kind_inv in H3 as Hevalτ'.
       apply has_kind_inv in H2 as Hevalτ.
       inversion Hevalτ'; subst.
@@ -907,43 +1032,44 @@ Section substitution.
   (* and the rest are are just the struct like ones which are like sert/ref var
    but on steroids *)
   Admitted.
+  *)
 
   Lemma type_arep_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s sub_t τ κ κ' :
-    let τ' := (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)) in
+    let τ' := (subst_type sub_m sub_r sub_s sub_t τ) in
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
     sem_env_rel_rep_eq se' se sub_r ->
     sem_env_rel_size_eq se' se sub_s ->
     sem_env_rel_sκ_eq se' se sub_t ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     sem_env_interp F' se' ->
     sem_env_interp F se ->
     type_arep (Σ:=Σ) se' τ =
-    type_arep (Σ:=Σ) se (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)).
+    type_arep (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ).
   Proof.
     unfold type_arep; unfold_sem_rels.
     intros Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hsub_t_good Hse' Hse.
     pose proof (type_skind_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s sub_t τ κ κ'
     ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto) ).
     destruct (type_skind se' τ) eqn:hse'τ;
-      destruct (type_skind se (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ))) eqn:hsesubτ;
+      destruct (type_skind se (subst_type sub_m sub_r sub_s sub_t τ)) eqn:hsesubτ;
       try done; cbn -[type_skind]; rewrite hse'τ; rewrite hsesubτ; cbn; try done.
     cbn in H.
     inversion H; subst; try done.
   Qed.
 
   Lemma translate_type_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s sub_t τ κ κ' :
-    let τ' := (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)) in
+    let τ' := (subst_type sub_m sub_r sub_s sub_t τ) in
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
     sem_env_rel_rep_eq se' se sub_r ->
     sem_env_rel_size_eq se' se sub_s ->
     sem_env_rel_sκ_eq se' se sub_t ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     sem_env_interp F' se' ->
     sem_env_interp F se ->
     translate_type (Σ:=Σ) se' τ =
-    translate_type (Σ:=Σ) se (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)).
+    translate_type (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ).
   Proof.
     unfold translate_type; unfold_sem_rels.
     intros Hkind_τ Hkind_τ' Hsub_r Hsub_s Hsub_t Hsub_t_good Hse' Hse.
@@ -957,13 +1083,13 @@ Section substitution.
   Qed.
 
   Lemma translate_types_refresh_subst_senv_eq F F' se se' sub_m sub_r sub_s sub_t τs κs κs' :
-    let τs' := (map (refresh_kinds F) (map (subst_type sub_m sub_r sub_s sub_t) τs))  in
+    let τs' := map (subst_type sub_m sub_r sub_s sub_t) τs in
     Forall2 (has_kind F') τs κs ->
     Forall2 (has_kind F) τs' κs' ->
     sem_env_rel_rep_eq se' se sub_r ->
     sem_env_rel_size_eq se' se sub_s ->
     sem_env_rel_sκ_eq se' se sub_t ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     sem_env_interp F' se' ->
     sem_env_interp F se ->
     translate_types (Σ:=Σ) se' τs =
@@ -992,17 +1118,15 @@ Section substitution.
   Qed.
 
   Lemma struct_test sv:
-    let nt32 := (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)) in
-    let nt31 := (I31T (VALTYPE (AtomR PtrR) NoRefs)) in
+    let nt32 := (NumT (IntT I32T)) in
+    let nt31 := I31T in
     let se : semantic_env := ([],[],[],
           [(SVALTYPE [PtrR] AnyRefs,
             ((SVALTYPE [PtrR] NoRefs),(value_interp rti sr senv_empty nt31)))]) in
     type_interp rti sr
-      (ProdT (VALTYPE (ProdR [AtomR PtrR;AtomR I32R]) AnyRefs)
-         [VarT 0; nt32]) se sv ∗-∗
+      (ProdT [VarT 0; nt32]) se sv ∗-∗
     type_interp rti sr
-      (ProdT (VALTYPE (ProdR [AtomR PtrR;AtomR I32R]) NoRefs)
-         [nt31; nt32]) senv_empty sv.
+      (ProdT [nt31; nt32]) senv_empty sv.
   Proof.
     intros.
     iSplitR.
@@ -1074,14 +1198,14 @@ Section substitution.
   (* the big scary one P:H *)
   Lemma skind_interp_chillin :
     ∀ τ F F' κ κ' (se:semantic_env (Σ:=Σ)) se' sub_m sub_r sub_s sub_t sv,
-    let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
+    let τ' := subst_type sub_m sub_r sub_s sub_t τ in
     (* conditions for substitutions and types *)
     (sem_env_rel_rep_eq se' se sub_r) ->
     (sem_env_rel_size_eq se' se sub_s) ->
     (sem_env_rel_mem_eq se' se sub_m) -> (* necessary *)
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) -> (* necessary *)
+    (∀ i, sub_t i = sub_t i) -> (* necessary *)
     sem_env_interp F' se' ->
     sem_env_interp F se ->
     has_kind F' τ κ ->  (* necessary *)
@@ -1090,6 +1214,14 @@ Section substitution.
     type_interp rti sr τ se' sv -∗
      ∃ sκ, ⌜type_skind se τ' = Some sκ /\ skind_has_svalue sκ sv⌝.
   Proof.
+    (* This proof relied on [kind_of_node]/[refresh_kinds] (both deleted:
+       with no cached kind annotation left to aggregate/refresh, the
+       aggregate-kind bookkeeping this lemma was doing has to be redone
+       directly against [has_kind]'s [Forall3] structure). It was already
+       only partially proved (ending in [Admitted] with an internal
+       [admit]) before this refactor too. Left admitted. *)
+  Admitted.
+  (*
     induction τ using type_ind with (P0 := const True) (Pi := const True);
       try (intros * Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T Hsub_t_good Hse' Hse Hkind_τ Hkind_τ'); try done;
       unfold_sem_rels.
@@ -1168,7 +1300,7 @@ Section substitution.
       (* we need to throw away a good bit of this info I believe... *)
       assert (Hnew:
       Forall (λ τ, ∀ sv, type_interp rti sr τ se' sv -∗
-            ∃ sκ, ⌜ type_skind se (refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ))
+            ∃ sκ, ⌜ type_skind se (subst_type sub_m sub_r sub_s sub_t τ)
                     = Some sκ /\ skind_has_svalue sκ sv ⌝
         ) τs
              ). {
@@ -1415,16 +1547,17 @@ Section substitution.
     }
 
   Admitted.
+  *)
 
   Lemma skind_interp_chillin_backwards :
     ∀ τ F F' κ κ' (se:semantic_env (Σ:=Σ)) se' sub_m sub_r sub_s sub_t sv,
-    let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
+    let τ' := subst_type sub_m sub_r sub_s sub_t τ in
     (sem_env_rel_rep_eq se' se sub_r) ->
     (sem_env_rel_size_eq se' se sub_s) ->
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     sem_env_interp F' se' ->
     sem_env_interp F se ->
     has_kind F' τ κ ->
@@ -1447,7 +1580,7 @@ Section substitution.
   Qed.
 
   Lemma peel_off_add_skind_interp F F' se se' τ κ κ' sv sub_m sub_r sub_s sub_t :
-    let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
+    let τ' := subst_type sub_m sub_r sub_s sub_t τ in
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
     (sem_env_interp F' se') ->
@@ -1457,7 +1590,7 @@ Section substitution.
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
     (pre_type_interp rti sr τ se' sv ∗-∗ pre_type_interp rti sr τ' se sv) ->
@@ -1490,7 +1623,7 @@ Section substitution.
 
   (* NOT DONE P:H THIS IS THE MAIN LEMMA *)
   Lemma type_interp_subst_type_BIDIRECTIONAL F F' se se' τ κ κ' sv sub_m sub_r sub_s sub_t :
-    let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
+    let τ' := subst_type sub_m sub_r sub_s sub_t τ in
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
     (sem_env_interp F' se') ->
@@ -1500,13 +1633,21 @@ Section substitution.
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
     (* type_eq_mod_kinds τ' (subst_type sub_m sub_r sub_s sub_t τ) -> *)
     type_interp rti sr τ se' sv ∗-∗
     type_interp rti sr τ' se sv.
   Proof.
+    (* The main substitution-commutes-with-[type_interp] lemma. Depends
+       transitively on [skind_interp_chillin]/[type_skind_refresh_subst_senv_eq]
+       (both admitted above for the same [kind_of_node]/[refresh_kinds]
+       deletion reasons) and was already only partially proved (ending in
+       [Admitted] with several internal [admit]s covering the ForallXT
+       cases) before this refactor too. Left admitted. *)
+  Admitted.
+  (*
     iIntros (τ' Hse' Hse HseF' HseF Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T
                Hsub_t_good Hkind_τ Hkind_τ').
     (* pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t. *)
@@ -1528,7 +1669,7 @@ Section substitution.
     generalize dependent τ.
     induction τ using type_ind with
       (P0 := λ ft, ∀ F F' se se' cl sub_m sub_r sub_s sub_t,
-           let ft' := refresh_kinds_ft F (subst_function_type sub_m sub_r sub_s sub_t ft) in
+           let ft' := subst_function_type sub_m sub_r sub_s sub_t ft in
            (sem_env_types_well_formed se') ->
            (sem_env_types_well_formed se) ->
            (sem_env_interp F' se') ->
@@ -1538,13 +1679,13 @@ Section substitution.
            (sem_env_rel_mem_eq se' se sub_m) ->
            (sem_env_rel_sκ_eq se' se sub_t) ->
            (sem_env_rel_type_eq se' se sub_t) ->
-           (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+           (∀ i, sub_t i = sub_t i) ->
            has_kind_ft F' ft ->
            has_kind_ft F ft' ->
            closure_interp rti sr ft se' cl ∗-∗
               closure_interp rti sr ft' se cl)
       (Pi := λ ft, ∀ F F' se se' cl sub_m sub_r sub_s sub_t,
-           let ft' := refresh_kinds_ift F (subst_inner_function_type sub_m sub_r sub_s sub_t ft) in
+           let ft' := subst_inner_function_type sub_m sub_r sub_s sub_t ft in
            (sem_env_types_well_formed se') ->
            (sem_env_types_well_formed se) ->
            (sem_env_interp F' se') ->
@@ -1554,7 +1695,7 @@ Section substitution.
            (sem_env_rel_mem_eq se' se sub_m) ->
            (sem_env_rel_sκ_eq se' se sub_t) ->
            (sem_env_rel_type_eq se' se sub_t) ->
-           (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+           (∀ i, sub_t i = sub_t i) ->
            has_kind_ift F' ft ->
            has_kind_ift F ft' ->
            inner_closure_interp rti sr ft se' cl ∗-∗
@@ -2313,10 +2454,10 @@ Section substitution.
       admit.
 
   Admitted.
-
+  *)
 
   Lemma value_interp_subst_type_BIDIRECTIONAL F F' se se' τ κ κ' sv sub_m sub_r sub_s sub_t :
-    let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
+    let τ' := subst_type sub_m sub_r sub_s sub_t τ in
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
     (sem_env_interp F' se') ->
@@ -2326,7 +2467,7 @@ Section substitution.
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
     (* type_eq_mod_kinds τ' (subst_type sub_m sub_r sub_s sub_t τ) -> *)
@@ -2341,7 +2482,7 @@ Section substitution.
   Qed.
 
   Lemma values_interp_subst_type_BIDIRECTIONAL F F' se se' τs κs κs' os sub_m sub_r sub_s sub_t :
-    let τs' := map (λ τ, refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ)) τs in
+    let τs' := map (λ τ, subst_type sub_m sub_r sub_s sub_t τ) τs in
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
     (sem_env_interp F' se') ->
@@ -2351,7 +2492,7 @@ Section substitution.
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     Forall2 (has_kind F') τs κs ->
     Forall2 (has_kind F) τs' κs' ->
     values_interp rti sr se' τs os ∗-∗
@@ -2390,7 +2531,7 @@ Section substitution.
           as "Hτs'".
           1: iExists oss; iSplitR; done.
       2: iAssert (∃ oss0, ⌜concat oss = concat oss0⌝ ∗
-            ([∗ list] τ0;os ∈ map (λ τ0, refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ0)) τs;
+            ([∗ list] τ0;os ∈ map (λ τ0, subst_type sub_m sub_r sub_s sub_t τ0) τs;
              oss0,
                value_interp rti sr se τ0 (SAtoms os)))%I with "[Hτsoss]"
           as "Hτs'".
@@ -2416,7 +2557,7 @@ Section substitution.
   (* BIG NOTE: THIS IS WHAT I'M USING FOR TESTING RELATION SATISFIABILITY *)
   (* NOT DONE P:H COPY PASTE FROM MAIN TYPE_INTERP BIDIRECTIONAL PROOF *)
   Lemma closure_interp_subst_senv_eq F F' se se' ft cl sub_m sub_r sub_s sub_t :
-    let ft' := refresh_kinds_ft F (subst_function_type sub_m sub_r sub_s sub_t ft) in
+    let ft' := subst_function_type sub_m sub_r sub_s sub_t ft in
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
     (sem_env_interp F' se') ->
@@ -2426,7 +2567,7 @@ Section substitution.
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     has_kind_ft F' ft ->
     has_kind_ft F ft' ->
     closure_interp rti sr ft se' cl -∗
@@ -2435,7 +2576,7 @@ Section substitution.
   Admitted.
 
   Lemma inner_closure_interp_subst_senv_eq F F' se se' ft cl sub_m sub_r sub_s sub_t :
-    let ft' := refresh_kinds_ift F (subst_inner_function_type sub_m sub_r sub_s sub_t ft) in
+    let ft' := subst_inner_function_type sub_m sub_r sub_s sub_t ft in
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
     (sem_env_interp F' se') ->
@@ -2445,7 +2586,7 @@ Section substitution.
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     has_kind_ift F' ft ->
     has_kind_ift F ft' ->
     inner_closure_interp rti sr ft se' cl -∗
@@ -2512,7 +2653,7 @@ Section substitution.
 
 
   Lemma type_interp_subst_type_forwards F F' se se' τ κ κ' sv sub_m sub_r sub_s sub_t :
-    let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
+    let τ' := subst_type sub_m sub_r sub_s sub_t τ in
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
     (sem_env_interp F' se') ->
@@ -2522,7 +2663,7 @@ Section substitution.
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
     (* type_eq_mod_kinds τ' (subst_type sub_m sub_r sub_s sub_t τ) -> *)
@@ -2534,7 +2675,7 @@ Section substitution.
     iApply (type_interp_subst_type_BIDIRECTIONAL F F' se se' τ κ κ'); try done.
   Qed.
   Lemma type_interp_subst_type_backwards F F' se se' τ κ κ' sv sub_m sub_r sub_s sub_t :
-    let τ' := refresh_kinds F (subst_type sub_m sub_r sub_s sub_t τ) in
+    let τ' := subst_type sub_m sub_r sub_s sub_t τ in
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
     (sem_env_interp F' se') ->
@@ -2544,7 +2685,7 @@ Section substitution.
     (sem_env_rel_mem_eq se' se sub_m) ->
     (sem_env_rel_sκ_eq se' se sub_t) ->
     (sem_env_rel_type_eq se' se sub_t) ->
-    (∀ i, refresh_kinds F (sub_t i) = sub_t i) ->
+    (∀ i, sub_t i = sub_t i) ->
     has_kind F' τ κ ->
     has_kind F τ' κ' ->
     type_interp rti sr τ' se sv -∗
@@ -2607,8 +2748,7 @@ Section substitution.
   Qed.
 
   Lemma closure_interp_scons_insert_mem F se μ ϕ cl :
-    let ϕ' := refresh_kinds_ft F
-                (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ) in
+    let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
     has_kind_ft F ϕ' ->
     has_kind_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
     mem_ok F.(fc_kind_ctx) μ ->
@@ -2680,7 +2820,7 @@ Section substitution.
 
 
   Lemma closure_interp_scons_insert_rep F se ρ ϕ cl :
-    let ϕ' := refresh_kinds_ft F (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ) in
+    let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
     has_kind_ft F ϕ' ->
     has_kind_ft (add_rep_var F) ϕ ->
     rep_ok (fc_kind_ctx F) ρ ->
@@ -2717,7 +2857,7 @@ Section substitution.
   Qed.
 
   Lemma closure_interp_scons_insert_size F se σ ϕ cl :
-    let ϕ' := refresh_kinds_ft F (subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ) in
+    let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
     has_kind_ft F ϕ' ->
     has_kind_ft (add_size_var F) ϕ ->
     size_ok (fc_kind_ctx F) σ ->
@@ -2755,7 +2895,7 @@ Section substitution.
   Qed.
 
   Lemma inner_closure_interp_scons_insert_type F se τ κ κ0 sκ ϕ cl :
-    let ϕ' := refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) in
+    let ϕ' := subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
     has_kind_ift F ϕ' ->
     has_kind_ift (F <| fc_type_vars ::= cons κ0 |>) ϕ ->
     sem_env_interp F se ->
@@ -2782,6 +2922,7 @@ Section substitution.
     iSpecialize ("Hcl" $! sκ sκ_T T Hsκ Hsubskind HT).
     iApply inner_closure_interp_subst_senv_eq; last done.
     Unshelve.
+    13: exact F.
     13: exact (F <| fc_type_vars ::= cons κ0 |>).
     - apply Forall_cons. by split; last eapply sem_well_formed_from_interp.
     - by eapply sem_well_formed_from_interp.
@@ -2824,13 +2965,9 @@ Section substitution.
       apply hsub_t_base_se_VarT.
       by eapply sem_well_formed_from_interp.
     - intros i.
-      destruct i; cbn; try done.
-      symmetry.
-      destruct (refresh_kinds_id) as (this & _); try done.
-      eapply this; done.
+      destruct i; cbn; done.
     - exact Hkind_ϕ.
     - exact Hkind_ϕ'.
   Qed.
-
 
 End substitution.

@@ -22,16 +22,15 @@ Section swap.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma get_all_kinding_info_swap τ κ μ τval π pr :
-    let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ; τval] in
+  Lemma get_all_kinding_info_swap τ μ τval π pr :
+    let ψ := InstrT [RefT μ Mut τ; τval] [RefT μ Mut τ; τval] in
     resolves_path τ π None pr ->
-    ∀ F off ρ se sκ κser L ιs o1,
+    ∀ F off ρ se sκ L ιs o1,
       sem_env_interp F se ->
       path_offset (fe_of_context F) τ π = Some off ->
       Forall (has_mono_size F) pr.(pr_prefix) ->
-      type_skind (Σ:=Σ) se (RefT κ μ Mut τ) = Some sκ ->
-      eval_kind se κ = Some sκ ->
-      pr_target pr = SerT κser τval ->
+      type_skind (Σ:=Σ) se (RefT μ Mut τ) = Some sκ ->
+      pr_target pr = SerT τval ->
       has_instruction_type_ok F ψ L ->
       type_rep (fe_type_vars (fe_of_context F)) τval = Some ρ ->
       eval_rep EmptyEnv ρ = Some ιs ->
@@ -41,16 +40,23 @@ Section swap.
             has_kind F (pr.(pr_target)) (MEMTYPE (RepS ρ) ξser) /\
             has_kind F τval (VALTYPE ρ ξser) /\
             eval_size EmptyEnv (RepS ρ) = Some sz /\
-            κ = VALTYPE (AtomR PtrR) ξ_ref /\
             sκ = SVALTYPE [PtrR] ξ_ref /\
             sum_list_with arep_size ιs = sz /\
-            eval_kind se κser = Some (SMEMTYPE sz ξser) /\
+            eval_kind se (MEMTYPE (RepS ρ) ξser) = Some (SMEMTYPE sz ξser) /\
             length (flat_map arep_flags ιs) = sz /\
             type_skind se τval = Some (SVALTYPE ιs ξser) /\
-            type_skind se (SerT κser τval) = Some (SMEMTYPE sz ξser)).
+            type_skind se (SerT τval) = Some (SMEMTYPE sz ξser)).
   Proof.
+    (* Neither [RefT] nor [SerT] carry an embedded kind any more, so the old
+       [κ]/[κser] parameters (which used to be pinned by unifying against the
+       embedded annotations on [RefT κ μ Mut τ]/[SerT κser τval]) are dropped
+       entirely: [κ] always stood for [VALTYPE (AtomR PtrR) ξ_ref], derived
+       below via [type_skind_has_kind_agree] against the has_kind fact for the
+       ref type itself; [κser] always stood for [MEMTYPE (RepS ρ) ξser], now
+       spelled out directly in the conclusion using the [ρ]/[ξser] this lemma
+       already produces. *)
     intros ψ Hresolves.
-    intros * Hse Hoffset Hmono Htypeskind Hevalκ Hprtarget Hok Hrep Hevalρ Hsksv.
+    intros * Hse Hoffset Hmono Htypeskind Hprtarget Hok Hrep Hevalρ Hsksv.
 
     unfold ψ in Hok.
     inversion Hok; subst.
@@ -73,7 +79,7 @@ Section swap.
         | H : has_rep _ _ _ |- _ => inversion H; subst; clear H
         | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
         | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
-        | H : has_kind ?F (RefT _ _ _ _) _ |- _ => eapply has_kind_ref_ty in H; destruct H as (? & ? & ?); subst
+        | H : has_kind ?F (RefT _ _ _) _ |- _ => eapply has_kind_ref_ty in H; destruct H as (? & ? & ?); subst
         | H : has_kind ?F ?t ?k,
           H' : has_kind ?F ?t ?k' |- _ =>
             pose proof (has_kind_agree F t k k' H H'); clear H'
@@ -84,7 +90,6 @@ Section swap.
       destruct Hresolves' as (ktgt & Hkind0).
       rewrite Hprtarget in Hkind0.
       inversion Hkind0; subst.
-      unfold κ0 in *.
       eexists; eauto.
       unfold is_mono_size.
       constructor.
@@ -106,7 +111,7 @@ Section swap.
 
     inversion H as [? ? σtgt ξser Hhktgt Htgtmono HF' HT]; subst.
     rewrite Hprtarget in Hhktgt.
-    inversion Hhktgt; subst. unfold κ1 in *; clear κ1.
+    inversion Hhktgt; subst.
 
     pose proof (mono_size_eval_emp_Some _ Htgtmono) as (sz & Hev).
 
@@ -115,7 +120,10 @@ Section swap.
     (* type_kind_has_kind_agree *)
     apply bind_Some in Hrep.
     destruct Hrep as (κ_temp & type_kind_τval & kindrep).
-    pose proof (type_kind_has_kind_agree F τval _ _ H4 type_kind_τval).
+    match goal with
+    | Hhk : has_kind F τval _ |- _ =>
+        pose proof (type_kind_has_kind_agree F τval _ _ Hhk type_kind_τval)
+    end.
     subst.
     inversion kindrep; subst.
 
@@ -132,19 +140,13 @@ Section swap.
     (* future lemma that takes in eval_mem μ can say smthn tho *)
     destruct sκ; [| by destruct Hsksv].
     rename r into ξ_sκ.
-    assert (κ = VALTYPE (AtomR PtrR) ξ_ref). {
-      inversion Hkind_ref; done.
-    }
-    subst.
-
-    assert (ξ_ref = ξ_sκ). {
-      cbn in Hevalκ. inversion Hevalκ; done.
-    }
-    subst ξ_sκ.
-    assert (l = [PtrR]). {
-      cbn in Hevalκ. inversion Hevalκ; done.
-    }
-    subst.
+    assert (Heval_ref: eval_kind se (VALTYPE (AtomR PtrR) ξ_ref) = Some (SVALTYPE [PtrR] ξ_ref))
+      by done.
+    pose proof
+      (type_skind_has_kind_agree F se (RefT μ Mut τ) (VALTYPE (AtomR PtrR) ξ_ref)
+         (SVALTYPE [PtrR] ξ_ref) (SVALTYPE l ξ_sκ)
+         Hkind_ref Hse Heval_ref Htypeskind) as Heq.
+    inversion Heq; subst.
 
 
     assert (sum_list_with arep_size ιs = sz). {
@@ -155,28 +157,18 @@ Section swap.
       by apply sum_list_with_list_sum.
     }
 
-    (* next up: κser stuff *)
-    rename κ0 into κser.
-    assert (eval_kind (senv_empty (Σ:=Σ)) κser = Some (SMEMTYPE sz ξser)). {
-      cbn.
-      rewrite eval_rep_senv_empty_irrel.
-      rewrite Hevalρ.
-      cbn.
-      rewrite sum_list_with_list_sum in H1.
-      rewrite H1.
-      done.
-    }
-    assert (eval_kind se κser = Some (SMEMTYPE sz ξser)). {
-      by apply eval_kind_senv_empty_le.
+    assert (eval_kind se (MEMTYPE (RepS ρ) ξser) = Some (SMEMTYPE sz ξser)). {
+      unfold eval_kind.
+      erewrite eval_size_emptyenv; eauto.
     }
 
     (* random thing for flags *)
     assert (length (flat_map arep_flags ιs) = sz). {
       rewrite length_flat_map.
-      assert (∀ ι, length (arep_flags ι) = arep_size ι). {
+      assert (Hareplen: ∀ ι, length (arep_flags ι) = arep_size ι). {
         intros ι; destruct ι; cbn; done.
       }
-      setoid_rewrite H6.
+      setoid_rewrite Hareplen.
       rewrite <- sum_list_with_list_sum.
       done.
     }
@@ -195,7 +187,7 @@ Section swap.
       eapply type_skind_has_kind_Some; try done.
     }
 
-    assert (type_skind se (SerT κser τval) = Some (SMEMTYPE sz ξser)). {
+    assert (type_skind se (SerT τval) = Some (SMEMTYPE sz ξser)). {
       eapply type_skind_has_kind_Some; try done.
     }
 
@@ -222,15 +214,15 @@ Section swap.
   Qed.
 
 
-  Lemma compat_swap M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
+  Lemma compat_swap M F L wt wt' wtf wl wl' wlf es' μ τ τval π pr :
      let fe := fe_of_context F in
      let WT := wt ++ wt' ++ wtf in
      let WL := wl ++ wl' ++ wlf in
      let lmask := wlmask fe wl in
-     let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ; τval] in
+     let ψ := InstrT [RefT μ Mut τ; τval] [RefT μ Mut τ; τval] in
      resolves_path τ π None pr ->
      Forall (has_mono_size F) (pr_prefix pr) ->
-     pr.(pr_target) = SerT κser τval ->
+     pr.(pr_target) = SerT τval ->
      has_instruction_type_ok F ψ L ->
      run_codegen (compile_instr mr fe (ISwap ψ π)) wt wl = inr ((), wt', wl', es') ->
      ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
@@ -290,23 +282,20 @@ Section swap.
 
     (** KINDING STUFF *)
 
-    pose proof (Hsκ) as Hevalκ.
-    cbn in Hevalκ.
     (* this lemma is a quarantine zone for all things kinding
        if we need more info in the future it can be added. Also potentially
        eventually make _MM and _GC versions that use eval_mem, if necessary
      *)
     pose proof
       (get_all_kinding_info_swap
-         τ κ μ τval π pr Hresolves
-         F off ρ se sκ κser L ιs o1
-         H Hoff Hmonosize Hsκ Hevalκ Hser Htype Hρ Hιs skindsv
+         τ μ τval π pr Hresolves
+         F off ρ se sκ L ιs o1
+         H Hoff Hmonosize Hsκ Hser Htype Hρ Hιs skindsv
       ) as AllKinding.
     destruct AllKinding as
       (σ & ξ & ξser & sz & ξ_ref &
-         Hkind_τ & Hkind_prtarget & Hkind_τval & Hevalsize & -> & -> &
+         Hkind_τ & Hkind_prtarget & Hkind_τval & Hevalsize & -> &
           Hιssz & Hevalκser & Hflaglengths & Htypeskindτval & Htypeskindsert).
-
 
     (** OTHER GENERAL FACTS THAT WE NEED FOR BOTH CASES **)
     (* NOTE: highly recommend folding as much of this section as possible *)
@@ -677,10 +666,11 @@ Section swap.
       }
       (* we now need to dig a bit into htarget to get the os_target out of there *)
       iEval (rewrite value_interp_eq; cbn) in "Htarget".
-      rewrite Hevalκser.
       iDestruct "Htarget" as "(%sκ' & %toinv & %Htargetinterp & (%os_inner & %toinv2 & Hτ_target))".
+      pose proof Htypeskindsert as Htypeskindsert'; cbn in Htypeskindsert'.
+      rewrite Htypeskindsert' in toinv; clear Htypeskindsert'.
       inversion toinv2 as [Hgetpath_ws_osinner]; clear toinv2.
-      inversion toinv; subst; clear toinv.
+      inversion toinv; subst sκ'; clear toinv.
       iAssert (⌜has_areps ιs (SAtoms os_inner)⌝%I) with "[Hτ_target]" as "%Hareps_inner". {
         iApply (type_interp_implies_has_areps with "[$]"); done.
       }
@@ -708,10 +698,11 @@ Section swap.
         specialize (Hload_spec fr' ℓ n32 a os_inner ws).
         specialize Hload_spec with (lmask:=rtmask).
 
-        iApply (Hload_spec with "[$] [$] [$] [$] [%] [$] [$] [] [//] [//] [//] [%] [//] [%]
-                                 [%] [%] [//] [//] [//] [//] [] [] [-]").
+        iApply (Hload_spec with "[$] [$] [$] [$] [%] [$] [$] [] [//] [%] [//] [%] [//] [%]
+                                 [%] [%] [%] [//] [//] [//] [] [] [-]").
         - unfold rtmask; set_solver.
         - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & this & _) & _)".
+        - rewrite Hιssz; done.
         - eapply ser_offsets; eauto.
         - assert (length (f_locs fr_saved) = length (f_locs fr')). {
             unfold fr'; cbn.
@@ -729,6 +720,7 @@ Section swap.
           rewrite !length_app.
           cbn.
           lia.
+        - rewrite Htagaddress; exact Hn32.
         - by iDestruct "Hinst" as "(_ & _ & _ & _ & this & _)".
         - by iDestruct "Hinst" as "(_ & _ & _ & _ & _ & this)".
         - (* we're almost back boys *)
@@ -753,7 +745,11 @@ Section swap.
               )%I).
           iExists vs, vsf, ns'.
           iFrame.
-          do 4 (iSplitR; first done).
+          iSplitR; first done.
+          iSplitR.
+          { rewrite -Hwl_save; done. }
+          iSplitR; first done.
+          iSplitR; first done.
           iAccu.
       }
 
@@ -783,7 +779,7 @@ Section swap.
       specialize (Hstore_spec fr_load ℓ a n32 vs2 rtmask θ os2
                     (update_path_words off ws (map WordInt ns'))).
 
-      iApply (Hstore_spec with "[$] [$] [$] [$] [%] [$] [%] [%] [//] [//] [//] [%] [//] [//]
+      iApply (Hstore_spec with "[$] [$] [$] [$] [%] [$] [%] [%] [%] [//] [//] [%] [//] [//]
                                 [] [$]").
       - unfold rtmask; set_solver.
       - rewrite Hfr_load; cbn.
@@ -791,6 +787,7 @@ Section swap.
           unfold ptr_local.
           unfold fe_wlocal_offset. cbn.
           rewrite !length_app. cbn.
+          rewrite Hwl_save.
           lia.
         }
         unfold fr'. cbn.
@@ -803,10 +800,12 @@ Section swap.
         subst fr_load; cbn.
         rewrite mk_load_frame_stable_part; last first. {
           (* this is lia action because of hix, idk how to exactly do it *)
+          rewrite Hval_localidxs in hix.
           rewrite list_lookup_fmap in hix. cbn.
           cbn in hix.
           apply fmap_Some in hix.
           destruct hix as (ix & hix & ->).
+          rewrite Hval_idxs_seq in hix.
           apply lookup_seq in hix as (eq1 & eq2).
           subst.
           rewrite !length_app. cbn.
@@ -816,16 +815,19 @@ Section swap.
         rewrite list_lookup_insert_ne; last first. {
           unfold ptr_local.
           (* ptr_local is the next idx after the range of hix, so good *)
+          rewrite Hval_localidxs in hix.
           rewrite list_lookup_fmap in hix. cbn.
           cbn in hix.
           apply fmap_Some in hix.
           destruct hix as (ix & hix & ->).
+          rewrite Hval_idxs_seq in hix.
           apply lookup_seq in hix as (eq1 & eq2).
           subst.
           rewrite !length_app. cbn.
           lia.
         }
         done.
+      - rewrite Htagaddress; exact Hn32.
       - subst.
         rewrite update_path_words_size; first done.
         rewrite length_map.
@@ -851,7 +853,7 @@ Section swap.
             rewrite Hlengnsιs.
             unfold areps_size. cbn.
             rewrite <- sum_list_with_list_sum.
-            done.
+            rewrite Hιssz; done.
           }
           apply updating_words in H0.
           destruct H0 as (ws1' & wsold' & ws2' & Hws' & -> & lenold' & lenws1').
@@ -863,7 +865,7 @@ Section swap.
             assert (length wsold = length wsold'). {
               rewrite lenold lenold'.
               rewrite length_map; rewrite Hlengnsιs; unfold areps_size; cbn;
-                rewrite <- sum_list_with_list_sum; done.
+                rewrite <- sum_list_with_list_sum. rewrite Hos2sz Hιssz; done.
             }
             pose proof (app_inj_1 wsold wsold' _ _ ltac:(auto) H0)
               as (<- & <-).
@@ -954,7 +956,7 @@ Section swap.
             intros.
             done.
           - inversion Hlayoutok.
-            + specialize (H3 n); constructor; done.
+            + specialize (H3 n0); constructor; done.
             + constructor.
         }
         clear Hlayoutok. (* don't want to accidentally use it *)
@@ -999,6 +1001,7 @@ Section swap.
           specialize (Hff i).
           apply Hff.
           intros contra.
+          rewrite Hval_idxs_seq in contra.
           apply elem_of_seq in contra.
           lia.
         }
@@ -1019,7 +1022,8 @@ Section swap.
             unfold wl_start, wl_final.
             rewrite !app_assoc; done.
           }
-          rewrite !H1.
+          rewrite Hwl_save.
+          rewrite H1.
           iApply (load_restore_frame_one_step with "[$]").
           iPureIntro.
           done.
@@ -1031,10 +1035,10 @@ Section swap.
         iSpecialize ("Hcontinuation" with "[Hos2]"). {
           iEval (rewrite value_interp_eq).
           iEval (cbn).
-          rewrite Hevalκser.
           iExists (SMEMTYPE (sum_list_with arep_size ιs) ξser).
-          iSplitR; first done.
-          iSplitR; first done.
+          iSplitR; first (rewrite Hιssz; done).
+          iSplitR.
+          { iPureIntro. split; [rewrite Hιssz Hos2sz; done | exact Hrefinterp]. }
           iExists os2; iFrame.
           rewrite flat_map_concat_map.
           done.
@@ -1474,8 +1478,9 @@ Section swap.
       (* we now need to dig a bit into htarget to get the os_target out of there *)
       rewrite !Hser.
       iEval (rewrite value_interp_eq; cbn) in "Htarget".
-      rewrite Hevalκser.
       iDestruct "Htarget" as "(%sκ' & %toinv & %Htargetinterp & (%os_inner & %toinv2 & Hτ_target))".
+      pose proof Htypeskindsert as Htypeskindsert'; cbn in Htypeskindsert'.
+      rewrite Htypeskindsert' in toinv; clear Htypeskindsert'.
       inversion toinv2 as [Hgetpath_ws_osinner]; clear toinv2.
       inversion toinv; subst sκ'; clear toinv.
       iAssert (⌜has_areps ιs (SAtoms os_inner)⌝%I) with "[Hτ_target]" as "%Hareps_inner". {
@@ -1638,7 +1643,6 @@ Section swap.
       move Hstore_spec at bottom.
       specialize (Hstore_spec fr_load ℓ a ah32 vs2 rtmask θ os2
                     (update_path_words off ws (map WordInt ns'))).
-      subst sz.
       iApply (Hstore_spec with "[$] [$] [$] [//] [%] [$] [] [$] [%] [%] [%] [//] [//] [//] [%] [//]
                                 [] [] [] [] [$]"); try done.
       - unfold rtmask; set_solver.
@@ -1711,7 +1715,7 @@ Section swap.
             rewrite Hlengnsιs.
             unfold areps_size. cbn.
             rewrite <- sum_list_with_list_sum.
-            done.
+            rewrite Hιssz; done.
           }
           apply updating_words in H0.
           destruct H0 as (ws1' & wsold' & ws2' & Hws' & -> & lenold' & lenws1').
@@ -1723,7 +1727,7 @@ Section swap.
             assert (length wsold = length wsold'). {
               rewrite lenold lenold'.
               rewrite length_map; rewrite Hlengnsιs; unfold areps_size; cbn;
-                rewrite <- sum_list_with_list_sum; done.
+                rewrite <- sum_list_with_list_sum. rewrite Hos2sz Hιssz; done.
             }
             pose proof (app_inj_1 wsold wsold' _ _ ltac:(auto) H0)
               as (<- & <-).
@@ -1838,10 +1842,10 @@ Section swap.
         iSpecialize ("Hcontinuation" with "[Hval_os2]"). {
           iEval (rewrite value_interp_eq).
           iEval (cbn).
-          rewrite Hevalκser.
           iExists (SMEMTYPE (sum_list_with arep_size ιs) ξser).
-          iSplitR; first done.
-          iSplitR; first done.
+          iSplitR; first (rewrite Hιssz; done).
+          iSplitR.
+          { iPureIntro. split; [rewrite Hιssz Hos2sz; done | exact Hrefinterp]. }
           iExists os2; iFrame.
           rewrite flat_map_concat_map.
           done.

@@ -14,20 +14,82 @@ Definition kind_size (κ : kind) : option size :=
   | MEMTYPE σ _ => Some σ
   end.
 
-Definition type_kind (κs : list kind) (τ : type) : option kind :=
+Definition ref_flag_le (ξ ξ' : ref_flag) : bool :=
+  match ξ, ξ' with
+  | NoRefs, _
+  | GCRefs, GCRefs
+  | GCRefs, AnyRefs
+  | AnyRefs, AnyRefs => true
+  | _, _ => false
+  end.
+
+Definition ref_flag_lub2 (ξ1 ξ2 : ref_flag) : ref_flag :=
+  match ξ1 with
+  | NoRefs => ξ2
+  | GCRefs =>
+      match ξ2 with
+      | NoRefs => GCRefs
+      | _ => ξ2
+      end
+  | AnyRefs => AnyRefs
+  end.
+
+Definition ref_flag_lub (ξs : list ref_flag) : ref_flag :=
+  foldr ref_flag_lub2 NoRefs ξs.
+
+Definition kind_of_num (nt : num_type) : kind :=
+  match nt with
+  | IntT I32T => VALTYPE (AtomR I32R) NoRefs
+  | IntT I64T => VALTYPE (AtomR I64R) NoRefs
+  | FloatT F32T => VALTYPE (AtomR F32R) NoRefs
+  | FloatT F64T => VALTYPE (AtomR F64R) NoRefs
+  end.
+
+Definition mem_ref_flag (μ : memory) : ref_flag :=
+  match μ with
+  | BaseM MemGC => GCRefs
+  | _ => AnyRefs
+  end.
+
+(* Kinds are no longer cached on [type] nodes -- this recomputes the
+   (principal) kind of a type bottom-up in a context of kinds for its
+   free type variables, mirroring [has_kind]. *)
+Fixpoint type_kind (κs : list kind) (τ : type) : option kind :=
   match τ with
   | VarT t => κs !! t
-  | NumT κ _
-  | SumT κ _
-  | VariantT κ _
-  | ProdT κ _
-  | StructT κ _
-  | RefT κ _ _ _
-  | I31T κ
-  | CodeRefT κ _
-  | SerT κ _
-  | PlugT κ _
-  | SpanT κ _
+  | I31T => Some (VALTYPE (AtomR PtrR) NoRefs)
+  | NumT nt => Some (kind_of_num nt)
+  | SumT τs =>
+      κs' ← mapM (type_kind κs) τs;
+      ρs ← mapM kind_rep κs';
+      Some (VALTYPE (SumR ρs) (ref_flag_lub (map kind_ref_flag κs')))
+  | VariantT τs =>
+      κs' ← mapM (type_kind κs) τs;
+      σs ← mapM kind_size κs';
+      Some (MEMTYPE (SumS σs) (ref_flag_lub (map kind_ref_flag κs')))
+  | ProdT τs =>
+      κs' ← mapM (type_kind κs) τs;
+      ρs ← mapM kind_rep κs';
+      Some (VALTYPE (ProdR ρs) (ref_flag_lub (map kind_ref_flag κs')))
+  | StructT τs =>
+      κs' ← mapM (type_kind κs) τs;
+      σs ← mapM kind_size κs';
+      Some (MEMTYPE (ProdS σs) (ref_flag_lub (map kind_ref_flag κs')))
+  | RefT μ _ τ =>
+      κ ← type_kind κs τ;
+      match κ with
+      | MEMTYPE _ _ => Some (VALTYPE (AtomR PtrR) (mem_ref_flag μ))
+      | VALTYPE _ _ => None
+      end
+  | CodeRefT _ => Some (VALTYPE (AtomR I32R) NoRefs)
+  | SerT τ =>
+      κ ← type_kind κs τ;
+      match κ with
+      | VALTYPE ρ ξ => Some (MEMTYPE (RepS ρ) ξ)
+      | MEMTYPE _ _ => None
+      end
+  | PlugT ρ => Some (VALTYPE ρ NoRefs)
+  | SpanT σ => Some (MEMTYPE σ NoRefs)
   | RecT κ _
   | ExistsMemT κ _
   | ExistsRepT κ _
@@ -42,8 +104,7 @@ Definition int_type_arep (νi : int_type) : atomic_rep :=
   end.
 
 Definition int_type_type (νi : int_type) : type :=
-  let ι := int_type_arep νi in
-  NumT (VALTYPE (AtomR ι) NoRefs) (IntT νi).
+  NumT (IntT νi).
 
 Definition float_type_arep (νf : float_type) : atomic_rep :=
   match νf with
@@ -52,8 +113,7 @@ Definition float_type_arep (νf : float_type) : atomic_rep :=
   end.
 
 Definition float_type_type (νf : float_type) : type :=
-  let ι := float_type_arep νf in
-  NumT (VALTYPE (AtomR ι) NoRefs) (FloatT νf).
+  NumT (FloatT νf).
 
 Definition num_type_type (ν : num_type) : type :=
   match ν with
@@ -61,13 +121,13 @@ Definition num_type_type (ν : num_type) : type :=
   | FloatT νf => float_type_type νf
   end.
 
-Definition type_i31 : type := I31T (VALTYPE (AtomR PtrR) NoRefs).
+Definition type_i31 : type := I31T.
 Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
 Definition type_f64 : type := float_type_type F64T.
-Definition type_plug (ρ : representation) : type := PlugT (VALTYPE ρ NoRefs) ρ.
-Definition type_span (σ : size) : type := SpanT (MEMTYPE σ NoRefs) σ.
+Definition type_plug (ρ : representation) : type := PlugT ρ.
+Definition type_span (σ : size) : type := SpanT σ.
 
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
 Definition num_type_arep (ν : num_type) : atomic_rep :=

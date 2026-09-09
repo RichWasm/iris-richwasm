@@ -133,18 +133,18 @@ Section TypeInd.
     (Pi: inner_function_type -> Prop)
     (P0: function_type -> Prop)
     (HVarT : forall idx, P (VarT idx))
-    (HI31T : forall κ, P (I31T κ))
-    (HNumT : forall κ nt, P (NumT κ nt))
-    (HSumT : forall κ τs, Forall P τs -> P (SumT κ τs) )
-    (HVariantT : forall κ τs, Forall P τs -> P (VariantT κ τs) )
-    (HProdT : forall κ τs, Forall P τs -> P (ProdT κ τs) )
-    (HStructT : forall κ τs, Forall P τs -> P (StructT κ τs) )
-    (HRefT : forall κ μ β t, P t -> P (RefT κ μ β t))
-    (HCodeRefT : forall κ ft, P0 ft -> P (CodeRefT κ ft) )
+    (HI31T : P I31T)
+    (HNumT : forall nt, P (NumT nt))
+    (HSumT : forall τs, Forall P τs -> P (SumT τs) )
+    (HVariantT : forall τs, Forall P τs -> P (VariantT τs) )
+    (HProdT : forall τs, Forall P τs -> P (ProdT τs) )
+    (HStructT : forall τs, Forall P τs -> P (StructT τs) )
+    (HRefT : forall μ β t, P t -> P (RefT μ β t))
+    (HCodeRefT : forall ft, P0 ft -> P (CodeRefT ft) )
     (*coderef might be wrong*)
-    (HSerT : forall κ t, P t -> P (SerT κ t))
-    (HPlugT : forall κ rep, P (PlugT κ rep))
-    (HSpanT : forall κ s, P (SpanT κ s))
+    (HSerT : forall t, P t -> P (SerT t))
+    (HPlugT : forall rep, P (PlugT rep))
+    (HSpanT : forall s, P (SpanT s))
     (HRecT : forall κ t, P t -> P (RecT κ t))
     (HExistsMemT : forall κ t, P t -> P (ExistsMemT κ t))
     (HExistsRepT : forall κ t, P t -> P (ExistsRepT κ t))
@@ -169,17 +169,17 @@ Section TypeInd.
     in
     match t with
     | VarT idx => HVarT idx
-    | I31T κ => HI31T κ
-    | NumT κ nt => HNumT κ nt
-    | SumT κ ts => HSumT κ ts (types_ind ts)
-    | VariantT κ ts => HVariantT κ ts (types_ind ts)
-    | ProdT κ ts => HProdT κ ts (types_ind ts)
-    | StructT κ ts => HStructT κ ts (types_ind ts)
-    | RefT κ μ β t => HRefT κ μ β t (type_ind t)
-    | CodeRefT κ ft => HCodeRefT κ ft (function_type_ind ft)
-    | SerT κ t => HSerT κ t (type_ind t)
-    | PlugT κ ρ => HPlugT κ ρ
-    | SpanT κ σ => HSpanT κ σ
+    | I31T => HI31T
+    | NumT nt => HNumT nt
+    | SumT ts => HSumT ts (types_ind ts)
+    | VariantT ts => HVariantT ts (types_ind ts)
+    | ProdT ts => HProdT ts (types_ind ts)
+    | StructT ts => HStructT ts (types_ind ts)
+    | RefT μ β t => HRefT μ β t (type_ind t)
+    | CodeRefT ft => HCodeRefT ft (function_type_ind ft)
+    | SerT t => HSerT t (type_ind t)
+    | PlugT ρ => HPlugT ρ
+    | SpanT σ => HSpanT σ
     | RecT κ t => HRecT κ t (type_ind t)
     | ExistsMemT κ t => HExistsMemT κ t (type_ind t)
     | ExistsRepT κ t => HExistsRepT κ t (type_ind t)

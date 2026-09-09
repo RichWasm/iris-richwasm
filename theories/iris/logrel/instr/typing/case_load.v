@@ -15,15 +15,14 @@ Section case_load.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_case_load M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' μ κr κv κs :
+  Lemma compat_case_load M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' μ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs', L') |> in
-    let τs_ser := zip_with SerT κs τs in
-    let ψ := InstrT [RefT κr μ Imm (VariantT κv τs_ser)] (RefT κr μ Imm (VariantT κv τs_ser) :: τs') in
-    length κs = length τs ->
+    let τs_ser := map SerT τs in
+    let ψ := InstrT [RefT μ Imm (VariantT τs_ser)] (RefT μ Imm (VariantT τs_ser) :: τs') in
     Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
     Forall2
       (fun τ es =>
@@ -39,17 +38,45 @@ Section case_load.
     run_codegen (compile_instr mr fe (ICaseLoad ψ L' ess)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    intros * Hlenκsτs Hgcref IH Hok Hcg.
+    intros * Hgcref IH Hok Hcg.
 
-    (* unfold the codegen, including some destructs *)
-    destruct κv as [ρ ξ | σ ξ].
-    { cbn in Hcg. inversion Hcg. }
+    (* unfold the codegen, including some destructs.
+       Note: [VariantT] no longer carries its own kind argument (the old
+       [destruct κv as [ρ ξ | σ ξ]] dispatch -- ruling out the [VALTYPE]
+       shape as a contradiction, since a [VariantT] always has a [MEMTYPE]
+       kind per [KVariant] in typing.v -- has nothing to inspect any more,
+       so that step is simply gone; the compile function's shape here no
+       longer depends on it at all.) *)
     destruct τs' as [ | τ' τs' ].
     { cbn in Hcg. inversion Hcg. }
     destruct τs'; first last.
     { cbn in Hcg; inversion Hcg. }
 
-    cbn -[compile_cases] in Hcg.
+    (* mini kinding quarantine: [compile_instr] now recomputes the variant's
+       size via [type_size] instead of reading it off a cached kind
+       annotation, so we derive that size directly from [has_kind] (via
+       [has_instruction_type_ok]) and feed it through [type_kind_has_kind_Some]
+       to discharge the extra [try_option] this adds in front of
+       [compile_case_load]. *)
+    assert (Hkind_variant: exists σ0 ξ0, has_kind F (VariantT τs_ser) (MEMTYPE σ0 ξ0)).
+    {
+      destruct Hok as [[Hmono1 _] _].
+      apply Forall_cons_iff in Hmono1 as [(ρ0 & Hrep0 & Hmonorep0) _].
+      inversion Hrep0 as [? ? ? ξ0 Hhaskind0]; subst.
+      inversion Hhaskind0; subst; eauto.
+    }
+    destruct Hkind_variant as (σ0 & ξ0 & Hkind_variant).
+    pose proof (type_kind_has_kind_Some F (VariantT τs_ser) (MEMTYPE σ0 ξ0) Hkind_variant) as Htksome.
+    cbn in Htksome.
+    cbn in Hcg.
+    rewrite Htksome in Hcg.
+    inv_cg_bind Hcg σ1 ?wt ?wt ?wl ?wl ?es ?es Hσ Hcg.
+    inv_cg_try_option Hσ.
+    cbn in Heq_some.
+    assert (σ1 = σ0) as -> by congruence.
+    rewrite app_nil_r in Hcg.
+    clear Heq_some Htksome Heq_wt Heq_wl Heq_nil.
+    cbn in Hcg.
     inv_cg_bind Hcg n ?wt ?wt ?wl ?wl ?es ?es Hn Hcg.
     inv_cg_bind Hcg ts ?wt ?wt ?wl ?wl ?es ?es Hts Hcg.
     destruct (Wasm_int.Int32.modulus <? length τs_ser)%Z eqn:Hlength; first done.
@@ -64,7 +91,7 @@ Section case_load.
     apply wp_wlalloc in Hx as (-> & -> & -> & ->).
     inv_cg_emit Hsetx.
     inv_cg_ret Hret.
-    subst wt0 wl0 es wt2 wl2 es1 wt9 wl9 es8 wt7 wl7 es6 wt5 wl5 es4 es2 es0 es' wt3 wl3 wt1 wl1 wt' wl' wt4 wl4 es3 wt8 wl8 es7 wt11 wl11 es10.
+    subst.
     clear Hretval Hretval0 Hretval1.
     clear_nils.
 
@@ -178,7 +205,7 @@ Section case_load.
       (* hide the value, bc the case ptr itself doesn't take any args *)
       iApply cwp_val_app; first by apply has_values_to_consts.
       (* now apply *)
-      rewrite <- (app_nil_l es9).
+      rewrite <- (app_nil_l es11).
       iApply (Hcwp with "[$Hfr] [$Hrun]");
         [by instantiate (1:=[]) | done | done | done | done | ].
       iIntros "!> Hfr Hrun".
@@ -198,11 +225,8 @@ Section case_load.
       cbn in Hcg_root; inversion Hcg_root; subst; clear Hcg_root.
       (* use wp_root_to_heap in GC *)
       clear_nils.
-      rename es1 into es_load_tag.
-      rename es3 into es_case_switch.
-      (* rename es5 into es_save_stack. *)
-      (* rename es7 into es_defaults. *)
-      (* rename es8 into es_case_blocks. *)
+      rename es2 into es_load_tag.
+      rename es4 into es_case_switch.
 
 
       (* first: load tag *)
@@ -235,10 +259,21 @@ Section case_load.
       rewrite type_interp_eq.
       iEval (cbn) in "Hos".
       pose proof (eval_size_emptyenv _ _ Heq_some se) as Hevalσ.
-      rewrite Hevalσ.
-      iEval (cbn) in "Hos".
+      (* [VariantT] no longer carries a cached kind either, so [type_skind]
+         (on the semantic side, mirroring the [type_kind]/[type_size] fix
+         above on the compile-time side) has to recompute the variant's
+         size from scratch via [type_skind_go]; bridge that back to the
+         concrete size [n] using [Hkind_variant] and [type_skind_has_kind_Some]. *)
+      assert (Htskind: type_skind se (VariantT τs_ser) = Some (SMEMTYPE n ξ0)).
+      {
+        eapply type_skind_has_kind_Some; [exact Hkind_variant | exact Hse |].
+        cbn. rewrite Hevalσ. done.
+      }
+      cbn in Htskind.
       iDestruct "Hos" as "(%sκ_var & %ToInv & %Hvar_sksv & Hos)".
-      inversion ToInv; subst; clear ToInv.
+      rewrite Htskind in ToInv.
+      inversion ToInv; subst sκ_var; clear ToInv.
+      cbn in Hvar_sksv.
       destruct Hvar_sksv as [Hws_len Hws_refflag].
       iDestruct "Hos" as "(%i & %iN & %ws0 & %ws_padding & %Hnati & %ToInv & %Hpad & Hos)".
       inversion ToInv; subst; clear ToInv.
@@ -301,14 +336,14 @@ Section case_load.
       (* for some reason rocq hates cwp_case_switch so long and annoying lol *)
       pose proof cwp_case_switch.
       move Hcg_case_switch at bottom.
-      rename wt4 into wt_case_switch; rename wl4 into wl_case_switch.
+      rename wt5 into wt_case_switch; rename wl5 into wl_case_switch.
       specialize (H wt wt_case_switch (wl ++ [W.T_i32] ++ [translate_arep I32R]) wl_case_switch).
       specialize (H fe ts).
       set (on_each_case := ((λ (c : codegen ()) (i0 : nat),
           try_option EFail (τs_ser !! i0)
           ≫= λ τ0 : type,
                try_option EFail match τ0 with
-                                | SerT _ t => Some t
+                                | SerT t => Some t
                                 | _ => None
                                 end
                ≫= λ τ1 : type,
@@ -330,19 +365,19 @@ Section case_load.
 
       apply Forall2_length in IH as Hlen_τs_ess.
       assert (length τs = length τs_ser) as Hlen_τs_ser. {
-        by rewrite length_zip_with Hlenκsτs Nat.min_id.
+        by rewrite length_map.
       }
       assert (is_Some (ess !! i)) as Hess_i. {
         apply lookup_lt_is_Some. by rewrite -Hlen_τs_ess Hlen_τs_ser.
       }
-      destruct Hess_i as [es Hess_i].
+      destruct Hess_i as [es_i Hess_i].
 
       assert (Hlencases: (length cases ≤ Wasm_int.Int32.modulus)%Z). {
         subst cases.
         by rewrite length_map -compile_cases_length -Hlen_τs_ess Hlen_τs_ser.
       }
 
-      assert (cases !! i = Some (on_each_case (compile_instrs mr fe es))) as Hcase_i. {
+      assert (cases !! i = Some (on_each_case (compile_instrs mr fe es_i))) as Hcase_i. {
         subst cases.
         apply (compile_cases_lookup mr fe) in Hess_i as Hcomes.
         cbn in Hcomes.
@@ -350,7 +385,7 @@ Section case_load.
         done.
       }
 
-      specialize (H cases (on_each_case (compile_instrs mr fe es))).
+      specialize (H cases (on_each_case (compile_instrs mr fe es_i))).
       specialize (H i es_case_switch ltac:(auto) ltac:(auto)).
 
       apply H in Hcg_case_switch; clear H.
@@ -386,7 +421,7 @@ Section case_load.
 
       destruct τ_ser; cbn in Heq_some2; inversion Heq_some2.
       subst τ0; clear Heq_some2.
-      rename es8 into es_load; rename es10 into es_compiled.
+      rename es8 into es_load; rename es9 into es_compiled.
       eapply wp_mem_load_copy_mm in Hcg_load_tag.
       destruct Hcg_load_tag as (_ & -> & -> & Hcg_load_tag).
 

@@ -50,22 +50,206 @@ Section kinding.
     by destruct ξ; destruct ξ'; destruct p.
   Qed.
 
+  Lemma mapM_kind_rep_zip ρs ξs :
+    length ρs = length ξs ->
+    mapM kind_rep (zip_with VALTYPE ρs ξs) = Some ρs.
+  Proof.
+    revert ξs.
+    induction ρs as [|ρ ρs IH]; intros [|ξ ξs] Hlen; try done.
+    cbn in *.
+    by erewrite IH by lia.
+  Qed.
+
+  Lemma mapM_kind_size_zip σs ξs :
+    length σs = length ξs ->
+    mapM kind_size (zip_with MEMTYPE σs ξs) = Some σs.
+  Proof.
+    revert ξs.
+    induction σs as [|σ σs IH]; intros [|ξ ξs] Hlen; try done.
+    cbn in *.
+    by erewrite IH by lia.
+  Qed.
+
+  Lemma map_kind_ref_flag_zip_val ρs ξs :
+    length ρs = length ξs ->
+    map kind_ref_flag (zip_with VALTYPE ρs ξs) = ξs.
+  Proof.
+    revert ξs.
+    induction ρs as [|ρ ρs IH]; intros [|ξ ξs] Hlen; try done.
+    cbn in *.
+    f_equal.
+    apply IH; lia.
+  Qed.
+
+  Lemma map_kind_ref_flag_zip_mem σs ξs :
+    length σs = length ξs ->
+    map kind_ref_flag (zip_with MEMTYPE σs ξs) = ξs.
+  Proof.
+    revert ξs.
+    induction σs as [|σ σs IH]; intros [|ξ ξs] Hlen; try done.
+    cbn in *.
+    f_equal.
+    apply IH; lia.
+  Qed.
+
+  Lemma forall3_mapM_type_kind_val κs τs ρs ξs :
+    Forall3 (fun τ ρ ξ => type_kind κs τ = Some (VALTYPE ρ ξ)) τs ρs ξs ->
+    mapM (type_kind κs) τs = Some (zip_with VALTYPE ρs ξs).
+  Proof.
+    intros H.
+    apply mapM_Some_2.
+    induction H; cbn; constructor; auto.
+  Qed.
+
+  Lemma forall3_mapM_type_kind_mem κs τs σs ξs :
+    Forall3 (fun τ σ ξ => type_kind κs τ = Some (MEMTYPE σ ξ)) τs σs ξs ->
+    mapM (type_kind κs) τs = Some (zip_with MEMTYPE σs ξs).
+  Proof.
+    intros H.
+    apply mapM_Some_2.
+    induction H; cbn; constructor; auto.
+  Qed.
+
+  Lemma forall3_mapM_type_rep_val κs τs ρs ξs :
+    Forall3 (fun τ ρ ξ => type_kind κs τ = Some (VALTYPE ρ ξ)) τs ρs ξs ->
+    mapM (type_rep κs) τs = Some ρs.
+  Proof.
+    induction 1 as [| τ ρ ξ τs ρs ξs Hhd _ IH]; cbn; first done.
+    unfold type_rep.
+    rewrite Hhd; cbn.
+    by rewrite IH.
+  Qed.
+
+  Lemma type_kind_has_kind_Some F τ κ :
+    has_kind F τ κ ->
+    type_kind F.(fc_type_vars) τ = Some κ.
+  Proof using.
+    intros H.
+    induction H using has_kind_ind' with (P0 := λ _ _, True) (Pi := λ _ _, True).
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - (* KSum *)
+      cbn.
+      match goal with
+      | H : Forall3 (fun τ ρ ξ => type_kind _ τ = Some (VALTYPE ρ ξ)) _ _ _ |- _ =>
+          pose proof (Forall3_length_lm _ _ _ _ H) as Hlm;
+          pose proof (Forall3_length_lr _ _ _ _ H) as Hlr;
+          erewrite (forall3_mapM_type_kind_val _ _ _ _ H)
+      end.
+      cbn.
+      erewrite mapM_kind_rep_zip by lia.
+      erewrite map_kind_ref_flag_zip_val by lia.
+      done.
+    - (* KVariant *)
+      cbn.
+      match goal with
+      | H : Forall3 (fun τ σ ξ => type_kind _ τ = Some (MEMTYPE σ ξ)) _ _ _ |- _ =>
+          pose proof (Forall3_length_lm _ _ _ _ H) as Hlm;
+          pose proof (Forall3_length_lr _ _ _ _ H) as Hlr;
+          erewrite (forall3_mapM_type_kind_mem _ _ _ _ H)
+      end.
+      cbn.
+      erewrite mapM_kind_size_zip by lia.
+      erewrite map_kind_ref_flag_zip_mem by lia.
+      done.
+    - (* KProd *)
+      cbn.
+      match goal with
+      | H : Forall3 (fun τ ρ ξ => type_kind _ τ = Some (VALTYPE ρ ξ)) _ _ _ |- _ =>
+          pose proof (Forall3_length_lm _ _ _ _ H) as Hlm;
+          pose proof (Forall3_length_lr _ _ _ _ H) as Hlr;
+          erewrite (forall3_mapM_type_kind_val _ _ _ _ H)
+      end.
+      cbn.
+      erewrite mapM_kind_rep_zip by lia.
+      erewrite map_kind_ref_flag_zip_val by lia.
+      done.
+    - (* KStruct *)
+      cbn.
+      match goal with
+      | H : Forall3 (fun τ σ ξ => type_kind _ τ = Some (MEMTYPE σ ξ)) _ _ _ |- _ =>
+          pose proof (Forall3_length_lm _ _ _ _ H) as Hlm;
+          pose proof (Forall3_length_lr _ _ _ _ H) as Hlr;
+          erewrite (forall3_mapM_type_kind_mem _ _ _ _ H)
+      end.
+      cbn.
+      erewrite mapM_kind_size_zip by lia.
+      erewrite map_kind_ref_flag_zip_mem by lia.
+      done.
+    - (* KRefVar *)
+      cbn.
+      match goal with
+      | H : type_kind _ _ = Some (MEMTYPE _ _) |- _ => rewrite H
+      end.
+      done.
+    - (* KRefMM *)
+      cbn.
+      match goal with
+      | H : type_kind _ _ = Some (MEMTYPE _ _) |- _ => rewrite H
+      end.
+      done.
+    - (* KRefGC *)
+      cbn.
+      match goal with
+      | H : type_kind _ _ = Some (MEMTYPE _ _) |- _ => rewrite H
+      end.
+      done.
+    - (* KCodeRef *)
+      done.
+    - (* KSer *)
+      cbn.
+      match goal with
+      | H : type_kind _ _ = Some (VALTYPE _ _) |- _ => rewrite H
+      end.
+      done.
+    - (* KPlug *)
+      done.
+    - (* KSpan *)
+      done.
+    - (* KRec *)
+      done.
+    - (* KExistsMem *)
+      done.
+    - (* KExistsRep *)
+      done.
+    - (* KExistsSize *)
+      done.
+    - (* KExistsType *)
+      done.
+    - (* KVar *)
+      cbn.
+      match goal with
+      | H : fc_type_vars _ !! _ = Some _ |- _ => exact H
+      end.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+  Qed.
+
   Lemma type_kind_has_kind_is_Some F τ κ :
     has_kind F τ κ ->
     is_Some (type_kind F.(fc_type_vars) τ).
-  Proof.
-    induction 1; try solve [eexists; cbn; eauto].
+  Proof using.
+    intros H.
+    eexists.
+    by eapply type_kind_has_kind_Some.
   Qed.
 
   Lemma type_kind_has_kind_agree F τ κ κ' :
     has_kind F τ κ ->
     type_kind F.(fc_type_vars) τ = Some κ' ->
     κ = κ'.
-  Proof.
-    intros Hκ Hτ.
-    inversion Hκ; subst; inversion Hτ; try done.
-    rewrite H in H2.
-    by inversion H2.
+  Proof using.
+    intros H Heq.
+    pose proof (type_kind_has_kind_Some F τ κ H) as Heq'.
+    rewrite Heq' in Heq.
+    by inversion Heq.
   Qed.
 
   Lemma has_kind_agree F τ κ κ' :
@@ -115,25 +299,23 @@ Section kinding.
     by eexists.
   Qed.
 
-  Lemma has_kind_ref_ty F κ κ' μ β τ :
-    has_kind F (RefT κ μ β τ) κ' ->
+  Lemma has_kind_ref_ty F κ' μ β τ :
+    has_kind F (RefT μ β τ) κ' ->
     ∃ σ ξ,
       has_kind F τ (MEMTYPE σ ξ).
   Proof.
     intros Hkind.
-    remember (RefT κ μ β τ) as τ0 eqn:Href.
+    remember (RefT μ β τ) as τ0 eqn:Href.
     revert Href.
-    revert κ μ.
-    induction Hkind; intros κ'' μ' Href;
+    revert μ.
+    induction Hkind; intros μ' Href;
       try congruence.
-    - subst κ. inversion Href; subst.
+    - inversion Href; subst.
       by exists σ, ξ.
-    - subst κ.
-      inversion Href.
+    - inversion Href.
       subst.
       by exists σ, ξ.
-    - subst κ.
-      inversion Href.
+    - inversion Href.
       subst.
       by exists σ, ξ.
   Qed.
@@ -378,141 +560,339 @@ Section kinding.
     by eapply eval_kind_ok_Some'.
   Qed.
 
-  Lemma type_skind_has_kind_agree F se τ κ sκ sκ' :
-    has_kind F τ κ ->
-    sem_env_interp F se ->
-    eval_kind se κ = Some sκ ->
-    type_skind (Σ:=Σ) se τ = Some sκ' ->
-    sκ = sκ'.
+  Lemma forall3_and_l {A B C} (P : A -> Prop) (Q : A -> B -> C -> Prop) xs ys zs :
+    Forall P xs -> Forall3 Q xs ys zs -> Forall3 (fun x y z => P x /\ Q x y z) xs ys zs.
   Proof.
-    intros Hhas_kind.
-    revert sκ sκ'.
-    induction Hhas_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      inversion Heval_kind.
-      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
-      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
-      inversion Hsκ0.
-      inversion Hsκ.
-      rewrite Heval_rep0 in Heval_rep.
-      by inversion Heval_rep.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      inversion Heval_kind.
-      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
-      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
-      inversion Hsκ0.
-      inversion Hsκ.
-      rewrite Heval_rep0 in Heval_rep.
-      by inversion Heval_rep.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      inversion Heval_kind.
-      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
-      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
-      inversion Hsκ0.
-      inversion Hsκ.
-      rewrite Heval_rep0 in Heval_rep.
-      by inversion Heval_rep.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      inversion Heval_kind.
-      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
-      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
-      inversion Hsκ0.
-      inversion Hsκ.
-      rewrite Heval_rep0 in Heval_rep.
-      by inversion Heval_rep.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      by inversion Heval_kind.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      inversion Heval_kind.
-      apply bind_Some in H0 as (n0 & Heval_rep0 & Hsκ0).
-      apply bind_Some in H1 as (n & Heval_rep & Hsκ).
-      inversion Hsκ0.
-      inversion Hsκ.
-      rewrite Heval_rep0 in Heval_rep.
-      by inversion Heval_rep.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      inversion Heval_kind.
-      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
-      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
-      inversion Hsκ0.
-      inversion Hsκ.
-      rewrite Heval_rep0 in Heval_rep.
-      by inversion Heval_rep.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      inversion Heval_kind.
-      apply bind_Some in H1 as (n0 & Heval_size0 & Hsκ0).
-      apply bind_Some in H2 as (n & Heval_size & Hsκ).
-      inversion Hsκ0.
-      inversion Hsκ.
-      rewrite Heval_size0 in Heval_size.
-      by inversion Heval_size.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      rewrite Heval_kind in H0.
-      by inversion H0.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      rewrite Heval_kind in H1.
-      by inversion H1.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      rewrite Heval_kind in H1.
-      by inversion H1.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      rewrite Heval_kind in H1.
-      by inversion H1.
-    - intros ?? Hse Heval_kind Htype_skind.
-      inversion Htype_skind.
-      rewrite Heval_kind in H2.
-      by inversion H2.
-    - intros ?? Hse Heval_kind Htype_skind.
-      cbn in Htype_skind.
-      destruct Hse as [boop bap].
-      unfold type_ctx_interp in bap.
-      unfold lookup_type in Htype_skind.
-      apply fmap_Some in Htype_skind as ([sκ_true T] & bofp & borzoi).
-      cbn in bap.
-      pose proof (Forall2_lookup_lr _ _ _ _ _ _ bap H bofp) as help.
-      cbn in help.
-      destruct T as [sκ_T T].
-      cbn in borzoi.
-      subst sκ'.
-      destruct help as [hh _].
-      rewrite Heval_kind in hh.
-      by inversion hh. (* yaaaaaay *)
+    intros HP HQ.
+    induction HQ; inversion HP; subst; constructor; auto.
+  Qed.
+
+  Lemma forall3_forall_m {A B C} (Q : A -> B -> C -> Prop) (R : B -> Prop) xs ys zs :
+    Forall3 Q xs ys zs -> (forall x y z, Q x y z -> R y) -> Forall R ys.
+  Proof.
+    intros HQ Himpl.
+    induction HQ; constructor; eauto.
+  Qed.
+
+  Lemma mapM_skind_rep_zip (ιss : list (list atomic_rep)) ξs :
+    length ιss = length ξs ->
+    mapM skind_rep (zip_with SVALTYPE ιss ξs) = Some ιss.
+  Proof.
+    revert ξs.
+    induction ιss as [|ιs ιss IH]; intros [|ξ ξs] Hlen; try done.
+    cbn in *.
+    by erewrite IH by lia.
+  Qed.
+
+  Lemma mapM_skind_size_zip (ns : list nat) ξs :
+    length ns = length ξs ->
+    mapM skind_size (zip_with SMEMTYPE ns ξs) = Some ns.
+  Proof.
+    revert ξs.
+    induction ns as [|n ns IH]; intros [|ξ ξs] Hlen; try done.
+    cbn in *.
+    by erewrite IH by lia.
+  Qed.
+
+  Lemma map_skind_ref_flag_zip_val (ιss : list (list atomic_rep)) ξs :
+    length ιss = length ξs ->
+    map skind_ref_flag (zip_with SVALTYPE ιss ξs) = ξs.
+  Proof.
+    revert ξs.
+    induction ιss as [|ιs ιss IH]; intros [|ξ ξs] Hlen; try done.
+    cbn in *. f_equal. apply IH; lia.
+  Qed.
+
+  Lemma map_skind_ref_flag_zip_mem (ns : list nat) ξs :
+    length ns = length ξs ->
+    map skind_ref_flag (zip_with SMEMTYPE ns ξs) = ξs.
+  Proof.
+    revert ξs.
+    induction ns as [|n ns IH]; intros [|ξ ξs] Hlen; try done.
+    cbn in *. f_equal. apply IH; lia.
+  Qed.
+
+  Lemma forall3_mapM_type_skind_val (se : semantic_env (Σ:=Σ)) τs ρs ξs :
+    Forall3 (fun τ ρ ξ =>
+               forall sκ, eval_kind se (VALTYPE ρ ξ) = Some sκ -> type_skind_go se τ = Some sκ)
+      τs ρs ξs ->
+    forall ιss, mapM (eval_rep se) ρs = Some ιss ->
+    mapM (type_skind_go se) τs = Some (zip_with SVALTYPE ιss ξs).
+  Proof.
+    induction 1 as [| τ ρ ξ τs ρs ξs Hhd _ IH]; intros ιss Hmap.
+    - cbn in Hmap. inversion Hmap; subst. done.
+    - cbn in Hmap.
+      apply bind_Some in Hmap as (ι & Hι & Hmap).
+      apply bind_Some in Hmap as (ιss' & Hιss' & Heq).
+      inversion Heq; subst; clear Heq.
+      cbn.
+      erewrite Hhd; last (cbn; by rewrite Hι).
+      by erewrite IH.
+  Qed.
+
+  Lemma forall3_mapM_type_skind_mem (se : semantic_env (Σ:=Σ)) τs σs ξs :
+    Forall3 (fun τ σ ξ =>
+               forall sκ, eval_kind se (MEMTYPE σ ξ) = Some sκ -> type_skind_go se τ = Some sκ)
+      τs σs ξs ->
+    forall ns, mapM (eval_size se) σs = Some ns ->
+    mapM (type_skind_go se) τs = Some (zip_with SMEMTYPE ns ξs).
+  Proof.
+    induction 1 as [| τ σ ξ τs σs ξs Hhd _ IH]; intros ns Hmap.
+    - cbn in Hmap. inversion Hmap; subst. done.
+    - cbn in Hmap.
+      apply bind_Some in Hmap as (n & Hn & Hmap).
+      apply bind_Some in Hmap as (ns' & Hns' & Heq).
+      inversion Heq; subst; clear Heq.
+      cbn.
+      erewrite Hhd; last (cbn; by rewrite Hn).
+      by erewrite IH.
+  Qed.
+
+  Lemma type_skind_has_kind_Some_aux τ :
+    forall F κ, has_kind F τ κ ->
+    kind_ok F.(fc_kind_ctx) κ /\
+    (forall (se : semantic_env (Σ:=Σ)) sκ, sem_env_interp F se -> eval_kind se κ = Some sκ -> type_skind_go se τ = Some sκ).
+  Proof using.
+    induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True).
+    - (* VarT *)
+      intros F κ Hκ.
+      inversion Hκ; subst.
+      match goal with
+      | Hlook : fc_type_vars F !! _ = Some κ, Hok : kind_ok _ κ |- _ =>
+          rename Hlook into Hlook_; rename Hok into Hok_
+      end.
+      split; [exact Hok_|].
+      intros se sκ [_ Htys] Hsκ.
+      edestruct (Forall2_lookup_l _ _ _ _ _ Htys Hlook_) as (y & Hy & Hprop).
+      destruct y as [sκ' [sκT' T']].
+      destruct Hprop as (Hev & _ & _).
+      rewrite Hsκ in Hev.
+      inversion Hev; subst.
+      cbn. rewrite Hy. done.
+    - (* I31T *)
+      intros F κ Hκ.
+      inversion Hκ; subst.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* NumT *)
+      intros F κ Hκ.
+      inversion Hκ; subst;
+        (split; [by repeat constructor|]);
+        intros se sκ Hse Hsκ; cbn in Hsκ |- *; exact Hsκ.
+    - (* SumT *)
+      intros F κ Hκ.
+      match goal with IH : Forall _ τs |- _ => rename IH into IHτs end.
+      inversion Hκ; subst.
+      match goal with
+      | H1 : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) _ _ _ |- _ => rename H1 into HF3
+      end.
+      pose proof (forall3_and_l _ _ _ _ _ IHτs HF3) as Hcomb.
+      eapply Forall3_impl in Hcomb; last (intros ??? [HP Hhk]; exact (HP F (VALTYPE _ _) Hhk)).
+      pose proof (forall3_forall_m _ (rep_ok F.(fc_kind_ctx)) _ _ _ Hcomb
+                    (fun τ' ρ' ξ' p => kind_ok_rep_ok _ _ _ (proj1 p))) as Hrepoks.
+      pose proof (Forall3_impl _ _ _ _ _ Hcomb (fun τ' ρ' ξ' p => proj2 p)) as Hsems.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (ιs & Hιs & Heq).
+      inversion Heq; subst; clear Heq.
+      cbn in Hιs.
+      apply fmap_Some in Hιs as (ιss & Hιss & Hιseq).
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hlm.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hlr.
+      pose proof (length_mapM _ _ _ Hιss) as Hlen_ιss.
+      pose proof (Forall3_impl _ _ _ _ _ Hsems (fun tau' rho' xi' p sk Heval => p se sk Hse Heval)) as Hsems_se.
+      pose proof (forall3_mapM_type_skind_val se _ _ _ Hsems_se _ Hιss) as Hmm.
+      cbn [type_skind_go].
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_rep_zip by lia.
+      erewrite map_skind_ref_flag_zip_val by lia.
+      rewrite Hιseq.
+      done.
+    - (* VariantT *)
+      intros F κ Hκ.
+      match goal with IH : Forall _ τs |- _ => rename IH into IHτs end.
+      inversion Hκ; subst.
+      match goal with
+      | H1 : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) _ _ _ |- _ => rename H1 into HF3
+      end.
+      pose proof (forall3_and_l _ _ _ _ _ IHτs HF3) as Hcomb.
+      eapply Forall3_impl in Hcomb; last (intros ??? [HP Hhk]; exact (HP F (MEMTYPE _ _) Hhk)).
+      pose proof (forall3_forall_m _ (size_ok F.(fc_kind_ctx)) _ _ _ Hcomb
+                    (fun τ' σ' ξ' p => kind_ok_size_ok _ _ _ (proj1 p))) as Hsizeoks.
+      pose proof (Forall3_impl _ _ _ _ _ Hcomb (fun τ' σ' ξ' p => proj2 p)) as Hsems.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (n & Hn & Heq).
+      inversion Heq; subst; clear Heq.
+      cbn in Hn.
+      apply bind_Some in Hn as (ns & Hns & Hneq).
+      inversion Hneq; subst; clear Hneq.
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hlm.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hlr.
+      pose proof (length_mapM _ _ _ Hns) as Hlen_ns.
+      pose proof (Forall3_impl _ _ _ _ _ Hsems (fun tau' sigma' xi' p sk Heval => p se sk Hse Heval)) as Hsems_se.
+      pose proof (forall3_mapM_type_skind_mem se _ _ _ Hsems_se _ Hns) as Hmm.
+      cbn [type_skind_go].
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_size_zip by lia.
+      erewrite map_skind_ref_flag_zip_mem by lia.
+      done.
+    - (* ProdT *)
+      intros F κ Hκ.
+      match goal with IH : Forall _ τs |- _ => rename IH into IHτs end.
+      inversion Hκ; subst.
+      match goal with
+      | H1 : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) _ _ _ |- _ => rename H1 into HF3
+      end.
+      pose proof (forall3_and_l _ _ _ _ _ IHτs HF3) as Hcomb.
+      eapply Forall3_impl in Hcomb; last (intros ??? [HP Hhk]; exact (HP F (VALTYPE _ _) Hhk)).
+      pose proof (forall3_forall_m _ (rep_ok F.(fc_kind_ctx)) _ _ _ Hcomb
+                    (fun τ' ρ' ξ' p => kind_ok_rep_ok _ _ _ (proj1 p))) as Hrepoks.
+      pose proof (Forall3_impl _ _ _ _ _ Hcomb (fun τ' ρ' ξ' p => proj2 p)) as Hsems.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (ιs & Hιs & Heq).
+      inversion Heq; subst; clear Heq.
+      cbn in Hιs.
+      apply fmap_Some in Hιs as (ιss & Hιss & Hιseq).
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hlm.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hlr.
+      pose proof (length_mapM _ _ _ Hιss) as Hlen_ιss.
+      pose proof (Forall3_impl _ _ _ _ _ Hsems (fun tau' rho' xi' p sk Heval => p se sk Hse Heval)) as Hsems_se.
+      pose proof (forall3_mapM_type_skind_val se _ _ _ Hsems_se _ Hιss) as Hmm.
+      cbn [type_skind_go].
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_rep_zip by lia.
+      erewrite map_skind_ref_flag_zip_val by lia.
+      rewrite Hιseq.
+      done.
+    - (* StructT *)
+      intros F κ Hκ.
+      match goal with IH : Forall _ τs |- _ => rename IH into IHτs end.
+      inversion Hκ; subst.
+      match goal with
+      | H1 : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) _ _ _ |- _ => rename H1 into HF3
+      end.
+      pose proof (forall3_and_l _ _ _ _ _ IHτs HF3) as Hcomb.
+      eapply Forall3_impl in Hcomb; last (intros ??? [HP Hhk]; exact (HP F (MEMTYPE _ _) Hhk)).
+      pose proof (forall3_forall_m _ (size_ok F.(fc_kind_ctx)) _ _ _ Hcomb
+                    (fun τ' σ' ξ' p => kind_ok_size_ok _ _ _ (proj1 p))) as Hsizeoks.
+      pose proof (Forall3_impl _ _ _ _ _ Hcomb (fun τ' σ' ξ' p => proj2 p)) as Hsems.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (n & Hn & Heq).
+      inversion Heq; subst; clear Heq.
+      cbn in Hn.
+      apply fmap_Some in Hn as (ns & Hns & Hneq).
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hlm.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hlr.
+      pose proof (length_mapM _ _ _ Hns) as Hlen_ns.
+      pose proof (Forall3_impl _ _ _ _ _ Hsems (fun tau' sigma' xi' p sk Heval => p se sk Hse Heval)) as Hsems_se.
+      pose proof (forall3_mapM_type_skind_mem se _ _ _ Hsems_se _ Hns) as Hmm.
+      cbn [type_skind_go].
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_size_zip by lia.
+      erewrite map_skind_ref_flag_zip_mem by lia.
+      rewrite Hneq.
+      done.
+    - (* RefT *)
+      intros F κ Hκ.
+      match goal with IH : (forall F κ, has_kind F ?t κ -> _) |- _ => rename IH into IHt end.
+      inversion Hκ; subst;
+        match goal with
+        | Hchild : has_kind F _ (MEMTYPE ?σ ?ξ) |- _ =>
+            split; [by repeat constructor|];
+            intros se sκ Hse Hsκ;
+            cbn in Hsκ; inversion Hsκ; subst;
+            destruct (IHt F (MEMTYPE σ ξ) Hchild) as (Hkindok_child & Hsem_child);
+            pose proof (kind_ok_size_ok _ _ _ Hkindok_child) as Hsizeok;
+            destruct (eval_size_ok_Some F se σ Hse Hsizeok) as [n Hn];
+            specialize (Hsem_child se (SMEMTYPE n ξ) Hse ltac:(cbn; by rewrite Hn));
+            cbn [type_skind_go]; rewrite Hsem_child; cbn; done
+        end.
+    - (* CodeRefT *)
+      intros F κ Hκ.
+      inversion Hκ; subst.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* SerT *)
+      intros F κ Hκ.
+      match goal with IH : (forall F κ, has_kind F ?t κ -> _) |- _ => rename IH into IHt end.
+      inversion Hκ; subst.
+      match goal with
+      | Hc : has_kind F _ (VALTYPE ?ρ ?ξ) |- _ => rename Hc into Hchild
+      end.
+      destruct (IHt F (VALTYPE _ _) Hchild) as (Hkindok_child & Hsem_child).
+      split; [by repeat constructor; eapply kind_ok_rep_ok; eauto|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (n & Hn & Heq).
+      inversion Heq; subst; clear Heq.
+      cbn in Hn.
+      apply fmap_Some in Hn as (ιs & Hιs & Hneq).
+      specialize (Hsem_child se (SVALTYPE ιs _) Hse ltac:(cbn; by rewrite Hιs)).
+      cbn [type_skind_go]. rewrite Hsem_child. cbn.
+      by rewrite Hneq.
+    - (* PlugT *)
+      intros F κ Hκ.
+      inversion Hκ; subst.
+      match goal with H : rep_ok _ _ |- _ => rename H into Hrepok end.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* SpanT *)
+      intros F κ Hκ.
+      inversion Hκ; subst.
+      match goal with H : size_ok _ _ |- _ => rename H into Hsizeok end.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* RecT *)
+      intros F κnew Hκ.
+      match goal with IH : (forall F κ, has_kind F ?t κ -> _) |- _ => rename IH into IHt end.
+      inversion Hκ; subst.
+      match goal with
+      | Hchild : has_kind (F <| fc_type_vars ::= cons ?κ0 |>) _ ?κ0 |- _ =>
+          destruct (IHt _ _ Hchild) as (Hkindok_child & _)
+      end.
+      split; [exact Hkindok_child|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* ExistsMemT *)
+      intros F κnew Hκ.
+      inversion Hκ; subst.
+      match goal with H : kind_ok _ ?κ0 |- _ => rename H into Hkindok end.
+      split; [exact Hkindok|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* ExistsRepT *)
+      intros F κnew Hκ.
+      inversion Hκ; subst.
+      match goal with H : kind_ok _ ?κ0 |- _ => rename H into Hkindok end.
+      split; [exact Hkindok|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* ExistsSizeT *)
+      intros F κnew Hκ.
+      inversion Hκ; subst.
+      match goal with H : kind_ok _ ?κ0 |- _ => rename H into Hkindok end.
+      split; [exact Hkindok|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* ExistsTypeT *)
+      intros F κnew Hκ.
+      inversion Hκ; subst.
+      match goal with H : kind_ok _ κnew |- _ => rename H into Hkindok end.
+      split; [exact Hkindok|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
   Qed.
 
   Lemma type_skind_has_kind_Some F se τ κ sκ :
@@ -520,18 +900,377 @@ Section kinding.
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
     type_skind (Σ:=Σ) se τ = Some sκ.
-  Proof.
-    intros Hκ Hse Hsκ.
-    generalize dependent sκ.
-    induction Hκ; intros ??; try by cbn in *.
-    inversion Hse as [_ Htype_ctx].
-    unfold type_ctx_interp in Htype_ctx.
-    pose proof (Forall2_lookup_l _ _ _ _ _ Htype_ctx H) as [[sκ_true [sκ_T T]] (Ht & Hsκ_T & _)].
+  Proof using Σ.
+    intros H Hse Hsκ.
     cbn.
-    cbn in Ht.
-    rewrite Ht.
-    by rewrite Hsκ in Hsκ_T.
+    eapply (proj2 (type_skind_has_kind_Some_aux τ F κ H)); eauto.
   Qed.
+
+  Lemma type_skind_has_kind_agree F se τ κ sκ sκ' :
+    has_kind F τ κ ->
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    type_skind (Σ:=Σ) se τ = Some sκ' ->
+    sκ = sκ'.
+  Proof using Σ.
+    intros Hκ Hse Hsκ Hsκ'.
+    pose proof (type_skind_has_kind_Some F se τ κ sκ Hκ Hse Hsκ) as Heq.
+    rewrite Heq in Hsκ'.
+    by inversion Hsκ'.
+  Qed.
+
+  (* [type_kind]/[type_ok] analogues of [forall3_mapM_type_kind_val]/[_mem]:
+     from the *function-equation* facts that [type_kind]'s own [mapM]-based
+     recursive equations produce (rather than an already-packaged [Forall3],
+     which is all [has_kind]'s aggregate constructors give for free), rebuild
+     the pointwise [Forall3] relating each child type to its representation
+     (resp. size) and ref-flag. *)
+  Lemma type_kind_mapM_forall3_val κs τs :
+    forall κs' ρs,
+    mapM (type_kind κs) τs = Some κs' ->
+    mapM kind_rep κs' = Some ρs ->
+    Forall3 (fun τ ρ ξ => type_kind κs τ = Some (VALTYPE ρ ξ)) τs ρs (map kind_ref_flag κs').
+  Proof.
+    induction τs as [| τ τs IH]; intros κs' ρs Hmapk Hmapr.
+    - cbn in Hmapk. apply Some_inj in Hmapk. subst κs'.
+      cbn in Hmapr. apply Some_inj in Hmapr. subst ρs.
+      constructor.
+    - cbn in Hmapk.
+      apply bind_Some in Hmapk as (κ0 & Htk & Hmapk).
+      apply bind_Some in Hmapk as (κs0 & Hmapk & Heq).
+      apply Some_inj in Heq. subst κs'.
+      cbn in Hmapr.
+      apply bind_Some in Hmapr as (ρ0 & Hkr & Hmapr).
+      apply bind_Some in Hmapr as (ρs0 & Hmapr & Heq2).
+      apply Some_inj in Heq2. subst ρs.
+      destruct κ0 as [ρ1 ξ1 | ]; cbn in Hkr; [| discriminate].
+      apply Some_inj in Hkr. subst ρ0.
+      cbn.
+      constructor; [exact Htk | exact (IH _ _ Hmapk Hmapr)].
+  Qed.
+
+  Lemma type_kind_mapM_forall3_mem κs τs :
+    forall κs' σs,
+    mapM (type_kind κs) τs = Some κs' ->
+    mapM kind_size κs' = Some σs ->
+    Forall3 (fun τ σ ξ => type_kind κs τ = Some (MEMTYPE σ ξ)) τs σs (map kind_ref_flag κs').
+  Proof.
+    induction τs as [| τ τs IH]; intros κs' σs Hmapk Hmaps.
+    - cbn in Hmapk. apply Some_inj in Hmapk. subst κs'.
+      cbn in Hmaps. apply Some_inj in Hmaps. subst σs.
+      constructor.
+    - cbn in Hmapk.
+      apply bind_Some in Hmapk as (κ0 & Htk & Hmapk).
+      apply bind_Some in Hmapk as (κs0 & Hmapk & Heq).
+      apply Some_inj in Heq. subst κs'.
+      cbn in Hmaps.
+      apply bind_Some in Hmaps as (σ0 & Hks & Hmaps).
+      apply bind_Some in Hmaps as (σs0 & Hmaps & Heq2).
+      apply Some_inj in Heq2. subst σs.
+      destruct κ0 as [| σ1 ξ1]; cbn in Hks; [discriminate |].
+      apply Some_inj in Hks. subst σ0.
+      cbn.
+      constructor; [exact Htk | exact (IH _ _ Hmapk Hmaps)].
+  Qed.
+
+  (* [type_kind]/[type_ok] analogue of [type_skind_has_kind_Some_aux]: unlike
+     [has_kind], [type_kind] is a pure recomputation with no built-in
+     validity side-conditions (see [layout.v]), so an extra [type_ok]
+     hypothesis (giving exactly the [rep_ok]/[size_ok] bounds facts that
+     [has_kind]'s [KPlug]/[KSpan] rules bake in) is needed for this to hold. *)
+  Lemma type_kind_type_ok_Some_aux τ :
+    forall F κ, type_ok F τ -> type_kind F.(fc_type_vars) τ = Some κ ->
+    kind_ok F.(fc_kind_ctx) κ /\
+    (forall (se : semantic_env (Σ:=Σ)) sκ, sem_env_interp F se -> eval_kind se κ = Some sκ -> type_skind_go se τ = Some sκ).
+  Proof using.
+    induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True).
+    - (* VarT *)
+      intros F κ Hok Htk.
+      inversion Hok; subst; clear Hok.
+      match goal with
+      | Hlook : fc_type_vars F !! _ = Some ?κ0, Hkok : kind_ok _ ?κ0 |- _ =>
+          cbn in Htk; rewrite Hlook in Htk; apply Some_inj in Htk; subst κ0
+      end.
+      split; [assumption|].
+      intros se sκ [_ Htys] Hsκ.
+      match goal with
+      | Hlook : fc_type_vars F !! _ = Some κ |- _ =>
+          edestruct (Forall2_lookup_l _ _ _ _ _ Htys Hlook) as (y & Hy & Hprop)
+      end.
+      destruct y as [sκ' [sκT' T']].
+      destruct Hprop as (Hev & _ & _).
+      rewrite Hsκ in Hev.
+      inversion Hev; subst.
+      cbn. rewrite Hy. done.
+    - (* I31T *)
+      intros F κ Hok Htk.
+      cbn in Htk. apply Some_inj in Htk. subst κ.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* NumT *)
+      intros F κ Hok Htk.
+      cbn in Htk. apply Some_inj in Htk. subst κ.
+      destruct nt as [[]|[]]; cbn;
+        (split; [by repeat constructor|]);
+        intros se sκ Hse Hsκ; cbn in Hsκ |- *; exact Hsκ.
+    - (* SumT *)
+      intros F κ Hok Htk.
+      match goal with IH : Forall _ τs |- _ => rename IH into IHτs end.
+      inversion Hok; subst; clear Hok.
+      match goal with H : Forall (type_ok F) τs |- _ => rename H into Htoks end.
+      cbn in Htk.
+      apply bind_Some in Htk as (κs' & Hmapk & Htk).
+      apply bind_Some in Htk as (ρs & Hmapr & Htk).
+      apply Some_inj in Htk. subst κ.
+      pose proof (type_kind_mapM_forall3_val _ _ _ _ Hmapk Hmapr) as HF3.
+      pose proof (forall3_and_l _ _ _ _ _ Htoks HF3) as Hcomb0.
+      pose proof (forall3_and_l _ _ _ _ _ IHτs Hcomb0) as Hcomb1.
+      eapply Forall3_impl in Hcomb1;
+        last (intros τ' ρ' ξ' (HIH & Htok' & Htk'); exact (HIH F (VALTYPE ρ' ξ') Htok' Htk')).
+      pose proof (forall3_forall_m _ (rep_ok F.(fc_kind_ctx)) _ _ _ Hcomb1
+                    (fun τ' ρ' ξ' p => kind_ok_rep_ok _ _ _ (proj1 p))) as Hrepoks.
+      pose proof (Forall3_impl _ _ _ _ _ Hcomb1 (fun τ' ρ' ξ' p => proj2 p)) as Hsems.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (ιs & Hιs & Heq).
+      apply Some_inj in Heq. subst sκ.
+      cbn in Hιs.
+      apply fmap_Some in Hιs as (ιss & Hιss & Hιseq).
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hlm.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hlr.
+      pose proof (length_mapM _ _ _ Hιss) as Hlen_ιss.
+      pose proof (Forall3_impl _ _ _ _ _ Hsems (fun tau' rho' xi' p sk Heval => p se sk Hse Heval)) as Hsems_se.
+      pose proof (forall3_mapM_type_skind_val se _ _ _ Hsems_se _ Hιss) as Hmm.
+      cbn [type_skind_go].
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_rep_zip by lia.
+      erewrite map_skind_ref_flag_zip_val by lia.
+      rewrite Hιseq.
+      done.
+    - (* VariantT *)
+      intros F κ Hok Htk.
+      match goal with IH : Forall _ τs |- _ => rename IH into IHτs end.
+      inversion Hok; subst; clear Hok.
+      match goal with H : Forall (type_ok F) τs |- _ => rename H into Htoks end.
+      cbn in Htk.
+      apply bind_Some in Htk as (κs' & Hmapk & Htk).
+      apply bind_Some in Htk as (σs & Hmaps & Htk).
+      apply Some_inj in Htk. subst κ.
+      pose proof (type_kind_mapM_forall3_mem _ _ _ _ Hmapk Hmaps) as HF3.
+      pose proof (forall3_and_l _ _ _ _ _ Htoks HF3) as Hcomb0.
+      pose proof (forall3_and_l _ _ _ _ _ IHτs Hcomb0) as Hcomb1.
+      eapply Forall3_impl in Hcomb1;
+        last (intros τ' σ' ξ' (HIH & Htok' & Htk'); exact (HIH F (MEMTYPE σ' ξ') Htok' Htk')).
+      pose proof (forall3_forall_m _ (size_ok F.(fc_kind_ctx)) _ _ _ Hcomb1
+                    (fun τ' σ' ξ' p => kind_ok_size_ok _ _ _ (proj1 p))) as Hsizeoks.
+      pose proof (Forall3_impl _ _ _ _ _ Hcomb1 (fun τ' σ' ξ' p => proj2 p)) as Hsems.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (n & Hn & Heq).
+      apply Some_inj in Heq. subst sκ.
+      cbn in Hn.
+      apply bind_Some in Hn as (ns & Hns & Hneq).
+      apply Some_inj in Hneq. subst n.
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hlm.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hlr.
+      pose proof (length_mapM _ _ _ Hns) as Hlen_ns.
+      pose proof (Forall3_impl _ _ _ _ _ Hsems (fun tau' sigma' xi' p sk Heval => p se sk Hse Heval)) as Hsems_se.
+      pose proof (forall3_mapM_type_skind_mem se _ _ _ Hsems_se _ Hns) as Hmm.
+      cbn [type_skind_go].
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_size_zip by lia.
+      erewrite map_skind_ref_flag_zip_mem by lia.
+      done.
+    - (* ProdT *)
+      intros F κ Hok Htk.
+      match goal with IH : Forall _ τs |- _ => rename IH into IHτs end.
+      inversion Hok; subst; clear Hok.
+      match goal with H : Forall (type_ok F) τs |- _ => rename H into Htoks end.
+      cbn in Htk.
+      apply bind_Some in Htk as (κs' & Hmapk & Htk).
+      apply bind_Some in Htk as (ρs & Hmapr & Htk).
+      apply Some_inj in Htk. subst κ.
+      pose proof (type_kind_mapM_forall3_val _ _ _ _ Hmapk Hmapr) as HF3.
+      pose proof (forall3_and_l _ _ _ _ _ Htoks HF3) as Hcomb0.
+      pose proof (forall3_and_l _ _ _ _ _ IHτs Hcomb0) as Hcomb1.
+      eapply Forall3_impl in Hcomb1;
+        last (intros τ' ρ' ξ' (HIH & Htok' & Htk'); exact (HIH F (VALTYPE ρ' ξ') Htok' Htk')).
+      pose proof (forall3_forall_m _ (rep_ok F.(fc_kind_ctx)) _ _ _ Hcomb1
+                    (fun τ' ρ' ξ' p => kind_ok_rep_ok _ _ _ (proj1 p))) as Hrepoks.
+      pose proof (Forall3_impl _ _ _ _ _ Hcomb1 (fun τ' ρ' ξ' p => proj2 p)) as Hsems.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (ιs & Hιs & Heq).
+      apply Some_inj in Heq. subst sκ.
+      cbn in Hιs.
+      apply fmap_Some in Hιs as (ιss & Hιss & Hιseq).
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hlm.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hlr.
+      pose proof (length_mapM _ _ _ Hιss) as Hlen_ιss.
+      pose proof (Forall3_impl _ _ _ _ _ Hsems (fun tau' rho' xi' p sk Heval => p se sk Hse Heval)) as Hsems_se.
+      pose proof (forall3_mapM_type_skind_val se _ _ _ Hsems_se _ Hιss) as Hmm.
+      cbn [type_skind_go].
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_rep_zip by lia.
+      erewrite map_skind_ref_flag_zip_val by lia.
+      rewrite Hιseq.
+      done.
+    - (* StructT *)
+      intros F κ Hok Htk.
+      match goal with IH : Forall _ τs |- _ => rename IH into IHτs end.
+      inversion Hok; subst; clear Hok.
+      match goal with H : Forall (type_ok F) τs |- _ => rename H into Htoks end.
+      cbn in Htk.
+      apply bind_Some in Htk as (κs' & Hmapk & Htk).
+      apply bind_Some in Htk as (σs & Hmaps & Htk).
+      apply Some_inj in Htk. subst κ.
+      pose proof (type_kind_mapM_forall3_mem _ _ _ _ Hmapk Hmaps) as HF3.
+      pose proof (forall3_and_l _ _ _ _ _ Htoks HF3) as Hcomb0.
+      pose proof (forall3_and_l _ _ _ _ _ IHτs Hcomb0) as Hcomb1.
+      eapply Forall3_impl in Hcomb1;
+        last (intros τ' σ' ξ' (HIH & Htok' & Htk'); exact (HIH F (MEMTYPE σ' ξ') Htok' Htk')).
+      pose proof (forall3_forall_m _ (size_ok F.(fc_kind_ctx)) _ _ _ Hcomb1
+                    (fun τ' σ' ξ' p => kind_ok_size_ok _ _ _ (proj1 p))) as Hsizeoks.
+      pose proof (Forall3_impl _ _ _ _ _ Hcomb1 (fun τ' σ' ξ' p => proj2 p)) as Hsems.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (n & Hn & Heq).
+      apply Some_inj in Heq. subst sκ.
+      cbn in Hn.
+      apply fmap_Some in Hn as (ns & Hns & Hneq).
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hlm.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hlr.
+      pose proof (length_mapM _ _ _ Hns) as Hlen_ns.
+      pose proof (Forall3_impl _ _ _ _ _ Hsems (fun tau' sigma' xi' p sk Heval => p se sk Hse Heval)) as Hsems_se.
+      pose proof (forall3_mapM_type_skind_mem se _ _ _ Hsems_se _ Hns) as Hmm.
+      cbn [type_skind_go].
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_size_zip by lia.
+      erewrite map_skind_ref_flag_zip_mem by lia.
+      rewrite Hneq.
+      done.
+    - (* RefT *)
+      intros F κ Hok Htk.
+      match goal with IH : (forall F κ, type_ok F ?t -> type_kind _ ?t = Some κ -> _) |- _ => rename IH into IHt end.
+      inversion Hok; subst; clear Hok.
+      cbn in Htk.
+      apply bind_Some in Htk as (κ0 & Htkc & Hmatch).
+      destruct κ0 as [ρ0 ξ0 | σ0 ξ0]; [discriminate Hmatch |].
+      apply Some_inj in Hmatch. subst κ.
+      match goal with
+      | Htokc : type_ok F ?t |- _ => destruct (IHt F (MEMTYPE σ0 ξ0) Htokc Htkc) as (Hkindok_child & Hsem_child)
+      end.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply Some_inj in Hsκ. subst sκ.
+      pose proof (kind_ok_size_ok _ _ _ Hkindok_child) as Hsizeok.
+      destruct (eval_size_ok_Some F se σ0 Hse Hsizeok) as [n Hn].
+      specialize (Hsem_child se (SMEMTYPE n ξ0) Hse ltac:(cbn; by rewrite Hn)).
+      cbn [type_skind_go]; rewrite Hsem_child; cbn; done.
+    - (* CodeRefT *)
+      intros F κ Hok Htk.
+      cbn in Htk. apply Some_inj in Htk. subst κ.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* SerT *)
+      intros F κ Hok Htk.
+      match goal with IH : (forall F κ, type_ok F ?t -> type_kind _ ?t = Some κ -> _) |- _ => rename IH into IHt end.
+      inversion Hok; subst; clear Hok.
+      cbn in Htk.
+      apply bind_Some in Htk as (κ0 & Htkc & Hmatch).
+      destruct κ0 as [ρ0 ξ0 | σ0 ξ0]; [| discriminate Hmatch].
+      apply Some_inj in Hmatch. subst κ.
+      match goal with
+      | Htokc : type_ok F ?t |- _ => destruct (IHt F (VALTYPE ρ0 ξ0) Htokc Htkc) as (Hkindok_child & Hsem_child)
+      end.
+      split; [by repeat constructor; eapply kind_ok_rep_ok; eauto|].
+      intros se sκ Hse Hsκ.
+      cbn in Hsκ.
+      apply bind_Some in Hsκ as (n & Hn & Heq).
+      apply Some_inj in Heq. subst sκ.
+      cbn in Hn.
+      apply fmap_Some in Hn as (ιs & Hιs & Hneq).
+      specialize (Hsem_child se (SVALTYPE ιs ξ0) Hse ltac:(cbn; by rewrite Hιs)).
+      cbn [type_skind_go]. rewrite Hsem_child. cbn.
+      by rewrite Hneq.
+    - (* PlugT *)
+      intros F κ Hok Htk.
+      inversion Hok; subst; clear Hok.
+      match goal with H : rep_ok _ _ |- _ => rename H into Hrepok end.
+      cbn in Htk. apply Some_inj in Htk. subst κ.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* SpanT *)
+      intros F κ Hok Htk.
+      inversion Hok; subst; clear Hok.
+      match goal with H : size_ok _ _ |- _ => rename H into Hsizeok end.
+      cbn in Htk. apply Some_inj in Htk. subst κ.
+      split; [by repeat constructor|].
+      intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* RecT *)
+      intros F κnew Hok Htk.
+      inversion Hok; subst; clear Hok.
+      cbn in Htk. apply Some_inj in Htk. subst κnew.
+      split.
+      + match goal with H : kind_ok _ ?k |- kind_ok _ ?k => exact H end.
+      + intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* ExistsMemT *)
+      intros F κnew Hok Htk.
+      inversion Hok; subst; clear Hok.
+      cbn in Htk. apply Some_inj in Htk. subst κnew.
+      split.
+      + match goal with H : kind_ok _ ?k |- kind_ok _ ?k => exact H end.
+      + intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* ExistsRepT *)
+      intros F κnew Hok Htk.
+      inversion Hok; subst; clear Hok.
+      cbn in Htk. apply Some_inj in Htk. subst κnew.
+      split.
+      + match goal with H : kind_ok _ ?k |- kind_ok _ ?k => exact H end.
+      + intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* ExistsSizeT *)
+      intros F κnew Hok Htk.
+      inversion Hok; subst; clear Hok.
+      cbn in Htk. apply Some_inj in Htk. subst κnew.
+      split.
+      + match goal with H : kind_ok _ ?k |- kind_ok _ ?k => exact H end.
+      + intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - (* ExistsTypeT *)
+      intros F κnew Hok Htk.
+      inversion Hok; subst; clear Hok.
+      cbn in Htk. apply Some_inj in Htk. subst κnew.
+      split.
+      + match goal with H : kind_ok _ ?k |- kind_ok _ ?k => exact H end.
+      + intros se sκ Hse Hsκ. cbn in Hsκ |- *. exact Hsκ.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+  Qed.
+
+  Lemma type_kind_type_ok_Some F se τ κ sκ :
+    type_ok F τ ->
+    type_kind F.(fc_type_vars) τ = Some κ ->
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    type_skind (Σ:=Σ) se τ = Some sκ.
+  Proof using Σ.
+    intros Htok Htk Hse Hsκ.
+    cbn.
+    eapply (proj2 (type_kind_type_ok_Some_aux τ F κ Htok Htk)); eauto.
+  Qed.
+
 
   Lemma ref_flag_atoms_refine ξ ξ' sv :
     ref_flag_le ξ ξ' ->
@@ -974,7 +1713,7 @@ Section kinding.
     sem_env_interp_refs F se ->
     eval_kind se κ = Some sκ ->
     refok sκ (value_interp rti sr se τ).
-  Proof.
+  Proof using Σ rti sr.
     intros Hκ.
     revert se sκ.
     induction Hκ using has_kind_ind' with (P0 := λ _ _, True) (Pi := λ _ _, True);
@@ -1012,113 +1751,32 @@ Section kinding.
       apply fmap_Some in Hcat.
       destruct Hcat as (ιss & Hιss & ->).
       inversion Hret; subst sκ; clear Hret.
-      pose proof (length_mapM _ _ _ Hιss) as Hlens1.
-      pose proof (Forall3_length_lm _ _ _ _ H).
-      pose proof (Forall3_length_lr _ _ _ _ H).
 
-      destruct (ref_flag_lub ξs) eqn:Hlub; cbn; last done.
-      + intros sv.
-        apply bi.exist_persistent; intros i.
-        apply bi.exist_persistent; intros os.
-        apply bi.exist_persistent; intros off.
-        apply bi.exist_persistent; intros count.
-        unfold Persistent.
-        iIntros "(-> & %Hoff & %Hev & %Hpad & Hty)".
-
-        apply bind_Some in Hev.
-        destruct Hev as (ιs & Hev & Hret).
-        inversion Hret; subst count; clear Hret.
-        apply bind_Some in Hev.
-        destruct Hev as (ρ & Hev & Hret).
-        assert (i < length ρs).
-        { by apply lookup_lt_is_Some. }
-        assert (is_Some (τs !! i)) as [τ Hτ].
-        { apply lookup_lt_is_Some; lia. }
-        assert (is_Some (ξs !! i)) as [ξ Hξ].
-        { apply lookup_lt_is_Some; lia. }
-        apply (util.mapM_lookup _ _ _ i) in Hιss.
-        rewrite Hev in Hιss; cbn in Hιss.
-        rewrite Hret in Hιss; symmetry in Hιss.
-
-        pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
-        unfold fmap in Hfmap.
-        replace list_fmap with map in Hfmap by done.
-        unfold lookup in Hfmap, Hτ.
-        rewrite Hfmap Hτ.
-        cbn.
-        iSplit; first eauto.
-        iSplit; first eauto.
-        iSplit.
-        {  cbn.
-           rewrite Hev; cbn; rewrite Hret.
-           iModIntro; iPureIntro.
-           done. }
-        iSplit; first eauto.
-
-        eapply Forall3_lookup_lmr in H; eauto.
-        specialize (H se (SVALTYPE ιs ξ) ltac:(done) ltac:(cbn; rewrite Hret; done)).
-        unfold refok in H.
-        cbn in H.
-        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
-        rewrite Hlub in Hub.
-        destruct ξ; last by inversion Hub; eauto.
-        * specialize (H (SAtoms (take (length ιs) (drop off os)))).
-          unfold Persistent in H.
-          by iApply H.
-        * specialize (H (SAtoms (take (length ιs) (drop off os)))).
-          unfold Persistent in H.
-          by iApply H.
-      + intros sv.
-        apply bi.exist_persistent; intros i.
-        apply bi.exist_persistent; intros os.
-        apply bi.exist_persistent; intros off.
-        apply bi.exist_persistent; intros count.
-        unfold Persistent.
-        iIntros "(-> & %Hoff & %Hev & %Hpad & Hty)".
-
-        apply bind_Some in Hev.
-        destruct Hev as (ιs & Hev & Hret).
-        inversion Hret; subst count; clear Hret.
-        apply bind_Some in Hev.
-        destruct Hev as (ρ & Hev & Hret).
-        assert (i < length ρs).
-        { by apply lookup_lt_is_Some. }
-        assert (is_Some (τs !! i)) as [τ Hτ].
-        { apply lookup_lt_is_Some; lia. }
-        assert (is_Some (ξs !! i)) as [ξ Hξ].
-        { apply lookup_lt_is_Some; lia. }
-        apply (util.mapM_lookup _ _ _ i) in Hιss.
-        rewrite Hev in Hιss; cbn in Hιss.
-        rewrite Hret in Hιss; symmetry in Hιss.
-
-        pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
-        unfold fmap in Hfmap.
-        replace list_fmap with map in Hfmap by done.
-        unfold lookup in Hfmap, Hτ.
-        rewrite Hfmap Hτ.
-        cbn.
-        iSplit; first eauto.
-        iSplit; first eauto.
-        iSplit.
-        {  cbn.
-           rewrite Hev; cbn; rewrite Hret.
-           iModIntro; iPureIntro.
-           done. }
-        iSplit; first eauto.
-
-        eapply Forall3_lookup_lmr in H; eauto.
-        specialize (H se (SVALTYPE ιs ξ) ltac:(done) ltac:(cbn; rewrite Hret; done)).
-        unfold refok in H.
-        cbn in H.
-        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
-        rewrite Hlub in Hub.
-        destruct ξ; last by inversion Hub; eauto.
-        * specialize (H (SAtoms (take (length ιs) (drop off os)))).
-          unfold Persistent in H.
-          by iApply H.
-        * specialize (H (SAtoms (take (length ιs) (drop off os)))).
-          unfold Persistent in H.
-          by iApply H.
+      unfold ref_flag_stype_interp.
+      destruct (ref_flag_lub ξs) eqn:Hlub; last done.
+      all: intros sv; cbn -[sum_interp_offset sum_interp_count type_arep];
+        apply bi.exist_persistent; intros i;
+        apply bi.exist_persistent; intros os;
+        apply bi.exist_persistent; intros off;
+        apply bi.exist_persistent; intros count;
+        repeat (apply bi.sep_persistent; first typeclasses eauto);
+        assert (Hmaplk : list_lookup i (map (type_interp rti sr) τs) = (type_interp rti sr) <$> (τs !! i))
+          by apply list_lookup_fmap;
+        rewrite Hmaplk;
+        destruct (τs !! i) as [τ|] eqn:Hτ; cbn;
+        last typeclasses eauto;
+        (edestruct (Forall3_lookup_l _ _ _ _ _ _ H Hτ) as (ρ & ξ & Hρ & Hξ & Hrefok));
+        (pose proof (util.mapM_lookup _ _ _ i Hιss) as Hlk);
+        (rewrite Hρ in Hlk; cbn in Hlk);
+        (pose proof (length_mapM _ _ _ Hιss) as Hlenρι);
+        (assert (is_Some (ιss !! i)) as [ιsi Hιsi]
+          by (apply lookup_lt_is_Some; rewrite <- Hlenρι; apply lookup_lt_is_Some; rewrite Hρ; done));
+        (rewrite Hιsi in Hlk; cbn in Hlk);
+        (specialize (Hrefok se (SVALTYPE ιsi ξ) ltac:(done) ltac:(cbn; by rewrite Hlk)));
+        (unfold refok in Hrefok; cbn in Hrefok);
+        (pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub);
+        (rewrite Hlub in Hub);
+        (destruct ξ; eauto; last by inversion Hub).
     - (* VariantT *)
       setoid_rewrite type_interp_equiv.
       apply ref_flag_interp_pers.
@@ -1129,98 +1787,36 @@ Section kinding.
       cbn in Hsκ.
       apply bind_Some in Hsκ.
       destruct Hsκ as (n & Hcat & Hret).
-      apply fmap_Some in Hcat.
-      destruct Hcat as (ns & Hns & ->).
+      apply bind_Some in Hcat.
+      destruct Hcat as (ns & Hns & Hneq).
+      inversion Hneq; subst n; clear Hneq.
       inversion Hret; subst sκ; clear Hret.
-      pose proof (length_mapM _ _ _ Hns) as Hlens1.
-      pose proof (Forall3_length_lm _ _ _ _ H).
-      pose proof (Forall3_length_lr _ _ _ _ H).
 
-      destruct (ref_flag_lub ξs) eqn:Hlub; cbn; last done.
-      + intros sv.
-        apply bi.exist_persistent; intros i.
-        apply bi.exist_persistent; intros n.
-        apply bi.exist_persistent; intros ws.
-        apply bi.exist_persistent; intros ws'.
-        unfold Persistent.
-        iIntros "(%Hrep & -> & %Hpad & Hty)".
-
-        pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
-        unfold fmap in Hfmap.
-        replace list_fmap with map in Hfmap by done.
-        unfold lookup in Hfmap.
-        rewrite Hfmap.
-        destruct (list_lookup i τs) eqn:Hτs; rewrite Hτs; cbn; last done.
-
-        assert (i < length τs).
-        { by apply lookup_lt_is_Some. }
-        assert (is_Some (ns !! i)) as [m Hm].
-        { apply lookup_lt_is_Some; lia. }
-        assert (is_Some (σs !! i)) as [σ Hσ].
-        { apply lookup_lt_is_Some; lia. }
-        assert (is_Some (ξs !! i)) as [ξ Hξ].
-        { apply lookup_lt_is_Some; lia. }
-        apply (util.mapM_lookup _ _ _ i) in Hns.
-        rewrite Hσ in Hns; cbn in Hns.
-        rewrite Hm in Hns.
-
-        iSplit; first eauto.
-        iSplit; first eauto.
-        iSplit; first eauto.
-
-        eapply Forall3_lookup_lmr in H; eauto.
-        specialize (H se (SMEMTYPE m ξ) ltac:(done) ltac:(cbn; rewrite Hns; done)).
-        unfold refok in H.
-        cbn in H.
-        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
-        rewrite Hlub in Hub.
-        destruct ξ; last by inversion Hub; eauto.
-        * unfold Persistent in H.
-          by iApply H.
-        * unfold Persistent in H.
-          by iApply H.
-      + intros sv.
-        apply bi.exist_persistent; intros i.
-        apply bi.exist_persistent; intros n.
-        apply bi.exist_persistent; intros ws.
-        apply bi.exist_persistent; intros ws'.
-        unfold Persistent.
-        iIntros "(%Hrep & -> & %Hpad & Hty)".
-
-        pose proof (list_lookup_fmap (type_interp rti sr) τs i) as Hfmap.
-        unfold fmap in Hfmap.
-        replace list_fmap with map in Hfmap by done.
-        unfold lookup in Hfmap.
-        rewrite Hfmap.
-        destruct (list_lookup i τs) eqn:Hτs; rewrite Hτs; cbn; last done.
-
-        assert (i < length τs).
-        { by apply lookup_lt_is_Some. }
-        assert (is_Some (ns !! i)) as [m Hm].
-        { apply lookup_lt_is_Some; lia. }
-        assert (is_Some (σs !! i)) as [σ Hσ].
-        { apply lookup_lt_is_Some; lia. }
-        assert (is_Some (ξs !! i)) as [ξ Hξ].
-        { apply lookup_lt_is_Some; lia. }
-        apply (util.mapM_lookup _ _ _ i) in Hns.
-        rewrite Hσ in Hns; cbn in Hns.
-        rewrite Hm in Hns.
-
-        iSplit; first eauto.
-        iSplit; first eauto.
-        iSplit; first eauto.
-
-        eapply Forall3_lookup_lmr in H; eauto.
-        specialize (H se (SMEMTYPE m ξ) ltac:(done) ltac:(cbn; rewrite Hns; done)).
-        unfold refok in H.
-        cbn in H.
-        pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub.
-        rewrite Hlub in Hub.
-        destruct ξ; last by inversion Hub; eauto.
-        * unfold Persistent in H.
-          by iApply H.
-        * unfold Persistent in H.
-          by iApply H.
+      unfold ref_flag_stype_interp.
+      destruct (ref_flag_lub ξs) eqn:Hlub; last done.
+      all: intros sv; cbn -[type_arep];
+        apply bi.exist_persistent; intros i;
+        apply bi.exist_persistent; intros ntag;
+        apply bi.exist_persistent; intros ws;
+        apply bi.exist_persistent; intros ws';
+        repeat (apply bi.sep_persistent; first typeclasses eauto);
+        assert (Hmaplk : list_lookup i (map (type_interp rti sr) τs) = (type_interp rti sr) <$> (τs !! i))
+          by apply list_lookup_fmap;
+        rewrite Hmaplk;
+        destruct (τs !! i) as [τ|] eqn:Hτ; cbn;
+        last typeclasses eauto;
+        (edestruct (Forall3_lookup_l _ _ _ _ _ _ H Hτ) as (σ & ξ & Hσ & Hξ & Hrefok));
+        (pose proof (util.mapM_lookup _ _ _ i Hns) as Hlk);
+        (rewrite Hσ in Hlk; cbn in Hlk);
+        (pose proof (length_mapM _ _ _ Hns) as Hlenσn);
+        (assert (is_Some (ns !! i)) as [ni Hni]
+          by (apply lookup_lt_is_Some; rewrite <- Hlenσn; apply lookup_lt_is_Some; rewrite Hσ; done));
+        (rewrite Hni in Hlk; cbn in Hlk);
+        (specialize (Hrefok se (SMEMTYPE ni ξ) ltac:(done) ltac:(cbn; by rewrite Hlk)));
+        (unfold refok in Hrefok; cbn in Hrefok);
+        (pose proof (ref_flag_lub_ub ξ ξs (list_elem_of_lookup_2 _ _ _ Hξ)) as Hub);
+        (rewrite Hlub in Hub);
+        (destruct ξ; eauto; last by inversion Hub).
     - (* ProdT *)
       setoid_rewrite type_interp_equiv.
       apply ref_flag_interp_pers.

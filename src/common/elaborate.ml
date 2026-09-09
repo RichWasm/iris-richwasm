@@ -288,27 +288,6 @@ let elab_conversion_op : A.ConversionOp.t -> B.ConversionOp.t = function
       CConvert (elab_int_type it, elab_float_type ft, elab_sign sign)
   | Reinterpret num_type -> CReinterpret (elab_num_type num_type)
 
-let kind_of_typ (env : 'a list) : B.Type.t -> B.Kind.t t = function
-  | VarT x ->
-      let i = Z.to_int x in
-      List.nth env i |> lift_option (TVarNotInEnv (i, env)) >>| elab_kind
-  | I31T k
-  | NumT (k, _)
-  | SumT (k, _)
-  | VariantT (k, _)
-  | ProdT (k, _)
-  | StructT (k, _)
-  | RefT (k, _, _, _)
-  | CodeRefT (k, _)
-  | SerT (k, _)
-  | PlugT (k, _)
-  | SpanT (k, _)
-  | RecT (k, _)
-  | ExistsMemT (k, _)
-  | ExistsRepT (k, _)
-  | ExistsSizeT (k, _)
-  | ExistsTypeT (k, _, _) -> ret k
-
 let meet_valtypes
     (combine_rep : B.Representation.t list -> B.Representation.t)
     (kinds : B.Kind.t list) : B.Kind.t t =
@@ -335,18 +314,59 @@ let meet_memtypes
   in
   go [] NoRefs kinds
 
+(* [B.Type.t] no longer caches a kind on most constructors (it used to, and
+   the cache could never be correctly refreshed under substitution -- that's
+   the whole point of this refactor), so this now recomputes a type's kind
+   bottom-up instead of just projecting a stored field. Only [RecT]/
+   [ExistsMemT]/[ExistsRepT]/[ExistsSizeT]/[ExistsTypeT] still carry a real
+   kind (a binder annotation, not a cache), so those cases stay projections. *)
+let rec kind_of_typ (env : A.Kind.t list) : B.Type.t -> B.Kind.t t = function
+  | VarT x ->
+      let i = Z.to_int x in
+      List.nth env i |> lift_option (TVarNotInEnv (i, env)) >>| elab_kind
+  | I31T -> ret (B.Kind.VALTYPE (AtomR PtrR, NoRefs))
+  | NumT nt ->
+      let rep_of_nt : B.NumType.t -> B.AtomicRep.t = function
+        | IntT I32T -> I32R
+        | IntT I64T -> I64R
+        | FloatT F32T -> F32R
+        | FloatT F64T -> F64R
+      in
+      ret (B.Kind.VALTYPE (AtomR (rep_of_nt nt), NoRefs))
+  | SumT ts ->
+      mapM ~f:(kind_of_typ env) ts
+      >>= meet_valtypes (fun x -> B.Representation.SumR x)
+  | VariantT ts ->
+      mapM ~f:(kind_of_typ env) ts
+      >>= meet_memtypes (fun x -> B.Size.SumS x)
+  | ProdT ts ->
+      mapM ~f:(kind_of_typ env) ts
+      >>= meet_valtypes (fun x -> B.Representation.ProdR x)
+  | StructT ts ->
+      mapM ~f:(kind_of_typ env) ts
+      >>= meet_memtypes (fun x -> B.Size.ProdS x)
+  | RefT (mem, _, _) ->
+      let ref_flag : B.RefFlag.t =
+        match mem with
+        | BaseM MemGC -> GCRefs
+        | _ -> AnyRefs
+      in
+      ret (B.Kind.VALTYPE (AtomR PtrR, ref_flag))
+  | CodeRefT _ -> ret (B.Kind.VALTYPE (AtomR I32R, NoRefs))
+  | SerT t -> (
+      kind_of_typ env t >>= function
+      | VALTYPE (rep, ref_flag) -> ret (B.Kind.MEMTYPE (RepS rep, ref_flag))
+      | x -> fail (ExpectedVALTYPE ("Ser", `Kind x)))
+  | PlugT rep -> ret (B.Kind.VALTYPE (rep, NoRefs))
+  | SpanT size -> ret (B.Kind.MEMTYPE (size, NoRefs))
+  | RecT (k, _)
+  | ExistsMemT (k, _)
+  | ExistsRepT (k, _)
+  | ExistsSizeT (k, _)
+  | ExistsTypeT (k, _, _) -> ret k
+
 (* TODO: this needs to be double checked *)
 let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
-  let rep_of_nt : A.NumType.t -> B.AtomicRep.t = function
-    | Int I32 -> I32R
-    | Int I64 -> I64R
-    | Float F32 -> F32R
-    | Float F64 -> F64R
-  in
-  let sumR x = B.Representation.SumR x in
-  let prodR x = B.Representation.ProdR x in
-  let sumS x = B.Size.SumS x in
-  let prodS x = B.Size.ProdS x in
   let unshift n =
     if Z.equal n Z.zero then
       failwith "Cannot strengthen zero"
@@ -354,60 +374,51 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       Z.sub Z.one n
   in
 
-  let elab_kinds ts' =
-    mapM ~f:(kind_of_typ env) ts' |> wrap_result (`ElabTypElabKinds ts')
-  in
-
   let open B.Type in
   function
   | Var x -> ret @@ VarT (Z.of_int x)
-  | I31 -> ret @@ I31T (VALTYPE (AtomR PtrR, NoRefs))
+  | I31 -> ret I31T
   | Num nt ->
       let+ () = ret () in
-      NumT (VALTYPE (AtomR (rep_of_nt nt), NoRefs), elab_num_type nt)
+      NumT (elab_num_type nt)
   | Sum ts ->
-      let* ts' = mapM ~f:(elab_type env) ts in
-      let* k = elab_kinds ts' >>= meet_valtypes sumR in
-      ret @@ SumT (k, ts')
+      let+ ts' = mapM ~f:(elab_type env) ts in
+      SumT ts'
   | Variant ts ->
-      let* ts' = mapM ~f:(elab_type env) ts in
-      let* k = elab_kinds ts' >>= meet_memtypes sumS in
-      ret @@ VariantT (k, ts')
+      let+ ts' = mapM ~f:(elab_type env) ts in
+      VariantT ts'
   | Prod ts ->
-      let* ts' = mapM ~f:(elab_type env) ts in
-      let* k = elab_kinds ts' >>= meet_valtypes prodR in
-      ret @@ ProdT (k, ts')
+      let+ ts' = mapM ~f:(elab_type env) ts in
+      ProdT ts'
   | Struct ts ->
-      let* ts' = mapM ~f:(elab_type env) ts in
-      let* k = elab_kinds ts' >>= meet_memtypes prodS in
-      ret @@ StructT (k, ts')
+      let+ ts' = mapM ~f:(elab_type env) ts in
+      StructT ts'
   | Ref (Base MM, mut, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (AtomR PtrR, AnyRefs), BaseM MemMM, elab_mutability mut, t')
+      RefT (BaseM MemMM, elab_mutability mut, t')
   | Ref (Base GC, mut, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (AtomR PtrR, GCRefs), BaseM MemGC, elab_mutability mut, t')
+      RefT (BaseM MemGC, elab_mutability mut, t')
   | Ref (mem, mut, t) ->
       let+ t' = elab_type env t in
-      RefT
-        (VALTYPE (AtomR PtrR, AnyRefs), elab_memory mem, elab_mutability mut, t')
+      RefT (elab_memory mem, elab_mutability mut, t')
   | CodeRef ft ->
       let+ ft' = elab_function_type env ft in
-      CodeRefT (VALTYPE (AtomR I32R, NoRefs), ft')
+      CodeRefT ft'
   | Ser t ->
       let* t' = elab_type env t in
-      let* rep, rflag =
+      let* () =
         kind_of_typ env t' >>= function
-        | VALTYPE (rep, rflag) -> ret (rep, rflag)
+        | VALTYPE _ -> ret ()
         | _ -> fail (ExpectedVALTYPE ("Ser", `Type t'))
       in
-      ret @@ SerT (MEMTYPE (RepS rep, rflag), t')
+      ret @@ SerT t'
   | Plug rep ->
       let rep' = elab_representation rep in
-      ret @@ PlugT (VALTYPE (rep', NoRefs), rep')
+      ret @@ PlugT rep'
   | Span size ->
       let size' = elab_size size in
-      ret @@ SpanT (MEMTYPE (size', NoRefs), size')
+      ret @@ SpanT size'
   | Rec (kind, t) ->
       let env' = kind :: env in
       let* t' = elab_type env' t in

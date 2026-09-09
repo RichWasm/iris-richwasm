@@ -20,7 +20,7 @@ Section coderef.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let τ := CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ in
+    let τ := CodeRefT ϕ in
     let ψ := InstrT [] [τ] in
     M.(mc_table) !! i = Some ϕ ->
     has_instruction_type_ok F ψ L ->

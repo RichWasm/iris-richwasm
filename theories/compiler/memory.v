@@ -84,7 +84,7 @@ Section Compiler.
   Fixpoint path_offset (fe : function_env) (τ : type) (π : path) : option nat :=
     match τ, π with
     | _, [] => Some 0
-    | StructT _ τs, i :: π' =>
+    | StructT τs, i :: π' =>
         σs ← mapM (type_size fe.(fe_type_vars)) (take i τs);
         ns ← mapM (eval_size EmptyEnv) σs;
         τ' ← τs !! i;

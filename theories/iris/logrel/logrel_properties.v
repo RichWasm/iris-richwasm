@@ -225,12 +225,13 @@ Section properties.
     exists n; auto.
   Qed.
 
-  Lemma value_interp_coderef se os κ ϕ :
-    value_interp rti sr se (CodeRefT κ ϕ) (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
+  Lemma value_interp_coderef se os ϕ :
+    value_interp rti sr se (CodeRefT ϕ) (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
   Proof.
     iIntros "Hval".
     iDestruct "Hval" as "(%κ0 & %Hκ & Rest)".
-    destruct κ0; auto; [ | iDestruct "Rest" as "[[[] _] _]"].
+    destruct κ0 as [ιs ξ|n ξ]; last first.
+    { iDestruct "Rest" as "[[[] _] _]". }
     iDestruct "Rest" as "((%Hareps & %Href) & Oh)".
     iDestruct "Oh" as "(%i & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
     inversion nos; subst; clear nos.
@@ -664,30 +665,26 @@ Section properties.
   Qed.
 
   Lemma type_arep_of_type_kind F se τ ρ ξ ιs :
-    type_ctx_interp F.(fc_type_vars) se ->
+    sem_env_interp F se ->
+    type_ok F τ ->
     type_kind F.(fc_type_vars) τ = Some (VALTYPE ρ ξ) ->
     eval_rep EmptyEnv ρ = Some ιs ->
     @type_arep Σ se τ = Some ιs.
   Proof.
-    intros Htype Htk Heval.
-    rewrite /type_arep.
-    destruct τ; cbn [type_kind] in Htk.
-    { (* VarT n *)
-      apply (Forall2_lookup_l _ _ _ _ _ Htype) in Htk as [[sκ [sκ_T T]] (Hse & Hek & _)].
-      cbn. cbn in Hse. rewrite Hse. cbn.
-      rewrite (eval_kind_of_eval_rep se _ _ (eval_rep_emptyenv _ _ Heval se) ξ) in Hek.
-      by injection Hek as <-.
-    }
-    all: apply Some_inj in Htk; subst; cbn;
-         rewrite (eval_rep_emptyenv _ _ Heval se); by cbn.
+    intros Hsem Hok Htk Hev.
+    pose proof (eval_rep_emptyenv _ _ Hev se) as Hevse.
+    pose proof (eval_kind_of_eval_rep se ρ ιs Hevse ξ) as Hevkind.
+    pose proof (type_kind_type_ok_Some F se τ (VALTYPE ρ ξ) (SVALTYPE ιs ξ) Hok Htk Hsem Hevkind) as Hsk.
+    unfold type_arep. cbn -[type_skind]. rewrite Hsk. done.
   Qed.
 
   Lemma translate_type_comp_sem F se τ t :
     sem_env_interp F se ->
+    type_ok F τ ->
     prelude.translate_type F.(fc_type_vars) τ = Some t ->
     @translate_type Σ se τ = Some t.
   Proof.
-    intros [_ Htype] Hpre.
+    intros Hsem Hok Hpre.
     unfold prelude.translate_type, type_rep, translate_rep in Hpre.
     apply bind_Some in Hpre as [ρ [Hkr Hpre]].
     apply bind_Some in Hkr as [κ [Htk Hkr]].
@@ -698,15 +695,16 @@ Section properties.
     Opaque type_arep.
     simpl.
     Transparent type_arep.
-    by rewrite (type_arep_of_type_kind F se τ _ ξ _ Htype Htk Heval).
+    by rewrite (type_arep_of_type_kind F se τ _ ξ _ Hsem Hok Htk Heval).
   Qed.
 
   Lemma translate_types_comp_sem F τs ts se :
     sem_env_interp F se ->
+    Forall (type_ok F) τs ->
     prelude.translate_types F.(fc_type_vars) τs = Some ts ->
     @translate_types Σ se τs = Some ts.
   Proof.
-    intros Hsem Hpre.
+    intros Hsem Htoks Hpre.
     unfold prelude.translate_types in Hpre.
     apply fmap_Some in Hpre as [tss [Hmapm ->]].
     rewrite mapM_Some in Hmapm.
@@ -714,8 +712,12 @@ Section properties.
     rewrite fmap_Some.
     eexists; split; last done.
     rewrite mapM_Some.
-    eapply Forall2_impl; first exact Hmapm.
-    intros τ t' Ht'.
+    assert (Hmapm' : Forall2 (fun τ t' => type_ok F τ /\ prelude.translate_type F.(fc_type_vars) τ = Some t') τs tss).
+    { clear -Htoks Hmapm.
+      revert tss Hmapm.
+      induction Htoks as [| τ τs' Hτok Htoks IH]; intros tss Hmapm; inversion Hmapm; subst; constructor; auto. }
+    eapply Forall2_impl; first exact Hmapm'.
+    intros τ t' (Htok & Ht').
     by eapply translate_type_comp_sem.
   Qed.
 
@@ -776,6 +778,7 @@ Section properties.
 
   Lemma translate_types_comp_interp_length F τs ts se os :
     sem_env_interp F se ->
+    Forall (type_ok F) τs ->
     prelude.translate_types F.(fc_type_vars) τs = Some ts ->
     values_interp rti sr se τs os -∗
     ⌜length os = length ts⌝.
@@ -787,6 +790,7 @@ Section properties.
 
   Lemma labels_interp_cons se fr wl lmask F L B τs ts Φ :
     sem_env_interp F se ->
+    Forall (type_ok F) τs ->
     prelude.translate_types F.(fc_type_vars) τs = Some ts ->
     □ (∀ fr' vs',
        (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se F.(typing.fc_locals) L wl fr' ∗
@@ -797,7 +801,7 @@ Section properties.
     labels_interp rti sr se F.(typing.fc_locals) fr wl lmask
       ((τs, L) :: F.(fc_labels)) ((length ts, Φ) :: B).
   Proof.
-    iIntros (Hse Hts) "#HΦ Hlabels".
+    iIntros (Hse Htoks Hts) "#HΦ Hlabels".
     unfold labels_interp.
     unfold const.
     rewrite big_sepL2_cons.
@@ -1038,8 +1042,8 @@ Section properties.
     eapply frame_rel_Forall2_update; try done.
   Qed.
 
-  Lemma value_interp_ref_sz se κ μ β τ os :
-    value_interp rti sr se (RefT κ μ β τ) (SAtoms os) -∗ ⌜length os = 1⌝.
+  Lemma value_interp_ref_sz se μ β τ os :
+    value_interp rti sr se (RefT μ β τ) (SAtoms os) -∗ ⌜length os = 1⌝.
   Proof.
     iIntros "(%sκ & _ & _ & H)".
     destruct μ; destruct β.

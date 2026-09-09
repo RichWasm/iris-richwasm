@@ -31,14 +31,17 @@ Section call_indirect.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let κ := VALTYPE (AtomR I32R) NoRefs in
-    let ψ := InstrT (τs1 ++ [CodeRefT κ (InnerFunT (MonoFunT τs1 τs2))]) τs2 in
+    let ψ := InstrT (τs1 ++ [CodeRefT (InnerFunT (MonoFunT τs1 τs2))]) τs2 in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICallIndirect ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    intros fe WT WL lmask κ ψ Hok Hcg.
+    intros fe WT WL lmask ψ Hok Hcg.
     unfold WT, WL; clear WT WL.
+
+    pose proof (has_instruction_type_ok_type_ok F (τs1 ++ [CodeRefT (InnerFunT (MonoFunT τs1 τs2))]) τs2 L Hok)
+      as [Htoks1' Htoks2].
+    apply Forall_app in Htoks1' as [Htoks1 _].
 
     cbn in Hcg.
     unfold compile_call_indirect in *.
@@ -152,8 +155,10 @@ Section call_indirect.
         rename x into ts1_tounify.
         rename x2 into ts2_tounify.
         inversion rest.
-        apply (translate_types_comp_sem _ _ _ _ H) in transts1; auto.
-        apply (translate_types_comp_sem _ _ _ _ H) in transts2; auto.
+        pose proof (translate_types_comp_sem F τs1 ts1_tounify se H Htoks1 transts1) as transts1'.
+        pose proof (translate_types_comp_sem F τs2 ts2_tounify se H Htoks2 transts2) as transts2'.
+        clear transts1 transts2.
+        rename transts1' into transts1, transts2' into transts2.
         congruence.
       }
       auto.
@@ -273,8 +278,10 @@ Section call_indirect.
         rename x into ts1_tounify.
         rename x2 into ts2_tounify.
         inversion rest.
-        apply (translate_types_comp_sem _ _ _ _ H) in transts1; auto.
-        apply (translate_types_comp_sem _ _ _ _ H) in transts2; auto.
+        pose proof (translate_types_comp_sem F τs1 ts1_tounify se H Htoks1 transts1) as transts1'.
+        pose proof (translate_types_comp_sem F τs2 ts2_tounify se H Htoks2 transts2) as transts2'.
+        clear transts1 transts2.
+        rename transts1' into transts1, transts2' into transts2.
         subst; auto.
         congruence.
       }

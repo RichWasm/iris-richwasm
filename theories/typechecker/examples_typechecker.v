@@ -10,16 +10,16 @@ Set Bullet Behavior "Strict Subproofs".
 Definition ll_1_plus_2 := {|
   m_imports := [];
   m_functions := [{|
-    mf_type := InnerFunT (MonoFunT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]);
+    mf_type := InnerFunT (MonoFunT [] [(NumT (IntT I32T))]);
     mf_locals := [];
     mf_body := [
-      (INumConst (InstrT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]) 1);
-      (INumConst (InstrT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]) 2);
+      (INumConst (InstrT [] [(NumT (IntT I32T))]) 1);
+      (INumConst (InstrT [] [(NumT (IntT I32T))]) 2);
       (INum
         (InstrT
-          [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T));
-            (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]
-          [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))])
+          [ (NumT (IntT I32T));
+            (NumT (IntT I32T))]
+          [ (NumT (IntT I32T))])
         (IInt2 I32T AddI))
     ];
   |}];
@@ -35,16 +35,16 @@ Proof. Admitted.
 Definition ll_1_plus_2_bad := {|
   m_imports := [];
   m_functions := [{|
-    mf_type := InnerFunT (MonoFunT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]);
+    mf_type := InnerFunT (MonoFunT [] [(NumT (IntT I32T))]);
     mf_locals := [];
     mf_body := [
-      (INumConst (InstrT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]) 1);
-      (INumConst (InstrT [] [(NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I64T))]) 2);
+      (INumConst (InstrT [] [(NumT (IntT I32T))]) 1);
+      (INumConst (InstrT [] [(NumT (IntT I64T))]) 2);
       (INum
         (InstrT
-          [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T));
-            (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]
-          [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))])
+          [ (NumT (IntT I32T));
+            (NumT (IntT I32T))]
+          [ (NumT (IntT I32T))])
         (IInt2 I32T AddI))
     ];
   |}];
@@ -67,17 +67,17 @@ Definition m := {|
   m_functions :=
     [ {|
       mf_type :=
-        InnerFunT (MonoFunT [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))] []);
+        InnerFunT (MonoFunT [ (NumT (IntT I32T))] []);
       mf_locals := [ (AtomR F32R)];
       mf_body :=
-        [ (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]) Copy
+        [ (ILocalGet (InstrT [] [ (NumT (IntT I32T))]) Copy
           0);
           (INum
-            (InstrT [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]
-              [ (NumT (VALTYPE (AtomR F32R) NoRefs) (FloatT F32T))])
+            (InstrT [ (NumT (IntT I32T))]
+              [ (NumT (FloatT F32T))])
             (ICvt (CReinterpret (IntT I32T))));
           (ILocalSet
-            (InstrT [ (NumT (VALTYPE (AtomR F32R) NoRefs) (FloatT F32T))] []) 1)];
+            (InstrT [ (NumT (FloatT F32T))] []) 1)];
     |}];
   m_table := [];
   m_exports := [ {|
@@ -99,10 +99,10 @@ Definition my_unpack :=
       mf_type := InnerFunT (MonoFunT [] []);
       mf_locals := [];
       mf_body :=
-        [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))])
+        [ (INumConst (InstrT [] [ (NumT (IntT I32T))])
           5);
           (IPack
-            (InstrT [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]
+            (InstrT [ (NumT (IntT I32T))]
               [ (ExistsTypeT (VALTYPE (AtomR I32R) NoRefs)
                 (VALTYPE (AtomR I32R) NoRefs) (VarT 0))]));
           (IUnpack
@@ -129,10 +129,10 @@ Definition my_unpack3 := {|
       mf_type := InnerFunT (MonoFunT [] []);
       mf_locals := [ (AtomR I32R)];
       mf_body :=
-        [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))])
+        [ (INumConst (InstrT [] [ (NumT (IntT I32T))])
           5);
           (IPack
-            (InstrT [ (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))]
+            (InstrT [ (NumT (IntT I32T))]
               [ (ExistsTypeT (VALTYPE (AtomR I32R) NoRefs)
                 (VALTYPE (AtomR I32R) NoRefs) (VarT 0))]));
           (ILocalSet
@@ -142,9 +142,9 @@ Definition my_unpack3 := {|
               [])
             0);
           (INumConst
-            (InstrT [] [ (NumT (VALTYPE (AtomR F32R) NoRefs) (FloatT F32T))]) 7);
+            (InstrT [] [ (NumT (FloatT F32T))]) 7);
           (IPack
-            (InstrT [ (NumT (VALTYPE (AtomR F32R) NoRefs) (FloatT F32T))]
+            (InstrT [ (NumT (FloatT F32T))]
               [ (ExistsTypeT (VALTYPE (AtomR F32R) NoRefs)
                 (VALTYPE (AtomR F32R) NoRefs) (VarT 0))]));
           (IUnpack
@@ -153,8 +153,7 @@ Definition my_unpack3 := {|
                 (VALTYPE (AtomR F32R) NoRefs) (VarT 0))]
               [])
             [
-            (PlugT (VALTYPE (ProdR [ (AtomR I32R)]) NoRefs)
-              (ProdR [ (AtomR I32R)]))]
+            (PlugT (ProdR [ (AtomR I32R)]))]
             [ (ILocalGet
               (InstrT []
                 [ (ExistsTypeT (VALTYPE (AtomR I32R) NoRefs)
@@ -167,8 +166,7 @@ Definition my_unpack3 := {|
                       (VALTYPE (AtomR I32R) NoRefs) (VarT 0))]
                   [])
                 [
-                (PlugT (VALTYPE (ProdR [ (AtomR I32R)]) NoRefs)
-                  (ProdR [ (AtomR I32R)]))]
+                (PlugT (ProdR [ (AtomR I32R)]))]
                 [ (IDrop (InstrT [ (VarT 0)] [])); (IDrop (InstrT [ (VarT 1)] []))])])];
     |}];
   m_table := [];

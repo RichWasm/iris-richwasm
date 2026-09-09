@@ -32,6 +32,7 @@ Section block.
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
     iIntros (?????? Hok IH Hcg ????????) "@@@@@@@@@@@@".
+    pose proof (has_instruction_type_ok_type_ok F τs1 τs2 L' Hok) as [Htoks1 Htoks2].
     cbn [compile_instr] in Hcg.
     inv_cg_bind Hcg tf wt0 wt0' wl0 wl0' es_nil es0' Hcg1 Hcg2.
     inv_cg_try_option Hcg1.
@@ -56,9 +57,8 @@ Section block.
     clear HSometf.
     subst tf.
     subst fe.
-    cbn in Hts1, Hts2.
-    iDestruct (translate_types_comp_interp_length with "Hos") as "%Hoslen".
-    1, 2: done.
+    iDestruct (translate_types_comp_interp_length rti sr with "Hos") as "%Hoslen".
+    all: try done; try eassumption.
     iDestruct (big_sepL2_length with "Hvs") as "%Hvslen".
     unfold ofe_car in Hvslen.
     iApply (cwp_block with "[$] [$]").
@@ -71,8 +71,8 @@ Section block.
     1, 2: done.
     2: iApply "IH".
     iSimpl.
-    iApply labels_interp_cons.
-    3: by iIntros (??) "!> ?".
+    iApply (labels_interp_cons rti sr).
+    4: by iIntros (??) "!> ?".
     all: done.
   Qed.
 

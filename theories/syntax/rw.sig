@@ -53,17 +53,17 @@ IntT : int_type -> num_type
 FloatT : float_type -> num_type
 
 type (VarT) : Type
-I31T : kind -> type
-NumT : kind -> num_type -> type
-SumT : kind -> "list" (type) -> type
-VariantT : kind -> "list" (type) -> type
-ProdT : kind -> "list" (type) -> type
-StructT : kind -> "list" (type) -> type
-RefT : kind -> memory -> mutability -> type -> type
-CodeRefT : kind -> function_type -> type
-SerT : kind -> type -> type
-PlugT : kind -> representation -> type
-SpanT : kind -> size -> type
+I31T : type
+NumT : num_type -> type
+SumT : "list" (type) -> type
+VariantT : "list" (type) -> type
+ProdT : "list" (type) -> type
+StructT : "list" (type) -> type
+RefT : memory -> mutability -> type -> type
+CodeRefT : function_type -> type
+SerT : type -> type
+PlugT : representation -> type
+SpanT : size -> type
 RecT : kind -> (bind type in type) -> type
 ExistsMemT : kind -> (bind memory in type) -> type
 ExistsRepT : kind -> (bind representation in type) -> type

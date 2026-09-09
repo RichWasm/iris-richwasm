@@ -27,18 +27,17 @@ Section store_weak.
      a bit old bc it has some things it doesn't strickly need, but that's
      okay.
    *)
-  Lemma get_all_kinding_info_store_weak_general τ κ μ τval π pr :
-    let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
+  Lemma get_all_kinding_info_store_weak_general τ μ τval π pr :
+    let ψ := InstrT [RefT μ Mut τ; τval] [RefT μ Mut τ] in
     resolves_path τ π None pr ->
-    ∀ F off ρ se sκ κser L ιs o1,
+    ∀ F off ρ se sκ L ιs o1,
       sem_env_interp F se ->
       path_offset (fe_of_context F) τ π = Some off ->
       Forall (has_mono_size F) pr.(pr_prefix) ->
-      type_skind (Σ:=Σ) se (RefT κ μ Mut τ) = Some sκ ->
-      eval_kind se κ = Some sκ ->
+      type_skind (Σ:=Σ) se (RefT μ Mut τ) = Some sκ ->
       (* eval_mem se μ = Some MemMM -> *)
       has_ref_flag F (pr_target pr) GCRefs ->
-      pr_target pr = SerT κser τval ->
+      pr_target pr = SerT τval ->
       has_instruction_type_ok F ψ L ->
       type_rep (fe_type_vars (fe_of_context F)) τval = Some ρ ->
       eval_rep EmptyEnv ρ = Some ιs ->
@@ -48,16 +47,15 @@ Section store_weak.
             has_kind F (pr.(pr_target)) (MEMTYPE (RepS ρ) ξser) /\
             has_kind F τval (VALTYPE ρ ξser) /\
             eval_size EmptyEnv (RepS ρ) = Some sz /\
-            κ = VALTYPE (AtomR PtrR) ξ_ref /\
             sκ = SVALTYPE [PtrR] ξ_ref /\
             sum_list_with arep_size ιs = sz /\
-            eval_kind se κser = Some (SMEMTYPE sz ξser) /\
+            eval_kind se (MEMTYPE (RepS ρ) ξser) = Some (SMEMTYPE sz ξser) /\
             length (flat_map arep_flags ιs) = sz /\
             type_skind se τval = Some (SVALTYPE ιs ξser) /\
-            type_skind se (SerT κser τval) = Some (SMEMTYPE sz ξser)).
+            type_skind se (SerT τval) = Some (SMEMTYPE sz ξser)).
   Proof.
     intros ψ Hresolves.
-    intros * Hse Hoffset Hmono Htypeskind Hevalκ Href Hprtarget Hok Hrep Hevalρ Hsksv.
+    intros * Hse Hoffset Hmono Htypeskind Href Hprtarget Hok Hrep Hevalρ Hsksv.
 
     rewrite Hprtarget in Href.
     unfold ψ in Hok.
@@ -81,7 +79,7 @@ Section store_weak.
         | H : has_rep _ _ _ |- _ => inversion H; subst; clear H
         | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
         | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
-        | H : has_kind ?F (RefT _ _ _ _) _ |- _ => eapply has_kind_ref_ty in H; destruct H as (? & ? & ?); subst
+        | H : has_kind ?F (RefT _ _ _) _ |- _ => eapply has_kind_ref_ty in H; destruct H as (? & ? & ?); subst
         | H : has_kind ?F ?t ?k,
           H' : has_kind ?F ?t ?k' |- _ =>
             pose proof (has_kind_agree F t k k' H H'); clear H'
@@ -92,7 +90,6 @@ Section store_weak.
       destruct Hresolves' as (ktgt & Hkind0).
       rewrite Hprtarget in Hkind0.
       inversion Hkind0; subst.
-      unfold κ0 in *.
       eexists; eauto.
       unfold is_mono_size.
       constructor.
@@ -114,7 +111,7 @@ Section store_weak.
 
     inversion H as [? ? σtgt ξser Hhktgt Htgtmono HF' HT]; subst.
     rewrite Hprtarget in Hhktgt.
-    inversion Hhktgt; subst. unfold κ1 in *; clear κ1.
+    inversion Hhktgt; subst.
 
     pose proof (mono_size_eval_emp_Some _ Htgtmono) as (sz & Hev).
 
@@ -123,7 +120,10 @@ Section store_weak.
     (* type_kind_has_kind_agree *)
     apply bind_Some in Hrep.
     destruct Hrep as (κ_temp & type_kind_τval & kindrep).
-    pose proof (type_kind_has_kind_agree F τval _ _ H4 type_kind_τval).
+    match goal with
+    | Hhk : has_kind F τval _ |- _ =>
+        pose proof (type_kind_has_kind_agree F τval _ _ Hhk type_kind_τval)
+    end.
     subst.
     inversion kindrep; subst.
 
@@ -140,20 +140,13 @@ Section store_weak.
     (* future lemma that takes in eval_mem μ can say smthn tho *)
     destruct sκ; [| by destruct Hsksv].
     rename r into ξ_sκ.
-    assert (κ = VALTYPE (AtomR PtrR) ξ_ref). {
-      inversion Hkind_ref; done.
-    }
-    subst.
-
-    assert (ξ_ref = ξ_sκ). {
-      cbn in Hevalκ. inversion Hevalκ; done.
-    }
-    subst ξ_sκ.
-    assert (l = [PtrR]). {
-      cbn in Hevalκ. inversion Hevalκ; done.
-    }
-    subst.
-
+    assert (Heval_ref: eval_kind se (VALTYPE (AtomR PtrR) ξ_ref) = Some (SVALTYPE [PtrR] ξ_ref))
+      by done.
+    pose proof
+      (type_skind_has_kind_agree F se (RefT μ Mut τ) (VALTYPE (AtomR PtrR) ξ_ref)
+         (SVALTYPE [PtrR] ξ_ref) (SVALTYPE l ξ_sκ)
+         Hkind_ref Hse Heval_ref Htypeskind) as Heq.
+    inversion Heq; subst.
 
     assert (sum_list_with arep_size ιs = sz). {
       (* I think this is the right lemma at least *)
@@ -163,28 +156,18 @@ Section store_weak.
       by apply sum_list_with_list_sum.
     }
 
-    (* next up: κser stuff *)
-    rename κ0 into κser.
-    assert (eval_kind (senv_empty (Σ:=Σ)) κser = Some (SMEMTYPE sz ξser)). {
-      cbn.
-      rewrite eval_rep_senv_empty_irrel.
-      rewrite Hevalρ.
-      cbn.
-      rewrite sum_list_with_list_sum in H1.
-      rewrite H1.
-      done.
-    }
-    assert (eval_kind se κser = Some (SMEMTYPE sz ξser)). {
-      by apply eval_kind_senv_empty_le.
+    assert (eval_kind se (MEMTYPE (RepS ρ) ξser) = Some (SMEMTYPE sz ξser)). {
+      unfold eval_kind.
+      erewrite eval_size_emptyenv; eauto.
     }
 
     (* random thing for flags *)
     assert (length (flat_map arep_flags ιs) = sz). {
       rewrite length_flat_map.
-      assert (∀ ι, length (arep_flags ι) = arep_size ι). {
+      assert (Hareplen: ∀ ι, length (arep_flags ι) = arep_size ι). {
         intros ι; destruct ι; cbn; done.
       }
-      setoid_rewrite H6.
+      setoid_rewrite Hareplen.
       rewrite <- sum_list_with_list_sum.
       done.
     }
@@ -203,7 +186,7 @@ Section store_weak.
       eapply type_skind_has_kind_Some; try done.
     }
 
-    assert (type_skind se (SerT κser τval) = Some (SMEMTYPE sz ξser)). {
+    assert (type_skind se (SerT τval) = Some (SMEMTYPE sz ξser)). {
       eapply type_skind_has_kind_Some; try done.
     }
 
@@ -215,15 +198,15 @@ Section store_weak.
   Qed.
 
 
-  Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
+  Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
+    let ψ := InstrT [RefT μ Mut τ; τval] [RefT μ Mut τ] in
     resolves_path τ π None pr ->
     has_ref_flag F pr.(pr_target) GCRefs ->
-    pr.(pr_target) = SerT κser τval ->
+    pr.(pr_target) = SerT τval ->
     Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wt wl = inr ((), wt', wl', es') ->
@@ -290,21 +273,19 @@ Section store_weak.
 
     (** KINDING STUFF *)
 
-    pose proof (Hsκ) as Hevalκ.
-    cbn in Hevalκ.
     (* this lemma is a quarantine zone for all things kinding
        if we need more info in the future it can be added. Also potentially
        eventually make _MM and _GC versions that use eval_mem, if necessary
      *)
     pose proof
       (get_all_kinding_info_store_weak_general
-         τ κ μ τval π pr Hresolves
-         F off ρ se sκ κser L ιs o1
-         H Hoff Hmonosize Hsκ Hevalκ Hdrop Hser Htype Hρ Hιs skindsv
+         τ μ τval π pr Hresolves
+         F off ρ se sκ L ιs o1
+         H Hoff Hmonosize Hsκ Hdrop Hser Htype Hρ Hιs skindsv
       ) as AllKinding.
     destruct AllKinding as
       (σ & ξ & ξser & sz & ξ_ref &
-         Hkind_τ & Hkind_prtarget & Hkind_τval & Hevalsize & -> & -> &
+         Hkind_τ & Hkind_prtarget & Hkind_τval & Hevalsize & -> &
           Hιssz & Hevalκser & Hflaglengths & Htypeskindτval & Htypeskindsert).
 
 
@@ -763,11 +744,10 @@ Section store_weak.
           (* after we play around a bit more it'll be iAccu *)
           (* we need to use the continuation NOW *)
           iSpecialize ("Hcontinuation" $! (concat (map serialize_atom os2)) Hos2sz).
-          iAssert (value_interp rti sr se (SerT κser τval) (SWords (concat (map serialize_atom os2))))
+          iAssert (value_interp rti sr se (SerT τval) (SWords (concat (map serialize_atom os2))))
             with "[Hos2]" as "Hnewsert". {
             iEval (rewrite value_interp_eq).
             iEval (cbn).
-            rewrite Hevalκser.
             iExists (SMEMTYPE sz ξser).
             iSplitR; first done.
             iSplitR; first done.
@@ -1559,11 +1539,10 @@ Section store_weak.
           (* after we play around a bit more it'll be iAccu *)
           (* we need to use the continuation NOW *)
           iSpecialize ("Hcontinuation" $! (concat (map serialize_atom os2)) Hos2sz).
-          iAssert (value_interp rti sr se (SerT κser τval) (SWords (concat (map serialize_atom os2))))
+          iAssert (value_interp rti sr se (SerT τval) (SWords (concat (map serialize_atom os2))))
             with "[Hos2]" as "Hnewsert". {
             iEval (rewrite value_interp_eq).
             iEval (cbn).
-            rewrite Hevalκser.
             iExists (SMEMTYPE sz ξser).
             iSplitR; first done.
             iSplitR; first done.
@@ -1761,9 +1740,10 @@ Section store_weak.
 
           rewrite !value_interp_eq.
           iEval (cbn) in "Htarget_OLD".
-          rewrite Hevalκser; iEval (cbn) in "Htarget_OLD".
           iDestruct "Htarget_OLD" as "(%sκ' & %toinv & there & here)".
-          inversion toinv; subst; clear toinv.
+          pose proof Htypeskindsert as Htypeskindsert'; cbn in Htypeskindsert'.
+          rewrite Htypeskindsert' in toinv.
+          inversion toinv; subst sκ'; clear toinv.
           (* has_areps_imp_word_has_flag *)
           iDestruct "here" as "(%os_inner & %toinv & Hτval)".
           inversion toinv; subst ws_old; clear toinv.

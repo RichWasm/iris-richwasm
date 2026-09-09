@@ -586,35 +586,34 @@ module Internal = struct
 
     let rec pp_rocq_typ ff : typ -> unit = function
       | VarT x -> fprintf ff "@[<2>(VarT@ %a)@]" Z.pp_print x
-      | I31T kind -> fprintf ff "@[<2>(I31T@ %a)@]" Kind.pp_rocq kind
-      | NumT (kind, nt) ->
-          fprintf ff "@[<2>(NumT@ %a@ %a)@]" Kind.pp_rocq kind NumType.pp_rocq
-            nt
-      | SumT (kind, ts) ->
-          fprintf ff "@[<2>(SumT@ %a@ %a)@]" Kind.pp_rocq kind
+      | I31T -> fprintf ff "@[<2>I31T@]"
+      | NumT nt ->
+          fprintf ff "@[<2>(NumT@ %a)@]" NumType.pp_rocq nt
+      | SumT ts ->
+          fprintf ff "@[<2>(SumT@ %a)@]"
             (pp_rocq_list pp_rocq_typ) ts
-      | VariantT (kind, ts) ->
-          fprintf ff "@[<2>(VariantT@ %a@ %a)@]" Kind.pp_rocq kind
+      | VariantT ts ->
+          fprintf ff "@[<2>(VariantT@ %a)@]"
             (pp_rocq_list pp_rocq_typ) ts
-      | ProdT (kind, ts) ->
-          fprintf ff "@[<2>(ProdT@ %a@ %a)@]" Kind.pp_rocq kind
+      | ProdT ts ->
+          fprintf ff "@[<2>(ProdT@ %a)@]"
             (pp_rocq_list pp_rocq_typ) ts
-      | StructT (kind, ts) ->
-          fprintf ff "@[<2>(ProdT@ %a@ %a)@]" Kind.pp_rocq kind
+      | StructT ts ->
+          fprintf ff "@[<2>(ProdT@ %a)@]"
             (pp_rocq_list pp_rocq_typ) ts
-      | RefT (kind, mem, mut, t) ->
-          fprintf ff "@[<2>(RefT@ %a@ %a@ %a@ %a)@]" Kind.pp_rocq kind
+      | RefT (mem, mut, t) ->
+          fprintf ff "@[<2>(RefT@ %a@ %a@ %a)@]"
             Memory.pp_rocq mem Mutability.pp_rocq mut pp_rocq_typ t
-      | CodeRefT (kind, ft) ->
-          fprintf ff "@[<2>(CodeRefT@ %a@ %a)@]" Kind.pp_rocq kind
+      | CodeRefT ft ->
+          fprintf ff "@[<2>(CodeRefT@ %a)@]"
             pp_rocq_function_typ ft
-      | SerT (kind, t) ->
-          fprintf ff "@[<2>(SerT@ %a@ %a)@]" Kind.pp_rocq kind pp_rocq_typ t
-      | PlugT (kind, rep) ->
-          fprintf ff "@[<2>(PlugT@ %a@ %a)@]" Kind.pp_rocq kind
+      | SerT t ->
+          fprintf ff "@[<2>(SerT@ %a)@]" pp_rocq_typ t
+      | PlugT rep ->
+          fprintf ff "@[<2>(PlugT@ %a)@]"
             Representation.pp_rocq rep
-      | SpanT (kind, size) ->
-          fprintf ff "@[<2>(SpanT@ %a@ %a)@]" Kind.pp_rocq kind Size.pp_rocq
+      | SpanT size ->
+          fprintf ff "@[<2>(SpanT@ %a)@]" Size.pp_rocq
             size
       | RecT (kind, t) ->
           fprintf ff "@[<2>(RecT@ %a@ %a)@]" Kind.pp_rocq kind pp_rocq_typ t
@@ -653,24 +652,24 @@ module Internal = struct
       let pp_typs = pp_print_list_pre_space pp_typ in
       function
       | VarT i -> fprintf ff "@[<2>(var@ %a)@]" Z.pp_print i
-      | I31T k -> fprintf ff "@[<2>(i31@ %a)@]" Kind.pp k
-      | NumT (k, nt) ->
-          fprintf ff "@[<2>(num@ %a@ %a)@]" Kind.pp k NumType.pp nt
-      | SumT (k, ts) -> fprintf ff "@[<2>(sum@ %a@ %a)@]" Kind.pp k pp_typs ts
-      | VariantT (k, ts) ->
-          fprintf ff "@[<2>(variant@ %a%a)@]" Kind.pp k pp_typs ts
-      | ProdT (k, ts) -> fprintf ff "@[<2>(prod@ %a%a)@]" Kind.pp k pp_typs ts
-      | StructT (k, ts) ->
-          fprintf ff "@[<2>(struct@ %a%a)@]" Kind.pp k pp_typs ts
-      | RefT (k, mem, mut, t) ->
-          fprintf ff "@[<2>(ref@ %a@ %a@ %a@ %a)@]" Kind.pp k Memory.pp mem
+      | I31T -> fprintf ff "@[<2>i31@]"
+      | NumT nt ->
+          fprintf ff "@[<2>(num@ %a)@]" NumType.pp nt
+      | SumT ts -> fprintf ff "@[<2>(sum@ %a)@]" pp_typs ts
+      | VariantT ts ->
+          fprintf ff "@[<2>(variant%a)@]" pp_typs ts
+      | ProdT ts -> fprintf ff "@[<2>(prod%a)@]" pp_typs ts
+      | StructT ts ->
+          fprintf ff "@[<2>(struct%a)@]" pp_typs ts
+      | RefT (mem, mut, t) ->
+          fprintf ff "@[<2>(ref@ %a@ %a@ %a)@]" Memory.pp mem
             Mutability.pp mut pp_typ t
-      | CodeRefT (k, ft) ->
-          fprintf ff "@[<2>(coderef@ %a@ %a)@]" Kind.pp k pp_function_typ ft
-      | SerT (k, t) -> fprintf ff "@[<2>(ser@ %a@ %a)@]" Kind.pp k pp_typ t
-      | PlugT (k, r) ->
-          fprintf ff "@[<2>(plug@ %a@ %a)@]" Kind.pp k Representation.pp r
-      | SpanT (k, s) -> fprintf ff "@[<2>(span@ %a@ %a)@]" Kind.pp k Size.pp s
+      | CodeRefT ft ->
+          fprintf ff "@[<2>(coderef@ %a)@]" pp_function_typ ft
+      | SerT t -> fprintf ff "@[<2>(ser@ %a)@]" pp_typ t
+      | PlugT r ->
+          fprintf ff "@[<2>(plug@ %a)@]" Representation.pp r
+      | SpanT s -> fprintf ff "@[<2>(span@ %a)@]" Size.pp s
       | RecT (kind, t) ->
           fprintf ff "@[<2>(rec@ %a@ %a)@]" Kind.pp kind pp_typ t
       | ExistsMemT (kind, t) ->

@@ -27,10 +27,9 @@ Section dup.
     InnerFunT (ForallTypeT (VALTYPE (AtomR PtrR) GCRefs)
                  (MonoFunT
                     [VarT 0]
-                    [RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
-                       (StructT (MEMTYPE (ProdS [RepS (AtomR PtrR); RepS (AtomR PtrR)]) GCRefs)
-                          [SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0);
-                           SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0)])])).
+                    [RefT (BaseM MemGC) Imm
+                       (StructT [SerT (VarT 0);
+                           SerT (VarT 0)])])).
 
   Definition instance_import (i : nat) (ϕ : Core.function_type) (inst : instance) : iProp Σ :=
     ∃ j cl,
@@ -261,9 +260,8 @@ Section dup.
     clear_nils.
 
     (* at this point, we can start constructing the val and word interp dup will need *)
-    set (τ_num := (SerT (MEMTYPE (RepS (AtomR I32R)) NoRefs)
-                      (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))).
-    set (τ := RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Mut τ_num).
+    set (τ_num := (SerT (NumT (IntT I32T)))).
+    set (τ := RefT (BaseM MemGC) Mut τ_num).
     iPoseProof (na_inv_alloc logrel_nais ⊤ (ns_ref ℓ)
             (∃ ws : leibnizO (list word), ℓ ↦layout [FlagInt] ∗ ℓ ↦heap ws ∗
               ▷ type_interp rti sr τ_num senv_empty (SWords ws))) as "maybe".
@@ -407,13 +405,9 @@ Section dup.
       cbn in trans2.
       inversion trans2; subst; clear trans2.
       iDestruct "rest" as "#Hcl".
-      set (res_type := [RefT (VALTYPE (AtomR PtrR) GCRefs)
-          (BaseM MemGC) Imm
-          (StructT
-            (MEMTYPE (ProdS [RepS (AtomR PtrR); RepS (AtomR PtrR)])
-                GCRefs)
-            [SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0);
-              SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0)])]) in *.
+      set (res_type := [RefT (BaseM MemGC) Imm
+          (StructT [SerT (VarT 0);
+              SerT (VarT 0)])]) in *.
       iAssert ((atoms_interp [PtrA (PtrHeap MemGC ℓ)] [VAL_int32 tar32])%I)
         with "[Har_root]" as "atom_interp_to_use". {
         iClear "Hcl".
@@ -485,13 +479,9 @@ Section dup.
                         (∃ os2 : leibnizO (list atom), atoms_interp os2 vs2 ∗
                            values_interp1
                              [type_interp rti sr
-                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
-                                   (BaseM MemGC) Imm
-                                   (StructT
-                                      (MEMTYPE (ProdS [RepS (AtomR PtrR); RepS (AtomR PtrR)])
-                                         GCRefs)
-                                      [SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0);
-                                       SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0)]))]
+                                (RefT (BaseM MemGC) Imm
+                                   (StructT [SerT (VarT 0);
+                                       SerT (VarT 0)]))]
                              ([], [], [],
                               [(SVALTYPE [PtrR] GCRefs,
                                 (SVALTYPE [PtrR] GCRefs, value_interp rti sr senv_empty τ))])
@@ -507,10 +497,9 @@ Section dup.
       Transparent values_interp1.
       fold res_type.
       clear res_type.
-      set (res_type := (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
-                   (StructT (MEMTYPE (ProdS [RepS (AtomR PtrR); RepS (AtomR PtrR)]) GCRefs)
-                      [SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0);
-                       SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0)]))).
+      set (res_type := (RefT (BaseM MemGC) Imm
+                   (StructT [SerT (VarT 0);
+                       SerT (VarT 0)]))).
       change (values_interp1 [type_interp rti sr res_type] ?s os2) with
         (values_interp rti sr s [res_type] os2).
       rewrite values_interp_one_eq.

@@ -63,14 +63,12 @@ Section load_common.
       cbn; auto.
   Qed.
 
-  Lemma rep_ref_kind_ptr F κ μ β τ ρ ξ :
-    has_kind F (RefT κ μ β τ) (VALTYPE ρ ξ) ->
-    ρ = AtomR PtrR /\ exists ξ', κ = VALTYPE (AtomR PtrR) ξ'.
+  Lemma rep_ref_kind_ptr F μ β τ ρ ξ :
+    has_kind F (RefT μ β τ) (VALTYPE ρ ξ) ->
+    ρ = AtomR PtrR.
   Proof.
     intros Hkind.
-    inversion Hkind; subst.
-    all: split; try done.
-    all: eexists; try done.
+    inversion Hkind; subst; done.
   Qed.
 
   Lemma Z_even_mod_even :

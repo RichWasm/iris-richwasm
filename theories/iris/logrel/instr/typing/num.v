@@ -15,11 +15,11 @@ Section num.
 
   Lemma one_rep_in_rvs_vs rvs vs rtii srr se:
     (forall i, atoms_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) NoRefs) (IntT i)] rvs -∗
+    values_interp rtii srr se [NumT (IntT i)] rvs -∗
     ⌜(exists n, vs = [VAL_int32 n] /\ i = I32T) \/ (exists n, vs = [VAL_int64 n] /\ i = I64T)⌝)
     /\
     (forall i, atoms_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (AtomR (float_type_arep i)) NoRefs) (FloatT i)] rvs -∗
+    values_interp rtii srr se [NumT (FloatT i)] rvs -∗
     ⌜(exists n, vs = [VAL_float32 n] /\ i = F32T) \/ (exists n, vs = [VAL_float64 n] /\ i = F64T)⌝)
   .
   Proof.
@@ -41,23 +41,27 @@ Section num.
     all: iEval (cbn) in "Hrvss".
     all: iDestruct "Hrvss" as "[Hvs _]".
     all: iDestruct "Hvs" as "(%k & %Hk & Hkindinterp & _)".
-    all: inversion Hk.
+    all: destruct i eqn:Hi.
+    all: cbn in Hk.
+    all: apply Some_inj in Hk.
+    all: subst k.
     all: iEval (cbn) in "Hkindinterp".
     all: iPoseProof "Hkindinterp" as "%Hkindinterp".
     (* Have to dig in and prove rvs is just an integer *)
     all: unfold has_areps in Hkindinterp.
     all: destruct Hkindinterp as [(rvs0 & Hrvs0 & Hprimprep) Hnorefs].
-    all: inversion Hrvs0.
-    all: rewrite <- H1 in Hprimprep. (* subst does too much here*)
+    all: injection Hrvs0 as Heq_rvs0.
+    all: rewrite <- Heq_rvs0 in Hprimprep. (* subst does too much here*)
+    all: clear Heq_rvs0.
     all: apply Forall2_length in Hprimprep as Hrvslength.
     all: cbn in Hrvslength.
-    all: destruct rvs as [|rv rvs]; inversion Hrvslength.
-    all: symmetry in H2; apply nil_length_inv in H2.
+    all: destruct rvs as [|rv rvs]; inversion Hrvslength as [Hlen0].
+    all: symmetry in Hlen0; apply nil_length_inv in Hlen0.
     all: subst.
     all: apply Forall2_cons_iff in Hprimprep.
     all: destruct Hprimprep as [Hrv _].
 
-    all: destruct i eqn:Hi; cbn [int_type_arep] in *; cbn [float_type_arep] in *.
+    all: cbn [int_type_arep] in *; cbn [float_type_arep] in *.
     all: cbn in Hrv.
     all: destruct rv; cbn in Hrv; try (inversion Hrv); subst.
     (* Now genuinely new bit: show vs has an integer *)
@@ -75,14 +79,14 @@ Section num.
 
   Lemma two_rep_in_rvs_vs rvs vs rtii srr se :
     (forall i, atoms_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) NoRefs) (IntT i);
-                               NumT (VALTYPE (AtomR (int_type_arep i)) NoRefs) (IntT i)] rvs -∗
+    values_interp rtii srr se [NumT (IntT i);
+                               NumT (IntT i)] rvs -∗
     ⌜(exists n1 n2, vs = [VAL_int32 n1; VAL_int32 n2] /\ i = I32T) \/
       (exists n1 n2, vs = [VAL_int64 n1; VAL_int64 n2] /\ i = I64T)⌝)
     /\
     (forall i, atoms_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (AtomR (float_type_arep i)) NoRefs) (FloatT i);
-                               NumT (VALTYPE (AtomR (float_type_arep i)) NoRefs) (FloatT i)] rvs -∗
+    values_interp rtii srr se [NumT (FloatT i);
+                               NumT (FloatT i)] rvs -∗
     ⌜(exists n1 n2, vs = [VAL_float32 n1; VAL_float32 n2] /\ i = F32T) \/
       (exists n1 n2, vs = [VAL_float64 n1; VAL_float64 n2] /\ i = F64T)⌝)
   .
@@ -104,15 +108,17 @@ Section num.
       exists rv2;
       by rewrite app_nil_r.
 
-    all: destruct Hrvsss as (rv1 & rv2 & Hrvsss & Hrvs).
+    all: destruct Hrvsss as (rv1 & rv2 & Hrvsss & Hrvseq).
     all: rewrite Hrvsss.
     all: iEval (cbn) in "Hrvss".
     all: iDestruct "Hrvss" as "(Hvs1 & Hvs2 & _)".
     all: iDestruct "Hvs1" as "(%k1 & %Hk1 & Hkindinterp1 & _)".
-    all: inversion Hk1.
-    all: iEval (cbn) in "Hkindinterp1".
     all: iDestruct "Hvs2" as "(%k2 & %Hk2 & Hkindinterp2 & _)".
-    all: inversion Hk2.
+    all: destruct i eqn:Hi.
+    all: cbn in Hk1, Hk2.
+    all: apply Some_inj in Hk1, Hk2.
+    all: subst k1 k2.
+    all: iEval (cbn) in "Hkindinterp1".
     all: iEval (cbn) in "Hkindinterp2".
 
     all: iPoseProof "Hkindinterp1" as "%Hkindinterp1".
@@ -122,15 +128,15 @@ Section num.
     all: unfold has_areps in Hkindinterp2.
     all: destruct Hkindinterp1 as [(rvs1_0 & Hrvs1 & Hprimprep1) Hnorefs1].
     all: destruct Hkindinterp2 as [(rvs2_0 & Hrvs2 & Hprimprep2) Hnorefs2].
-    all: inversion Hrvs1; rewrite <- H2 in Hprimprep1.
-    all: inversion Hrvs2; rewrite <- H3 in Hprimprep2.
+    all: injection Hrvs1 as Heq1; rewrite <- Heq1 in Hprimprep1; clear Heq1 rvs1_0.
+    all: injection Hrvs2 as Heq2; rewrite <- Heq2 in Hprimprep2; clear Heq2 rvs2_0.
     all: apply Forall2_length in Hprimprep1 as Hrvs1length.
     all: apply Forall2_length in Hprimprep2 as Hrvs2length.
-    all: cbn in Hrvs1length, Hrvs2length; subst.
-    all: destruct rvs1_0 as [ | rv1 rvs1_0]; inversion Hrvs1length.
-    all: symmetry in H0; apply nil_length_inv in H0; subst.
-    all: destruct rvs2_0 as [ | rv2 rvs2_0 ]; inversion Hrvs2length.
-    all: symmetry in H0; apply nil_length_inv in H0; subst.
+    all: cbn in Hrvs1length, Hrvs2length.
+    all: destruct rv1 as [ | a1 rv1]; inversion Hrvs1length as [Hlen01].
+    all: symmetry in Hlen01; apply nil_length_inv in Hlen01; subst.
+    all: destruct rv2 as [ | a2 rv2 ]; inversion Hrvs2length as [Hlen02].
+    all: symmetry in Hlen02; apply nil_length_inv in Hlen02; subst.
 
     all: apply Forall2_cons_iff in Hprimprep1.
     all: apply Forall2_cons_iff in Hprimprep2.
@@ -138,14 +144,13 @@ Section num.
     all: destruct Hprimprep2 as [Hrv2 _].
 
     (* This is pain. Time to destruct i. *)
-    (* I'm not going to destruct the unop just yet bc probably lwp lemma about it *)
-    all: destruct i; cbn [int_type_arep] in *; cbn [float_type_arep] in *.
+    all: cbn [int_type_arep] in *; cbn [float_type_arep] in *.
     all: cbn in Hrv1, Hrv2.
-    all: destruct rv1; destruct rv2; cbn in Hrv1; cbn in Hrv2; try easy; subst.
+    all: destruct a1; destruct a2; cbn in Hrv1; cbn in Hrv2; try easy; subst.
     all: rename n into n1; rename n0 into n2.
     (* Now genuinely new bit: show vs has an integer *)
     (* temporary cleaning this is a mess *)
-    all: clear Hrvs1 Hrvs2 Hrv1 Hrv2 Hrvs1length Hrvs2length Hk1 Hk2.
+    all: clear Hrv1 Hrv2 Hrvs1length Hrvs2length.
     all: cbn in Hlens_vs_rvs.
     all: destruct vs as [| vs1 [ | vs2 nope ]]; inversion Hlens_vs_rvs.
     all: symmetry in H0; apply nil_length_inv in H0; subst.

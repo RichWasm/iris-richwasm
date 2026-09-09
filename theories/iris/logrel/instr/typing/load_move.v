@@ -138,15 +138,15 @@ Section load_move.
       eauto.
   Qed.
 
-  Lemma compat_load_move M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ τ τval π pr :
+  Lemma compat_load_move M F L wt wt' wtf wl wl' wlf es' σ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ] [RefT κ' (BaseM MemMM) Mut (pr_replaced pr); τval] in
+    let ψ := InstrT [RefT (BaseM MemMM) Mut τ] [RefT (BaseM MemMM) Mut (pr_replaced pr); τval] in
     resolves_path τ π (Some (type_span σ)) pr ->
     has_size F pr.(pr_target) σ ->
-    pr.(pr_target) = SerT κser τval ->
+    pr.(pr_target) = SerT τval ->
     Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π Move)) wt wl = inr ((), wt', wl', es') ->
@@ -219,12 +219,35 @@ Section load_move.
       | H : has_size _ _ _ |- _ => inversion H; subst; clear H
       | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
       | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
-      | H : has_kind ?F (RefT _ _ _ _) _ |- _ => inversion H; subst; clear H
-      | H : has_kind ?F (SerT _ _) _ |- _ => inversion H; subst; clear H
+      | H : has_kind ?F (RefT _ _ _) _ |- _ => inversion H; subst; clear H
+      | H : has_kind ?F (SerT _) _ |- _ => inversion H; subst; clear H
       | H : has_kind ?F ?t ?k,
         H' : has_kind ?F ?t ?k' |- _ =>
           pose proof (has_kind_agree F t k k' H H'); clear H'
       end.
+    match goal with
+    | H : has_kind _ (pr_replaced pr) (MEMTYPE _ _) |- _ => rename H into Hkind_pr_der
+    end.
+    pose proof (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_pr_der)) as Hkind_pr_ok.
+    destruct (eval_kind_ok_Some _ _ _ Hse Hkind_pr_ok) as [sκ_pr Hevkind_pr].
+    pose proof Hevkind_pr as Hevkind_pr'; cbn in Hevkind_pr'.
+    apply bind_Some in Hevkind_pr' as (n_pr & Hevn_pr & Heq_pr).
+    apply Some_inj in Heq_pr.
+    subst sκ_pr.
+    pose proof (type_skind_has_kind_Some _ se _ _ _ Hkind_pr_der Hse Hevkind_pr) as Htsk_pr_der.
+    pose proof Htsk_pr_der as Htsk_pr_der'; cbn in Htsk_pr_der'.
+    match goal with
+    | H : has_kind _ τ (MEMTYPE _ _) |- _ => rename H into Hkind_τ_der
+    end.
+    pose proof (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τ_der)) as Hkind_τ_ok.
+    destruct (eval_kind_ok_Some _ _ _ Hse Hkind_τ_ok) as [sκ_τ Hevkind_τ].
+    pose proof Hevkind_τ as Hevkind_τ'; cbn in Hevkind_τ'.
+    apply bind_Some in Hevkind_τ' as (n_τ & Hevn_τ & Heq_τ).
+    apply Some_inj in Heq_τ.
+    subst sκ_τ.
+    pose proof (type_skind_has_kind_Some _ se _ _ _ Hkind_τ_der Hse Hevkind_τ) as Htsk_τ_der.
+    pose proof Htsk_τ_der as Htsk_τ_der'; cbn in Htsk_τ_der'.
+    rewrite Htsk_τ_der' in Hev.
     cbn in Hev; inversion Hev; subst; clear Hev.
     destruct Hsv as [Hareps Hptrs].
     eapply has_areps_one in Hareps.
@@ -309,9 +332,20 @@ Section load_move.
     rewrite bind_Some in Hsktmp.
     destruct Hsktmp as (n & Hevrep & Hret).
     inversion Hret; subst; clear Hret.
-    cbn in Hevrep.
-    apply fmap_Some in Hevrep.
-    destruct Hevrep as (ιs' & Hevrep & ->).
+    match goal with
+    | H : has_kind _ τval (VALTYPE _ _) |- _ => rename H into Hkind_τval_der
+    end.
+    pose proof (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind_τval_der)) as Hkind_τval_ok.
+    destruct (eval_kind_ok_Some _ _ _ Hse Hkind_τval_ok) as [sκ_τval Hevkind_τval].
+    pose proof (type_skind_has_kind_Some _ se _ _ _ Hkind_τval_der Hse Hevkind_τval) as Htsk_τval_der.
+    pose proof Htsk_τval_der as Htsk_τval_der'; cbn in Htsk_τval_der'.
+    pose proof (eq_trans (eq_sym Htsk_τval_der') Hevrep) as Hn_eq.
+    apply Some_inj in Hn_eq.
+    subst n.
+    clear Hevrep Htsk_τval_der Htsk_τval_der'.
+    cbn in Hevkind_τval.
+    apply fmap_Some in Hevkind_τval.
+    destruct Hevkind_τval as (ιs' & Hevrep & ->).
     cbn in Hρ.
     pose proof Hρ as Hρtmp.
     erewrite type_rep_has_kind_agree in Hρtmp by eauto.
@@ -486,8 +520,8 @@ Section load_move.
           {
             rewrite type_interp_eq.
             iFrame "Hvput".
-            iExists _.
-            iSplit; first eauto.
+            iExists (SVALTYPE [PtrR] (mem_ref_flag (BaseM MemMM))).
+            iSplit; first (iPureIntro; cbn; rewrite Htsk_pr_der'; done).
             iSplit; last by iFrame.
             iPureIntro.
             split.

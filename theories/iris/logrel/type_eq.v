@@ -137,30 +137,23 @@ Section pure_kinds.
       lia.
 Qed.
 
-  Lemma struct_fields_ser_inv F κs_ser τs' σs' ξs2 :
-    Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) (zip_with SerT κs_ser τs') σs' ξs2 ->
-    length κs_ser = length τs' ->
+  Lemma struct_fields_ser_inv F τs' σs' ξs2 :
+    Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) (map SerT τs') σs' ξs2 ->
     exists ρs2,
       σs' = map RepS ρs2 /\
-      κs_ser = map (fun ρξ : representation * ref_flag => MEMTYPE (RepS ρξ.1) ρξ.2)
-                 (zip ρs2 ξs2) /\
       Forall3 (fun τ' ρ ξ => has_kind F τ' (VALTYPE ρ ξ)) τs' ρs2 ξs2.
   Proof.
-    revert τs' σs' ξs2.
-    induction κs_ser as [|κ0 κs_ser IH]; intros τs' σs' ξs2 HF3 Hlen;
-      destruct τs' as [|τ' τs']; try discriminate.
-    - cbn in HF3.
-      inversion HF3; subst.
+    revert σs' ξs2.
+    induction τs' as [|τ' τs' IH]; intros σs' ξs2 HF3.
+    - inversion HF3; subst.
       exists [].
-      repeat split; constructor.
+      split; constructor.
     - cbn in HF3.
-      injection Hlen as Hlen.
       inversion HF3 as [|? σ0 ξ0 ? σs0 ξs0 Hhd HF3']; subst.
       inversion Hhd; subst.
-      destruct (IH _ _ _ HF3' Hlen) as (ρs2 & -> & -> & HF3'').
+      destruct (IH _ _ HF3') as (ρs2 & -> & HF3'').
       eexists (_ :: ρs2).
-      repeat split.
-      by constructor.
+      split; by constructor.
   Qed.
 
   Lemma eval_kind_pairs_of_kinds F τs τs' ρs ξs ρs2 ξs2 :
@@ -189,6 +182,223 @@ Qed.
       by eapply Hhd.
   Qed.
 
+  (* MEMTYPE analogue of [eval_kind_valtype_inv]. *)
+  Lemma eval_kind_memtype_inv σ ξ σ' ξ' :
+    eval_kind env (MEMTYPE σ ξ) = eval_kind env (MEMTYPE σ' ξ') ->
+    eval_size env σ = eval_size env σ' /\
+    (forall n, eval_size env σ = Some n -> ξ = ξ').
+  Proof.
+    cbn.
+    destruct (eval_size env σ) as [n|] eqn:Hσ;
+      destruct (eval_size env σ') as [n'|] eqn:Hσ'; cbn;
+      intros Heq; simplify_eq; split; congruence.
+  Qed.
+
+  (* Pointwise VALTYPE eval_kind agreement on a zipped (rep,flag) list
+     implies agreement of the whole list's [mapM eval_rep] and (whenever
+     that mapM succeeds) agreement of the flag lists -- the common core
+     used by [eval_kind_sum] and [eval_kind_prod] below. *)
+  Lemma eval_kind_valtype_zip_agree ρs ξs ρs' ξs' :
+    Forall2 (fun ρξ ρξ' : representation * ref_flag =>
+               eval_kind env (VALTYPE ρξ.1 ρξ.2) = eval_kind env (VALTYPE ρξ'.1 ρξ'.2))
+      (zip ρs ξs) (zip ρs' ξs') ->
+    length ρs = length ξs ->
+    length ρs' = length ξs' ->
+    length ρs = length ρs' ->
+    mapM (eval_rep env) ρs = mapM (eval_rep env) ρs' /\
+    (forall ιss, mapM (eval_rep env) ρs = Some ιss -> ξs = ξs').
+  Proof.
+    revert ξs ρs' ξs'.
+    induction ρs as [|ρ ρs IH]; intros ξs ρs' ξs' HF2 Hlen1 Hlen2 Hlen3;
+      destruct ρs' as [|ρ' ρs']; try discriminate;
+      destruct ξs as [|ξ ξs]; try discriminate;
+      destruct ξs' as [|ξ' ξs']; try discriminate.
+    - split; first done. intros ιss Heq. done.
+    - cbn in HF2.
+      apply Forall2_cons_1 in HF2 as [Hhd HF2].
+      apply eval_kind_valtype_inv in Hhd as [Hrep Hflag].
+      injection Hlen1 as Hlen1.
+      injection Hlen2 as Hlen2.
+      injection Hlen3 as Hlen3.
+      destruct (IH ξs ρs' ξs' HF2 Hlen1 Hlen2 Hlen3) as [IHmap IHflag].
+      split.
+      + cbn. rewrite Hrep IHmap. done.
+      + intros ιss Heq.
+        apply mapM_Some_1 in Heq.
+        apply Forall2_cons_inv_l in Heq as (ιs & ιss0 & Hρ & Heq0 & _).
+        specialize (Hflag ιs Hρ).
+        specialize (IHflag ιss0 (mapM_Some_2 _ _ _ Heq0)).
+        by f_equal.
+  Qed.
+
+  (* MEMTYPE analogue of [eval_kind_valtype_zip_agree], for SumS/ProdS. *)
+  Lemma eval_kind_memtype_zip_agree σs ξs σs' ξs' :
+    Forall2 (fun σξ σξ' : Core.size * ref_flag =>
+               eval_kind env (MEMTYPE σξ.1 σξ.2) = eval_kind env (MEMTYPE σξ'.1 σξ'.2))
+      (zip σs ξs) (zip σs' ξs') ->
+    length σs = length ξs ->
+    length σs' = length ξs' ->
+    length σs = length σs' ->
+    mapM (eval_size env) σs = mapM (eval_size env) σs' /\
+    (forall ns, mapM (eval_size env) σs = Some ns -> ξs = ξs').
+  Proof.
+    revert ξs σs' ξs'.
+    induction σs as [|σ σs IH]; intros ξs σs' ξs' HF2 Hlen1 Hlen2 Hlen3;
+      destruct σs' as [|σ' σs']; try discriminate;
+      destruct ξs as [|ξ ξs]; try discriminate;
+      destruct ξs' as [|ξ' ξs']; try discriminate.
+    - split; first done. intros ns Heq. done.
+    - cbn in HF2.
+      apply Forall2_cons_1 in HF2 as [Hhd HF2].
+      apply eval_kind_memtype_inv in Hhd as [Hsz Hflag].
+      injection Hlen1 as Hlen1.
+      injection Hlen2 as Hlen2.
+      injection Hlen3 as Hlen3.
+      destruct (IH ξs σs' ξs' HF2 Hlen1 Hlen2 Hlen3) as [IHmap IHflag].
+      split.
+      + cbn. rewrite Hsz IHmap. done.
+      + intros ns Heq.
+        apply mapM_Some_1 in Heq.
+        apply Forall2_cons_inv_l in Heq as (n & ns0 & Hσ & Heq0 & _).
+        specialize (Hflag n Hσ).
+        specialize (IHflag ns0 (mapM_Some_2 _ _ _ Heq0)).
+        by f_equal.
+  Qed.
+
+  (* Aggregate [eval_kind] congruence for [SumT]. *)
+  Lemma eval_kind_sum ρs ξs ρs' ξs' :
+    Forall2 (fun ρξ ρξ' : representation * ref_flag =>
+               eval_kind env (VALTYPE ρξ.1 ρξ.2) = eval_kind env (VALTYPE ρξ'.1 ρξ'.2))
+      (zip ρs ξs) (zip ρs' ξs') ->
+    length ρs = length ξs ->
+    length ρs' = length ξs' ->
+    length ρs = length ρs' ->
+    eval_kind env (VALTYPE (SumR ρs) (ref_flag_lub ξs)) =
+    eval_kind env (VALTYPE (SumR ρs') (ref_flag_lub ξs')).
+  Proof.
+    intros HF2 Hlen1 Hlen2 Hlen3.
+    destruct (eval_kind_valtype_zip_agree ρs ξs ρs' ξs' HF2 Hlen1 Hlen2 Hlen3) as [Hmap Hflag].
+    cbn.
+    destruct (mapM (eval_rep env) ρs) as [ιss|] eqn:Hρs.
+    - rewrite <- Hmap.
+      specialize (Hflag ιss eq_refl) as ->.
+      done.
+    - rewrite <- Hmap.
+      done.
+  Qed.
+
+  (* Aggregate [eval_kind] congruence for [VariantT]. *)
+  Lemma eval_kind_variant σs ξs σs' ξs' :
+    Forall2 (fun σξ σξ' : Core.size * ref_flag =>
+               eval_kind env (MEMTYPE σξ.1 σξ.2) = eval_kind env (MEMTYPE σξ'.1 σξ'.2))
+      (zip σs ξs) (zip σs' ξs') ->
+    length σs = length ξs ->
+    length σs' = length ξs' ->
+    length σs = length σs' ->
+    eval_kind env (MEMTYPE (SumS σs) (ref_flag_lub ξs)) =
+    eval_kind env (MEMTYPE (SumS σs') (ref_flag_lub ξs')).
+  Proof.
+    intros HF2 Hlen1 Hlen2 Hlen3.
+    destruct (eval_kind_memtype_zip_agree σs ξs σs' ξs' HF2 Hlen1 Hlen2 Hlen3) as [Hmap Hflag].
+    cbn.
+    destruct (mapM (eval_size env) σs) as [ns|] eqn:Hσs.
+    - rewrite <- Hmap.
+      specialize (Hflag ns eq_refl) as ->.
+      done.
+    - rewrite <- Hmap.
+      done.
+  Qed.
+
+  (* Aggregate [eval_kind] congruence for [ProdT]. *)
+  Lemma eval_kind_prod ρs ξs ρs' ξs' :
+    Forall2 (fun ρξ ρξ' : representation * ref_flag =>
+               eval_kind env (VALTYPE ρξ.1 ρξ.2) = eval_kind env (VALTYPE ρξ'.1 ρξ'.2))
+      (zip ρs ξs) (zip ρs' ξs') ->
+    length ρs = length ξs ->
+    length ρs' = length ξs' ->
+    length ρs = length ρs' ->
+    eval_kind env (VALTYPE (ProdR ρs) (ref_flag_lub ξs)) =
+    eval_kind env (VALTYPE (ProdR ρs') (ref_flag_lub ξs')).
+  Proof.
+    intros HF2 Hlen1 Hlen2 Hlen3.
+    destruct (eval_kind_valtype_zip_agree ρs ξs ρs' ξs' HF2 Hlen1 Hlen2 Hlen3) as [Hmap Hflag].
+    cbn.
+    destruct (mapM (eval_rep env) ρs) as [ιss|] eqn:Hρs.
+    - rewrite <- Hmap.
+      specialize (Hflag ιss eq_refl) as ->.
+      done.
+    - rewrite <- Hmap.
+      done.
+  Qed.
+
+  (* Aggregate [eval_kind] congruence for [StructT]. *)
+  Lemma eval_kind_struct σs ξs σs' ξs' :
+    Forall2 (fun σξ σξ' : Core.size * ref_flag =>
+               eval_kind env (MEMTYPE σξ.1 σξ.2) = eval_kind env (MEMTYPE σξ'.1 σξ'.2))
+      (zip σs ξs) (zip σs' ξs') ->
+    length σs = length ξs ->
+    length σs' = length ξs' ->
+    length σs = length σs' ->
+    eval_kind env (MEMTYPE (ProdS σs) (ref_flag_lub ξs)) =
+    eval_kind env (MEMTYPE (ProdS σs') (ref_flag_lub ξs')).
+  Proof.
+    intros HF2 Hlen1 Hlen2 Hlen3.
+    destruct (eval_kind_memtype_zip_agree σs ξs σs' ξs' HF2 Hlen1 Hlen2 Hlen3) as [Hmap Hflag].
+    cbn.
+    destruct (mapM (eval_size env) σs) as [ns|] eqn:Hσs.
+    - rewrite <- Hmap.
+      specialize (Hflag ns eq_refl) as ->.
+      done.
+    - rewrite <- Hmap.
+      done.
+  Qed.
+
+  (* [eval_kind] congruence for the plain [SerT] constructor: since [SerT]
+     no longer carries its own kind, its (MEMTYPE) kind is derived from its
+     argument's (VALTYPE) kind, so agreement has to be transported through
+     that derivation rather than being definitional. *)
+  Lemma eval_kind_ser_congr ρ ξ ρ' ξ' :
+    eval_kind env (VALTYPE ρ ξ) = eval_kind env (VALTYPE ρ' ξ') ->
+    eval_kind env (MEMTYPE (RepS ρ) ξ) = eval_kind env (MEMTYPE (RepS ρ') ξ').
+  Proof.
+    intros Heq.
+    apply eval_kind_valtype_inv in Heq as [Hrep Hflag].
+    cbn.
+    destruct (eval_rep env ρ) as [ιs|] eqn:Hρ.
+    - rewrite <- Hrep.
+      specialize (Hflag ιs eq_refl) as ->.
+      done.
+    - rewrite <- Hrep.
+      done.
+  Qed.
+
+  (* MEMTYPE analogue of [eval_kind_pairs_of_kinds]. *)
+  Lemma eval_kind_pairs_of_kinds_mem F τs τs' σs ξs σs2 ξs2 :
+    Forall2 (fun τ τ' =>
+               forall F κ κ',
+                 has_kind F τ κ ->
+                 has_kind F τ' κ' ->
+                 eval_kind env κ = eval_kind env κ') τs τs' ->
+    Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs σs ξs ->
+    Forall3 (fun τ' σ ξ => has_kind F τ' (MEMTYPE σ ξ)) τs' σs2 ξs2 ->
+    Forall2 (fun σξ σξ' : Core.size * ref_flag =>
+               eval_kind env (MEMTYPE σξ.1 σξ.2) = eval_kind env (MEMTYPE σξ'.1 σξ'.2))
+      (zip σs ξs) (zip σs2 ξs2).
+  Proof.
+    intros HF2.
+    revert σs ξs σs2 ξs2.
+    induction HF2 as [|τ τ' τs τs' Hhd HF2 IH]; intros σs ξs σs2 ξs2 HF3 HF3'.
+    - inversion HF3; subst.
+      inversion HF3'; subst.
+      constructor.
+    - inversion HF3; subst.
+      inversion HF3'; subst.
+      cbn [zip zip_with].
+      constructor; last by apply IH.
+      cbv beta; cbn [fst snd].
+      by eapply Hhd.
+  Qed.
+
   Lemma type_eq_eval_kind_agree :
     forall τ τ',
       type_eq τ τ' ->
@@ -205,43 +415,122 @@ Qed.
                   eval_kind env κ = eval_kind env κ')).
     - intros τ F κ κ' Hκ Hκ'.
       by rewrite (has_kind_agree _ _ _ _ Hκ Hκ').
-    - intros κ0 τs τs' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 τs τs' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 τs τs' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 τs τs' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 μ β τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ0 κτ τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; congruence.
-    - intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' Hκ Hκ'.
+    - (* Sum *)
+      intros τs τs' Heq IH F κ κ' Hκ Hκ'.
       inversion Hκ; subst.
-      match goal with Hp : has_kind _ (ProdT _ _) _ |- _ => rename Hp into Hprod end.
-      inversion Hprod; subst.
-      match goal with Hf : Forall3 _ τs _ _ |- _ => rename Hf into HF3 end.
+      match goal with
+        H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into HF3
+      end.
       inversion Hκ'; subst.
       match goal with
-        Hf : Forall3 _ (zip_with SerT _ _) _ _ |- _ => rename Hf into HF3' end.
+        H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs' _ _ |- _ => rename H into HF3'
+      end.
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hl1.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hl2.
+      pose proof (Forall3_length_lm _ _ _ _ HF3') as Hl3.
+      pose proof (Forall3_length_lr _ _ _ _ HF3') as Hl4.
       pose proof (Forall2_length _ _ _ Heq) as Hlenττ'.
-      destruct (struct_fields_ser_inv _ _ _ _ _ HF3' Hlen) as (ρs2 & -> & _ & HF3'').
+      apply eval_kind_sum; try congruence.
+      by eapply eval_kind_pairs_of_kinds.
+    - (* Variant *)
+      intros τs τs' Heq IH F κ κ' Hκ Hκ'.
+      inversion Hκ; subst.
+      match goal with
+        H : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs _ _ |- _ => rename H into HF3
+      end.
+      inversion Hκ'; subst.
+      match goal with
+        H : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs' _ _ |- _ => rename H into HF3'
+      end.
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hl1.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hl2.
+      pose proof (Forall3_length_lm _ _ _ _ HF3') as Hl3.
+      pose proof (Forall3_length_lr _ _ _ _ HF3') as Hl4.
+      pose proof (Forall2_length _ _ _ Heq) as Hlenττ'.
+      apply eval_kind_variant; try congruence.
+      by eapply eval_kind_pairs_of_kinds_mem.
+    - (* Prod *)
+      intros τs τs' Heq IH F κ κ' Hκ Hκ'.
+      inversion Hκ; subst.
+      match goal with
+        H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into HF3
+      end.
+      inversion Hκ'; subst.
+      match goal with
+        H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs' _ _ |- _ => rename H into HF3'
+      end.
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hl1.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hl2.
+      pose proof (Forall3_length_lm _ _ _ _ HF3') as Hl3.
+      pose proof (Forall3_length_lr _ _ _ _ HF3') as Hl4.
+      pose proof (Forall2_length _ _ _ Heq) as Hlenττ'.
+      apply eval_kind_prod; try congruence.
+      by eapply eval_kind_pairs_of_kinds.
+    - (* Struct *)
+      intros τs τs' Heq IH F κ κ' Hκ Hκ'.
+      inversion Hκ; subst.
+      match goal with
+        H : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs _ _ |- _ => rename H into HF3
+      end.
+      inversion Hκ'; subst.
+      match goal with
+        H : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs' _ _ |- _ => rename H into HF3'
+      end.
+      pose proof (Forall3_length_lm _ _ _ _ HF3) as Hl1.
+      pose proof (Forall3_length_lr _ _ _ _ HF3) as Hl2.
+      pose proof (Forall3_length_lm _ _ _ _ HF3') as Hl3.
+      pose proof (Forall3_length_lr _ _ _ _ HF3') as Hl4.
+      pose proof (Forall2_length _ _ _ Heq) as Hlenττ'.
+      apply eval_kind_struct; try congruence.
+      by eapply eval_kind_pairs_of_kinds_mem.
+    - (* Ref *)
+      intros μ β τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; cbn in *; congruence.
+    - (* Ser *)
+      intros τ τ' _ IH F κ κ' Hκ Hκ'.
+      inversion Hκ; subst.
+      match goal with H : has_kind F τ (VALTYPE _ _) |- _ => rename H into Hkτ end.
+      inversion Hκ'; subst.
+      match goal with H : has_kind F τ' (VALTYPE _ _) |- _ => rename H into Hkτ' end.
+      apply eval_kind_ser_congr.
+      by eapply IH.
+    - (* Rec *)
+      intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; cbn in *; congruence.
+    - (* ExMem *)
+      intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; cbn in *; congruence.
+    - (* ExRep *)
+      intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; cbn in *; congruence.
+    - (* ExSize *)
+      intros κ0 τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; cbn in *; congruence.
+    - (* ExType *)
+      intros κ0 κτ τ τ' _ _ F κ κ' Hκ Hκ'; inversion Hκ; inversion Hκ'; subst; cbn in *; congruence.
+    - (* SerProd *)
+      intros τs τs' Heq IH F κ κ' Hκ Hκ'.
+      inversion Hκ; subst.
+      match goal with H : has_kind F (ProdT _) _ |- _ => rename H into Hprod end.
+      inversion Hprod; subst.
+      match goal with H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into HF3 end.
+      inversion Hκ'; subst.
+      match goal with
+        H : Forall3 _ (map SerT _) _ _ |- _ => rename H into HF3' end.
+      pose proof (Forall2_length _ _ _ Heq) as Hlenττ'.
+      destruct (struct_fields_ser_inv _ _ _ _ HF3') as (ρs2 & -> & HF3'').
       pose proof (Forall3_length_lm _ _ _ _ HF3) as Hl1.
       pose proof (Forall3_length_lr _ _ _ _ HF3) as Hl2.
       pose proof (Forall3_length_lm _ _ _ _ HF3'') as Hl3.
       pose proof (Forall3_length_lr _ _ _ _ HF3'') as Hl4.
       apply eval_kind_ser_prod_struct; try congruence.
       by eapply eval_kind_pairs_of_kinds.
-    - intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' Hκ Hκ'.
+    - (* ProdSer *)
+      intros τs τs' Heq IH F κ κ' Hκ Hκ'.
       inversion Hκ; subst.
       match goal with
-        Hf : Forall3 _ (zip_with SerT _ _) _ _ |- _ => rename Hf into HF3' end.
+        H : Forall3 _ (map SerT _) _ _ |- _ => rename H into HF3' end.
       inversion Hκ'; subst.
-      match goal with Hp : has_kind _ (ProdT _ _) _ |- _ => rename Hp into Hprod end.
+      match goal with H : has_kind F (ProdT _) _ |- _ => rename H into Hprod end.
       inversion Hprod; subst.
-      match goal with Hf : Forall3 _ τs' _ _ |- _ => rename Hf into HF3 end.
+      match goal with H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs' _ _ |- _ => rename H into HF3 end.
       pose proof (Forall2_length _ _ _ Heq) as Hlenττ'.
-      destruct (struct_fields_ser_inv _ _ _ _ _ HF3' Hlen) as (ρs2 & -> & _ & HF3'').
+      destruct (struct_fields_ser_inv _ _ _ _ HF3') as (ρs2 & -> & HF3'').
       pose proof (Forall3_length_lm _ _ _ _ HF3) as Hl1.
       pose proof (Forall3_length_lr _ _ _ _ HF3) as Hl2.
       pose proof (Forall3_length_lm _ _ _ _ HF3'') as Hl3.
@@ -319,11 +608,11 @@ Section type_eq_sem.
     Forall2 type_eq τs τs' ->
     Forall2 (fun τ τ' => ∀ sv, type_interp rti sr τ se sv ⊣⊢ type_interp rti sr τ' se sv) τs τs' ->
     length wss = length τs' ->
-    ([∗ list] ws;τ ∈ wss; zip_with SerT (map (fun ρξ => MEMTYPE (RepS ρξ.1) ρξ.2) (zip ρs2 ξs2)) τs',
+    ([∗ list] ws;τ ∈ wss; map SerT τs',
        type_interp rti sr τ se (SWords ws))
     ⊢
     (∃ os, ⌜concat wss = flat_map serialize_atom os⌝ ∗
-       type_interp rti sr (ProdT (VALTYPE (ProdR ρs) (ref_flag_lub ξs)) τs) se (SAtoms os)).
+       type_interp rti sr (ProdT τs) se (SAtoms os)).
   Proof.
     intros Hsem H1.
     revert τs' ρs2 ξs2 wss.
@@ -366,13 +655,35 @@ Section type_eq_sem.
       rewrite Hsκτ in Hskτ. injection Hskτ as <-.
       iEval (rewrite type_interp_eq /add_skind_interp /pre_type_interp /=) in "Htail".
       iDestruct "Htail" as (sκtail) "(%Hsktail & %Hsvtail & Htail)".
-      rewrite (mapM_Some_2 _ _ _ Hιss) in Hsktail.
+      assert (Hbridge : Forall3 (fun τ0 ρ0 ξ0 =>
+                           forall sκ0, eval_kind se (VALTYPE ρ0 ξ0) = Some sκ0 -> type_skind_go se τ0 = Some sκ0)
+                        τs ρs ξs).
+      { eapply Forall3_impl; first exact H1.
+        intros τ0 ρ0 ξ0 Hhk sκ0 Heval.
+        eapply type_skind_has_kind_Some; [exact Hhk|exact Hsem|exact Heval]. }
+      pose proof (forall3_mapM_type_skind_val se τs ρs ξs Hbridge ιss (mapM_Some_2 _ _ _ Hιss)) as Hmm.
+      rewrite Hmm in Hsktail.
+      pose proof (Forall2_length _ _ _ Hιss) as Hlen_ρs_ιss.
+      pose proof (Forall3_length_lm _ _ _ _ H1) as Hlen_τs_ρs.
+      pose proof (Forall3_length_lr _ _ _ _ H1) as Hlen_τs_ξs.
+      assert (Hlen_ιss_ξs : length ιss = length ξs) by congruence.
       cbn in Hsktail.
+      rewrite (mapM_skind_rep_zip _ _ Hlen_ιss_ξs) in Hsktail.
+      cbn in Hsktail.
+      rewrite (map_skind_ref_flag_zip_val _ _ Hlen_ιss_ξs) in Hsktail.
       injection Hsktail as <-.
       iExists (SVALTYPE (ιsτ ++ concat ιss) (ref_flag_lub (ξ :: ξs))).
       iSplit.
       { iPureIntro.
-        cbn. rewrite Hιsτ. cbn. erewrite mapM_Some_2; last exact Hιss. done. }
+        pose proof Hsκτ as Hsκτ'.
+        cbn in Hsκτ'.
+        cbn.
+        rewrite Hsκτ' Hmm.
+        cbn.
+        rewrite (mapM_skind_rep_zip _ _ Hlen_ιss_ξs).
+        cbn.
+        rewrite (map_skind_ref_flag_zip_val _ _ Hlen_ιss_ξs).
+        done. }
       iSplit.
       { iPureIntro.
         destruct Hsvτ as [Harepτ Hrefτ].
@@ -404,10 +715,10 @@ Section type_eq_sem.
     Forall3 (fun τ' ρ ξ => has_kind F τ' (VALTYPE ρ ξ)) τs' ρs2 ξs2 ->
     Forall2 type_eq τs τs' ->
     Forall2 (fun τ τ' => ∀ sv, type_interp rti sr τ se sv ⊣⊢ type_interp rti sr τ' se sv) τs τs' ->
-    type_interp rti sr (ProdT (VALTYPE (ProdR ρs) (ref_flag_lub ξs)) τs) se (SAtoms os)
+    type_interp rti sr (ProdT τs) se (SAtoms os)
     ⊢
     (∃ wss, ⌜flat_map serialize_atom os = concat wss⌝ ∗
-       [∗ list] ws;τ ∈ wss; zip_with SerT (map (fun ρξ => MEMTYPE (RepS ρξ.1) ρξ.2) (zip ρs2 ξs2)) τs',
+       [∗ list] ws;τ ∈ wss; map SerT τs',
          type_interp rti sr τ se (SWords ws)).
   Proof.
     intros Hsem H1.
@@ -424,7 +735,7 @@ Section type_eq_sem.
       iExists []. cbn.
       injection Hoseq as ->.
       iSplit; first done.
-      by rewrite zip_with_nil_r.
+      done.
     - apply Forall2_cons_inv_l in Heqtyp as (τ' & τs'0 & Hτeq & Heqtyp & ->).
       rename τs'0 into τs'.
       apply Forall2_cons in IH as (IHhead & IH).
@@ -472,25 +783,43 @@ Section type_eq_sem.
       rewrite Hek2 in Hagree.
       injection Hagree as -> ->.
       iDestruct (IHhead with "Hhd") as "Hhd2".
-      iAssert (type_interp rti sr (SerT (MEMTYPE (RepS ρ2) ξ2) τ') se (SWords (flat_map serialize_atom o)))%I
+      assert (Hbridge : Forall3 (fun τ0 ρ0 ξ0 =>
+                           forall sκ0, eval_kind se (VALTYPE ρ0 ξ0) = Some sκ0 -> type_skind_go se τ0 = Some sκ0)
+                        τs ρs ξs).
+      { eapply Forall3_impl; first exact H1.
+        intros τ0 ρ0 ξ0 Hhk sκ0 Heval.
+        eapply type_skind_has_kind_Some; [exact Hhk|exact Hsem|exact Heval]. }
+      pose proof (forall3_mapM_type_skind_val se τs ρs ξs Hbridge ιss (mapM_Some_2 _ _ _ Hιss)) as Hmm.
+      pose proof (Forall2_length _ _ _ Hιss) as Hlen_ρs_ιss.
+      pose proof (Forall3_length_lm _ _ _ _ H1) as Hlen_τs_ρs.
+      pose proof (Forall3_length_lr _ _ _ _ H1) as Hlen_τs_ξs.
+      assert (Hlen_ιss_ξs : length ιss = length ξs) by congruence.
+      iAssert (type_interp rti sr (SerT τ') se (SWords (flat_map serialize_atom o)))%I
         with "[Hhd2]" as "Hheadser".
-      { iApply (type_interp_eq rti sr (SerT (MEMTYPE (RepS ρ2) ξ2) τ') se (SWords (flat_map serialize_atom o))).
+      { iApply (type_interp_eq rti sr (SerT τ') se (SWords (flat_map serialize_atom o))).
         rewrite /add_skind_interp.
-        iExists (SMEMTYPE (length (flat_map serialize_atom o)) ξ2).
+        iExists (SMEMTYPE (areps_size ιs2) ξ2).
         iSplit.
-        { iPureIntro. cbn. rewrite Hιs2. cbn. unfold compose.
-          rewrite (has_areps_serialize_length _ _ Harepo'). done. }
+        { iPureIntro. pose proof Hsκτ2 as Hsκτ2'. cbn in Hsκτ2'. cbn. rewrite Hsκτ2'. cbn. done. }
         iSplit.
-        { iPureIntro. split; first done. by apply ref_flag_serialize. }
+        { iPureIntro. split.
+          - cbn. by rewrite (has_areps_serialize_length _ _ Harepo').
+          - by apply ref_flag_serialize. }
         rewrite /pre_type_interp /=.
         iExists o. iSplit; first done. iExact "Hhd2". }
-      iAssert (type_interp rti sr (ProdT (VALTYPE (ProdR ρs) (ref_flag_lub ξs)) τs) se (SAtoms (concat oss)))%I
+      iAssert (type_interp rti sr (ProdT τs) se (SAtoms (concat oss)))%I
         with "[Htl]" as "Htail2".
-      { iApply (type_interp_eq rti sr (ProdT (VALTYPE (ProdR ρs) (ref_flag_lub ξs)) τs) se (SAtoms (concat oss))).
+      { iApply (type_interp_eq rti sr (ProdT τs) se (SAtoms (concat oss))).
         rewrite /add_skind_interp.
         iExists (SVALTYPE (concat ιss) (ref_flag_lub ξs)).
         iSplit.
-        { iPureIntro. cbn. unfold compose. by erewrite mapM_Some_2. }
+        { iPureIntro.
+          cbn.
+          rewrite Hmm.
+          cbn.
+          rewrite (mapM_skind_rep_zip _ _ Hlen_ιss_ξs).
+          cbn.
+          by rewrite (map_skind_ref_flag_zip_val _ _ Hlen_ιss_ξs). }
         iSplit.
         { iPureIntro. split; last done. by exists (concat oss). }
         rewrite /pre_type_interp /=.
@@ -510,31 +839,31 @@ Section type_eq_sem.
     Forall3 (fun τ' ρ ξ => has_kind F τ' (VALTYPE ρ ξ)) τs' ρs2 ξs2 ->
     Forall2 type_eq τs τs' ->
     Forall2 (fun τ τ' => forall sv, type_interp rti sr τ se sv ⊣⊢ type_interp rti sr τ' se sv) τs τs' ->
-    pre_type_interp rti sr
-      (StructT (MEMTYPE (ProdS (map RepS ρs2)) (ref_flag_lub ξs2))
-         (zip_with SerT (map (fun ρξ => MEMTYPE (RepS ρξ.1) ρξ.2) (zip ρs2 ξs2)) τs')) se sv
+    pre_type_interp rti sr (StructT (map SerT τs')) se sv
     ⊣⊢
-    pre_type_interp rti sr (SerT (MEMTYPE (RepS (ProdR ρs)) (ref_flag_lub ξs)) (ProdT (VALTYPE (ProdR ρs) (ref_flag_lub ξs)) τs)) se sv.
+    pre_type_interp rti sr (SerT (ProdT τs)) se sv.
   Proof.
-    intros Hsem H H' Heqtyp IH.
-    apply Forall3_length_lm in H' as Hlen2'.
-    apply Forall3_length_lr in H' as Hlen2.
+    intros Hsem H1 H1' Heq IH.
+    rewrite /pre_type_interp /=.
     iSplit.
-    - iIntros "Hstruct".
-      cbn. iDestruct "Hstruct" as (wss) "(-> & Hser)".
-      rewrite big_sepL2_fmap_r.
-      iDestruct (big_sepL2_length with "Hser") as "%Hlenwss".
-      assert (length wss = length τs') as Hlenwss'.
-      { rewrite Hlenwss length_zip_with length_map length_zip. lia. }
-      iDestruct (struct_fields_to_prod_atoms F se τs τs' ρs ξs ρs2 ξs2 wss
-                   Hsem H H' Heqtyp IH Hlenwss' with "Hser") as (os) "(%Hoseq & Hos)".
-      iExists os. rewrite -Hoseq. by iFrame.
-    - iIntros "Hser".
-      cbn. iDestruct "Hser" as (os) "(-> & Hprod)".
-      iDestruct (prod_atoms_to_struct_fields F se τs τs' ρs ξs ρs2 ξs2 os
-                   Hsem H H' Heqtyp IH with "Hprod") as (wss) "(%Hwseq & Hstruct)".
-      iExists wss. rewrite Hwseq. iSplit; first done.
-      rewrite big_sepL2_fmap_r. iFrame.
+    - iIntros "(%wss & -> & Hbig)".
+      iEval (rewrite big_sepL2_fmap_r) in "Hbig".
+      iDestruct (big_sepL2_length with "Hbig") as %Hlenwss.
+      rewrite length_map in Hlenwss.
+      iDestruct (struct_fields_to_prod_atoms F se τs τs' ρs ξs ρs2 ξs2 wss Hsem H1 H1' Heq IH Hlenwss with "Hbig")
+        as (os) "(%Hoseq & Hprod)".
+      iExists os.
+      iSplit.
+      { iPureIntro. by rewrite Hoseq. }
+      iExact "Hprod".
+    - iIntros "(%os & -> & Hprod)".
+      iDestruct (prod_atoms_to_struct_fields F se τs τs' ρs ξs ρs2 ξs2 os Hsem H1 H1' Heq IH with "Hprod")
+        as (wss) "(%Hwsseq & Hbig)".
+      iExists wss.
+      iSplit.
+      { iPureIntro. by rewrite Hwsseq. }
+      iEval (rewrite big_sepL2_fmap_r).
+      iExact "Hbig".
   Qed.
 
   Lemma big_sepL2_svr_transport {A : Type} (Ts Ts' : list (semantic_type (Σ:=Σ)))
@@ -551,7 +880,108 @@ Section type_eq_sem.
       done.
   Qed.
 
+  (* Post-refactor, an aggregate type's [type_skind] is recomputed
+     bottom-up from its children rather than read off a shared cached
+     kind, so [type_skind se τ] and [type_skind se τ'] are no longer
+     syntactically identical for [type_eq]-related [τ]/[τ']; this bridges
+     the gap via [type_eq_eval_kind_agree] (agreement at the [eval_kind]
+     level, from [has_kind]) and [type_skind_has_kind_Some] (the
+     [has_kind]/[eval_kind] -> [type_skind] bridge). *)
+  Lemma type_skind_type_eq_agree F se τ τ' κ κ' sκ :
+    type_eq τ τ' ->
+    has_kind F τ κ ->
+    has_kind F τ' κ' ->
+    sem_env_interp F se ->
+    @type_skind Σ se τ = Some sκ ->
+    @type_skind Σ se τ' = Some sκ.
+  Proof.
+    intros Hteq Hκ Hκ' Hsem Hsk.
+    pose proof (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hκ)) as Hkindok.
+    destruct (eval_kind_ok_Some F se κ Hsem Hkindok) as [sκ0 Heval0].
+    pose proof (type_skind_has_kind_Some F se τ κ sκ0 Hκ Hsem Heval0) as Htsk0.
+    rewrite Hsk in Htsk0.
+    injection Htsk0 as <-.
+    pose proof (type_eq_eval_kind_agree se τ τ' Hteq F κ κ' Hκ Hκ') as Hagree.
+    rewrite Heval0 in Hagree.
+    symmetry in Hagree.
+    eapply type_skind_has_kind_Some; eauto.
+  Qed.
 
+  Lemma type_arep_type_eq_agree F se τ τ' κ κ' :
+    type_eq τ τ' ->
+    has_kind F τ κ ->
+    has_kind F τ' κ' ->
+    sem_env_interp F se ->
+    @type_arep Σ se τ = @type_arep Σ se τ'.
+  Proof.
+    intros Hteq Hκ Hκ' Hsem.
+    pose proof (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hκ)) as Hkindok.
+    destruct (eval_kind_ok_Some F se κ Hsem Hkindok) as [sκ0 Heval0].
+    pose proof (type_skind_has_kind_Some F se τ κ sκ0 Hκ Hsem Heval0) as Htsk0.
+    pose proof (type_skind_type_eq_agree F se τ τ' κ κ' sκ0 Hteq Hκ Hκ' Hsem Htsk0) as Htsk0'.
+    cbn in Htsk0, Htsk0'.
+    cbn [type_arep].
+    unfold type_skind.
+    cbn.
+    rewrite Htsk0 Htsk0'.
+    done.
+  Qed.
+
+  (* [sum_interp_offset]/[sum_interp_count] now recompute from [τs]/[τs']
+     directly (see their own comments above), so unlike the pre-refactor
+     cached-kind version, their agreement across [type_eq]-related lists
+     needs an explicit argument via [type_arep_type_eq_agree]. *)
+  Lemma sum_interp_offset_count_type_eq_agree F se τs τs' ρs ξs ρs' ξs' :
+    Forall2 type_eq τs τs' ->
+    Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+    Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs' ρs' ξs' ->
+    sem_env_interp F se ->
+    forall i,
+      @sum_interp_offset Σ se τs i = @sum_interp_offset Σ se τs' i /\
+      @sum_interp_count Σ se τs i = @sum_interp_count Σ se τs' i.
+  Proof.
+    intros Heq HF3 HF3' Hsem i.
+    assert (Forall2 (fun τ τ' => @type_arep Σ se τ = @type_arep Σ se τ') τs τs') as Harep.
+    {
+      eapply Forall2_mini_impl; try done.
+      apply Forall2_same_length_lookup_2.
+      { exact (Forall2_length _ _ _ Heq). }
+      intros j a b Haj Hbj Hpair.
+      destruct (Forall3_lookup_l _ _ _ _ _ _ HF3 Haj) as (ρ & ξ & _ & _ & Hka).
+      destruct (Forall3_lookup_l _ _ _ _ _ _ HF3' Hbj) as (ρ' & ξ' & _ & _ & Hkb).
+      eapply type_arep_type_eq_agree; eauto.
+    }
+    split.
+    - unfold sum_interp_offset.
+      assert (Hmm : mapM (type_arep se) (take i τs) = mapM (type_arep se) (take i τs')).
+      { eapply Forall2_mapM_ext, Forall2_take, Harep. }
+      by rewrite Hmm.
+    - unfold sum_interp_count.
+      destruct (τs !! i) as [τi|] eqn:Hτi.
+      + destruct (Forall2_lookup_l _ _ _ _ _ Harep Hτi) as (ai & Hτi' & Harepi).
+        rewrite Hτi'.
+        cbn [mbind option_bind].
+        by rewrite Harepi.
+      + assert (τs' !! i = None) as Hτi'.
+        { apply lookup_ge_None. apply lookup_ge_None in Hτi.
+          by rewrite (Forall2_length _ _ _ Harep) in Hτi. }
+        by rewrite Hτi'.
+  Qed.
+
+  Lemma sum_interp_offset_count_type_eq_agree' F se τs τs' ρs ξs ρs' ξs' :
+    Forall2 type_eq τs τs' ->
+    Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+    Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs' ρs' ξs' ->
+    sem_env_interp F se ->
+    forall i,
+      @sum_interp_offset Σ se τs' i = @sum_interp_offset Σ se τs i /\
+      @sum_interp_count Σ se τs' i = @sum_interp_count Σ se τs i.
+  Proof.
+    intros Heq HF3 HF3' Hsem i.
+    destruct (sum_interp_offset_count_type_eq_agree F se τs τs' ρs ξs ρs' ξs' Heq HF3 HF3' Hsem i)
+      as [Ho Hc].
+    split; symmetry; done.
+  Qed.
 
   Lemma type_interp_type_eq :
     forall τ τ',
@@ -571,58 +1001,69 @@ Section type_eq_sem.
                   type_interp rti sr τ se sv ⊣⊢ type_interp rti sr τ' se sv)).
     - done.
     - (* Sum *)
-      intros κ0 τs τs' Heq IH F κ κ' se sv Hkind Hkind' Hsem.
+      intros τs τs' Heq IH F κ κ' se sv Hkind Hkind' Hsem.
       rewrite !type_interp_eq.
       inversion Hkind; subst.
+      match goal with H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into HF3a end.
       inversion Hkind'; subst.
+      match goal with H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs' _ _ |- _ => rename H into HF3b end.
       iSplit; iIntros "H".
       + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hsum)".
         iExists sκ.
-        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by constructor|exact Hkind|exact Hkind'|exact Hsem|exact Hsk]).
         iSplit; first done.
         simpl.
-        iDestruct "Hsum" as (i os off count ->) "(%Hoff & %Hcount & %Hpad & HTi)".
+        iDestruct "Hsum" as (i os off count ->) "(%Hoff & %Hcount & HTi)".
         iExists i, os, off, count.
-        do 4 (iSplit; first done).
+        destruct (sum_interp_offset_count_type_eq_agree F se τs τs' _ _ _ _ Heq HF3a HF3b Hsem i) as [Hoffeq Hcounteq].
+        iSplit; first (iPureIntro; done).
+        iSplit; first (iPureIntro; rewrite -Hoffeq; exact Hoff).
+        iSplit; first (iPureIntro; rewrite -Hcounteq; exact Hcount).
         destruct (τs !! i) as [τi_raw|] eqn:Hiraw.
         * eapply (Forall2_lookup_l) in Heq as [τi_raw' [Hiraw' Heqi]]; last exact Hiraw.
           iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn) in "HTi".
           iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn).
-          eapply Forall3_lookup_l in H3, H5; try done.
-          destruct H3 as (? & ? & ? & ? & ?).
-          destruct H5 as (? & ? & ? & ? & ?).
+          eapply Forall3_lookup_l in HF3a, HF3b; try done.
+          destruct HF3a as (? & ? & ? & ? & ?).
+          destruct HF3b as (? & ? & ? & ? & ?).
           eapply Forall2_lookup_lr in IH; try done.
           iApply IH; try done.
         * iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn) in "HTi".
           iDestruct "HTi" as "[]".
       + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hsum)".
         iExists sκ.
-        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by (symmetry; constructor)|exact Hkind'|exact Hkind|exact Hsem|exact Hsk]).
         iSplit; first done.
         simpl.
-        iDestruct "Hsum" as (i os off count ->) "(%Hoff & %Hcount & %Hpad & HTi)".
+        iDestruct "Hsum" as (i os off count ->) "(%Hoff & %Hcount & HTi)".
         iExists i, os, off, count.
-        do 4 (iSplit; first done).
+        destruct (sum_interp_offset_count_type_eq_agree' F se τs τs' _ _ _ _
+                    Heq HF3a HF3b Hsem i) as [Hoffeq Hcounteq].
+        iSplit; first (iPureIntro; done).
+        iSplit; first (iPureIntro; rewrite -Hoffeq; exact Hoff).
+        iSplit; first (iPureIntro; rewrite -Hcounteq; exact Hcount).
         destruct (τs' !! i) as [τi_raw'|] eqn:Hiraw'.
         * eapply (Forall2_lookup_r) in Heq as [τi_raw [Hiraw Heqi]]; last exact Hiraw'.
           iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn) in "HTi".
           iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn).
-          eapply Forall3_lookup_l in H3, H5; try done.
-          destruct H3 as (? & ? & ? & ? & ?).
-          destruct H5 as (? & ? & ? & ? & ?).
+          eapply Forall3_lookup_l in HF3a, HF3b; try done.
+          destruct HF3a as (? & ? & ? & ? & ?).
+          destruct HF3b as (? & ? & ? & ? & ?).
           eapply Forall2_lookup_lr in IH; try done.
           iApply IH; try done.
         * iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn) in "HTi".
           iDestruct "HTi" as "[]".
     - (* Variant *)
-      intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
+      intros τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       rewrite !type_interp_eq.
       inversion Hκ; subst.
+      match goal with H : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs _ _ |- _ => rename H into HF3a end.
       inversion Hκ'; subst.
+      match goal with H : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs' _ _ |- _ => rename H into HF3b end.
       iSplit; iIntros "H".
       + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hvar)".
         iExists sκ.
-        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by constructor|exact Hκ|exact Hκ'|exact Hsem|exact Hsk]).
         iSplit; first done.
         simpl.
         iDestruct "Hvar" as (i n ws ws' Hrepr -> Hpad) "HTi".
@@ -635,9 +1076,9 @@ Section type_eq_sem.
 
           iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn).
 
-          eapply Forall3_lookup_l in H3, H5; try done.
-          destruct H3 as (? & ? & ? & ? & ?).
-          destruct H5 as (? & ? & ? & ? & ?).
+          eapply Forall3_lookup_l in HF3a, HF3b; try done.
+          destruct HF3a as (? & ? & ? & ? & ?).
+          destruct HF3b as (? & ? & ? & ? & ?).
           eapply Forall2_lookup_lr in IH; try done.
           iApply IH; try done.
 
@@ -645,7 +1086,7 @@ Section type_eq_sem.
           iDestruct "HTi" as "[]".
       + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hvar)".
         iExists sκ.
-        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by (symmetry; constructor)|exact Hκ'|exact Hκ|exact Hsem|exact Hsk]).
         iSplit; first done.
         simpl.
         iDestruct "Hvar" as (i n ws ws' Hrepr -> Hpad) "HTi".
@@ -655,22 +1096,24 @@ Section type_eq_sem.
         * eapply (Forall2_lookup_r) in Heq as [τi_raw [Hiraw Heqi]]; last exact Hiraw'.
           iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn) in "HTi".
           iEval (change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i); rewrite list_lookup_fmap Hiraw; cbn).
-          eapply Forall3_lookup_l in H3, H5; try done.
-          destruct H3 as (? & ? & ? & ? & ?).
-          destruct H5 as (? & ? & ? & ? & ?).
+          eapply Forall3_lookup_l in HF3a, HF3b; try done.
+          destruct HF3a as (? & ? & ? & ? & ?).
+          destruct HF3b as (? & ? & ? & ? & ?).
           eapply Forall2_lookup_lr in IH; try done.
           iApply IH; try done.
         * iEval (change (list_lookup i (map (type_interp rti sr) τs')) with ((type_interp rti sr <$> τs') !! i); rewrite list_lookup_fmap Hiraw'; cbn) in "HTi".
           iDestruct "HTi" as "[]".
     - (* Product *)
-      intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
+      intros τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       rewrite !type_interp_eq.
       inversion Hκ; subst.
+      match goal with H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into HF3a end.
       inversion Hκ'; subst.
+      match goal with H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs' _ _ |- _ => rename H into HF3b end.
       iSplit; iIntros "H".
       + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hprod)".
         iExists sκ.
-        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by constructor|exact Hκ|exact Hκ'|exact Hsem|exact Hsk]).
         iSplit; first done.
         simpl.
         iDestruct "Hprod" as "(%oss & -> & Hbig)".
@@ -681,12 +1124,12 @@ Section type_eq_sem.
         apply Forall2_same_length_lookup_2.
         { exact (Forall2_length _ _ _ Heq). }
         intros i a b Hai Hbi Hpair x.
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (ρ & ξ & _ & _ & Hka).
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (ρ' & ξ' & _ & _ & Hkb).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3a Hai) as (ρ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3b Hbi) as (ρ' & ξ' & _ & _ & Hkb).
         by eapply Hpair.
       + iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hprod)".
         iExists sκ.
-        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by (symmetry; constructor)|exact Hκ'|exact Hκ|exact Hsem|exact Hsk]).
         iSplit; first done.
         simpl.
         iDestruct "Hprod" as "(%oss & -> & Hbig)".
@@ -698,21 +1141,23 @@ Section type_eq_sem.
         apply Forall2_same_length_lookup_2.
         { exact (eq_sym (Forall2_length _ _ _ Heq)). }
         intros i b a Hbi Hai x0.
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (ρ & ξ & _ & _ & Hka).
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (ρ' & ξ' & _ & _ & Hkb).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3a Hai) as (ρ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3b Hbi) as (ρ' & ξ' & _ & _ & Hkb).
         eapply Forall2_lookup_lr in IH; try done.
         symmetry.
         exact (IH F _ _ se (SAtoms x0) Hka Hkb Hsem).
     - (* Struct *)
-      intros κ0 τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
+      intros τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       rewrite !type_interp_eq.
       inversion Hκ; subst.
+      match goal with H : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs _ _ |- _ => rename H into HF3a end.
       inversion Hκ'; subst.
+      match goal with H : Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs' _ _ |- _ => rename H into HF3b end.
       iSplit; iIntros "H".
       + iDestruct "H" as (wss) "(%Hwss & Hbig)".
         iDestruct "Hbig" as "(%Hsv & Hstruct)".
         iExists wss.
-        iSplitL "". { iPureIntro. exact Hwss. }
+        iSplitL "". { iPureIntro. eapply type_skind_type_eq_agree; [by constructor|exact Hκ|exact Hκ'|exact Hsem|exact Hwss]. }
         iSplitL "". { iPureIntro. exact Hsv. }
         simpl.
         iDestruct "Hstruct" as (wss0) "(%Hwss0 & Hbig)".
@@ -725,13 +1170,13 @@ Section type_eq_sem.
         apply Forall2_same_length_lookup_2.
         { exact (Forall2_length _ _ _ Heq). }
         intros i a b Hai Hbi Hpair ws.
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (σ & ξ & _ & _ & Hka).
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (σ' & ξ' & _ & _ & Hkb).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3a Hai) as (σ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3b Hbi) as (σ' & ξ' & _ & _ & Hkb).
         by eapply Hpair.
       + iDestruct "H" as (wss) "(%Hwss & Hbig)".
         iDestruct "Hbig" as "(%Hsv & Hstruct)".
         iExists wss.
-        iSplitL "". { iPureIntro. exact Hwss. }
+        iSplitL "". { iPureIntro. eapply type_skind_type_eq_agree; [by (symmetry; constructor)|exact Hκ'|exact Hκ|exact Hsem|exact Hwss]. }
         iSplitL "". { iPureIntro. exact Hsv. }
         simpl.
         iDestruct "Hstruct" as (wss0) "(%Hwss0 & Hbig)".
@@ -743,20 +1188,26 @@ Section type_eq_sem.
         apply Forall2_same_length_lookup_2.
         { exact (eq_sym (Forall2_length _ _ _ Heq)). }
         intros i b a Hbi Hai ws.
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H3 Hai) as (σ & ξ & _ & _ & Hka).
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hbi) as (σ' & ξ' & _ & _ & Hkb).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3a Hai) as (σ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3b Hbi) as (σ' & ξ' & _ & _ & Hkb).
         eapply Forall2_lookup_lr in IH; try done.
         symmetry.
         exact (IH F _ _ se (SWords ws) Hka Hkb Hsem).
-    - intros κ0 μ β τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
-      destruct (has_kind_ref_ty _ _ _ _ _ _ Hκ) as (σ & ξ & Hkτ).
-      destruct (has_kind_ref_ty _ _ _ _ _ _ Hκ') as (σ' & ξ' & Hkτ').
+    - (* Ref *)
+      intros μ β τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
+      destruct (has_kind_ref_ty _ _ _ _ _ Hκ) as (σ & ξ & Hkτ).
+      destruct (has_kind_ref_ty _ _ _ _ _ Hκ') as (σ' & ξ' & Hkτ').
       assert (∀ sv, type_interp rti sr τ se sv ⊣⊢ type_interp rti sr τ' se sv) as Heqτ.
       { intros sv'. exact (IH F _ _ se sv' Hkτ Hkτ' Hsem). }
       rewrite !type_interp_eq /add_skind_interp /=.
       iSplit.
       { iIntros "(%sκ & %Hsk & %Hsv & Hr)".
-        iExists sκ. iSplit; first done. iSplit; first done.
+        iExists sκ.
+        assert (Hsk' : type_skind se (RefT μ β τ) = Some sκ) by (cbn; exact Hsk).
+        assert (Hgoal : type_skind se (RefT μ β τ') = Some sκ).
+        { eapply type_skind_type_eq_agree; [by constructor|exact Hκ|exact Hκ'|exact Hsem|exact Hsk']. }
+        iSplit; first (iPureIntro; exact Hgoal).
+        iSplit; first done.
         destruct (eval_mem se μ) as [bm|] eqn:Hμ; try rewrite Hμ.
         2: { iDestruct "Hr" as "[]". }
         destruct bm, β.
@@ -789,7 +1240,12 @@ Section type_eq_sem.
             iFrame.
             iEval (rewrite -Heqτ) in "Hτ". iExact "Hτ". } }
       { iIntros "(%sκ & %Hsk & %Hsv & Hr)".
-        iExists sκ. iSplit; first done. iSplit; first done.
+        iExists sκ.
+        assert (Hsk' : type_skind se (RefT μ β τ') = Some sκ) by (cbn; exact Hsk).
+        assert (Hgoal : type_skind se (RefT μ β τ) = Some sκ).
+        { eapply type_skind_type_eq_agree; [by (symmetry; constructor)|exact Hκ'|exact Hκ|exact Hsem|exact Hsk']. }
+        iSplit; first (iPureIntro; exact Hgoal).
+        iSplit; first done.
         destruct (eval_mem se μ) as [bm|] eqn:Hμ; try rewrite Hμ.
         2: { iDestruct "Hr" as "[]". }
         destruct bm, β.
@@ -822,7 +1278,7 @@ Section type_eq_sem.
             iFrame.
             iEval (rewrite Heqτ) in "Hτ". iExact "Hτ". } }
     - (* Ser *)
-      intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
+      intros τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       inversion Hκ; subst.
       inversion Hκ'; subst.
       match goal with Hk : has_kind F τ (VALTYPE _ _) |- _ => rename Hk into Hkτ end.
@@ -832,7 +1288,7 @@ Section type_eq_sem.
       + iIntros "H".
         iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hser)".
         iExists sκ.
-        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by constructor|exact Hκ|exact Hκ'|exact Hsem|exact Hsk]).
         iSplit; first done.
         iDestruct "Hser" as (os) "[%Hws Hτ]".
         iExists os.
@@ -841,7 +1297,7 @@ Section type_eq_sem.
       + iIntros "H".
         iDestruct "H" as (sκ) "(%Hsk & %Hsv & Hser)".
         iExists sκ.
-        iSplit; first (iPureIntro; exact Hsk).
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by (symmetry; constructor)|exact Hκ'|exact Hκ|exact Hsem|exact Hsk]).
         iSplit; first done.
         iDestruct "Hser" as (os) "[%Hws Hτ]".
         iExists os.
@@ -967,13 +1423,14 @@ Section type_eq_sem.
         iExists T', sκ0, sκ_T. iSplit; first done. iSplit; first done. iSplit; first done.
         iApply IH; [done|done|by apply sem_env_interp_insert_type|iExact "Hτ"].
     - (* Ser Struct *)
-      intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hsem.
-      assert (eval_kind se κ = eval_kind se κ') as Heval_kind.
-      { eapply type_eq_eval_kind_agree; [ | done | apply Hκ']; by constructor. }
+      intros τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       inversion Hκ; subst.
-      inversion H3; subst.
+      match goal with H : has_kind F (ProdT _) _ |- _ => rename H into Hprod end.
+      inversion Hprod; subst.
+      match goal with H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into HF3 end.
       inversion Hκ'; subst.
-      destruct (struct_fields_ser_inv _ _ _ _ _ H5 Hlen) as (ρs2 & -> & Hκseq & HF3'').
+      match goal with H : Forall3 _ (map SerT _) _ _ |- _ => rename H into HF3' end.
+      destruct (struct_fields_ser_inv _ _ _ _ HF3') as (ρs2 & -> & HF3'').
       rewrite !type_interp_eq /add_skind_interp.
       assert (
         Forall2
@@ -987,51 +1444,32 @@ Section type_eq_sem.
         apply Forall2_same_length_lookup_2.
         { exact (Forall2_length _ _ _ Heq). }
         intros i a b Hai Hbi Hpair sv'.
-        apply lookup_lt_Some in Hbi as Hilen.
-        rewrite -Hlen in Hilen.
-        apply lookup_lt_is_Some in Hilen as [κ_ser Hklookup].
-        assert ((zip_with SerT κs_ser τs') !! i = Some $ SerT κ_ser b) as Hzlookup.
-        {
-          apply lookup_zip_with_Some.
-          eauto.
-        }
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H1 Hai) as (ρ & ξ & _ & _ & Hka).
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hzlookup) as (ρ' & ξ' & _ & _ & Hkb).
-        inversion Hkb; subst.
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3 Hai) as (ρ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3'' Hbi) as (ρ' & ξ' & _ & _ & Hkb).
         eapply Hpair; try done.
       }
       clear IH.
       iSplit.
       + iIntros "(%sκ & %Hsk & %Hsv & Hser)".
-        Opaque eval_kind.
-        cbn in Hsk.
-        Transparent eval_kind.
-        rewrite Hsk in Heval_kind.
         iExists sκ.
-        iSplit.
-        { iPureIntro. Opaque eval_kind. cbn. Transparent eval_kind. exact (eq_sym Heval_kind). }
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by constructor|exact Hκ|exact Hκ'|exact Hsem|exact Hsk]).
         iSplit; first done.
-        rewrite Hκseq.
-        iApply (pre_type_interp_prod_ser F se τs τs' _ _ ρs2 _ sv Hsem H1 HF3'' Heq IH' with "Hser").
+        iApply (pre_type_interp_prod_ser F se τs τs' _ _ ρs2 _ sv Hsem HF3 HF3'' Heq IH' with "Hser").
       + iIntros "(%sκ & %Hsk & %Hsv & Hstruct)".
-        Opaque eval_kind.
-        cbn in Hsk.
-        Transparent eval_kind.
-        rewrite Hsk in Heval_kind.
         iExists sκ.
-        iSplit.
-        { iPureIntro. Opaque eval_kind. cbn. Transparent eval_kind. exact Heval_kind. }
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [by (symmetry; constructor)|exact Hκ'|exact Hκ|exact Hsem|exact Hsk]).
         iSplit; first done.
-        rewrite Hκseq.
-        iApply (pre_type_interp_prod_ser F se τs τs' _ _ ρs2 _ sv Hsem H1 HF3'' Heq IH' with "Hstruct").
+        iApply (pre_type_interp_prod_ser F se τs τs' _ _ ρs2 _ sv Hsem HF3 HF3'' Heq IH' with "Hstruct").
     - (* Struct Ser *)
-      intros κ_ser κ_prod κ_struct κs_ser τs τs' Hlen Heq IH F κ κ' se sv Hκ Hκ' Hsem.
-      assert (eval_kind se κ = eval_kind se κ') as Heval_kind.
-      { eapply type_eq_eval_kind_agree; [ | done | apply Hκ']; by constructor. }
+      intros τs τs' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       inversion Hκ'; subst.
-      inversion H3; subst.
+      match goal with H : has_kind F (ProdT _) _ |- _ => rename H into Hprod end.
+      inversion Hprod; subst.
+      match goal with H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs' _ _ |- _ => rename H into HF3 end.
       inversion Hκ; subst.
-      destruct (struct_fields_ser_inv _ _ _ _ _ H5 Hlen) as (ρs2 & -> & Hκseq & HF3'').
+      match goal with H : Forall3 _ (map SerT _) _ _ |- _ => rename H into HF3' end.
+      destruct (struct_fields_ser_inv _ _ _ _ HF3') as (ρs2 & -> & HF3'').
+      assert (Htyeq : type_eq (StructT (map SerT τs)) (SerT (ProdT τs'))) by (by constructor).
       rewrite !type_interp_eq /add_skind_interp.
       assert (
         Forall2
@@ -1045,17 +1483,8 @@ Section type_eq_sem.
         apply Forall2_same_length_lookup_2.
         { exact (Forall2_length _ _ _ Heq). }
         intros i a b Hai Hbi Hpair sv'.
-        apply lookup_lt_Some in Hai as Hilen.
-        rewrite -Hlen in Hilen.
-        apply lookup_lt_is_Some in Hilen as [κ_ser Hklookup].
-        assert ((zip_with SerT κs_ser τs) !! i = Some $ SerT κ_ser a) as Hzlookup.
-        {
-          apply lookup_zip_with_Some.
-          eauto.
-        }
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H1 Hbi) as (ρ & ξ & _ & _ & Hka).
-        destruct (Forall3_lookup_l _ _ _ _ _ _ H5 Hzlookup) as (ρ' & ξ' & _ & _ & Hkb).
-        inversion Hkb; subst.
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3'' Hai) as (ρ & ξ & _ & _ & Hka).
+        destruct (Forall3_lookup_l _ _ _ _ _ _ HF3 Hbi) as (ρ' & ξ' & _ & _ & Hkb).
         eapply Hpair; try done.
       }
       clear IH.
@@ -1074,27 +1503,15 @@ Section type_eq_sem.
       symmetry in IH'.
       iSplit.
       + iIntros "(%sκ & %Hsk & %Hsv & Hser)".
-        Opaque eval_kind.
-        cbn in Hsk.
-        Transparent eval_kind.
-        rewrite Hsk in Heval_kind.
         iExists sκ.
-        iSplit.
-        { iPureIntro. Opaque eval_kind. cbn. Transparent eval_kind. exact (eq_sym Heval_kind). }
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [exact Htyeq|exact Hκ|exact Hκ'|exact Hsem|exact Hsk]).
         iSplit; first done.
-        iEval (rewrite Hκseq) in "Hser".
-        iApply (pre_type_interp_prod_ser F se τs' τs _ _ ρs2 _ sv Hsem H1 HF3'' Heq IH' with "Hser").
+        iApply (pre_type_interp_prod_ser F se τs' τs _ _ ρs2 _ sv Hsem HF3 HF3'' Heq IH' with "Hser").
       + iIntros "(%sκ & %Hsk & %Hsv & Hstruct)".
-        Opaque eval_kind.
-        cbn in Hsk.
-        Transparent eval_kind.
-        rewrite Hsk in Heval_kind.
         iExists sκ.
-        iSplit.
-        { iPureIntro. Opaque eval_kind. cbn. Transparent eval_kind. exact Heval_kind. }
+        iSplit; first (iPureIntro; eapply type_skind_type_eq_agree; [symmetry; exact Htyeq|exact Hκ'|exact Hκ|exact Hsem|exact Hsk]).
         iSplit; first done.
-        rewrite Hκseq.
-        iApply (pre_type_interp_prod_ser F se τs' τs _ _ ρs2 _ sv Hsem H1 HF3'' Heq IH' with "Hstruct").
+        iApply (pre_type_interp_prod_ser F se τs' τs _ _ ρs2 _ sv Hsem HF3 HF3'' Heq IH' with "Hstruct").
   Qed.
 
 End type_eq_sem.

@@ -14,13 +14,13 @@ Section case.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :
+  Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs', L') |> in
-    let ψ := InstrT [SumT κ τs] τs' in
+    let ψ := InstrT [SumT τs] τs' in
     Forall2
       (fun τ es =>
          (forall wt wt' wtf wl wl' wlf es',
@@ -37,11 +37,46 @@ Section case.
   Proof.
     intros fe WT WL lmask F' Ψ Hforall Hok Hcg.
     subst Ψ.
-    cbn [compile_instr] in Hcg.
-    destruct κ as [ ρ rf | ]; last inversion Hcg.
-    destruct ρ  as [ | ρs_sum | | ]; try done.
     destruct τs' as [ | τ_res τs' ]; first done.
     destruct τs'; last done.
+    pose proof (has_instruction_type_ok_type_ok F [SumT τs] [τ_res] L' Hok) as [Htoks_sum Htoks_res].
+    apply Forall_cons_1 in Htoks_sum as [Htoks_sum' _].
+    inversion Htoks_sum'; subst.
+    match goal with H : Forall (type_ok F) τs |- _ => rename H into Htoks end.
+    cbn [compile_instr] in Hcg.
+
+    inv_cg_bind Hcg ρs_cg ?wt ?wt ?wl ?wl ?es ?es Hρs_cg Hcg.
+    inv_cg_try_option Hρs_cg.
+    rename Heq_some into Hρs_cg_eq.
+    clear Heq_wt Heq_wl Heq_nil.
+
+    (* Recover [ρs_sum]/[Hkinds] from [Hok] (as [compat_inject] does), then
+       show the codegen's own [Hρs_cg_eq]-derived [ρs_cg] agrees with
+       [ρs_sum] -- replacing the old strategy of destructuring the
+       instruction type's embedded kind. *)
+    destruct Hok as [Hmono Hok_L].
+    destruct Hmono as [Hmono_Sum _].
+    rewrite Forall_singleton in Hmono_Sum.
+    destruct Hmono_Sum as (ρ_sum & Hρ_sum & Hmono_ρ_sum).
+    inversion Hρ_sum as [F0 τ0 ρ0 ξ0 Hkind_sum0].
+    subst F0 τ0 ρ0.
+    pose proof Hkind_sum0 as Hkind_sum0_copy.
+    inversion Hkind_sum0_copy; subst.
+    match goal with
+    | H : Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into Hkinds
+    end.
+    rename ρs into ρs_sum.
+    rename ξs into ξs_sum.
+    assert (Hkinds_tk : Forall3
+              (fun τ' ρ' ξ' => type_kind F.(fc_type_vars) τ' = Some (VALTYPE ρ' ξ'))
+              τs ρs_sum ξs_sum).
+    { eapply Forall3_impl; first exact Hkinds.
+      intros τ' ρ' ξ' Hk; by apply type_kind_has_kind_Some. }
+    pose proof (forall3_mapM_type_rep_val _ _ _ _ Hkinds_tk) as Hmapm_rep.
+    rewrite Hρs_cg_eq in Hmapm_rep.
+    apply Some_inj in Hmapm_rep as <-.
+    rename ρs_cg into ρs_sum.
+    clear Hkind_sum0_copy.
 
     inv_cg_bind Hcg wl_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
@@ -88,7 +123,7 @@ Section case.
     iEval (rewrite value_interp_eq) in "Hvs".
     iDestruct "Hvs" as "(%κ & %Hkind_sum & %Hskind_as_type & Hsum_interp)".
 
-    iDestruct "Hsum_interp" as (tag os_payload off count HSAtoms Hsum_offset Hcount Hpad) "Hvalue_interp_os_tag".
+    iDestruct "Hsum_interp" as (tag os_payload off count HSAtoms Hsum_offset Hcount) "Hvalue_interp_os_tag".
     cbn in Hsum_offset.
     change (list_lookup tag (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! tag).
     rewrite list_lookup_fmap.
@@ -97,18 +132,8 @@ Section case.
     simplify_eq.
 
     apply lookup_lt_Some in Htag_type_lookup as Htag_size_bound.
-    assert (length τs = length ρs_sum) as Htyp_rep_len.
-    {
-      destruct Hok as [Hmono Hok_L].
-      destruct Hmono as [Hmono_Sum _].
-      rewrite Forall_singleton in Hmono_Sum.
-      destruct Hmono_Sum as (ρ & Hρ & _).
-      inversion Hρ.
-      subst.
-      inversion H.
-      subst.
-      by eapply Forall3_length_lm.
-    }
+    assert (length τs = length ρs_sum) as Htyp_rep_len
+      by (by eapply Forall3_length_lm, Hkinds).
     assert (tag < Wasm_int.Int32.modulus)%Z as Htag_in_i32_bound.
     { rewrite Htyp_rep_len in Htag_size_bound. eapply Z.lt_le_trans; last done. by apply Nat2Z.inj_lt. }
     assert (length τs = length ess) as Hess_typ_len; first by eapply List.Forall2_length.
@@ -142,33 +167,55 @@ Section case.
     unfold type_skind, eval_kind in Hkind_sum.
     apply bind_Some in Hkind_sum.
     destruct Hkind_sum as (l' & Heval & Hret).
-    inversion Hret; subst l r.
-    clear Hret.
+    apply bind_Some in Hret as (ρs0 & Hρs0 & Heq).
+    apply Some_inj in Heq.
+    inversion Heq; subst l r.
+    clear Heq.
 
     destruct Hskind_as_type as [Hhas_areps Href].
-    apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & -> & Hhas_areps_payload & Hhas_arep_tag).
+    apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & Heq_ιs_cons & Hhas_areps_payload & Hhas_arep_tag).
     apply bind_Some in Hcount as Hcount'.
-    destruct Hcount' as [ιs_case_tag_payload' [Hlookup_eval Hcase_tag_payload_count]].
+    destruct Hcount' as [ιs_case_tag_payload' [Hlookup_eval Hcase_tag_payload_count0]].
+    apply bind_Some in Hcase_tag_payload_count0 as (ιs_tag_arep & Harep_tag & Hcase_tag_payload_count).
     apply Some_inj in Hcase_tag_payload_count.
-    apply bind_Some in Hlookup_eval as Heval_repr.
-    destruct Heval_repr as [ρ_case_tag_payload' [Hlookup_tag Heval_rep']].
 
-    inversion Heval as [Hιs_sum].
-    apply bind_Some in Hιs_sum as Hιs_sum.
-    destruct Hιs_sum as [ιss_payload [Hmap_eval_rep Heq]].
-    apply Some_inj in Heq.
-    simpl in Heq.
-    injection Heq as Htag Hpayload.
-    apply mapM_eval_rep_emptyenv with (se := se) in Heq_some0.
-    rewrite Hmap_eval_rep in Heq_some0.
-    apply Some_inj in Heq_some0 as <-.
+    (* Relate the semantic per-branch kind information ([l'], [ρs0], from the
+       [add_skind_interp] wrapper on the SumT value) to the codegen's own
+       [ρs_sum]/[ιss] (from [Hιs] via [Heq_some0]): both compute
+       [mapM (type_skind_go se) τs]/[mapM (eval_rep _) ρs_sum], so by
+       determinism [ρs0 = ιss]. *)
+    assert (Hkinds_sk : Forall3
+              (fun τ' ρ' ξ' => ∀ sκ', eval_kind se (VALTYPE ρ' ξ') = Some sκ' -> type_skind_go se τ' = Some sκ')
+              τs ρs_sum ξs_sum).
+    { eapply Forall3_impl; first exact Hkinds.
+      intros τ' ρ' ξ' Hk sκ' Heval'.
+      pose proof (type_skind_has_kind_Some F se τ' (VALTYPE ρ' ξ') sκ' Hk Hsem Heval') as Hres.
+      by cbn in Hres. }
+    pose proof (mapM_eval_rep_emptyenv _ _ se Heq_some0) as Hmap_eval_rep.
+    pose proof (forall3_mapM_type_skind_val se _ _ _ Hkinds_sk _ Hmap_eval_rep) as Hskind_all.
+    rewrite Heval in Hskind_all.
+    apply Some_inj in Hskind_all.
+    assert (Hlen_ιξ : length ιss = length ξs_sum).
+    { pose proof (length_mapM _ _ _ Hmap_eval_rep) as H1.
+      pose proof (Forall3_length_lm _ _ _ _ Hkinds) as H2.
+      pose proof (Forall3_length_lr _ _ _ _ Hkinds) as H3.
+      lia. }
+    pose proof (mapM_skind_rep_zip _ _ Hlen_ιξ) as Hskind_rep_zip.
+    rewrite Hskind_all in Hρs0.
+    rewrite Hskind_rep_zip in Hρs0.
+    apply Some_inj in Hρs0.
+    subst ρs0.
+    rename ιss into ιss_payload.
+    pose proof (forall3_forall2_type_arep se F τs ρs_sum ιss_payload ξs_sum Hsem Hkinds
+                  (mapM_Some_1 _ _ _ Hmap_eval_rep)) as Harep_all.
     (* TODO end *)
 
     iDestruct (result_type_interp_of_atoms_interp with "Hatoms_interp_payload") as "%Hres_type_vs_payload"; first done.
 
     (* save payload *)
+    injection Heq_ιs_cons as _ Hιs_payload_eq.
     eapply cwp_save_stack_w in Hsave; eauto.
-    2: { rewrite Hpayload. by rewrite map_comp. }
+    2: { rewrite Hιs_payload_eq. by rewrite map_comp. }
     2: { by apply Is_true_true. }
     destruct Hsave as (Hval_localidxs_seq & -> & Hwl_save & Hsave).
     rewrite (app_assoc (e_tag ++ _)).
@@ -196,7 +243,7 @@ Section case.
     iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved".
     2, 3, 5: done.
     { subst val_idxs fe. by rewrite fe_wlocal_offset_length. }
-    { subst wl_save. rewrite Hpayload. by rewrite map_comp. }
+    { subst wl_save. rewrite Hιs_payload_eq. by rewrite map_comp. }
 
     iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved".
     pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len.
@@ -377,31 +424,34 @@ Section case.
         (es_case_tag & Hcg_case_tag & Hes_case_tag).
     inv_cg_bind Hcg_case_tag off' ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es_tag.
     inv_cg_try_option Hlookup.
+    match goal with H : sum_offset EmptyEnv _ _ = Some _ |- _ => rename H into Heq_off_tag end.
 
     inv_cg_bind Hcase_es_tag count' ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es_tag.
     inv_cg_try_option Hinject.
+    match goal with H : length <$> _ !! _ = Some _ |- _ => rename H into Heq_count_tag end.
 
     inv_cg_bind Hcase_es_tag [] ?wt ?wt ?wl ?wl ?es ?es Hget_locals_tag Hcase_es_tag.
     destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_tag) as ([] & -> & ->).
     clear_nils.
-    subst wt0 wl0 es wt2 wl2 es1 wt3 wl3 es2 wt1 wl1 es0 wt5 wl5 es_case_tag.
 
     (* off' = off *)
-    apply sum_offset_emptyenv with (se:=se) in Heq_some0.
-    rewrite -Hess_pre_τs_pre -Htag_len in Heq_some0.
-    rewrite Hsum_offset in Heq_some0.
-    apply Some_inj in Heq_some0.
+    apply sum_offset_emptyenv with (se:=se) in Heq_off_tag.
+    rewrite -Hess_pre_τs_pre -Htag_len in Heq_off_tag.
+    pose proof (sum_offset_eq_sum_interp_offset se F τs ρs_sum ξs_sum ιss_payload tag Hsem Hkinds Hmap_eval_rep) as Hoff_eq.
+    rewrite Hoff_eq Hsum_offset in Heq_off_tag.
+    apply Some_inj in Heq_off_tag.
     subst off'.
 
     (* count' = count *)
-    apply mapM_lookup with (i := tag) in Hmap_eval_rep as Heval_case_tag.
-    rewrite -Hess_pre_τs_pre -Htag_len in Heq_some1.
-    pose proof Heval_case_tag as Heq.
-    rewrite Hlookup_eval in Heq.
-    rewrite -Heq in Heq_some1.
-    simpl in Heq_some1.
-    apply Some_inj in Heq_some1.
-    rewrite Hcase_tag_payload_count in Heq_some1.
+    rewrite -Hess_pre_τs_pre -Htag_len in Heq_count_tag.
+    edestruct (Forall2_lookup_l _ _ _ _ _ Harep_all Hlookup_eval) as (ιs_tag' & Hιs_tag_lookup & Harep_tag').
+    rewrite Harep_tag in Harep_tag'.
+    apply Some_inj in Harep_tag'.
+    subst ιs_tag'.
+    rewrite Hιs_tag_lookup in Heq_count_tag.
+    simpl in Heq_count_tag.
+    apply Some_inj in Heq_count_tag.
+    rewrite Hcase_tag_payload_count in Heq_count_tag.
     subst count'.
 
     iDestruct (Hforall_tag _ _ (wt_post ++ wtf) _ _ (wl_post ++ wlf) _ Hcase_es_tag) as "Hsem_es_tag".
@@ -455,7 +505,7 @@ Section case.
           replace (fc_labels (F <| fc_labels ::= cons ([τ_res], L') |>)) with
               (([τ_res], L') :: fc_labels F); last done.
               iSimpl. iEval (repeat rewrite -app_assoc).
-              iApply labels_interp_cons; try done.
+              iApply (labels_interp_cons rti sr); try done.
               iIntros "!>" (fr' vs') "(%Hfrel & Hframe & (%os & Hvalues & Hatoms) & [%Θ Hrt] & Hown)".
               by iFrame.
         + instantiate (1 := (take count (drop off os_payload))).
@@ -467,8 +517,9 @@ Section case.
 
     iIntros (??) "(%Hfrel & Hframe & (% & Hos' & Hvs) & [% Hrt] & Hown) Hfr Hrun".
     iDestruct (atoms_interp_length with "Hvs") as "%Hlen_vs".
-    iDestruct (translate_types_comp_interp_length with "Hos'") as "%Hlen_os'".
+    iDestruct (translate_types_comp_interp_length rti sr with "Hos'") as "%Hlen_os'".
     { done. }
+    { exact Htoks_res. }
     { cbn. apply bind_Some. exists [wl_ret]. cbn. rewrite app_nil_r. split; last done.
       apply bind_Some. by exists wl_ret. }
 

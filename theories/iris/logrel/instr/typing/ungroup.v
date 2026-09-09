@@ -13,12 +13,12 @@ Section ungroup.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_ungroup M F L wt wt' wtf wl wl' wlf es' τs κ :
+  Lemma compat_ungroup M F L wt wt' wtf wl wl' wlf es' τs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [ProdT κ τs] τs in
+    let ψ := InstrT [ProdT τs] τs in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IUngroup ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.

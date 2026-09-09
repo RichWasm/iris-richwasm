@@ -137,12 +137,11 @@ Section util.
     type_skind se τ = Some (SVALTYPE ιs' ξ') ->
     ιs = ιs' /\ ξ = ξ'.
   Proof.
-    intros.
-    assert (SVALTYPE ιs ξ = SVALTYPE ιs' ξ') as Heq.
-    - eapply type_skind_has_kind_agree; try done.
-      cbn.
-      by rewrite H1.
-    - by inversion Heq.
+    intros Hκ Hse Hrep Hsκ'.
+    pose proof (eval_kind_of_eval_rep se ρ ιs Hrep ξ) as Heval_kind.
+    pose proof (type_skind_has_kind_agree F se τ (VALTYPE ρ ξ) (SVALTYPE ιs ξ) (SVALTYPE ιs' ξ')
+                  Hκ Hse Heval_kind Hsκ') as Heq.
+    by inversion Heq.
   Qed.
 
   Lemma type_skind_eval_rep_emptyenv (se: semantic_env (Σ:=Σ)) F ρ ιs ξ τ ιs' ξ' :
@@ -155,6 +154,43 @@ Section util.
     intros.
     eapply type_skind_eval_rep; try done.
     by apply eval_rep_emptyenv.
+  Qed.
+
+  Lemma forall3_forall2_type_arep (se : semantic_env (Σ:=Σ)) F τs ρs ιss ξs :
+    sem_env_interp F se ->
+    Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+    Forall2 (fun ρ ι => eval_rep se ρ = Some ι) ρs ιss ->
+    Forall2 (fun τ ι => type_arep (Σ:=Σ) se τ = Some ι) τs ιss.
+  Proof.
+    intros Hsem HF3.
+    revert ιss.
+    induction HF3 as [| τ ρ ξ τs ρs ξs Hk _ IH]; intros ιss HF2.
+    - inversion HF2; constructor.
+    - inversion HF2 as [| ρ0 ι ρs0 ιss0 Hev Ht ]; subst.
+      constructor.
+      + pose proof (type_skind_has_kind_Some F se τ (VALTYPE ρ ξ) (SVALTYPE ι ξ) Hk Hsem
+                      (eval_kind_of_eval_rep se ρ ι Hev ξ)) as Hsk.
+        unfold type_arep. cbn -[type_skind]. rewrite Hsk. done.
+      + apply IH, Ht.
+  Qed.
+
+  Lemma sum_offset_eq_sum_interp_offset (se : semantic_env (Σ:=Σ)) F τs ρs ξs ιss i :
+    sem_env_interp F se ->
+    Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+    mapM (eval_rep se) ρs = Some ιss ->
+    sum_offset se ρs i = sum_interp_offset se τs i.
+  Proof.
+    intros Hsem HF3 Hmapeval.
+    pose proof (forall3_forall2_type_arep se F τs ρs ιss ξs Hsem HF3
+                  (mapM_Some_1 _ _ _ Hmapeval)) as Harep_all.
+    assert (Hf2ρ : Forall2 (fun ρ' ι => eval_rep se ρ' = Some ι) (take i ρs) (take i ιss))
+      by (apply Forall2_take, mapM_Some_1, Hmapeval).
+    assert (Hf2τ : Forall2 (fun τ' ι => type_arep (Σ:=Σ) se τ' = Some ι) (take i τs) (take i ιss))
+      by (apply Forall2_take, Harep_all).
+    unfold sum_offset, sum_interp_offset.
+    erewrite (mapM_Some_2 _ _ _ Hf2ρ).
+    erewrite (mapM_Some_2 _ _ _ Hf2τ).
+    done.
   Qed.
 
   Lemma eval_rep_senv_insert_type sκ sκ_T T (se: semantic_env (Σ:=Σ)) ρ :

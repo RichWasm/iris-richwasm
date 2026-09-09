@@ -23,12 +23,12 @@ Section new.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_new M F L wt wt' wtf wl wl' wlf κ κser μ β τ es' :
+  Lemma compat_new M F L wt wt' wtf wl wl' wlf μ β τ es' :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [τ] [RefT κ μ β (SerT κser τ)] in
+    let ψ := InstrT [τ] [RefT μ β (SerT τ)] in
     mono_mem μ ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (INew ψ)) wt wl = inr ((), wt', wl', es') ->
@@ -458,25 +458,18 @@ Section new.
       iExists [PtrA (PtrHeap MemMM ℓ)].
 
       (* Derive kinding facts *)
-      assert (Hκ : κ = VALTYPE (AtomR PtrR) AnyRefs). {
-        inversion Href_has_kind; subst; try done.
-      }
-      subst κ.
-      assert (Hκser : κser = MEMTYPE (RepS ρ) ξ). {
-        inversion Hrep_ref; subst; clear Hrep_ref.
-        inversion H; subst.
-        inversion H5; subst.
-        have Heq := has_kind_agree F τ _ _ H6 Hhas_kind.
-        inversion Heq; subst; done.
-      }
-      subst κser.
+      inversion Href_has_kind; subst; try done.
       have Hevρse : eval_rep se ρ = Some ιs := eval_rep_emptyenv _ _ Hιs se.
-      have Hevκser : eval_kind se (MEMTYPE (RepS ρ) ξ) = Some (SMEMTYPE (areps_size ιs) ξ). {
+      have Hevkind_τ : eval_kind se (VALTYPE ρ ξ) = Some (SVALTYPE ιs ξ). {
         unfold eval_kind; cbn; rewrite Hevρse; cbn; done.
       }
-      have Htypeskind_ser : type_skind (Σ:=Σ) se (SerT (MEMTYPE (RepS ρ) ξ) τ) =
+      have Htsk_τ : type_skind se τ = Some (SVALTYPE ιs ξ). {
+        eapply type_skind_has_kind_Some; [exact Hhas_kind | exact Hse | exact Hevkind_τ].
+      }
+      have Htypeskind_ser : type_skind (Σ:=Σ) se (SerT τ) =
           Some (SMEMTYPE (areps_size ιs) ξ). {
-        cbn; exact Hevκser.
+        pose proof Htsk_τ as Htsk_τ'; cbn in Htsk_τ'.
+        cbn; rewrite Htsk_τ'; done.
       }
       have Hfa2 : Forall2 word_has_flag (concat (map arep_flags ιs)) (flat_map serialize_atom os).
       { apply Forall2_impl with (P := fun f w => Is_true (word_has_flag f w)).
@@ -502,7 +495,9 @@ Section new.
         rewrite type_interp_eq.
         iExists (SVALTYPE [PtrR] AnyRefs).
         iSplitR.
-        { iPureIntro; cbn; unfold eval_kind; cbn; done. }
+        { iPureIntro; cbn; unfold eval_kind; cbn.
+          pose proof Htsk_τ as Htsk_τ2; cbn in Htsk_τ2.
+          rewrite Htsk_τ2; done. }
         iSplitR.
         { iPureIntro; split.
           - unfold has_areps; eexists; split; first done.
@@ -898,25 +893,18 @@ Section new.
       iExists [PtrA (PtrHeap MemGC ℓ)].
 
       (* Derive kinding facts *)
-      assert (Hκ : κ = VALTYPE (AtomR PtrR) GCRefs). {
-        inversion Href_has_kind; subst; try done.
-      }
-      subst κ.
-      assert (Hκser : κser = MEMTYPE (RepS ρ) ξ). {
-        inversion Hrep_ref; subst; clear Hrep_ref.
-        inversion H; subst.
-        inversion H5; subst.
-        have Heq := has_kind_agree F τ _ _ H6 Hhas_kind.
-        inversion Heq; subst; done.
-      }
-      subst κser.
+      inversion Href_has_kind; subst; try done.
       have Hevρse : eval_rep se ρ = Some ιs := eval_rep_emptyenv _ _ Hιs se.
-      have Hevκser : eval_kind se (MEMTYPE (RepS ρ) ξ) = Some (SMEMTYPE (areps_size ιs) ξ). {
+      have Hevkind_τ : eval_kind se (VALTYPE ρ ξ) = Some (SVALTYPE ιs ξ). {
         unfold eval_kind; cbn; rewrite Hevρse; cbn; done.
       }
-      have Htypeskind_ser : type_skind (Σ:=Σ) se (SerT (MEMTYPE (RepS ρ) ξ) τ) =
+      have Htsk_τ : type_skind se τ = Some (SVALTYPE ιs ξ). {
+        eapply type_skind_has_kind_Some; [exact Hhas_kind | exact Hse | exact Hevkind_τ].
+      }
+      have Htypeskind_ser : type_skind (Σ:=Σ) se (SerT τ) =
           Some (SMEMTYPE (areps_size ιs) ξ). {
-        cbn; exact Hevκser.
+        pose proof Htsk_τ as Htsk_τ'; cbn in Htsk_τ'.
+        cbn; rewrite Htsk_τ'; done.
       }
       have Hfa2 : Forall2 word_has_flag (concat (map arep_flags ιs)) (flat_map serialize_atom os).
       { apply Forall2_impl with (P := fun f w => Is_true (word_has_flag f w)).
@@ -942,7 +930,9 @@ Section new.
         rewrite type_interp_eq.
         iExists (SVALTYPE [PtrR] GCRefs).
         iSplitR.
-        { iPureIntro; cbn; unfold eval_kind; cbn; done. }
+        { iPureIntro; cbn; unfold eval_kind; cbn.
+          pose proof Htsk_τ as Htsk_τ2; cbn in Htsk_τ2.
+          rewrite Htsk_τ2; done. }
         iSplitR.
         { iPureIntro; split.
           - unfold has_areps; eexists; split; first done.
@@ -956,7 +946,7 @@ Section new.
           iMod (na_inv_alloc logrel_nais _ (ns_ref ℓ)
             (∃ ws, ℓ ↦layout set_flags_at 0 (flat_map arep_flags ιs) (repeat FlagInt (areps_size ιs)) ∗
                    ℓ ↦heap ws ∗
-                   ▷ type_interp rti sr (SerT (MEMTYPE (RepS ρ) ξ) τ) se (SWords ws))%I
+                   ▷ type_interp rti sr (SerT τ) se (SWords ws))%I
             with "[Hlayout' Hheap' Hpre_type_interp]") as "#Hinv".
           { iNext.
             rewrite (update_path_words_all _ _ Hwslen').
@@ -983,7 +973,7 @@ Section new.
           iMod (na_inv_alloc logrel_nais _ (ns_ref ℓ)
             (ℓ ↦layout set_flags_at 0 (flat_map arep_flags ιs) (repeat FlagInt (areps_size ιs)) ∗
              ℓ ↦heap (flat_map serialize_atom os) ∗
-             ▷ type_interp rti sr (SerT (MEMTYPE (RepS ρ) ξ) τ) se (SWords (flat_map serialize_atom os)))%I
+             ▷ type_interp rti sr (SerT τ) se (SWords (flat_map serialize_atom os)))%I
             with "[Hlayout' Hheap' Hpre_type_interp]") as "#Hinv".
           { iNext.
             rewrite (update_path_words_all _ _ Hwslen').

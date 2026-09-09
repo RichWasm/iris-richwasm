@@ -170,16 +170,109 @@ Section env_props.
     intros; rewrite <- eval_kind_type_irrel_eq; done.
   Qed.
 
+  Lemma mem_ref_flag_shift_irrel μ0 :
+    mem_ref_flag μ0 = mem_ref_flag (ren_memory unscoped.shift μ0).
+  Proof. by destruct μ0. Qed.
+
   Lemma type_skind_mem_irrel_eq se μ τ :
     type_skind (Σ:=Σ) se τ =
     type_skind (Σ:=Σ) (senv_insert_mem μ se)
       (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id τ).
   Proof.
-    destruct τ.
-    1: done.
-    all: intros; cbn in *.
-    all: rewrite rinstId'_kind.
-    all: by apply eval_kind_mem_irrel_eq.
+    revert se.
+    induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True);
+      try (intros se; cbn -[type_skind_go eval_kind_se eval_rep_se eval_size_se]).
+    - (* VarT *)
+      done.
+    - (* I31T *)
+      by apply eval_kind_mem_irrel_eq.
+    - (* NumT *)
+      by apply eval_kind_mem_irrel_eq.
+    - (* SumT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_mem μ se))
+                  (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* VariantT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_mem μ se))
+                  (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* ProdT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_mem μ se))
+                  (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* StructT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_mem μ se))
+                  (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* RefT *)
+      cbn [type_skind_go].
+      match goal with
+      | IH : context[type_skind] |- _ => pose proof (IH se) as Heq
+      end.
+      cbn in Heq.
+      rewrite Heq.
+      match goal with
+      | |- context[mem_ref_flag ?μ0] => by rewrite (mem_ref_flag_shift_irrel μ0)
+      end.
+    - (* CodeRefT *)
+      by apply eval_kind_mem_irrel_eq.
+    - (* SerT *)
+      cbn [type_skind_go].
+      match goal with
+      | IH : context[type_skind] |- _ => pose proof (IH se) as Heq
+      end.
+      cbn in Heq.
+      by rewrite Heq.
+    - (* PlugT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_representation rep).
+      cbn.
+      f_equiv.
+      by apply eval_rep_mem_irrel_eq.
+    - (* SpanT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_size s).
+      cbn.
+      f_equiv.
+      by apply eval_size_mem_irrel_eq.
+    - (* RecT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ).
+      by apply eval_kind_mem_irrel_eq.
+    - (* ExistsMemT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ).
+      by apply eval_kind_mem_irrel_eq.
+    - (* ExistsRepT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ).
+      by apply eval_kind_mem_irrel_eq.
+    - (* ExistsSizeT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ).
+      by apply eval_kind_mem_irrel_eq.
+    - (* ExistsTypeT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ1).
+      by apply eval_kind_mem_irrel_eq.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
   Qed.
 
   Lemma type_skind_mem_irrel se μ τ sκ :
@@ -523,13 +616,105 @@ Section env_props.
     by rewrite <- eval_kind_up_shift_rep_eq.
   Qed.
 
+  Lemma type_skind_rep_shift_irrel_eq se ιs τ :
+    type_skind (Σ:=Σ) se τ =
+    type_skind (Σ:=Σ) (senv_insert_rep ιs se)
+      (ren_type unscoped.id unscoped.shift unscoped.id unscoped.id τ).
+  Proof.
+    revert se.
+    induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True);
+      try (intros se; cbn -[type_skind_go eval_kind_se eval_rep_se eval_size_se]).
+    - (* VarT *)
+      done.
+    - (* I31T *)
+      cbn [type_skind_go]; by apply eval_kind_up_shift_rep_eq.
+    - (* NumT *)
+      cbn [type_skind_go]; destruct nt as [[]|[]]; by apply eval_kind_up_shift_rep_eq.
+    - (* SumT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_rep ιs se))
+                  (ren_type unscoped.id unscoped.shift unscoped.id unscoped.id)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* VariantT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_rep ιs se))
+                  (ren_type unscoped.id unscoped.shift unscoped.id unscoped.id)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* ProdT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_rep ιs se))
+                  (ren_type unscoped.id unscoped.shift unscoped.id unscoped.id)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* StructT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_rep ιs se))
+                  (ren_type unscoped.id unscoped.shift unscoped.id unscoped.id)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* RefT *)
+      cbn [type_skind_go].
+      match goal with
+      | IH : context[type_skind] |- _ => pose proof (IH se) as Heq
+      end.
+      cbn in Heq.
+      rewrite Heq.
+      match goal with
+      | |- context[mem_ref_flag ?μ0] => by rewrite (rinstId'_memory μ0)
+      end.
+    - (* CodeRefT *)
+      cbn [type_skind_go]; by apply eval_kind_up_shift_rep_eq.
+    - (* SerT *)
+      cbn [type_skind_go].
+      match goal with
+      | IH : context[type_skind] |- _ => pose proof (IH se) as Heq
+      end.
+      cbn in Heq.
+      by rewrite Heq.
+    - (* PlugT *)
+      cbn [type_skind_go].
+      cbn.
+      f_equiv.
+      by apply eval_rep_up_shift_rep_eq.
+    - (* SpanT *)
+      cbn [type_skind_go].
+      cbn.
+      f_equiv.
+      by apply eval_size_up_shift_rep_eq.
+    - (* RecT *)
+      cbn [type_skind_go].
+      cbn [type_skind_go]; by apply eval_kind_up_shift_rep_eq.
+    - (* ExistsMemT *)
+      cbn [type_skind_go].
+      cbn [type_skind_go]; by apply eval_kind_up_shift_rep_eq.
+    - (* ExistsRepT *)
+      cbn [type_skind_go].
+      cbn [type_skind_go]; by apply eval_kind_up_shift_rep_eq.
+    - (* ExistsSizeT *)
+      cbn [type_skind_go].
+      cbn [type_skind_go]; by apply eval_kind_up_shift_rep_eq.
+    - (* ExistsTypeT *)
+      cbn [type_skind_go].
+      cbn [type_skind_go]; by apply eval_kind_up_shift_rep_eq.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+  Qed.
+
   Lemma type_skind_up_rep_eq se sub_t ιs i :
     type_skind se (sub_t i) =
     type_skind (Σ:=Σ) (senv_insert_rep ιs se) (up_representation_type sub_t i) .
   Proof.
-    asimpl'; unfold core.funcomp.
-    induction (sub_t i) using type_ind with (P0 := λ ft, True) (Pi := λ ft, True);
-      cbn in *; auto; by apply eval_kind_up_shift_rep_eq.
+    apply type_skind_rep_shift_irrel_eq.
   Qed.
 
   Lemma type_skind_up_rep se sub_t ιs sκ i :
@@ -543,9 +728,7 @@ Section env_props.
     type_skind se (sub_t i) =
     type_skind (Σ:=Σ) (senv_insert_mem μ se) (up_memory_type sub_t i) .
   Proof.
-    asimpl'; unfold core.funcomp.
-    induction (sub_t i) using type_ind with (P0 := λ ft, True) (Pi := λ ft, True);
-      cbn in *; auto; rewrite rinstId'_kind; by apply eval_kind_mem_irrel_eq.
+    apply type_skind_mem_irrel_eq.
   Qed.
 
   Lemma type_skind_up_memory se sub_t μ sκ i :
@@ -555,13 +738,112 @@ Section env_props.
     by rewrite <- type_skind_up_memory_eq.
   Qed.
 
+  Lemma type_skind_type_shift_irrel_eq se sκ' sκ_T T τ :
+    type_skind (Σ:=Σ) se τ =
+    type_skind (Σ:=Σ) (senv_insert_type sκ' sκ_T T se)
+      (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift τ).
+  Proof.
+    revert se.
+    induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True);
+      try (intros se; cbn -[type_skind_go eval_kind_se eval_rep_se eval_size_se]).
+    - (* VarT *)
+      done.
+    - (* I31T *)
+      cbn [type_skind_go]; by apply eval_kind_type_irrel_eq.
+    - (* NumT *)
+      cbn [type_skind_go]; by apply eval_kind_type_irrel_eq.
+    - (* SumT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_type sκ' sκ_T T se))
+                  (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* VariantT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_type sκ' sκ_T T se))
+                  (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* ProdT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_type sκ' sκ_T T se))
+                  (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* StructT *)
+      cbn [type_skind_go].
+      erewrite (Forall_mapM_map_ext (type_skind_go se)
+                  (type_skind_go (senv_insert_type sκ' sκ_T T se))
+                  (ren_type unscoped.id unscoped.id unscoped.id unscoped.shift)); last first.
+      { eapply Forall_impl; first exact H. intros τ' IH'; by apply IH'. }
+      done.
+    - (* RefT *)
+      cbn [type_skind_go].
+      match goal with
+      | IH : context[type_skind] |- _ => pose proof (IH se) as Heq
+      end.
+      cbn in Heq.
+      rewrite Heq.
+      match goal with
+      | |- context[mem_ref_flag ?μ0] => by rewrite (rinstId'_memory μ0)
+      end.
+    - (* CodeRefT *)
+      cbn [type_skind_go]; by apply eval_kind_type_irrel_eq.
+    - (* SerT *)
+      cbn [type_skind_go].
+      match goal with
+      | IH : context[type_skind] |- _ => pose proof (IH se) as Heq
+      end.
+      cbn in Heq.
+      by rewrite Heq.
+    - (* PlugT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_representation rep).
+      cbn.
+      f_equiv.
+      by apply eval_rep_type_irrel_eq.
+    - (* SpanT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_size s).
+      cbn.
+      f_equiv.
+      by apply eval_size_type_irrel_eq.
+    - (* RecT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ).
+      by apply eval_kind_type_irrel_eq.
+    - (* ExistsMemT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ).
+      by apply eval_kind_type_irrel_eq.
+    - (* ExistsRepT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ).
+      by apply eval_kind_type_irrel_eq.
+    - (* ExistsSizeT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ).
+      by apply eval_kind_type_irrel_eq.
+    - (* ExistsTypeT *)
+      cbn [type_skind_go].
+      rewrite (rinstId'_kind κ1).
+      by apply eval_kind_type_irrel_eq.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
+  Qed.
+
   Lemma type_skind_up_type_eq se sub_t sκ' sκ_T T i :
     type_skind se (sub_t i) =
     type_skind (Σ:=Σ) (senv_insert_type sκ' sκ_T T se) (up_type_type sub_t (S i)) .
   Proof.
-    asimpl'; unfold core.funcomp.
-    induction (sub_t i) using type_ind with (P0 := λ ft, True) (Pi := λ ft, True);
-      cbn in *; auto; rewrite rinstId'_kind; by apply eval_kind_type_irrel_eq.
+    apply type_skind_type_shift_irrel_eq.
   Qed.
 
   Lemma type_skind_up_type se sub_t sκ' sκ_T T sκ i :

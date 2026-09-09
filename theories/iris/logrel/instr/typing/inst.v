@@ -23,14 +23,13 @@ Section inst.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let κ := VALTYPE (AtomR I32R) NoRefs in
-    let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
+    let ψ := InstrT [CodeRefT ϕ] [CodeRefT ϕ'] in
     function_type_inst F ix ϕ ϕ' ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IInst ψ ix)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    intros fe WT WL lmask κ ψ Hfinst Hok Hcg.
+    intros fe WT WL lmask ψ Hfinst Hok Hcg.
     cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg.
 
     iIntros (??????????) "@@@@@@@@@@".
@@ -45,33 +44,44 @@ Section inst.
     iApply values_interp_one_eq.
     setoid_rewrite value_interp_eq.
 
-    (* mini kinding quarantine *)
-    assert (Hkind_first: has_kind F (CodeRefT κ ϕ) κ). {
-        inversion Hok.
-        inversion H1; subst.
-        inversion H3; subst. clear H8.
-        inversion H7; subst.
-        destruct H5 as (pls & hlp).
-        inversion pls; subst.
-        inversion H5; subst.
-        constructor. done.
+    (* mini kinding quarantine: [CodeRefT] no longer carries its own kind
+       argument (it was always [VALTYPE (AtomR I32R) NoRefs], per [KCodeRef]
+       in typing.v), so [κ] is now just that fixed kind, derived from
+       [has_instruction_type_ok] instead of pattern-matched off the type. *)
+    set (κ := VALTYPE (AtomR I32R) NoRefs).
+    assert (Hkind_first: has_kind F (CodeRefT ϕ) κ). {
+        destruct Hok as [[Hmono1 _] _].
+        apply Forall_cons_iff in Hmono1 as [(ρ1 & Hrep1 & Hmonorep1) _].
+        inversion Hrep1 as [? ? ? ξ1 Hhaskind1]; subst.
+        inversion Hhaskind1; subst.
+        constructor; done.
     }
-    assert (Hkind: has_kind F (CodeRefT κ ϕ') κ). {
-        inversion Hok.
-        inversion H1; subst.
-        inversion H4; subst. clear H8.
-        inversion H7; subst.
-        destruct H5 as (pls & hlp).
-        inversion pls; subst.
-        inversion H5; subst.
-        constructor. done.
+    assert (Hkind: has_kind F (CodeRefT ϕ') κ). {
+        destruct Hok as [[_ Hmono2] _].
+        apply Forall_cons_iff in Hmono2 as [(ρ2 & Hrep2 & Hmonorep2) _].
+        inversion Hrep2 as [? ? ? ξ2 Hhaskind2]; subst.
+        inversion Hhaskind2; subst.
+        constructor; done.
     }
-    inversion Hkind; subst. rename H3 into Hkind_ft.
-    (* now we need to use the key hypothesis: Hfinst *)
+    inversion Hkind; subst.
+    match goal with
+    | H : has_kind_ft F ϕ' |- _ => rename H into Hkind_ft
+    end.
+    (* now we need to use the key hypothesis: Hfinst.
+       Reaching this point requires reconstructing [ϕ'] modulo cached-kind
+       refresh across each of the four kind-quantifier instantiation forms
+       (type/mem/rep/size), which used [refresh_kinds_ift]/[refresh_kinds]
+       and [has_kind_ft_function_type_eq_mod_kinds]. Both were removed by
+       the refactor that dropped cached kinds from the [type] AST (and this
+       part of the proof was already only a sketch, ending in [Admitted],
+       before that refactor as well) so completing this is pre-existing
+       tech debt left for the corresponding rework of [inner_function_type]
+       kind bookkeeping, not something introduced by this refactor. *)
     destruct Hfinst.
 
     1: destruct H1.
-    (*
+  Admitted.
+  (*
     1: assert (Hϕ': ϕ' = refresh_kinds_ift F
             (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)) by
         (pose proof (has_kind_ft_function_type_eq_mod_kinds) as (_ & H10);
@@ -134,6 +144,5 @@ Section inst.
       rewrite Htorewrite in Hkind_ft.
       by iApply closure_interp_scons_insert_size.
 *)
-  Admitted.
 
 End inst.

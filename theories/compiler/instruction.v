@@ -103,7 +103,7 @@ Section Compiler.
 
   Definition compile_call_indirect (fe : function_env) (τs : list type) : codegen unit :=
     τ ← try_option EFail (last τs);
-    ϕ ← match τ with CodeRefT _ ϕ => ret ϕ | _ => raise EFail end;
+    ϕ ← match τ with CodeRefT ϕ => ret ϕ | _ => raise EFail end;
     tf ← try_option EFail (translate_func_type fe.(fe_type_vars) ϕ);
     i ← wtinsert tf;
     emit (W.BI_call_indirect (typeimm i)).
@@ -172,7 +172,7 @@ Section Compiler.
     end;;
     let do_case μ c i :=
       τ ← try_option EFail (τs !! i);
-      τ0 ← try_option EFail (match τ with SerT _ t => Some t | _ => None end);
+      τ0 ← try_option EFail (match τ with SerT t => Some t | _ => None end);
       ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ0);
       ιs ← try_option EFail (eval_rep EmptyEnv ρ);
       load mr fe μ con a 1 ιs;;
@@ -284,7 +284,7 @@ Section Compiler.
     | IDrop (InstrT [τ] _) => compile_drop fe τ
     | IDrop _ => raise (EInvalidInstrT "IDrop")
     | INum _ e' => compile_num e'
-    | INumConst (InstrT _ [NumT _ ν]) n => compile_num_const ν n
+    | INumConst (InstrT _ [NumT ν]) n => compile_num_const ν n
     | INumConst _ _ => raise (EInvalidInstrT "INumConst")
     | IBlock ψ _ es => compile_block fe ψ (compile_instrs fe es)
     | ILoop ψ es => compile_loop fe ψ (compile_instrs fe es)
@@ -297,15 +297,20 @@ Section Compiler.
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
     | ICallIndirect (InstrT τs _) => compile_call_indirect fe τs
-    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _) _]) i => compile_inject fe ρs i
+    | IInject (InstrT [τ] [SumT τs]) i =>
+        ρs ← try_option EFail (mapM (type_rep fe.(fe_type_vars)) τs);
+        compile_inject fe ρs i
     | IInject _ _ => raise (EInvalidInstrT "IInject")
-    | IInjectNew (InstrT [τ] [RefT _ (BaseM μ) _ (VariantT (MEMTYPE σ _) _)]) i =>
+    | IInjectNew (InstrT [τ] [RefT (BaseM μ) _ (VariantT τs' as τvar)]) i =>
+        σ ← try_option EFail (type_size fe.(fe_type_vars) τvar);
         compile_inject_new fe μ i τ σ
     | IInjectNew _ _ => raise (EInvalidInstrT "IInjectNew")
-    | ICase (InstrT [SumT (VALTYPE (SumR ρs) _) _] [τ']) _ ess =>
+    | ICase (InstrT [SumT τs] [τ']) _ ess =>
+        ρs ← try_option EFail (mapM (type_rep fe.(fe_type_vars)) τs);
         compile_case fe ρs τ' (compile_cases fe ess)
     | ICase _ _ _ => raise (EInvalidInstrT "ICase")
-    | ICaseLoad (InstrT [RefT _ _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) _ ess =>
+    | ICaseLoad (InstrT [RefT _ _ (VariantT τs as τvar)] [_; τ']) _ ess =>
+        σ ← try_option EFail (type_size fe.(fe_type_vars) τvar);
         compile_case_load fe σ τs τ' Copy (compile_cases fe ess)
     | ICaseLoad _ _ _ => raise (EInvalidInstrT "ICaseLoad")
     | IGroup _ => erased_in_wasm
@@ -317,13 +322,13 @@ Section Compiler.
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
     | ICast _ => erased_in_wasm
-    | INew (InstrT [τ] [RefT _ (BaseM μ) _ _]) => compile_new fe μ τ
+    | INew (InstrT [τ] [RefT (BaseM μ) _ _]) => compile_new fe μ τ
     | INew _ => raise (EInvalidInstrT "INew")
-    | ILoad (InstrT [RefT _ _ _ τ] [_; τval]) π con => compile_load fe τ τval π con
+    | ILoad (InstrT [RefT _ _ τ] [_; τval]) π con => compile_load fe τ τval π con
     | ILoad _ _ _ => raise (EInvalidInstrT "ILoad")
-    | IStore (InstrT [RefT _ _ _ τ; τval] _) π => compile_store fe τ τval π
+    | IStore (InstrT [RefT _ _ τ; τval] _) π => compile_store fe τ τval π
     | IStore _ _ => raise (EInvalidInstrT "IStore")
-    | ISwap (InstrT [RefT _ _ _ τ; τval] _) π => compile_swap fe τ τval π
+    | ISwap (InstrT [RefT _ _ τ; τval] _) π => compile_swap fe τ τval π
     | ISwap _ _ => raise (EInvalidInstrT "ISwap")
     end.
 

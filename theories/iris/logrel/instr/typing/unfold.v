@@ -71,10 +71,6 @@ Section unfold.
     iModIntro.
     inversion Hkind; subst.
     assert (Hkindτrec: has_kind F τrec κ) by by apply has_kind_rec_subst.
-    destruct (refresh_kinds_id) as (this & _).
-    assert (refresh_kinds F τrec = τrec) by (symmetry; by eapply this).
-    unfold τrec in H0.
-    rewrite <- H0.
     iAssert (type_interp rti sr τ
                (senv_insert_type sκ sκ (value_interp rti sr se (RecT κ τ)) se) (SAtoms os))
       with "[Hos]" as "Hos". {
@@ -83,7 +79,7 @@ Section unfold.
       (* but for some unknown reason it refuses to rewrite *)
       (* there's the senv_insert_type difference but even islating that and cbn-ing it didn't
         do anything *)
-      pose proof (add_skind_interp_closed_equiv_value_interp rti sr sκ τ κ se Hκ).
+      pose proof (add_skind_interp_closed_equiv_value_interp rti sr sκ τ κ se Hκ) as Hequivri.
       assert (Hproper: Proper (equiv ==> equiv) (type_interp rti sr τ)). {
         typeclasses eauto.
       }
@@ -91,7 +87,7 @@ Section unfold.
       {
         apply senv_insert_type_proper.
         symmetry.
-        apply H1.
+        apply Hequivri.
       }
       done.
     }
@@ -140,12 +136,7 @@ Section unfold.
       }
       done.
     - intros i; destruct i; try done.
-      cbn.
-      apply this in H4.
-      rewrite <- H4.
-      done.
     - (* this is whatever the kinding admit above is *)
-      rewrite H0.
       exact Hkindτrec.
       Transparent skind_has_svalue.
   Qed.

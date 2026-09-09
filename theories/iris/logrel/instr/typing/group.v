@@ -13,12 +13,12 @@ Section group.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_group M F L wt wt' wtf wl wl' wlf es' τs κ :
+  Lemma compat_group M F L wt wt' wtf wl wl' wlf es' τs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT τs [ProdT κ τs] in
+    let ψ := InstrT τs [ProdT τs] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IGroup ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
@@ -43,39 +43,43 @@ Section group.
     destruct Hmono2 as (ρ & Hrep & Hmono_ρ).
     inversion Hrep as [F' τ ρ' ξ Hkind].
     subst F' τ ρ'.
-    apply has_kind_inv in Hkind as Hok_has_kind.
-    inversion Hok_has_kind as [F' τ κ' Hok_prod Hok_kind].
-    subst F' τ κ'.
-    inversion Hok_prod.
-    subst F0 κ0 τs0.
-    rename H2 into Hok_κ.
-    rename H3 into Hok_τs.
-    destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ Hsκ].
-    iExists sκ.
-
-    assert (Hsub : VALTYPE ρ ξ = κ) by by eapply type_kind_has_kind_agree.
-    subst κ.
-    apply bind_Some in Hsκ as (ιs & Hιs & Hsκ).
-    inversion Hsκ.
-    subst sκ.
-    clear Hsκ.
-
-    inversion Hkind.
-    subst F0 ρ ξ τs0.
-    clear Hkind.
-    rename H1 into Hkinds.
-
-    apply bind_Some in Hιs as (ιss & Hιss & Hιs).
-    inversion Hιs.
-    subst ιs.
-    clear Hιs.
-    fold (eval_rep se) in Hιss.
+    pose proof Hkind as Hkind_copy.
+    inversion Hkind_copy; subst.
+    match goal with
+    | H : Forall3 (λ τ ρ ξ, has_kind F τ (VALTYPE ρ ξ)) τs _ _ |- _ => rename H into Hkinds
+    end.
+    pose proof (has_kind_ok_kind_ok _ _ _ (has_kind_inv _ _ _ Hkind)) as Hkind_ok.
+    apply kind_ok_rep_ok in Hkind_ok.
+    destruct (eval_rep_ok_Some _ _ _ Hse Hkind_ok) as [ιs0 Hιs0].
+    cbn in Hιs0.
+    apply fmap_Some in Hιs0 as (ιss & Hιss & ->).
+    assert (Hsκ : eval_kind se (VALTYPE (ProdR ρs) (ref_flag_lub ξs)) =
+                    Some (SVALTYPE (concat ιss) (ref_flag_lub ξs)))
+      by (cbn; by rewrite Hιss).
+    iExists (SVALTYPE (concat ιss) (ref_flag_lub ξs)).
 
     rewrite big_sepL2_fmap_l.
     iDestruct (big_sepL2_value_interp_skind with "Hos") as "%Hskinds".
 
     iSplitR; last iSplitR.
-    - iPureIntro. cbn. by rewrite Hιss.
+    - iPureIntro. cbn.
+      assert (Hkinds_sk : Forall3
+                (λ τ' ρ' ξ', ∀ sκ',
+                    eval_kind se (VALTYPE ρ' ξ') = Some sκ' -> type_skind_go se τ' = Some sκ')
+                τs ρs ξs).
+      { eapply Forall3_impl; first exact Hkinds.
+        intros τ' ρ' ξ' Hk sκ' Heval.
+        pose proof (type_skind_has_kind_Some F se τ' (VALTYPE ρ' ξ') sκ' Hk Hse Heval) as Hres.
+        by cbn in Hres. }
+      pose proof (Forall3_length_lm _ _ _ _ Hkinds) as Hlen_τρ.
+      pose proof (Forall3_length_lr _ _ _ _ Hkinds) as Hlen_τξ.
+      pose proof (length_mapM _ _ _ Hιss) as Hlen_ριss.
+      pose proof (forall3_mapM_type_skind_val se _ _ _ Hkinds_sk _ Hιss) as Hmm.
+      rewrite Hmm.
+      cbn.
+      erewrite mapM_skind_rep_zip by lia.
+      erewrite map_skind_ref_flag_zip_val by lia.
+      done.
     - iPureIntro. split.
       (* TODO: Very messy. Clean up with helper lemmas. *)
       + eexists.
@@ -131,9 +135,9 @@ Section group.
           inversion Hos'.
           subst os'.
           clear Hos'.
-          eapply Forall3_lookup_lmr in Hkinds as Hkind.
+          eapply Forall3_lookup_lmr in Hkinds as Hkindi.
           2, 3, 4: done.
-          pose proof (type_skind_eval_rep _ _ _ _ _ _ _ _ Hkind Hse Hιss' Hskind) as Hyeah.
+          pose proof (type_skind_eval_rep _ _ _ _ _ _ _ _ Hkindi Hse Hιss' Hskind) as Hyeah.
           inversion Hyeah.
           by subst.
         * apply lookup_ge_None in Hιss_i.
@@ -150,7 +154,7 @@ Section group.
         apply Forall_concat.
         eapply Forall2_Forall_r; first done.
         apply Forall_forall.
-        intros τ Hτ os (sκ & Hsκ & Hsvalue).
+        intros τ Hτ os (sκ & Hsκ0 & Hsvalue).
         destruct sκ.
         2: { cbn in Hsvalue; tauto. }
         destruct Hsvalue as [Hareps Hrfs].
@@ -173,12 +177,10 @@ Section group.
         subst τ'.
         clear Hτs_i'.
         apply has_kind_inv in Hkind' as Hhas_ok.
-        inversion Hhas_ok.
-        subst F0 τ0 κ.
-        rename H0 into Hkind_ok.
-        destruct (eval_kind_ok_Some _ _ _ Hse Hkind_ok) as [sκ' Hsκ'].
+        inversion Hhas_ok as [F0 τ0 κ0 Htok Hkok]; subst F0 τ0 κ0.
+        destruct (eval_kind_ok_Some _ _ _ Hse Hkok) as [sκ' Hsκ'].
         pose proof (type_skind_has_kind_Some _ _ _ _ _ Hkind' Hse Hsκ') as Htype_skind.
-        rewrite Hsκ in Htype_skind.
+        rewrite Hsκ0 in Htype_skind.
         apply bind_Some in Hsκ' as (ιs & Hιs & Hsκ').
         rewrite <- Hsκ' in Htype_skind.
         inversion Htype_skind.
