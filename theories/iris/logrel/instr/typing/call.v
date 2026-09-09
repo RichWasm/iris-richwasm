@@ -28,7 +28,7 @@ Section call.
         mono_closure_interp rti sr
           τs1_s τs2_s (map (type_interp rti sr) τs1_s) (map (type_interp rti sr) τs2_s) se cl.
   Proof.
-    (* This proof leaned on [refresh_kinds]/[refreshed_kinds_refresh_kinds]
+    (* TODO: This proof leaned on [refresh_kinds]/[refreshed_kinds_refresh_kinds]
        (now deleted -- with no more cached kind annotations there is nothing
        left to refresh, so [subst_inner_function_type] results are already
        exactly what this proof needed [refresh_kinds_ift] to produce) and it

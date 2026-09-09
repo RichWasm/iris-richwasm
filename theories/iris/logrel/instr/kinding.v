@@ -123,7 +123,7 @@ Section kinding.
   Lemma type_kind_has_kind_Some F τ κ :
     has_kind F τ κ ->
     type_kind F.(fc_type_vars) τ = Some κ.
-  Proof using.
+  Proof.
     intros H.
     induction H using has_kind_ind' with (P0 := λ _ _, True) (Pi := λ _ _, True).
     - done.
@@ -235,7 +235,7 @@ Section kinding.
   Lemma type_kind_has_kind_is_Some F τ κ :
     has_kind F τ κ ->
     is_Some (type_kind F.(fc_type_vars) τ).
-  Proof using.
+  Proof.
     intros H.
     eexists.
     by eapply type_kind_has_kind_Some.
@@ -245,7 +245,7 @@ Section kinding.
     has_kind F τ κ ->
     type_kind F.(fc_type_vars) τ = Some κ' ->
     κ = κ'.
-  Proof using.
+  Proof.
     intros H Heq.
     pose proof (type_kind_has_kind_Some F τ κ H) as Heq'.
     rewrite Heq' in Heq.
@@ -652,7 +652,7 @@ Section kinding.
     forall F κ, has_kind F τ κ ->
     kind_ok F.(fc_kind_ctx) κ /\
     (forall (se : semantic_env (Σ:=Σ)) sκ, sem_env_interp F se -> eval_kind se κ = Some sκ -> type_skind_go se τ = Some sκ).
-  Proof using.
+  Proof.
     induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True).
     - (* VarT *)
       intros F κ Hκ.
@@ -982,7 +982,7 @@ Section kinding.
     forall F κ, type_ok F τ -> type_kind F.(fc_type_vars) τ = Some κ ->
     kind_ok F.(fc_kind_ctx) κ /\
     (forall (se : semantic_env (Σ:=Σ)) sκ, sem_env_interp F se -> eval_kind se κ = Some sκ -> type_skind_go se τ = Some sκ).
-  Proof using.
+  Proof.
     induction τ using type_ind with (Pi := fun _ => True) (P0 := fun _ => True).
     - (* VarT *)
       intros F κ Hok Htk.

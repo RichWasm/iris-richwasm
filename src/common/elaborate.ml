@@ -314,12 +314,9 @@ let meet_memtypes
   in
   go [] NoRefs kinds
 
-(* [B.Type.t] no longer caches a kind on most constructors (it used to, and
-   the cache could never be correctly refreshed under substitution -- that's
-   the whole point of this refactor), so this now recomputes a type's kind
-   bottom-up instead of just projecting a stored field. Only [RecT]/
-   [ExistsMemT]/[ExistsRepT]/[ExistsSizeT]/[ExistsTypeT] still carry a real
-   kind (a binder annotation, not a cache), so those cases stay projections. *)
+(* This function computes a type's kind bottom-up. Only [RecT]/
+   [ExistsMemT]/[ExistsRepT]/[ExistsSizeT]/[ExistsTypeT] carry a
+   kind, so those cases are just projection. *)
 let rec kind_of_typ (env : A.Kind.t list) : B.Type.t -> B.Kind.t t = function
   | VarT x ->
       let i = Z.to_int x in
