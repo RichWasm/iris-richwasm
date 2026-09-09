@@ -162,47 +162,55 @@ Section call.
   (* should be true, but requires an actual fully fleged subsitution lemma most likely *)
   (* but for has_kind which. not now. *)
   (* base case is fine though *)
-  Lemma has_kind_ft_from_insts_and_ok M F ixs ϕ τs1 τs2 L :
-    function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) ->
-    has_instruction_type_ok M F (InstrT τs1 τs2) L ->
-    has_kind_ft F ϕ.
+  (* Lemma has_kind_ft_from_insts_and_ok M F ixs ϕ τs1 τs2 L : *)
+  (*   function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) -> *)
+  (*   has_instruction_type_ok M F (InstrT τs1 τs2) L -> *)
+  (*   has_kind_ft F ϕ. *)
+  (* Proof. *)
+  (*   remember (InnerFunT (MonoFunT τs1 τs2)) as ϕ'. *)
+  (*   intros Hfinst. *)
+  (*   induction Hfinst; intros Hok. *)
+  (*   - subst. *)
+  (*     constructor. *)
+  (*     inversion Hok; subst. *)
+  (*     inversion H; subst. *)
+  (*     unfold has_mono_rep in *. *)
+  (*     assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs1). { *)
+  (*       apply Forall_lookup_2. *)
+  (*       intros i τ Hiτ. *)
+  (*       pose proof (Forall_lookup_1 _ _ _ _ H1 Hiτ). *)
+  (*       cbn in H3. *)
+  (*       destruct H3 as (ρ & hrep & hmono). *)
+  (*       inversion hrep; subst. *)
+  (*       eexists; done. *)
+  (*     } *)
+  (*     apply Forall_exists_Forall2_l in H3. *)
+  (*     destruct H3 as (κs1 & Hτs1). clear H1. *)
+  (*     assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs2). { *)
+  (*       apply Forall_lookup_2. *)
+  (*       intros i τ Hiτ. *)
+  (*       pose proof (Forall_lookup_1 _ _ _ _ H2 Hiτ). *)
+  (*       cbn in H1. *)
+  (*       destruct H1 as (ρ & hrep & hmono). *)
+  (*       inversion hrep; subst. *)
+  (*       eexists; done. *)
+  (*     } *)
+  (*     apply Forall_exists_Forall2_l in H1. *)
+  (*     destruct H1 as (κs2 & Hτs2). clear H2. *)
+  (*     econstructor; done. *)
+  (*   - subst ϕ''. *)
+  (*     specialize (IHHfinst eq_refl Hok). *)
+  (*     rename IHHfinst into Hkind_ϕ'. *)
+  (*     by apply (has_kind_ft_through_inst_backwards F ϕ ϕ' ix H). *)
+  (* Qed. *)
+
+  Lemma has_kind_empty :
+  (forall τ κ , has_kind fc_empty τ κ -> (∀ F, has_kind F τ κ )) /\
+  (forall ϕ, has_kind_ft fc_empty ϕ -> (∀ F, has_kind_ft F ϕ)) /\
+    (forall ϕ, has_kind_ift fc_empty ϕ -> (∀ F, has_kind_ift F ϕ)).
   Proof.
-    remember (InnerFunT (MonoFunT τs1 τs2)) as ϕ'.
-    intros Hfinst.
-    induction Hfinst; intros Hok.
-    - subst.
-      constructor.
-      inversion Hok; subst.
-      inversion H; subst.
-      unfold has_mono_rep in *.
-      assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs1). {
-        apply Forall_lookup_2.
-        intros i τ Hiτ.
-        pose proof (Forall_lookup_1 _ _ _ _ H1 Hiτ).
-        cbn in H3.
-        destruct H3 as (ρ & hrep & hmono).
-        inversion hrep; subst.
-        eexists; done.
-      }
-      apply Forall_exists_Forall2_l in H3.
-      destruct H3 as (κs1 & Hτs1). clear H1.
-      assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs2). {
-        apply Forall_lookup_2.
-        intros i τ Hiτ.
-        pose proof (Forall_lookup_1 _ _ _ _ H2 Hiτ).
-        cbn in H1.
-        destruct H1 as (ρ & hrep & hmono).
-        inversion hrep; subst.
-        eexists; done.
-      }
-      apply Forall_exists_Forall2_l in H1.
-      destruct H1 as (κs2 & Hτs2). clear H2.
-      econstructor; done.
-    - subst ϕ''.
-      specialize (IHHfinst eq_refl Hok).
-      rename IHHfinst into Hkind_ϕ'.
-      by apply (has_kind_ft_through_inst_backwards F ϕ ϕ' ix H).
-  Qed.
+    apply type_and_function_ind; intros *.
+  Admitted.
 
 
   Lemma compat_call M F L wt wt' wtf wl wl' wlf es' i ixs ϕ τs1 τs2 :
@@ -232,8 +240,14 @@ Section call.
     iRename "Hcl2" into "Hcl".
 
     (* kinding quarantine *)
-    pose proof (has_kind_ft_from_insts_and_ok _ _ _ _ _ _ Hfuntype Hok) as Hkind_ϕ.
-    pose proof (has_kind_ft_from_ok _ _ _ _ Hok) as Hkind_mono.
+    (* pose proof (has_kind_ft_from_insts_and_ok _ _ _ _ _ _ Hfuntype Hok) as Hkind_ϕ. *)
+    assert (has_kind_ft F ϕ) as Hkind_ϕ. {
+      destruct Hok. destruct H2. destruct H3.
+      pose proof (Forall_lookup_1 _ _ _ _ H3 Hϕ).
+      pose proof has_kind_empty as (_ & this & _).
+      apply this; done.
+    }
+    pose proof (has_kind_ft_from_ok _ _ _ _ _ Hok) as Hkind_mono.
 
 
 
