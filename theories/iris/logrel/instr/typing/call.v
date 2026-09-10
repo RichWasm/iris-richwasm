@@ -146,23 +146,20 @@ Section call.
 
 
 
-    iIntros (??????????) "@@@@@@@@@@".
+    iIntros (???????? Hse Hevs) "@@@@@@@@@@".
     (** So, first portion: dig into instance interp as much as possible **)
     iDestruct "Hinst" as "(%HWT & #Hruni & #Hfunci & #Htablei & %Hmm & %Hcg)".
     iPoseProof ((big_sepL_lookup _ _ _ _ Hϕ) with "Hfunci") as "Hϕ".
     iDestruct "Hϕ" as "(%a & %cl & %Instlookup & #Hcl & #nsfun)".
-    iPoseProof (empty_closure_interp rti sr mr se with "[$Hcl]") as "Hcl2".
+    have Hclosed : has_kind_ft fc_empty ϕ.
+    { destruct Hok as (_ & _ & Hfuns & _); by eapply Forall_lookup_1. }
+    iPoseProof (empty_closure_interp rti sr F _ ϕ cl Hse Hclosed with "[$Hcl]") as "Hcl2".
     iRename "Hcl" into "HclOLDDDDDDD".
     iRename "Hcl2" into "Hcl".
 
     (* kinding quarantine *)
     (* pose proof (has_kind_ft_from_insts_and_ok _ _ _ _ _ _ Hfuntype Hok) as Hkind_ϕ. *)
-    assert (has_kind_ft F ϕ) as Hkind_ϕ. {
-      destruct Hok. destruct H2. destruct H3.
-      pose proof (Forall_lookup_1 _ _ _ _ H3 Hϕ).
-      pose proof has_kind_empty as (_ & this & _).
-      apply this; done.
-    }
+    have Hkind_ϕ : has_kind_ft F ϕ by apply (proj1 (proj2 has_kind_empty)).
     pose proof (has_kind_ft_from_ok _ _ _ _ _ Hok) as Hkind_mono.
 
 
@@ -178,7 +175,7 @@ Section call.
 
 
     (* kinding quarantine portion *)
-    iPoseProof (unravel_closure_interp _ _ _ _ _ _ _ H Hfuntype with "[$Hcl]")
+    iPoseProof (unravel_closure_interp _ _ _ _ _ _ _ Hse Hfuntype with "[$Hcl]")
       as "#Hcl2"; try done.
     (* iDestruct "Hcl2" as "(%se' & %τs1_s & %τs2_s & #Hcl2 )". *)
     iDestruct "Hcl2" as "#Hcl2".
@@ -190,7 +187,7 @@ Section call.
       iPoseProof (big_sepL2_length with "[$Hvs]") as "%len2"; try done.
       rewrite len2.
       iPureIntro.
-      unfold has_values in H0.
+      unfold has_values in Hevs.
       apply has_values_length. done.
     }
 

@@ -4,6 +4,7 @@ Require Import RichWasm.iris.logrel.logrel_properties.
 Require Import RichWasm.iris.logrel.env_props.
 Require Import RichWasm.iris.logrel.type_eq.
 Require Import RichWasm.kinding_subst.
+Require Import RichWasm.kinding_scope.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
@@ -2868,6 +2869,61 @@ Section substitution.
       iApply (closure_interp_scons_insert_size F se σ ϕ0 cl with "[]"); try done.
       + fold ϕ'0. by rewrite <- Hrf.
       + by inversion Hkind_ϕ.
+  Qed.
+
+  Lemma value_interp_var_oob se n :
+    length (senv_types se) <= n ->
+    value_interp rti sr se (VarT n) ≡ (λne _, False)%I.
+  Proof.
+    intros Hn sv.
+    rewrite value_interp_eq.
+    iSplit.
+    - iIntros "H".
+      iDestruct "H" as (sκ) "(%Hsk & _ & _)".
+      cbn in Hsk.
+      by rewrite lookup_ge_None_2 in Hsk.
+    - by iIntros "[]".
+  Qed.
+
+  (* A closed function type reads nothing from the environment: substituting variables that are
+     out of scope in [se] for the ones [senv_empty] does not have leaves it unchanged. *)
+  Lemma empty_closure_interp F se ϕ cl :
+    sem_env_interp F se ->
+    has_kind_ft fc_empty ϕ ->
+    closure_interp rti sr ϕ senv_empty cl -∗
+    closure_interp rti sr ϕ se cl.
+  Proof.
+    intros Hse Hkind.
+    pose (sub_m := fun _ : nat => VarM (length (senv_mems se))).
+    pose (sub_r := fun _ : nat => VarR (length (senv_reps se))).
+    pose (sub_s := fun _ : nat => VarS (length (senv_sizes se))).
+    pose (sub_t := fun _ : nat => VarT (length (senv_types se))).
+    have Hoob : forall A (l : list A), l !! length l = None.
+    { intros; apply lookup_ge_None_2; lia. }
+    have Hkind' : has_kind_ft F ϕ by apply (proj1 (proj2 has_kind_empty)).
+    have Heq : refresh_kinds_ft F (subst_function_type sub_m sub_r sub_s sub_t ϕ) = ϕ.
+    { rewrite (subst_function_type_closed ϕ sub_m sub_r sub_s sub_t (has_kind_ft_ok _ _ Hkind)).
+      by symmetry; eapply (proj1 (proj2 refresh_kinds_id)). }
+    have Hgoal :
+      closure_interp rti sr (refresh_kinds_ft F (subst_function_type sub_m sub_r sub_s sub_t ϕ)) se cl
+      ⊢ closure_interp rti sr ϕ se cl by rewrite Heq.
+    iIntros "Hcl".
+    iApply Hgoal.
+    iApply (closure_interp_subst_senv_eq F fc_empty se senv_empty ϕ cl
+              sub_m sub_r sub_s sub_t with "[$Hcl]").
+    - constructor.
+    - by eapply sem_well_formed_from_interp.
+    - split; [done|constructor].
+    - done.
+    - intros i; cbn; by rewrite lookup_nil Hoob.
+    - intros i; cbn; by rewrite lookup_nil Hoob.
+    - intros i; cbn; by rewrite lookup_nil Hoob.
+    - intros i; cbn; by rewrite lookup_nil Hoob.
+    - intros i; cbn.
+      by rewrite lookup_nil (value_interp_var_oob se (length (senv_types se)) (Nat.le_refl _)).
+    - by intros i.
+    - done.
+    - by rewrite Heq.
   Qed.
 
 End substitution.

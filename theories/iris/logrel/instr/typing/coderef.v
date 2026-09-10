@@ -1,4 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.substitution.
 From mathcomp Require Import ssrbool eqtype.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -30,13 +31,16 @@ Section coderef.
     intros fe WT WL lmas τ ψ Htable Hok Hcg.
     cbn in Hcg; inversion Hcg; subst; clear Hcg.
 
-    iIntros (??????????) "@@@@@@@@@@".
+    have Hclosed : has_kind_ft fc_empty ϕ.
+    { destruct Hok as (_ & _ & _ & Htab); by eapply Forall_lookup_1. }
+
+    iIntros (???????? Hse Hevs) "@@@@@@@@@@".
 
     (* For fun, lots of things are [] *)
     iPoseProof (values_interp_nil_l with "[$Hos]") as "->".
     iPoseProof (atoms_interp_nil_l with "[$Hvs]") as "->".
-    apply Is_true_true in H0; apply all2_size in H0.
-    cbn in H0. destruct evs; [|cbn in H0; inversion H0]; clear H0.
+    apply Is_true_true in Hevs; apply all2_size in Hevs.
+    cbn in Hevs. destruct evs; [|cbn in Hevs; inversion Hevs]; clear Hevs.
     iClear "Hvs Hos". (* delete later if anything *)
     clear_nils.
 
@@ -183,7 +187,7 @@ Section coderef.
 
         (* almost there *)
         iSplitR; [|iSplitR]; auto.
-        * iApply (empty_closure_interp with "[$Hclosure]"); auto.
+        * iApply (empty_closure_interp rti sr F _ ϕ cl Hse Hclosed with "[$Hclosure]").
         *
           (* this is the worst proof I've ever written *)
           (* fix it one day but it qeds for now *)

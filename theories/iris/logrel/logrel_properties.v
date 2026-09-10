@@ -1457,16 +1457,6 @@ Section properties.
       apply value_type_interp_of_default.
   Qed.
 
-  Lemma empty_closure_interp se ϕ cl :
-    closure_interp rti sr ϕ senv_empty cl -∗
-    closure_interp rti sr ϕ se cl.
-  Proof.
-    (* This seems true? *)
-    iIntros "H".
-    cbn.
-  Admitted.
-
-
   Lemma type_interp_skind_svalue (τ : type) se sv :
     type_interp rti sr τ se sv -∗ ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝.
   Proof.
