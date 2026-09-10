@@ -13,6 +13,9 @@ Section unpack.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  (* False as stated: [unpacked_existential] leaves [fc_labels] and [fc_return] unshifted while
+     it shifts [L], [τs1] and [τs2], so the inner code's labels are read against the wrong
+     environment.  See [RichWasm.unpack_counterexamples]. *)
   Lemma compat_unpack M F F0' L L' L0 L0' wt wt' wtf wl wl' wlf es es' τs1 τs2 ψ0 :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
