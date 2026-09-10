@@ -1409,7 +1409,7 @@ Inductive packed_existential : function_ctx -> type -> type -> Prop :=
   subkind_of κ_wit κ_max ->
   (* type_ok F τ0 -> *)
   has_kind F τ0 κ0  ->
-  type_eq_mod_kinds τ0
+  refreshed_kinds F τ0
     (subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) τ_in) ->
   packed_existential F τ0 (ExistsTypeT κ_ex κ_max τ_in).
 
