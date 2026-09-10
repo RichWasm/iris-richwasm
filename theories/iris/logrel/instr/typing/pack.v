@@ -280,20 +280,12 @@ Section pack.
     - inversion Hkind'; subst.
       by iApply (type_interp_pack_size with "Hex").
     - inversion Hkind'; subst.
-      (* The only gap.  PackType asks for type_eq_mod_kinds between the packed type and the
-         substitution, which does not pin the kind annotations at RecT nodes (refresh_kinds
-         keeps those), while type_interp_pack_type -- like every other instantiation lemma --
-         needs the refreshed substitution itself.  FTInstType, which the rule's own NOTE says
-         it mirrors, uses refreshed_kinds; with that premise this case is
-           by iApply (type_interp_pack_type with "Hex").
-         Closing it from type_eq_mod_kinds instead needs value_interp to be monotone in the
-         kind annotations, which holds but is a separate development (the two RecT interps
-         differ in the skind of the knot). *)
-      have Hτ0 : τ = refresh_kinds F (subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) τ_in)
-        by admit.
+      have Hτ0 : τ = refresh_kinds F (subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) τ_in). {
+        by apply refreshed_kinds_refresh.
+      }
       rewrite Hτ0.
       rewrite Hτ0 in H1.
       by iApply (type_interp_pack_type with "Hex").
-  Admitted.
+  Qed.
 
 End pack.

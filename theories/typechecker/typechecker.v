@@ -3683,7 +3683,7 @@ Proof.
     inversion Hk; subst.
     apply IH in H3.
     cbn in *.
-    admit.
+    constructor. done.
   - intros IH * Hk.
     inversion Hk; subst.
     apply IH in H4 as Hnew.
@@ -3692,11 +3692,14 @@ Proof.
   - intros IH * Hk.
     inversion Hk; subst.
     apply IH in H4 as Hnew.
-    admit.
+    cbn.
+    eapply RKExistsRep; try done.
+    by apply has_kind_type_kind.
   - intros IH * Hk.
     inversion Hk; subst.
     apply IH in H4 as Hnew.
-    admit.
+    cbn; eapply RKExistsSize; try done.
+    by apply has_kind_type_kind.
   - intros IH * Hk.
     inversion Hk; subst.
     apply IH in H6 as Hnew.
@@ -3753,7 +3756,7 @@ Proof.
     inversion Hk; subst.
     apply IH in H1.
     constructor; done.
-Admitted.
+Qed.
 
 Lemma inner_function_type_inst_checker_correct :
   ∀ F i ft1 ft2,
@@ -4234,8 +4237,9 @@ Proof.
   repeat my_auto4.
   apply has_kind_synther_correct in HMatch0, HMatch2.
   match goal with H : subkind_of_checker _ _ = _ |- _ => apply subkind_of_checker_correct in H end.
-  destruct refresh_kinds_eq_mod_kinds as [Hrefresh _].
-  eapply PackType; [exact HMatch0 | exact HMatch1 | exact HMatch2 | apply Hrefresh].
+  eapply PackType; [exact HMatch0 | exact HMatch1 | exact HMatch2 | ].
+  pose proof refresh_kinds_connect_has_kind_maybe as [this _].
+  by eapply this.
 Qed.
 
 
