@@ -2586,13 +2586,6 @@ Section substitution.
   Qed.
 
 
-  Lemma invert_memok K n :
-    mem_ok K (VarM n) -> n < kc_mem_vars K.
-  Proof.
-    intros.
-    inversion H. subst. done.
-  Qed.
-
   Lemma closure_interp_scons_insert_mem F se μ ϕ cl :
     let ϕ' := refresh_kinds_ft F
                 (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ) in
@@ -2610,19 +2603,7 @@ Section substitution.
       intros. cbn. unfold sem_env_types_well_formed in *.
       cbn. done.
     }
-    assert (H: ∃ b, eval_mem se μ = Some b). {
-      destruct μ.
-      - (* ahhhhh *)
-        cbn.
-        destruct Hse as [ (Hse & _ & _)  _].
-        cbn in Hse.
-        apply invert_memok in Hok.
-        rewrite Hse in Hok.
-        apply lookup_lt_is_Some_2 in Hok.
-        done.
-      - cbn. by eexists.
-    }
-    destruct H as (b & evalμ).
+    destruct (eval_mem_ok_Some _ _ _ Hse Hok) as [b evalμ].
     unfold sem_env_types_well_formed in Hsegood.
     iApply closure_interp_subst_senv_eq; unfold_sem_rels; last done; try done.
 

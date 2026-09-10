@@ -352,6 +352,27 @@ Section kinding.
     by eapply eval_size_ok_Some'.
   Qed.
 
+  Lemma eval_mem_ok_Some' K se μ :
+    kind_ctx_interp (Σ:=Σ) K se ->
+    mem_ok K μ ->
+    is_Some (eval_mem se μ).
+  Proof.
+    intros (Hmem & _ & _) Hok.
+    destruct μ as [n|c]; cbn; [|by eexists].
+    inversion Hok; subst.
+    apply lookup_lt_is_Some_2.
+    by rewrite -Hmem.
+  Qed.
+
+  Lemma eval_mem_ok_Some F se μ :
+    sem_env_interp (Σ:=Σ) F se ->
+    mem_ok F.(fc_kind_ctx) μ ->
+    is_Some (eval_mem se μ).
+  Proof.
+    intros [Hsek _] Hok.
+    by eapply eval_mem_ok_Some'.
+  Qed.
+
   Lemma eval_kind_ok_Some' K se κ :
     kind_ctx_interp (Σ:=Σ) K se ->
     kind_ok K κ ->
