@@ -48,15 +48,15 @@ Definition fc_clear_kind (F : function_ctx) : function_ctx :=
      fc_type_vars := F.(fc_type_vars) |}.
 
 Definition subst_function_ctx
-  (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size) (s__type : nat -> type)
+  s__mem  s__rep s__size s__type
   (F : function_ctx) :
   function_ctx :=
-  let sub := subst_type s__mem s__rep s__size s__type in
+  let sub := ren_type s__mem s__rep s__size s__type in
   {| fc_return := map sub F.(fc_return);
      fc_locals := F.(fc_locals);
      fc_labels := map (fun '(τs, L) => (map sub τs, map sub L)) F.(fc_labels);
      fc_kind_ctx := F.(fc_kind_ctx);
-     fc_type_vars := map (subst_kind s__rep s__size) F.(fc_type_vars) |}.
+     fc_type_vars := map (ren_kind s__rep s__size) F.(fc_type_vars) |}.
 
 
 Definition add_size_var (F : function_ctx) :=
@@ -1419,7 +1419,7 @@ Inductive unpacked_existential :
   Prop :=
 | UnpackMem F L L' τs1 κ τ τs2 :
   let F0 :=
-    subst_function_ctx (up_memory VarM) VarR VarS VarT F <| fc_kind_ctx ::= set kc_mem_vars S |>
+    subst_function_ctx S id id id F <| fc_kind_ctx ::= set kc_mem_vars S |>
   in
   let up := ren_type S id id id in
   unpacked_existential
@@ -1427,7 +1427,7 @@ Inductive unpacked_existential :
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackRep F L L' τs1 κ τ τs2 :
   let F0 :=
-    add_rep_var (subst_function_ctx VarM (up_representation VarR) VarS VarT F)
+    add_rep_var (subst_function_ctx id S id id F)
   in
   let up := ren_type id S id id in
   unpacked_existential
@@ -1435,14 +1435,14 @@ Inductive unpacked_existential :
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackSize F L L' τs1 κ τ τs2 :
   let F0 :=
-    add_size_var (subst_function_ctx VarM VarR (up_size VarS) VarT F)
+    add_size_var (subst_function_ctx id id S id F)
   in
   let up := ren_type id id S id in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsSizeT κ τ]) τs2) L'
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackType F L L' τs1 κ κ0 τ τs2 :
-  let F0 := subst_function_ctx VarM VarR VarS (up_type VarT) F <| fc_type_vars ::= cons κ0 |> in
+  let F0 := subst_function_ctx id id id S F <| fc_type_vars ::= cons κ0 |> in
   let up := ren_type id id id S in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2) L'
