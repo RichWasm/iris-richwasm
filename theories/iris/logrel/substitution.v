@@ -851,6 +851,24 @@ Section substitution.
     by apply (proj1 type_interp_ren).
   Qed.
 
+  Lemma values_interp_ren ξm ξr ξs ξt (se se' : semantic_env (Σ:=Σ)) τs :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    values_interp rti sr se τs ≡ values_interp rti sr se' (map (ren_type ξm ξr ξs ξt) τs).
+  Proof.
+    intros HR.
+    induction τs; intros os; cbn;
+      iSplitR; iIntros "(%oss & -> & HV)"; iExists oss; iSplitR; try done.
+    - iDestruct (big_sepL2_cons_inv_l with "HV") as "(%os & %oss' & %Hoss & Hos & Hrest)".
+      subst oss.
+      rewrite big_sepL2_cons.
+      iSplitR "Hrest".
+      + pose proof ((proj1 type_interp_ren) a).
+        unfold type_ren_ok in H.
+        apply H in HR.
+        by iApply HR.
+      + (* i hate this whatever it's right *)
+  Admitted.
+
   Lemma value_interp_var_insert (se : semantic_env (Σ:=Σ)) sκ sκ_T T :
     subskind_of sκ_T sκ →
     skind_has_stype sκ_T T →

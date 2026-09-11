@@ -34,9 +34,17 @@ Section Compiler.
     ιs ← fe.(fe_locals) !! i;
     Some (map W.Mk_localidx (seq i' (length ιs))).
 
+  Print function_env.
   Definition fe_extend_unpack (fe : function_env) (τ : type) : function_env :=
     match τ with
-    | ExistsTypeT _ κ _ => fe <| fe_type_vars ::= cons κ |>
+    | ExistsTypeT _ κ _ =>
+        fe <| fe_type_vars ::= cons κ |>
+    | ExistsMemT _ _ =>
+        {|
+          fe_type_vars := map (ren_kind id id) (fe_type_vars fe);
+          fe_return := map (ren_type S id id id) (fe_return fe);
+          fe_locals := fe_locals fe
+        |}
     | _ => fe
     end.
 
