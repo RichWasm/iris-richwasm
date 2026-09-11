@@ -26,21 +26,82 @@ Section unpack.
     inversion H'; done.
   Qed.
 
-  Lemma frame_interp_ren ξm ξr ξs ξt (se se' : semantic_env (Σ:=Σ)) ηss L WL fr :
+  Lemma locals_interp_ren ξm ξr ξs ξt (se se' : semantic_env (Σ:=Σ)) L oss :
     sem_env_ren ξm ξr ξs ξt se se' →
-    frame_interp rti sr se ηss L WL fr ∗-∗
-      frame_interp rti sr se' ηss (map (ren_type ξm ξr ξs ξt) L) WL fr.
+    locals_interp rti sr se L oss ⊣⊢ locals_interp rti sr se' (map (ren_type ξm ξr ξs ξt) L) oss.
   Proof.
     intros HR.
-    iSplitR; iIntros "Hframe"; unfold frame_interp;
-    iDestruct "Hframe" as "(%oss & %vss_L & %vs_WL & %flocs & %fprims & %resint & Hos & Hlocals)";
-      iFrame; iExists vs_WL; repeat (iSplitR; try done).
-    - cbn.
-      (* yes *)
-      admit.
-    - (* yup *)
-      admit.
-  Admitted.
+    unfold locals_interp; cbn.
+    rewrite map_fmap big_sepL2_fmap_l.
+    apply big_sepL2_proper; intros _ τ os _ _.
+    exact (value_interp_ren _ _ _ _ _ _ _ _ τ HR (SAtoms os)).
+  Qed.
+
+  Lemma frame_interp_ren ξm ξr ξs ξt (se se' : semantic_env (Σ:=Σ)) ηss L WL fr :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    frame_interp rti sr se ηss L WL fr ⊣⊢
+      frame_interp rti sr se' ηss (map (ren_type ξm ξr ξs ξt) L) WL fr.
+  Proof.
+    intros HR; cbn.
+    do 3 (f_equiv; intros ?).
+    do 4 f_equiv.
+    exact (locals_interp_ren _ _ _ _ _ _ _ _ HR).
+  Qed.
+
+  Lemma label_interp_ren ξm ξr ξs ξt (se se' : semantic_env (Σ:=Σ)) ηss fr WL lmask τs L ls :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    label_interp rti sr se ηss fr WL lmask (τs, L) ls ⊣⊢
+      label_interp rti sr se' ηss fr WL lmask
+        (map (ren_type ξm ξr ξs ξt) τs, map (ren_type ξm ξr ξs ξt) L) ls.
+  Proof.
+    intros HR; destruct ls as [n P]; cbn -[translate_types values_interp frame_interp].
+    rewrite <- (translate_types_ren _ _ _ _ _ _ _ HR).
+    f_equiv; f_equiv.
+    do 4 (f_equiv; intros ?).
+    f_equiv.
+    f_equiv; [exact (frame_interp_ren _ _ _ _ _ _ _ _ _ _ HR)|].
+    do 4 f_equiv.
+    exact (values_interp_ren _ _ _ _ _ _ _ _ _ HR _).
+  Qed.
+
+  Lemma labels_interp_ren ξm ξr ξs ξt (se se' : semantic_env (Σ:=Σ)) ηss fr WL lmask Ls B :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    labels_interp rti sr se ηss fr WL lmask Ls B ⊣⊢
+      labels_interp rti sr se' ηss fr WL lmask
+        (map (λ '(τs, L), (map (ren_type ξm ξr ξs ξt) τs, map (ren_type ξm ξr ξs ξt) L)) Ls) B.
+  Proof.
+    intros HR; unfold labels_interp.
+    rewrite map_fmap big_sepL2_fmap_l.
+    apply big_sepL2_proper; intros k [τs L] ls _ _; cbn.
+    exact (label_interp_ren _ _ _ _ _ _ _ _ _ _ _ _ _ HR).
+  Qed.
+
+  Lemma labels_interp_cons_iff (se : semantic_env (Σ:=Σ)) ηss fr WL lmask τs L Ls ls B :
+    labels_interp rti sr se ηss fr WL lmask ((τs, L) :: Ls) (ls :: B) ⊣⊢
+      label_interp rti sr se ηss fr WL lmask (τs, L) ls ∗
+      labels_interp rti sr se ηss fr WL lmask Ls B.
+  Proof. apply big_sepL2_cons. Qed.
+
+  Lemma return_interp_ren ξm ξr ξs ξt (se se' : semantic_env (Σ:=Σ)) τr R :
+    sem_env_ren ξm ξr ξs ξt se se' →
+    return_interp rti sr se τr R ⊣⊢ return_interp rti sr se' (map (ren_type ξm ξr ξs ξt) τr) R.
+  Proof.
+    intros HR; destruct R as [[n P]|]; cbn -[translate_types values_interp]; [|done].
+    rewrite <- (translate_types_ren _ _ _ _ _ _ _ HR).
+    f_equiv; f_equiv.
+    do 3 (f_equiv; intros ?).
+    f_equiv.
+    f_equiv.
+    exact (values_interp_ren _ _ _ _ _ _ _ _ _ HR _).
+  Qed.
+
+  Lemma sem_env_interp_ren_ctx F (se : semantic_env (Σ:=Σ)) ξm ξt :
+    sem_env_interp F se → sem_env_interp (subst_function_ctx ξm id id ξt F) se.
+  Proof.
+    intros [Hk Ht]; split; [exact Hk|].
+    unfold type_ctx_interp in *; cbn.
+    by rewrite (map_ext _ _ rinstId'_kind) map_id.
+  Qed.
 
   Lemma compat_unpack M F F0' L L' L0 L0' wt wt' wtf wl wl' wlf es es' τs1 τs2 ψ0 :
     let fe := fe_of_context F in
@@ -64,7 +125,7 @@ Section unpack.
     intros * Hunpack Hty IH Hcg.
     cbn [compile_instr] in Hcg.
     unfold compile_unpack in Hcg.
-    destruct ψ as [τs1' τs2'].
+    subst ψ; cbn [compile_unpack] in Hcg.
     inv_cg_bind Hcg ?τ ?wt ?wt ?wl ?wl ?es_emp ?es Hlast Hcg.
     inv_cg_try_option Hlast; subst; clear_nils.
     inv_cg_bind Hcg ?tf ?wt ?wt ?wl ?wl ?es_emp ?es Hft Hcg.
@@ -73,124 +134,84 @@ Section unpack.
     apply wp_ignore in Hcg.
     destruct Hcg as (_ & [] & Hcg).
 
-    (* Start iris proof *)
     iIntros (???????? Hse Hevs) "@@@@@@@@@@".
     destruct tf as [ts1 ts2].
     apply cwp_block_c in Hcg as Hcg_block.
     destruct Hcg_block as (es_c & Hcg_es & Hcg_block).
 
-    iAssert (⌜length evs = length ts1⌝%I) with "[Hvs Hos]" as "%Hlents1". {
-      admit.
-    }
+    apply bind_Some in Heq_some0 as (ts1' & Hts1 & Htrans).
+    apply bind_Some in Htrans as (ts2' & Hts2 & [= <- <-]).
+    iDestruct (translate_types_comp_interp_length with "Hos") as "%Hoslen"; [done|exact Hts1|].
+    iDestruct (big_sepL2_length with "Hvs") as "%Hvslen".
+    unfold ofe_car in Hvslen.
+    apply has_values_length in Hevs as Hevslen.
 
     iApply (Hcg_block with "[$] [$] [-]").
-    { done. }
+    { lia. }
     { apply Is_true_true. by eapply has_values_is_consts. }
 
     iIntros "Hfr Hrun".
     clear Hcg_block Hcg.
 
-    (* now it's time to apply the IH *)
     cbn in Hcg_es.
     inversion Hunpack; subst.
     - (* exists mem *)
-      apply last_singleton in Heq_some as Tosubst.
-      subst τ.
-      assert (fe_extend_unpack fe (ExistsMemT κ τ0) = fe_of_context F1). {
-        done.
-      }
-      rewrite H in Hcg_es.
+      apply last_singleton in Heq_some as <-.
+      assert (fe_extend_unpack fe (ExistsMemT κ τ0) = fe_of_context F1) as Hfe by done.
+      rewrite Hfe in Hcg_es.
       apply (IH _ _ wtf _ _ wlf) in Hcg_es.
-
-      (* this might be tough... *)
       subst WL WT. clear_nils.
       set (WL := wl ++ wl2 ++ wlf) in *; set (WT := wt ++ wt2 ++ wtf) in *.
       move WL at top; move WT at top.
-
       unfold have_instr_type_sem in Hcg_es.
-      (* return interp: fine, because translate type length is invariant under ren shift, and the only
-       thing that might get changed is values_interp, but se will also go up with F1 ideally so we should be fine *)
-      (* labels_interp: translate types invariant, then frame interp is the question but should be fine (checking later)
-       values_interp will be fine too, it's only upshifts *)
-      (* frame interp: only thing relevant is locals getting uped (fc_locals doesn't change), and this is value interp
-       with an updated se, so we should be fine as above *)
-      (* yeah the value interp lemma is value_interp_ren and it will work, I just have to set up the new se correctly *)
-      (* okay yes everything settles down to value_interp_ren ! *)
 
-      (* I need to get the witness out of values_interp. I also need to get it out anyway for value_interp of τ0 *)
       iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hexists)".
-      rewrite values_interp_one_eq.
-      rewrite value_interp_eq.
-      Opaque senv_insert_mem.
-      iEval (cbn) in "Hexists".
-      iDestruct "Hexists" as "(%sκ & %Heval & %Hsksv & Hexists)".
-      (* maybe not distinctly necessary but fun anyway *)
-      destruct sκ as [ρ ξ | σ ξ]; cbn in Hsksv; try by inversion Hsksv.
-      destruct Hsksv as [Hareps Href].
+      iEval (rewrite values_interp_one_eq value_interp_eq; cbn -[senv_insert_mem]) in "Hexists".
+      iDestruct "Hexists" as "(%sκ & %Heval & %Hsksv & %μ & Hτ0)".
+      assert (sem_env_ren S id id id se (senv_insert_mem μ se)) as HR
+        by exact (sem_env_ren_shift_mem se μ).
+      have Hlabels1 : fc_labels F1 = (map up τs2, map up L') :: map (λ '(τs, L), (map up τs, map up L)) (fc_labels F).
+      { reflexivity. }
 
-      iDestruct "Hexists" as "(%μ & Hτ0)".
-
-      assert (sem_env_ren S id id id se (senv_insert_mem μ se)) as Hsemren by done.
-
-      (* I think that we're pretty much ready to apply? *)
       iApply (cwp_wand with "[-]").
-      {
-        iPoseProof Hcg_es as "Hcg_es".
+      { iPoseProof Hcg_es as "Hcg_es".
         iApply ("Hcg_es" $! (senv_insert_mem μ se) fr (os1 ++ os2) vs evs
-                 with "[%] [//] [//] [] [] [$Hvs] [Hos1 Hτ0] [Hframe] [$] [$] [$] [$]"); try (iClear "Hcg_es").
-        - (* I'm concerned for the other cases but I think this one is fine *)
-          admit.
-        - assert (typing.fc_locals F1 = typing.fc_locals F) by done.
-          rewrite H0; clear H0.
-          admit.
-        - admit.
-        - admit.
-        - assert (typing.fc_locals F1 = typing.fc_locals F) by done.
-          rewrite H0. unfold up; clear H0.
-          pose proof (frame_interp_ren S id id id se (senv_insert_mem μ se)).
-          specialize (H0 (typing.fc_locals F) L WL fr Hsemren).
-          by iApply H0.
+                 with "[%] [//] [//] [] [] [$Hvs] [Hos1 Hτ0] [Hframe] [$] [$] [$] [$]").
+        - by apply sem_env_insert_mem, sem_env_interp_ren_ctx.
+        - rewrite Hlabels1.
+          iApply labels_interp_cons_iff.
+          iSplitR.
+          + cbn [label_interp].
+            iSplitR.
+            * have Hts2s : translate_types se τs2 = Some ts2'.
+              { eapply translate_types_comp_sem; [exact Hse|exact Hts2]. }
+              by rewrite -(translate_types_ren _ _ _ _ _ _ _ HR) Hts2s.
+            * iIntros "!>" (fr'' vs'' os θ') "%Hrel Hframe' Hrt Hown Hvs' Hos'".
+              iFrame.
+              iSplitR; [done|].
+              iSplitL "Hframe'"; [by iApply (frame_interp_ren _ _ _ _ _ _ _ _ _ _ HR)|].
+              by iApply (values_interp_ren _ _ _ _ _ _ _ _ _ HR).
+          + by iApply (labels_interp_ren _ _ _ _ _ _ _ _ _ _ _ _ HR).
+        - by iApply (return_interp_ren _ _ _ _ _ _ _ _ HR).
+        - iApply (values_interp_app with "[Hos1] [Hτ0]").
+          + by iApply (values_interp_ren _ _ _ _ _ _ _ _ _ HR).
+          + iApply values_interp_one_eq.
+            Transparent value_interp. iExact "Hτ0". Opaque value_interp.
+        - by iApply (frame_interp_ren _ _ _ _ _ _ _ _ _ _ HR).
       }
-
       iIntros (fr' vs') "(%Hrel & Hframe & Hvals & Hrt & Hown)".
       iFrame.
-
-      iSplitR; [ iPureIntro; done | iSplitR "Hvals"].
-      + assert (typing.fc_locals F1 = typing.fc_locals F) by done.
-        rewrite H0. unfold up; clear H0.
-        pose proof (frame_interp_ren S id id id se (senv_insert_mem μ se)).
-        specialize (H0 (typing.fc_locals F) L' WL fr' Hsemren).
-        by iApply H0.
-      + iDestruct "Hvals" as "(%os' & Hval & Hatom)".
-        iFrame.
-        pose proof (values_interp_ren rti sr mr S id id id se (senv_insert_mem μ se)).
-        specialize (H0 τs2' Hsemren).
-        by iApply H0.
-      Transparent senv_insert_mem.
+      iSplitR; [done|].
+      iDestruct "Hvals" as "(%os' & Hval & Hatom)".
+      iSplitL "Hframe"; [by iApply (frame_interp_ren _ _ _ _ _ _ _ _ _ _ HR)|].
+      iExists os'; iFrame.
+      by iApply (values_interp_ren _ _ _ _ _ _ _ _ _ HR).
     - (* exists rep *)
-      apply last_singleton in Heq_some as Tosubst.
-      subst τ.
-      assert (fe_extend_unpack fe (ExistsRepT κ τ0) = fe_of_context F1). {
-        subst F1; unfold fe_extend_unpack, fe_of_context.
-        unfold subst_function_ctx; cbn.
-        subst F'; cbn. unfold set; cbn.
-        subst fe. unfold fe_of_context; cbn.
-        admit.
-      }
-
       admit.
     - (* exists size *)
-      apply last_singleton in Heq_some as Tosubst.
-      subst τ.
-      assert (fe_extend_unpack fe (ExistsSizeT κ τ0) = fe_of_context F1). {
-        subst F1; unfold fe_extend_unpack, fe_of_context.
-        unfold subst_function_ctx; cbn.
-        subst F'; cbn. unfold set; cbn.
-        subst fe. unfold fe_of_context; cbn.
-        admit.
-      }
       admit.
-    - admit.
+    - (* exists type *)
+      admit.
   Admitted.
 
 End unpack.
