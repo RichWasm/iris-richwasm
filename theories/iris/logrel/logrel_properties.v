@@ -260,6 +260,22 @@ Section properties.
     by iFrame.
   Qed.
 
+  Lemma values_interp_app se τs1 τs2 os1 os2 :
+    values_interp rti sr se τs1 os1 -∗
+    values_interp rti sr se τs2 os2 -∗
+    values_interp rti sr se (τs1 ++ τs2) (os1 ++ os2).
+  Proof.
+    iIntros "(%oss1 & -> & Hoss1)".
+    iIntros "(%oss2 & -> & Hoss2)".
+    iExists (oss1 ++ oss2).
+    rewrite map_app concat_app.
+    iSplit; first done.
+    iPoseProof (big_sepL2_length with "Hoss1") as "%Hlen1".
+    iPoseProof (big_sepL2_length with "Hoss2") as "%Hlen2".
+    setoid_rewrite big_sepL2_app_same_length; last by eauto.
+    by iFrame.
+  Qed.
+
   Lemma values_interp_app_l se τs1 τs2 os :
     values_interp rti sr se (τs1 ++ τs2) os -∗
     ∃ os1 os2,
