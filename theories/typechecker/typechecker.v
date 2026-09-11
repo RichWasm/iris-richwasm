@@ -1136,12 +1136,12 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
       end
   | RecT κ τ =>
       match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
-      | inl () => type_ok_checker (F <| fc_type_vars ::= cons κ |>) τ
+      | inl () => type_ok_checker (add_type_var F κ) τ
       | err => err
       end
   | ExistsMemT κ τ =>
       match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
-      | inl () => type_ok_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ
+      | inl () => type_ok_checker (add_mem_var F) τ
       | err => err
       end
   | ExistsRepT κ τ =>
@@ -1158,7 +1158,7 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
      match (kind_ok_checker (F.(fc_kind_ctx)) κ1) with
      | inl () =>
          match (kind_ok_checker (F.(fc_kind_ctx)) κ2) with
-         | inl () => type_ok_checker (F <| fc_type_vars ::= cons κ2 |>) τ
+         | inl () => type_ok_checker (add_type_var F κ2) τ
          | err => err
          end
      | err => err
@@ -1183,14 +1183,14 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
              (* INR ("function type ok error in τs1 (" ++ (combine_error_messages res1) ++ ")"%string) *)
       | ForallTypeT κ ϕ =>
           match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
-          | inl () => inner_function_type_ok_checker (F <| fc_type_vars ::= cons κ |>) ϕ
+          | inl () => inner_function_type_ok_checker (add_type_var F κ) ϕ
           | err => err
           end
       end
     with function_type_ok_checker (F: function_ctx) (ft:function_type) : type_checker_res :=
       match ft with
       | InnerFunT ϕ => inner_function_type_ok_checker F ϕ
-      | ForallMemT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
+      | ForallMemT ϕ => function_type_ok_checker (add_mem_var F) ϕ
       | ForallRepT ϕ => function_type_ok_checker (add_rep_var F) ϕ
       | ForallSizeT ϕ => function_type_ok_checker (add_size_var F) ϕ
       end.
@@ -1754,7 +1754,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
       | _ => inr (HasKindError "bad span kind format" [])
       end
   | RecT κ τ =>
-      match has_kind_synther (F <| fc_type_vars ::= cons κ |>) τ with
+      match has_kind_synther (add_type_var F κ) τ with
       | inl κ' =>
           if subkind_of_checker κ' κ
           then inl κ
@@ -1764,7 +1764,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
   | ExistsMemT κ τ =>
       match kind_ok_checker (F.(fc_kind_ctx)) κ with
       | inl () =>
-          match has_kind_synther (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ with
+          match has_kind_synther (add_mem_var F) τ with
           | inl κ' =>
               if kind_beq κ κ'
               then inl κ
@@ -1802,7 +1802,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
       | inl () =>
           match kind_ok_checker (F.(fc_kind_ctx)) κ0 with
           | inl () =>
-              match has_kind_synther (F <| fc_type_vars ::= cons κ0 |>) τ with
+              match has_kind_synther (add_type_var F κ0) τ with
               | inl κ' =>
                   if kind_beq κ κ'
                   then inl κ
@@ -1827,14 +1827,14 @@ with has_kind_ift_checker (F:function_ctx) (ϕ:inner_function_type) : type_check
       else inr [HasKindError "in monofun some argument types didn't synth" (get_all_rights results1)]
   | ForallTypeT κ ϕ =>
       match kind_ok_checker (F.(fc_kind_ctx)) κ with
-      | inl () => has_kind_ift_checker (F <| fc_type_vars ::= cons κ |>) ϕ
+      | inl () => has_kind_ift_checker (add_type_var F κ) ϕ
       | err => err
       end
   end
 with has_kind_ft_checker (F:function_ctx) (ϕ:function_type) : type_checker_res :=
   match ϕ with
   | InnerFunT ϕ => has_kind_ift_checker F ϕ
-  | ForallMemT ϕ => has_kind_ft_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
+  | ForallMemT ϕ => has_kind_ft_checker (add_mem_var F) ϕ
   | ForallRepT ϕ => has_kind_ft_checker (add_rep_var F) ϕ
   | ForallSizeT ϕ => has_kind_ft_checker (add_size_var F) ϕ
   end.
@@ -2008,11 +2008,9 @@ Proof.
   eapply kind_ok_subkind_of; last eauto.
   eauto.
   eapply kinding_subst.has_kind_kind_ok in HMatch.
-  cbn in HMatch.
-  by erewrite <- kinding_subst.fc_kind_ctx_ty_update.
-
-
-
+  unfold add_type_var in HMatch.
+  unfold set in HMatch; cbn in HMatch.
+  done.
 Qed.
 
 Lemma has_kind_synther_correct :
@@ -3256,9 +3254,9 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
       SerT κ τ'
   | PlugT _ ρ => PlugT (VALTYPE ρ NoRefs) ρ
   | SpanT _ σ => SpanT (MEMTYPE σ NoRefs) σ
-  | RecT κ τ => RecT κ (refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ)
+  | RecT κ τ => RecT κ (refresh_kinds (add_type_var F κ) τ)
   | ExistsMemT κ τ =>
-      ExistsMemT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ)
+      ExistsMemT κ (refresh_kinds (add_mem_var F) τ)
   | ExistsRepT _ τ =>
       let τ' := refresh_kinds (add_rep_var F) τ in
       ExistsRepT (unshift_rep_kind (kind_of_node (add_rep_var F) τ')) τ'
@@ -3266,17 +3264,17 @@ Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
       let τ' := refresh_kinds (add_size_var F) τ in
       ExistsSizeT (unshift_size_kind (kind_of_node (add_size_var F) τ')) τ'
   | ExistsTypeT κ κ0 τ =>
-      ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
+      ExistsTypeT κ κ0 (refresh_kinds (add_type_var F κ0) τ)
   end
 with refresh_kinds_ift (F : function_ctx) (ϕ : inner_function_type) : inner_function_type :=
   match ϕ with
   | MonoFunT τs1 τs2 => MonoFunT (map (refresh_kinds F) τs1) (map (refresh_kinds F) τs2)
-  | ForallTypeT κ ϕ => ForallTypeT κ (refresh_kinds_ift (F <| fc_type_vars ::= cons κ |>) ϕ)
+  | ForallTypeT κ ϕ => ForallTypeT κ (refresh_kinds_ift (add_type_var F κ) ϕ)
   end
 with refresh_kinds_ft (F : function_ctx) (ϕ : function_type) : function_type :=
   match ϕ with
   | InnerFunT ϕ => InnerFunT (refresh_kinds_ift F ϕ)
-  | ForallMemT ϕ => ForallMemT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ)
+  | ForallMemT ϕ => ForallMemT (refresh_kinds_ft (add_mem_var F) ϕ)
   | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (add_rep_var F) ϕ)
   | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (add_size_var F) ϕ)
   end.
@@ -4287,7 +4285,7 @@ Definition unpacked_existential_checker
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsTypeT κ κ0 τ_check =>
-                  let F0 := subst_function_ctx id id id S F <| fc_type_vars ::= cons κ0 |> in
+                  let F0 := add_type_var (subst_function_ctx id id id S F) κ0 in
                   let up := ren_type id id id S in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
@@ -4350,7 +4348,7 @@ Definition unpacked_existential_getter F L ϕ L' :
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
               Some (F0, L0, ϕ0, L'0)
           | ExistsTypeT κ κ0 τ =>
-              let F0 := subst_function_ctx id id id S F <| fc_type_vars ::= cons κ0 |> in
+              let F0 := add_type_var (subst_function_ctx id id id S F) κ0 in
               let up := ren_type id id id S in
               let L0 := (map up L) in
               let L'0 := (map up L') in

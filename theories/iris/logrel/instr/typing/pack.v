@@ -22,7 +22,7 @@ Section pack.
   Lemma type_interp_pack_mem F se μ κ κ0 τ sv :
     sem_env_interp F se ->
     kind_ok (fc_kind_ctx F) κ ->
-    has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
+    has_kind (add_mem_var F) τ κ ->
     has_kind F (subst_type (unscoped.scons μ VarM) VarR VarS VarT τ) κ0 ->
     type_interp rti sr (subst_type (unscoped.scons μ VarM) VarR VarS VarT τ) se sv -∗
     type_interp rti sr (ExistsMemT κ τ) se sv.
@@ -61,7 +61,7 @@ Section pack.
                  = subst_type (unscoped.scons μ VarM) VarR VarS VarT τ
       by rewrite -Heqsub -Hrefresh.
     iEval (rewrite -Hτ0eq) in "Hval".
-    iApply (type_interp_subst_type_backwards rti sr F (F <| fc_kind_ctx ::= set kc_mem_vars S |>)
+    iApply (type_interp_subst_type_backwards rti sr F (add_mem_var F)
               se (senv_insert_mem b se) τ κ κ0 sv
               (unscoped.scons μ0 VarM) VarR VarS VarT with "[$Hval]").
     - by eapply sem_well_formed_from_interp, sem_env_insert_mem.
@@ -182,7 +182,7 @@ Section pack.
     has_kind F τ_wit κ_wit ->
     subkind_of κ_wit κ_max ->
     kind_ok (fc_kind_ctx F) κ_ex ->
-    has_kind (F <| fc_type_vars ::= cons κ_max |>) τ_in κ_ex ->
+    has_kind (add_type_var F κ_max) τ_in κ_ex ->
     has_kind F τ0 κ0 ->
     type_interp rti sr τ0 se sv -∗
     type_interp rti sr (ExistsTypeT κ_ex κ_max τ_in) se sv.
@@ -223,7 +223,7 @@ Section pack.
     have Hstype : skind_has_stype sκ_wit (value_interp rti sr se τ_wit)
       by eapply kinding_sound.
     iSplit; [done|]; iSplit; [done|]; iSplit; [done|].
-    iApply (type_interp_subst_type_backwards rti sr F (F <| fc_type_vars ::= cons κ_max |>)
+    iApply (type_interp_subst_type_backwards rti sr F (add_type_var F κ_max)
               se (senv_insert_type sκ_max sκ_wit (value_interp rti sr se τ_wit) se)
               τ_in κ_ex κ0 sv
               VarM VarR VarS (unscoped.scons τ_wit VarT) with "[$Hval]").

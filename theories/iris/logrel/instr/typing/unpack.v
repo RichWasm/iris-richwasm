@@ -134,6 +134,7 @@ Section unpack.
     apply wp_ignore in Hcg.
     destruct Hcg as (_ & [] & Hcg).
 
+    (* start iris proof *)
     iIntros (???????? Hse Hevs) "@@@@@@@@@@".
     destruct tf as [ts1 ts2].
     apply cwp_block_c in Hcg as Hcg_block.
@@ -165,6 +166,7 @@ Section unpack.
       move WL at top; move WT at top.
       unfold have_instr_type_sem in Hcg_es.
 
+      (* get the witness out of the values interp *)
       iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hexists)".
       iEval (rewrite values_interp_one_eq value_interp_eq; cbn -[senv_insert_mem]) in "Hexists".
       iDestruct "Hexists" as "(%sκ & %Heval & %Hsksv & %μ & Hτ0)".
@@ -174,9 +176,9 @@ Section unpack.
       { reflexivity. }
 
       iApply (cwp_wand with "[-]").
-      { iPoseProof Hcg_es as "Hcg_es".
+      { iPoseProof Hcg_es as "Hcg_es"; clear Hcg_es.
         iApply ("Hcg_es" $! (senv_insert_mem μ se) fr (os1 ++ os2) vs evs
-                 with "[%] [//] [//] [] [] [$Hvs] [Hos1 Hτ0] [Hframe] [$] [$] [$] [$]").
+          with "[%] [//] [//] [] [] [$Hvs] [Hos1 Hτ0] [Hframe] [$] [$] [$] [$]"); try (iClear "Hcg_es").
         - by apply sem_env_insert_mem, sem_env_interp_ren_ctx.
         - rewrite Hlabels1.
           iApply labels_interp_cons_iff.
@@ -197,7 +199,11 @@ Section unpack.
           + by iApply (values_interp_ren _ _ _ _ _ _ _ _ _ HR).
           + iApply values_interp_one_eq.
             Transparent value_interp. iExact "Hτ0". Opaque value_interp.
-        - by iApply (frame_interp_ren _ _ _ _ _ _ _ _ _ _ HR).
+        - assert (typing.fc_locals F1 = typing.fc_locals F) by done.
+          rewrite H.
+          pose proof (frame_interp_ren S id id id se (senv_insert_mem μ se) (typing.fc_locals F)).
+          specialize (H0 L WL fr HR).
+          by iApply H0.
       }
       iIntros (fr' vs') "(%Hrel & Hframe & Hvals & Hrt & Hown)".
       iFrame.
@@ -207,6 +213,13 @@ Section unpack.
       iExists os'; iFrame.
       by iApply (values_interp_ren _ _ _ _ _ _ _ _ _ HR).
     - (* exists rep *)
+      apply last_singleton in Heq_some as <-.
+      assert (fe_extend_unpack fe (ExistsRepT κ τ0) = fe_of_context F1) as Hfe. {
+        subst F1 F' fe.
+        cbn. unfold add_rep_var. unfold subst_function_ctx. cbn.
+        destruct F; cbn.
+        admit.
+      }
       admit.
     - (* exists size *)
       admit.

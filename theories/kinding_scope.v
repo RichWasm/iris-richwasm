@@ -477,7 +477,7 @@ Proof.
 Qed.
 
 Lemma sub_scope_type_up_type F σ κ :
-  sub_scope_type F σ -> sub_scope_type (F <| fc_type_vars ::= cons κ |>) (up_type_type σ).
+  sub_scope_type F σ -> sub_scope_type (add_type_var F κ) (up_type_type σ).
 Proof.
   intros H [|n]; unfold up_type_type, unscoped.scons, core.funcomp; cbn; [done|].
   destruct F; cbn; intros Hn.
@@ -487,7 +487,7 @@ Qed.
 
 Lemma sub_scope_type_up_mem F σ :
   sub_scope_type F σ ->
-  sub_scope_type (F <| fc_kind_ctx ::= set kc_mem_vars S |>) (up_memory_type σ).
+  sub_scope_type (add_mem_var F) (up_memory_type σ).
 Proof.
   intros H n; unfold up_memory_type, core.funcomp.
   destruct F; cbn; intros Hn.

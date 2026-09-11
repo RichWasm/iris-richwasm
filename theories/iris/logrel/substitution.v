@@ -888,7 +888,7 @@ Section substitution.
 
   Lemma subst_rel_insert_mem F F' sub_m sub_r sub_s sub_t se se' μ :
     subst_rel F F' sub_m sub_r sub_s sub_t se se' →
-    subst_rel (F <| fc_kind_ctx ::= set kc_mem_vars S |>) (F' <| fc_kind_ctx ::= set kc_mem_vars S |>)
+    subst_rel (add_mem_var F) (add_mem_var F')
       (up_memory_memory sub_m) (up_memory_representation sub_r) (up_memory_size sub_s)
       (up_memory_type sub_t) (senv_insert_mem μ se) (senv_insert_mem μ se').
   Proof.
@@ -979,7 +979,7 @@ Section substitution.
     eval_kind se' κ = Some sκ →
     subskind_of sκ_T sκ →
     skind_has_stype sκ_T T →
-    subst_rel (F <| fc_type_vars ::= cons (subst_kind sub_r sub_s κ) |>) (F' <| fc_type_vars ::= cons κ |>)
+    subst_rel (add_type_var F (subst_kind sub_r sub_s κ)) (add_type_var F' κ)
       (up_type_memory sub_m) (up_type_representation sub_r) (up_type_size sub_s) (up_type_type sub_t)
       (senv_insert_type sκ sκ_T T se) (senv_insert_type sκ sκ_T T se').
   Proof.
@@ -1115,14 +1115,14 @@ Section substitution.
   Lemma has_kind_rec_inv F κ τ κ' :
     has_kind F (RecT κ τ) κ' →
     κ' = κ ∧
-    ∃ κbody, subkind_of κbody κ ∧ has_kind (F <| fc_type_vars ::= cons κ |>) τ κbody.
+    ∃ κbody, subkind_of κbody κ ∧ has_kind (add_type_var F κ) τ κbody.
   Proof.
     inversion 1; subst; eauto.
   Qed.
 
   Lemma has_kind_existsmem_inv F κ τ κ' :
     has_kind F (ExistsMemT κ τ) κ' →
-    κ' = κ ∧ has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ.
+    κ' = κ ∧ has_kind (add_mem_var F) τ κ.
   Proof. by inversion 1; subst. Qed.
 
   Lemma has_kind_existsrep_inv F κ τ κ' :
@@ -1137,7 +1137,7 @@ Section substitution.
 
   Lemma has_kind_existstype_inv F κ κ0 τ κ' :
     has_kind F (ExistsTypeT κ κ0 τ) κ' →
-    κ' = κ ∧ has_kind (F <| fc_type_vars ::= cons κ0 |>) τ κ.
+    κ' = κ ∧ has_kind (add_type_var F κ0) τ κ.
   Proof. by inversion 1; subst. Qed.
 
   Lemma has_kind_existstype_bound_ok F κ κ0 τ κ' :
@@ -1951,7 +1951,7 @@ Section substitution.
 
   Lemma has_kind_ift_foralltype_inv F κ ϕ :
     has_kind_ift F (ForallTypeT κ ϕ) →
-    kind_ok F.(fc_kind_ctx) κ ∧ has_kind_ift (F <| fc_type_vars ::= cons κ |>) ϕ.
+    kind_ok F.(fc_kind_ctx) κ ∧ has_kind_ift (add_type_var F κ) ϕ.
   Proof. by inversion 1; subst. Qed.
 
   Lemma has_kind_ft_inner_inv F ϕ :
@@ -1959,7 +1959,7 @@ Section substitution.
   Proof. by inversion 1; subst. Qed.
 
   Lemma has_kind_ft_forallmem_inv F ϕ :
-    has_kind_ft F (ForallMemT ϕ) → has_kind_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ.
+    has_kind_ft F (ForallMemT ϕ) → has_kind_ft (add_mem_var F) ϕ.
   Proof. by inversion 1; subst. Qed.
 
   Lemma has_kind_ft_forallrep_inv F ϕ :
@@ -2599,7 +2599,7 @@ Section substitution.
     let ϕ' := refresh_kinds_ft F
                 (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ) in
     has_kind_ft F ϕ' ->
-    has_kind_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ ->
+    has_kind_ft (add_mem_var F) ϕ ->
     mem_ok F.(fc_kind_ctx) μ ->
     sem_env_interp F se ->
     (∀ μ', closure_interp rti sr ϕ (senv_insert_mem μ' se) cl) -∗
@@ -2734,7 +2734,7 @@ Section substitution.
   Lemma inner_closure_interp_scons_insert_type F se τ κ κ0 sκ ϕ cl :
     let ϕ' := refresh_kinds_ift F (subst_inner_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) in
     has_kind_ift F ϕ' ->
-    has_kind_ift (F <| fc_type_vars ::= cons κ0 |>) ϕ ->
+    has_kind_ift (add_type_var F κ0) ϕ ->
     sem_env_interp F se ->
     has_kind F τ κ ->
     subkind_of κ κ0 ->
@@ -2759,7 +2759,7 @@ Section substitution.
     iSpecialize ("Hcl" $! sκ sκ_T T Hsκ Hsubskind HT).
     iApply inner_closure_interp_subst_senv_eq; last done.
     Unshelve.
-    13: exact (F <| fc_type_vars ::= cons κ0 |>).
+    13: exact (add_type_var F κ0).
     - apply Forall_cons. by split; last eapply sem_well_formed_from_interp.
     - by eapply sem_well_formed_from_interp.
     - destruct Hse as (h1 & h2).

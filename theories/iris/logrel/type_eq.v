@@ -871,7 +871,7 @@ Section type_eq_sem.
           iFrame. done.
       }
       assert (∀ τ, has_kind F (RecT κ τ) κ ->
-                sem_env_interp (F <| fc_type_vars ::= cons κ |>)
+                sem_env_interp (add_type_var F κ)
                   (senv_insert_type sκ sκ
                      (add_skind_interp_closed sκ (skind_rec_interp sκ (type_interp rti sr τ) se))
                      se))
@@ -899,7 +899,7 @@ Section type_eq_sem.
         rewrite (skind_rec_interp_unfold sκ (type_interp rti sr τ) se sv0).
         cbn.
         f_equiv.
-        apply (IH (F <| fc_type_vars ::= cons κ |>) κbody0 κbody); eauto.
+        apply (IH (add_type_var F κ) κbody0 κbody); eauto.
       }
       rewrite (Hrec_eq τ sv) (Hrec_eq τ' sv).
       f_equiv.
@@ -908,9 +908,9 @@ Section type_eq_sem.
     - intros κ0 τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       (* TEqExMem *)
       inversion Hκ; subst. inversion Hκ'; subst.
-      match goal with Hk : has_kind (F <| fc_kind_ctx; kc_mem_vars ::= S |>) τ _ |- _ =>
+      match goal with Hk : has_kind (add_mem_var F) τ _ |- _ =>
         rename Hk into Hkτ end.
-      match goal with Hk : has_kind (F <| fc_kind_ctx; kc_mem_vars ::= S |>) τ' _ |- _ =>
+      match goal with Hk : has_kind (add_mem_var F) τ' _ |- _ =>
         rename Hk into Hkτ' end.
       rewrite !type_interp_eq /add_skind_interp /=.
       iSplit.
@@ -951,9 +951,9 @@ Section type_eq_sem.
     - intros κ0 κτ τ τ' Heq IH F κ κ' se sv Hκ Hκ' Hsem.
       (* TEqExType *)
       inversion Hκ; subst. inversion Hκ'; subst.
-      match goal with Hk : has_kind (F <| fc_type_vars ::= cons κτ |>) τ _ |- _ =>
+      match goal with Hk : has_kind (add_type_var F κτ) τ _ |- _ =>
         rename Hk into Hkτ end.
-      match goal with Hk : has_kind (F <| fc_type_vars ::= cons κτ |>) τ' _ |- _ =>
+      match goal with Hk : has_kind (add_type_var F κτ) τ' _ |- _ =>
         rename Hk into Hkτ' end.
       rewrite !type_interp_eq /add_skind_interp /=.
       iSplit.
