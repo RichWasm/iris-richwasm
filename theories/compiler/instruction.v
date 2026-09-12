@@ -38,13 +38,30 @@ Section Compiler.
   Definition fe_extend_unpack (fe : function_env) (τ : type) : function_env :=
     match τ with
     | ExistsTypeT _ κ _ =>
-        fe <| fe_type_vars ::= cons κ |>
+        {|
+          fe_type_vars := κ :: (fe_type_vars fe);
+          fe_return := map (ren_type id id id S) (fe_return fe);
+          fe_locals := fe_locals fe
+        |}
     | ExistsMemT _ _ =>
         {|
-          fe_type_vars := map (ren_kind id id) (fe_type_vars fe);
+          fe_type_vars := (fe_type_vars fe);
           fe_return := map (ren_type S id id id) (fe_return fe);
           fe_locals := fe_locals fe
         |}
+    | ExistsRepT _ _ =>
+        {|
+          fe_type_vars := map (ren_kind S id) (fe_type_vars fe);
+          fe_return := map (ren_type id S id id) (fe_return fe);
+          fe_locals := fe_locals fe
+        |}
+    | ExistsSizeT _ _ =>
+        {|
+          fe_type_vars := map (ren_kind id S) (fe_type_vars fe);
+          fe_return := map (ren_type id id S id) (fe_return fe);
+          fe_locals := fe_locals fe
+        |}
+
     | _ => fe
     end.
 

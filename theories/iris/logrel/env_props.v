@@ -579,7 +579,7 @@ Section env_props.
     eval_kind se κ = Some sκ →
     subskind_of sκ_T sκ ->
     skind_has_stype sκ_T T →
-    sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ sκ_T T se).
+    sem_env_interp (add_type_var F κ) (senv_insert_type sκ sκ_T T se).
   Proof.
     intros [Hkind Htypes] Hκ Hsubsk HT.
     split.
@@ -598,7 +598,7 @@ Section env_props.
 
   Lemma sem_env_insert_mem F (se : semantic_env (Σ:=Σ)) μ :
     sem_env_interp F se ->
-    sem_env_interp (F <| fc_kind_ctx ::= set kc_mem_vars S |>) (senv_insert_mem μ se).
+    sem_env_interp (add_mem_var F) (senv_insert_mem μ se).
   Proof.
     intros [(Hmem & Hrep & Hsize) Htypes].
     split; first (repeat split); try done.

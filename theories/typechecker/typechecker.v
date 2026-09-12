@@ -4255,8 +4255,9 @@ Definition unpacked_existential_checker
               (* now we have to split on the τex *)
               match τex with
               | ExistsMemT κ τ_check =>
-                  let F0 := subst_function_ctx S id id id F
-                              <| fc_kind_ctx ::= set kc_mem_vars S |> in
+                  let F0 := add_mem_var F in
+                  (* let F0 := subst_function_ctx S id id id F *)
+                  (*             <| fc_kind_ctx ::= set kc_mem_vars S |> in *)
                   let up := ren_type S id id id in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
@@ -4265,7 +4266,7 @@ Definition unpacked_existential_checker
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsRepT κ τ_check =>
-                  let F0 := add_rep_var (subst_function_ctx id S id id F)
+                  let F0 := add_rep_var F
                               in
                   let up := ren_type id S id id in
                   (* HUGE amount of equalities *)
@@ -4275,7 +4276,7 @@ Definition unpacked_existential_checker
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsSizeT κ τ_check =>
-                  let F0 := add_size_var (subst_function_ctx id id S id F)
+                  let F0 := add_size_var F
                               in
                   let up := ren_type id id S id in
                   (* HUGE amount of equalities *)
@@ -4285,7 +4286,7 @@ Definition unpacked_existential_checker
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsTypeT κ κ0 τ_check =>
-                  let F0 := add_type_var (subst_function_ctx id id id S F) κ0 in
+                  let F0 := add_type_var F κ0 in
                   let up := ren_type id id id S in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
@@ -4324,15 +4325,14 @@ Definition unpacked_existential_getter F L ϕ L' :
           (* now we have to split on the τex *)
           match τex with
           | ExistsMemT κ τ =>
-              let F0 := subst_function_ctx S id id id F
-                          <| fc_kind_ctx ::= set kc_mem_vars S |> in
+              let F0 := add_mem_var F in
               let up := ren_type S id id id in
               let L0 := (map up L) in
               let L'0 := (map up L') in
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
               Some (F0, L0, ϕ0, L'0)
           | ExistsRepT κ τ =>
-              let F0 := add_rep_var (subst_function_ctx id S id id F)
+              let F0 := add_rep_var F
                            in
               let up := ren_type id S id id in
               let L0 := (map up L) in
@@ -4340,7 +4340,7 @@ Definition unpacked_existential_getter F L ϕ L' :
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
               Some (F0, L0, ϕ0, L'0)
           | ExistsSizeT κ τ =>
-              let F0 := add_size_var (subst_function_ctx id id S id F)
+              let F0 := add_size_var F
                            in
               let up := ren_type id id S id in
               let L0 := (map up L) in
@@ -4348,7 +4348,7 @@ Definition unpacked_existential_getter F L ϕ L' :
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
               Some (F0, L0, ϕ0, L'0)
           | ExistsTypeT κ κ0 τ =>
-              let F0 := add_type_var (subst_function_ctx id id id S F) κ0 in
+              let F0 := add_type_var F κ0 in
               let up := ren_type id id id S in
               let L0 := (map up L) in
               let L'0 := (map up L') in

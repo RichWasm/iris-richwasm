@@ -1428,31 +1428,32 @@ Inductive unpacked_existential :
   function_ctx -> local_ctx -> instruction_type -> local_ctx ->
   Prop :=
 | UnpackMem F L L' τs1 κ τ τs2 :
-  let F0 :=
-    subst_function_ctx S id id id F <| fc_kind_ctx ::= set kc_mem_vars S |>
+  let F0 := add_mem_var F
+    (* subst_function_ctx S id id id F <| fc_kind_ctx ::= set kc_mem_vars S |> *)
   in
   let up := ren_type S id id id in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsMemT κ τ]) τs2) L'
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackRep F L L' τs1 κ τ τs2 :
-  let F0 :=
-    add_rep_var (subst_function_ctx id S id id F)
+  let F0 := add_rep_var F
+    (* add_rep_var (subst_function_ctx id S id id F) *)
   in
   let up := ren_type id S id id in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsRepT κ τ]) τs2) L'
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackSize F L L' τs1 κ τ τs2 :
-  let F0 :=
-    add_size_var (subst_function_ctx id id S id F)
+  let F0 := add_size_var F
+    (* add_size_var (subst_function_ctx id id S id F) *)
   in
   let up := ren_type id id S id in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsSizeT κ τ]) τs2) L'
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackType F L L' τs1 κ κ0 τ τs2 :
-  let F0 := add_type_var (subst_function_ctx id id id S F) κ0 in
+  let F0 := add_type_var F κ0 in
+  (* let F0 := add_type_var (subst_function_ctx id id id S F) κ0 in *)
   let up := ren_type id id id S in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2) L'
