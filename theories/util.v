@@ -511,9 +511,9 @@ Proof.
   by apply Forall2_length in H.
 Qed.
 
-Lemma forall2_lookup_same {A B} (ls ls' : list A) (idxs : list B) (xs : list A) (j_excl : nat) (f: B -> nat) :
-  (∀ j : B, f j ≠ j_excl → ls' !! f j = ls !! f j) ->
-  Forall (λ i, f i ≠ j_excl) idxs ->
+Lemma forall2_lookup_same' {A B} (ls ls' : list A) (idxs : list B) (xs : list A) P (f: B -> nat) :
+  (∀ j : B, P (f j) → ls' !! f j = ls !! f j) ->
+  Forall (λ i, P (f i)) idxs ->
   Forall2 (λ (i : B) (v : A), ls  !! f i = Some v) idxs xs ->
   Forall2 (λ (i : B) (v : A), ls' !! f i = Some v) idxs xs.
 Proof.
@@ -524,6 +524,15 @@ Proof.
     constructor.
     + rewrite Hsame; auto.
     + apply IHHf; auto.
+Qed.
+
+Lemma forall2_lookup_same {A B} (ls ls' : list A) (idxs : list B) (xs : list A) (j_excl : nat) (f: B -> nat) :
+  (∀ j : B, f j ≠ j_excl → ls' !! f j = ls !! f j) ->
+  Forall (λ i, f i ≠ j_excl) idxs ->
+  Forall2 (λ (i : B) (v : A), ls  !! f i = Some v) idxs xs ->
+  Forall2 (λ (i : B) (v : A), ls' !! f i = Some v) idxs xs.
+Proof.
+  apply forall2_lookup_same' with (P := fun x => x <> j_excl).
 Qed.
 
 (* default to stdpp's list for the remainder *)

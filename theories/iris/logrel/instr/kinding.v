@@ -1632,4 +1632,5 @@ Section kinding.
     - eapply kinding_sound_ref_flag; eauto using sem_env_interp_proj_refs.
     - intros sv. eapply kinding_sound_svalue; eauto.
   Qed.
+
 End kinding.

@@ -193,7 +193,7 @@ ICallIndirect : instruction_type -> instruction
 IInject : instruction_type -> nat -> instruction
 IInjectNew : instruction_type -> nat -> instruction
 ICase : instruction_type -> "list" (type) -> "list" ("list" (instruction)) -> instruction
-ICaseLoad : instruction_type -> consumption -> "list" (type) -> "list" ("list" (instruction)) -> instruction
+ICaseLoad : instruction_type -> "list" (type) -> "list" ("list" (instruction)) -> instruction
 IGroup : instruction_type -> instruction
 IUngroup : instruction_type -> instruction
 IFold : instruction_type -> instruction

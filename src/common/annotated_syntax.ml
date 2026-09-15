@@ -870,9 +870,9 @@ module Instruction = struct
     | ICase (it, lfx, cases) ->
         fprintf ff "@[<2>(ICase@ %a@ %a@ %a)@]" pp_it it pp_lfx lfx
           (pp_rocq_list pp_instrs) cases
-    | ICaseLoad (it, c, lfx, cases) ->
-        fprintf ff "@[<2>(ICaseLoad@ %a@ %a@ %a@ %a)@]" pp_it it
-          Consumption.pp_rocq c pp_lfx lfx (pp_rocq_list pp_instrs) cases
+    | ICaseLoad (it, lfx, cases) ->
+        fprintf ff "@[<2>(ICaseLoad@ %a@ %a@ %a)@]" pp_it it
+          pp_lfx lfx (pp_rocq_list pp_instrs) cases
     | IGroup it -> fprintf ff "@[<2>(IGroup@ %a)@]" pp_it it
     | IUngroup it -> fprintf ff "@[<2>(IUngroup@ %a)@]" pp_it it
     | IFold it -> fprintf ff "@[<2>(IFold@ %a)@]" pp_it it
@@ -958,9 +958,8 @@ module Instruction = struct
             fprintf ff "@[<v 2>(%a@,%a)@]" Base.Int.pp i pp_instrs instrs)
           cases;
         fprintf ff "@]@,end@]%a" pp_it_comment it
-    | ICaseLoad (it, consume, lfx, cases) ->
-        fprintf ff "@[<v 0>@[<2>case_load@ %a@ %a@]@,@[<v 2>  " Consumption.pp
-          consume pp_lfx lfx;
+    | ICaseLoad (it, lfx, cases) ->
+        fprintf ff "@[<v 0>@[<2>case_load@ %a@]@,@[<v 2>  " pp_lfx lfx;
         List.iteri
           ~f:(fun i instrs ->
             if i <> 0 then fprintf ff "@,";

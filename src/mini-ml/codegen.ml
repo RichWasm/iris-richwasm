@@ -487,7 +487,7 @@ let rec compile_expr delta gamma locals coderef_map e :
       let tmp_local = List.length locals' in
       let suffix =
         [
-          CaseLoad (ValType [ rw_t ], Copy, InferFx, branches');
+          CaseLoad (ValType [ rw_t ], InferFx, branches');
           LocalSet tmp_local;
           Drop;
           LocalGet (tmp_local, Move);

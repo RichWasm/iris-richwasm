@@ -1864,8 +1864,9 @@ Section CodeGen.
     (length cases <= Wasm_int.Int32.modulus)%Z ->
     cases !! i = Some case ->
     run_codegen (case_switch fe ts cases) wt wl = inr (tt, wt', wl', es_s) ->
-    exists wt_c wt_c' wl_c wl_c' es_c,
-      run_codegen (case i) wt_c wl_c = inr (tt, wt_c', wl_c', es_c) /\
+    exists wt_pre wt_c wt_post wl_pre wl_c wl_post es_c,
+      run_codegen (case i) (wt ++ wt_pre) (wl ++ wl_pre) = inr (tt, wt_c, wl_c, es_c) /\
+      wt' = wt_pre ++ wt_c ++ wt_post /\ wl' = wl_pre ++ wl_c ++ wl_post /\
         forall wlf fr tag evs B R Φ,
           wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
           nat_i32_repr i tag ->
@@ -1895,8 +1896,12 @@ Section CodeGen.
         (?es & Hcg_case & Hes3).
     repeat rewrite -app_assoc in Hcg_case.
     rewrite plus_O_n in Hcg_case.
-    exists (wt ++ wt0 ++ wt2 ++ wt1), wt4, (wl ++ wl0 ++ wl2 ++ wl1), wl4, es2.
+    (* exists (wt ++ wt0 ++ wt2 ++ wt1), wt4, (wl ++ wl0 ++ wl2 ++ wl1), wl4, es2. *)
+    exists (wt0 ++ wt2 ++ wt1), wt4, wt5, (wl0 ++ wl2 ++ wl1), wl4, wl5, es2.
     split; first by rewrite -Hi.
+    split; first by (rewrite !app_assoc).
+    split; first by (rewrite !app_assoc).
+
 
     iIntros (??????? Hwl Hi_tag Hevs ? HΦ_props) "Hfr Hrun Hes2".
     apply cwp_save_stack1 in Hcg_save as (-> & -> & Hes).

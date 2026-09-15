@@ -1229,7 +1229,7 @@ let%expect_test "examples" =
         local.get 1 move
         copy
         local.set 1
-        case_load (result i31) copy inferfx
+        case_load (result i31) inferfx
           (0
             local.set 2
             i32.const 0
@@ -1267,7 +1267,7 @@ let%expect_test "examples" =
         copy
         local.set 1
         unfold
-        case_load (result i31) copy inferfx
+        case_load (result i31) inferfx
           (0
             local.set 2
             i32.const 0
@@ -1520,7 +1520,7 @@ let%expect_test "examples" =
             (ref (base gc) imm
               (variant (ser (ref (base gc) imm (struct)))
                 (ser (ref (base gc) imm (struct (ser (var 1)) (ser (var 0)))))))))
-          copy inferfx
+          inferfx
           (0
             local.set 4
             group 0

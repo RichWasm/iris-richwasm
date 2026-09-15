@@ -815,7 +815,7 @@ module Instruction = struct
     | Inject of int * Type.t list
     | InjectNew of BaseMemory.t * int * Type.t list
     | Case of BlockType.t * LocalFx.t * t list list
-    | CaseLoad of BlockType.t * Consume.t * LocalFx.t * t list list
+    | CaseLoad of BlockType.t * LocalFx.t * t list list
     | Group of int
     | Ungroup
     | Fold of Type.t
@@ -886,9 +886,9 @@ module Instruction = struct
             fprintf ff "@[<v 2>(%a@,%a)@]" pp_int i pp_instrs instrs)
           cases;
         fprintf ff "@]@,end@]"
-    | CaseLoad (bt, consume, lfx, cases) ->
-        fprintf ff "@[<v 0>@[<2>case_load@ %a@ %a@ %a@]@,@[<v 2>  " BlockType.pp
-          bt Consume.pp consume LocalFx.pp lfx;
+    | CaseLoad (bt, lfx, cases) ->
+        fprintf ff "@[<v 0>@[<2>case_load@ %a@ %a@]@,@[<v 2>  " BlockType.pp
+          bt LocalFx.pp lfx;
         List.iteri
           ~f:(fun i instrs ->
             if i <> 0 then fprintf ff "@,";

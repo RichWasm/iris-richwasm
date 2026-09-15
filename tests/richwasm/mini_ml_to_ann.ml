@@ -3743,7 +3743,7 @@ let%expect_test "examples" =
                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
                             (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                        -> []
-        case_load copy
+        case_load
           (localfx [0 => (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
             [1 =>
             (ref (val ptr gcrefs) (base gc) imm
@@ -3889,7 +3889,7 @@ let%expect_test "examples" =
                                          (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                            (ser (mem (rep ptr) gcrefs) (var 1))
                                            (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
-        case_load copy
+        case_load
           (localfx [0 => (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
             [1 =>
             (rec (val ptr gcrefs)
@@ -6654,7 +6654,7 @@ let%expect_test "examples" =
                                          (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                            (ser (mem (rep ptr) gcrefs) (var 2))
                                            (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
-        case_load copy
+        case_load
           (localfx [0 => (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
             [1 =>
             (ref (val ptr gcrefs) (base gc) imm
