@@ -688,7 +688,22 @@ Section inject_new.
         {
           iPureIntro. split.
           - cbn. f_equal. by rewrite length_app.
-          - cbn. admit.
+          - apply Forall_cons. split; first done.
+            apply Forall_app. split.
+            + rewrite flat_map_concat_map. apply forall_ptr_atom_to_word_ref_flag_interp.
+              destruct Hsv as [Hareps Hrfs].
+              cbn in Hrfs.
+              eapply Forall_impl; first done.
+              intros o Ho.
+              destruct o; try done.
+              cbn.
+              cbn in Ho.
+              eapply ref_flag_ptr_interp_le; last done.
+              apply ref_flag_lub_ub.
+              apply list_elem_of_lookup.
+              by exists i.
+            + eapply Forall_impl; first done. intros w' Hw'. destruct w'; last done.
+              destruct p; [by destruct (ref_flag_lub ξs)|inversion Hw'].
         }
         cbn.
         iExists i, (Z.to_N (Wasm_int.Int32.Z_mod_modulus i)), (flat_map serialize_atom os), ws.
@@ -707,7 +722,12 @@ Section inject_new.
         iSplitR.
         { iPureIntro. apply eval_rep_emptyenv with (se := se) in Hιs. cbn. by rewrite Hιs. }
         iSplitR.
-        { iPureIntro. cbn. admit. }
+        {
+          iPureIntro. destruct Hsv as [Hareps Hrfs]. split.
+          - unfold areps_size. cbn. erewrite <- load_common.has_areps_size; last done.
+            by rewrite length_flat_map.
+          - rewrite flat_map_concat_map. by apply forall_ptr_atom_to_word_ref_flag_interp.
+        }
         iExists _. by iFrame.
       }
 
