@@ -141,6 +141,8 @@ Section inject_new.
     subst ρi ξi.
     clear H Hρi_kind.
 
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_i_mod Hcg.
+    apply wp_assume in Hcg_i_mod as (_ & ? & ? & ? & Hi_mod).
     inv_cg_bind Hcg ρ' ?wt ?wt ?wl ?wl ?es ?es Hcg_rep Hcg.
     inv_cg_try_option Hcg_rep.
     rename Heq_some into Hρ'.
@@ -172,14 +174,14 @@ Section inject_new.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_store Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_get_laddr Hcg_regroot.
     inv_cg_emit Hcg_get_laddr.
-    subst wt0 wl0 es wt2 wl2 es1 wt4 wl4 es3 wt9 wl9 wt10 wl10 es9 wt15 wl15 es14 wt16 wl16 wt17
-      wl17 es16 wt24 wl24 es23 wt23 wl23 es22 wt21 wl21 es20 wt19 wl19 es18 wt18 wl18 es17 es15 wt14
-      wl14 es13 wt12 wl12 es11 wt11 wl11 es8 es10 wt7 wl7 es6 wt5 wl5 es4 wt3 wl3 es2 wt1 wl1 es0
-      wt' wl' es' WL WT.
+    subst wt0 wl0 es wt2 wl2 es1 wt4 wl4 es3 wt6 wl6 es5 wt12 wl12 es11 wt17 wl17 es16 wt18 wl18
+      wt19 wl19 es18 wt26 wl26 es25 wt25 wl25 es24 wt23 wl23 es22 wt21 wl21 es20 wt20 wl20 es19 es17
+      es15 es13 es10 es12 wl9 es8 wt7 wl7 es6 wt5 wl5 es4 wt3 wl3 es2 wt1 wl1 es0 wt11 wl11 wt16 wl16
+      wt14 wl14 wt13 wl13 wt9 wt' wl' es' WT WL.
     clear_nils.
     clear Hretval Hretval0 Hretval1 Hretval2.
-    set WL := wl ++ wl6 ++ wl8 ++ [W.T_i32] ++ wl13 ++ [W.T_i32] ++ wl20 ++ wl22 ++ wl25 ++ wlf.
-    set WT := wt ++ wt6 ++ wt8 ++ wt13 ++ wt20 ++ wt22 ++ wt25 ++ wtf.
+    set WL := wl ++ wl8 ++ wl10 ++ [W.T_i32] ++ wl15 ++ [W.T_i32] ++ wl22 ++ wl24 ++ wl27 ++ wlf.
+    set WT := wt ++ wt8 ++ wt10 ++ wt15 ++ wt22 ++ wt24 ++ wt27 ++ wtf.
 
     apply type_rep_has_kind_agree in Hτ_kind as H.
     rewrite Hρ' in H.
@@ -249,7 +251,7 @@ Section inject_new.
     assert (localimm laddr <> localimm ltag) as Hladdr_ltag_ne.
     {
       intros Hcontra. subst laddr ltag. inversion Hcontra.
-      rewrite Nat.add_cancel_l !length_app !Nat.add_cancel_l (plus_n_O (length wl8)) -Nat.add_assoc
+      rewrite Nat.add_cancel_l !length_app !Nat.add_cancel_l (plus_n_O (length wl10)) -Nat.add_assoc
         Nat.add_cancel_l in H0.
       cbn in H0.
       congruence.
@@ -258,7 +260,7 @@ Section inject_new.
     destruct bm.
     - (* MM *)
       inv_cg_ret Hcg_regroot.
-      subst wt25 wl25 es24.
+      subst wt27 wl27 es26.
       clear Hretval.
       rewrite app_nil_r.
 
@@ -691,7 +693,11 @@ Section inject_new.
         cbn.
         iExists i, (Z.to_N (Wasm_int.Int32.Z_mod_modulus i)), (flat_map serialize_atom os), ws.
         iSplitR.
-        { iPureIntro. admit. }
+        {
+          iPureIntro.
+          rewrite Wasm_int.Int32.Z_mod_modulus_id; first (unfold N_nat_repr; lia).
+          split; [lia|by rewrite -Z.ltb_lt].
+        }
         iSplitR; first done.
         iSplitR; first done.
         change (list_lookup i (map (type_interp rti sr) τs')) with (map (type_interp rti sr) τs' !! i).

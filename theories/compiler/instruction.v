@@ -34,7 +34,6 @@ Section Compiler.
     ιs ← fe.(fe_locals) !! i;
     Some (map W.Mk_localidx (seq i' (length ιs))).
 
-  Print function_env.
   Definition fe_extend_unpack (fe : function_env) (τ : type) : function_env :=
     match τ with
     | ExistsTypeT _ κ _ =>
@@ -147,6 +146,7 @@ Section Compiler.
 
   Definition compile_inject_new
     (fe : function_env) (μ : base_memory) (i : nat) (τ : type) (σ : size) : codegen unit :=
+    assume (Z.of_nat i <? Wasm_int.Int32.modulus)%Z EFail;;
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
     ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     n ← try_option EFail (eval_size EmptyEnv σ);
