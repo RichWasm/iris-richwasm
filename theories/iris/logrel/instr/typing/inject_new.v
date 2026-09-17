@@ -80,6 +80,22 @@ Section inject_new.
     - apply list_elem_of_further. by apply IHxs.
   Qed.
 
+  Lemma Forall_Forall2_repeat {A B} P n (x : A) (l : list B) :
+    n = length l ->
+    Forall (P x) l ->
+    Forall2 P (repeat x n) l.
+  Proof.
+    intros Hn HP.
+    generalize dependent n.
+    induction l.
+    - intros n Hn. by rewrite Hn.
+    - intros n Hn. rewrite Hn. cbn. apply Forall2_cons. split.
+      + by inversion HP.
+      + apply IHl.
+        * by inversion HP.
+        * done.
+  Qed.
+
   Lemma compat_inject_new M F L wt wt' wtf wl wl' wlf es' μ i τ τs κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -731,6 +747,36 @@ Section inject_new.
         iExists _. by iFrame.
       }
 
+      iDestruct "Hrt" as
+        "(% & % & % & Hθ' & Hrm & Hlm & Hhm & Hrti & %Hinj & %Hrootok & Hrtmem & %Hlayoutok &
+          %Hheapok & Hheapmem)".
+      iAssert (⌜lm !! ℓ = Some (FlagInt :: flat_map arep_flags ιs ++ fs)⌝%I) with "[Hlayout Hlm]"
+        as "%Hlmℓ"; first iApply (ghost_map_lookup with "[$] [$]").
+      iAssert (⌜hm !! ℓ = Some (WordInt (Wasm_int.N_of_uint i32m (Wasm_int.Int32.repr i)) ::
+                                  flat_map serialize_atom os ++ ws)⌝%I)
+        with "[Hheap Hhm]" as "%Hhmℓ"; first iApply (ghost_map_lookup with "[$] [$]").
+      assert (Hlayout_all : layout_ok lpall lm hm).
+      {
+        intros ℓ'. specialize (Hlayoutok ℓ'). destruct (decide (ℓ' = ℓ)); subst => //=.
+        - rewrite Hlmℓ; rewrite Hhmℓ. constructor. intros Hℓ. apply Forall2_cons. split; first done.
+          apply Forall2_app.
+          + rewrite flat_map_concat_map. apply has_areps_imp_word_has_flag. by exists os.
+          + apply Forall_Forall2_repeat.
+            * rewrite Hws_len'. unfold areps_size. cbn.
+              erewrite <- load_common.has_areps_size; last done. by rewrite length_flat_map.
+            * eapply Forall_impl; first done. intros w' Hw'. destruct w'; last done.
+              admit.
+        - inversion Hlayoutok; last constructor. constructor. intros Hℓ'. by apply H1.
+      }
+      clear Hlayoutok.
+
+      iAssert (rt_token rti sr lpall θ') with "[Hθ' Hrm Hlm Hhm Hrti Hrtmem Hheapmem]" as "Hrt".
+      { iExists rm, lm, hm. by iFrame. }
+      clear dependent rm.
+      clear dependent lm.
+      clear dependent hm.
+      clear Hinj.
+
       iMod (na_inv_alloc logrel_nais _ (ns_ref ℓ) with "[Hlayout Hheap Hvariant]") as "#Hinv".
       { iModIntro. iEval (rewrite (bi.later_intro (type_interp _ _ _ _ _))) in "Hvariant". iAccu. }
 
@@ -794,7 +840,7 @@ Section inject_new.
           -- cbn. iSplitL; last done. iExists _, _. iSplitR.
              { iPureIntro. apply Har32. }
              iSplitR; first done. iExists (RootHeap MemGC ar). by iFrame.
-        * iExists θ'. admit.
+        * by iExists θ'.
       + done.
       + done.
       + unfold set. destruct Hfrel as [_ <-].
