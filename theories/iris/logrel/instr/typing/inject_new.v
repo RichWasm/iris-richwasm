@@ -42,12 +42,12 @@ Section inject_new.
     - inversion H; first done. by apply IHn.
   Qed.
 
-  Lemma ref_flag_ptr_interp_flagint_words lmask θ ℓ n ws :
+  Lemma repeat_flagint_word_has_flag lmask θ ℓ n ws :
     lmask ℓ ->
     rt_token rti sr lmask θ -∗
     ℓ ↦layout repeat FlagInt n -∗
     ℓ ↦heap ws -∗
-    ⌜forall ξ, Forall (forall_ptr_word (ref_flag_ptr_interp ξ)) ws⌝.
+    ⌜Forall (word_has_flag FlagInt) ws⌝.
   Proof.
     iIntros (Hlmask) "Hrt Hlayout Hheap".
     iDestruct "Hrt" as "(%rm & %lm & %hm &
@@ -60,12 +60,10 @@ Section inject_new.
     rewrite Hlm_lookup Hhm_lookup in Hlayoutok.
     inversion Hlayoutok; subst.
     specialize (H1 Hlmask).
-    intros ξ.
     eapply Forall2_Forall_r; first done.
     apply Forall_forall.
     intros f Hf w Hw.
-    apply elem_of_repeat_inv in Hf as ->.
-    by destruct w; first inversion Hw.
+    by apply elem_of_repeat_inv in Hf as ->.
   Qed.
 
   Lemma elem_of_map_inj {A B} (f : A -> B) x (xs : list A) :
@@ -467,9 +465,7 @@ Section inject_new.
       iIntros (??) "(% & % & % & % & % & <- & -> & %Hta32 & %Hta & Hown & Hrt & Hlayout & Hheap)
                     Hf Hrun".
 
-      iDestruct (ref_flag_ptr_interp_flagint_words with "Hrt Hlayout Hheap") as "%Hws_rf"; first done.
-      specialize (Hws_rf NoRefs).
-
+      iDestruct (repeat_flagint_word_has_flag with "Hrt Hlayout Hheap") as "%Hws_ints"; first done.
       iDestruct (flags_words_length_eq with "Hrt Hlayout Hheap") as "%Hws_len"; first done.
       rewrite length_repeat in Hws_len.
       destruct ws; first inversion Hws_len.
@@ -682,9 +678,9 @@ Section inject_new.
       rewrite app_nil_l.
       rewrite app_nil_l length_app in Hws_len, Hws_lb.
       rewrite H2 in Hws_len, Hws_lb.
-      cbn in Hws_rf.
-      apply Forall_cons in Hws_rf as [_ Hws_rf].
-      apply Forall_app in Hws_rf as [_ Hws_rf].
+      rewrite app_nil_l in Hws_ints.
+      apply Forall_cons in Hws_ints as [_ Hws_ints].
+      apply Forall_app in Hws_ints as [_ Hws_ints].
       clear H2 ws_old.
       rewrite -flat_map_concat_map.
       rewrite -flat_map_concat_map in Hws_len, Hws_lb.
@@ -730,7 +726,8 @@ Section inject_new.
           split; [lia|by rewrite -Z.ltb_lt].
         }
         iSplitR; first done.
-        iSplitR; first done.
+        iSplitR.
+        { iPureIntro. eapply Forall_impl; first done. intros w' Hw'. by destruct w'. }
         change (list_lookup i (map (type_interp rti sr) τs')) with (map (type_interp rti sr) τs' !! i).
         erewrite map_lookup_helper_forwards; last done.
         rewrite (type_interp_eq _ _ (SerT _ _)).
@@ -764,8 +761,7 @@ Section inject_new.
           + apply Forall_Forall2_repeat.
             * rewrite Hws_len'. unfold areps_size. cbn.
               erewrite <- load_common.has_areps_size; last done. by rewrite length_flat_map.
-            * eapply Forall_impl; first done. intros w' Hw'. destruct w'; last done.
-              admit.
+            * eapply Forall_impl; first done. intros w' Hw'. by destruct w'.
         - inversion Hlayoutok; last constructor. constructor. intros Hℓ'. by apply H1.
       }
       clear Hlayoutok.
