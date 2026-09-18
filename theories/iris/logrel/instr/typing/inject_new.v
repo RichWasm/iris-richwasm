@@ -273,6 +273,10 @@ Section inject_new.
 
     destruct bm.
     - (* MM *)
+      assert (κr = VALTYPE (AtomR PtrR) AnyRefs) by by inversion Href_kind.
+      subst κr.
+      clear Href_kind.
+
       inv_cg_ret Hcg_regroot.
       subst wt27 wl27 es26.
       clear Hretval.
@@ -306,6 +310,27 @@ Section inject_new.
       iIntros (??)
         "(% & % & % & % & % & % & <- & -> & %Hta32 & %Hta & Hrt & Hown & Haddr & Hlayout & Hheap)
          Hf Hrun".
+
+      iDestruct (repeat_flagint_word_has_flag with "Hrt Hlayout Hheap") as "%Hws_ints"; first done.
+      iDestruct (flags_words_length_eq with "Hrt Hlayout Hheap") as "%Hws_len"; first done.
+      rewrite length_repeat in Hws_len.
+      destruct ws; first inversion Hws_len.
+      rewrite length_cons in Hws_len.
+      inversion Hws_len.
+      clear Hws_len.
+      rename H0 into Hws_len.
+
+      pose proof (list_elem_of_split_length _ _ _ Hns_i) as (ns1 & ns2 & Hns_sp & Hns1).
+      assert (areps_size ιs <= length ws) as Hws_lb.
+      {
+        rewrite -Hws_len.
+        pose proof (list_max_app ns1 (areps_size ιs :: ns2)) as H.
+        cbn in H.
+        rewrite -Hns_sp in H.
+        rewrite H Nat.max_assoc (Nat.max_comm (list_max ns1)) -Nat.max_assoc.
+        apply Nat.le_max_l.
+      }
+
       rewrite app_assoc.
       iApply (cwp_seq with "[Hf Hrun]").
       {
@@ -369,7 +394,7 @@ Section inject_new.
         - inversion Hta. by subst ta.
         - by inversion Hta.
         - by inversion Hta.
-        - admit.
+        - iPureIntro. cbn. lia.
         - by instantiate (1 := I32A (Wasm_int.Int32.repr i)).
         - done.
         - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & _ & _ & _ & H & _)".
@@ -380,7 +405,7 @@ Section inject_new.
                     (⌜f' = f0 <| f_locs ::= <[ localimm laddr := VAL_int32 ta32 ]> |>
                               <| f_locs ::= <[ localimm ltag := VAL_int32 (Wasm_int.int_of_Z i32m i)]> |>⌝ ∗
                        ⌜vs' = []⌝ ∗
-                       ℓ ↦heap path.update_path_words 0 ws (serialize_atom (I32A (Wasm_int.Int32.repr i))) ∗
+                       ℓ ↦heap path.update_path_words 0 (w :: ws) (serialize_atom (I32A (Wasm_int.Int32.repr i))) ∗
                        ℓ ↦addr (MemMM, a) ∗
                        rt_token rti sr (λ ℓ' : location, ℓ ≠ ℓ') θ')%I).
           by iFrame.
@@ -394,18 +419,29 @@ Section inject_new.
       iIntros (??) "(-> & -> & Hheap & Haddr & Hrt) Hf Hrun".
       rewrite app_nil_l.
       eapply wp_store_strong_mm in Hcg_store as (_ & -> & -> & Hes21); last first.
-      { admit. }
+      { by rewrite Hxs length_map length_seq. }
       iApply (cwp_seq with "[Hheap Haddr Hrt Hf Hrun]").
       {
         iApply (Hes21 with "[$Hf] [$Hrun] [$Hheap] [$Haddr] [] [$Hrt]").
         - iPureIntro. by intro.
         - iPureIntro. unfold set.
           by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq.
-        - admit.
+        - iPureIntro.
+          eapply forall2_lookup_same' with (P := fun x => x <> localimm laddr /\ x <> localimm ltag);
+            last apply Hlocs.
+          + intros x [Hx_laddr Hx_ltag]. by do 2 (rewrite list_lookup_insert_ne; last done).
+          + apply Forall_forall. intros x Hx. rewrite Hxs in Hx. destruct x as [x].
+            apply elem_of_map_inj in Hx; last by (intros ?? H; inversion H).
+            rewrite elem_of_seq in Hx. destruct Hx as [Hx_lb Hx_ub].
+            split.
+            * subst laddr. rewrite app_nil_r length_app !length_map Nat.add_assoc. intros H.
+              cbn [localimm] in H. rewrite H in Hx_ub. apply (Nat.lt_irrefl _ Hx_ub).
+            * subst ltag. rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc.
+              cbn [localimm length]. intros H. lia.
         - inversion Hta. by subst ta.
         - by inversion Hta.
         - by inversion Hta.
-        - admit.
+        - iPureIntro. cbn. apply le_n_S. by rewrite drop_0 sum_list_with_list_sum.
         - done.
         - done.
         - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & _ & _ & _ & H & _)".
@@ -417,7 +453,7 @@ Section inject_new.
                               <| f_locs ::= <[ localimm ltag := VAL_int32 (Wasm_int.int_of_Z i32m i) ]> |>⌝ ∗
                      ⌜vs' = []⌝ ∗
                      ℓ ↦heap path.update_path_words 1
-                               (path.update_path_words 0 ws
+                               (path.update_path_words 0 (w :: ws)
                                   (serialize_atom (I32A (Wasm_int.Int32.repr i))))
                                (concat (map serialize_atom os)) ∗
                      ℓ ↦addr (MemMM, a) ∗
@@ -428,15 +464,197 @@ Section inject_new.
       clear Hes21.
       iIntros (??) "(-> & -> & Hheap & Haddr & Hrt) Hf Hrun".
       rewrite app_nil_l.
+
+      assert (1 + length (flat_map arep_flags ιs) <= length (repeat FlagInt (S (list_max ns)))) as H.
+      {
+        rewrite flat_map_concat_map length_arep_flags_size sum_list_with_list_sum length_repeat
+          Hws_len.
+        change (list_sum (map arep_size ιs)) with (areps_size ιs).
+        lia.
+      }
+      apply updating_flags in H as (fs1 & fs_old & fs2 & Hfs & -> & Hfs_old & Hfs1).
+      rewrite -Nat.add_1_l repeat_app in Hfs.
+      apply app_inj_1 in Hfs as [Hfs1' Hfs]; last done.
+      cbn in Hfs1'.
+      subst fs1.
+      clear Hfs1.
+      rewrite -separate1.
+      rewrite (Nat.le_add_sub (areps_size ιs) (list_max ns)) in Hfs; last lia.
+      rewrite repeat_app in Hfs.
+      apply app_inj_1 in Hfs as [H Hfs]; last by rewrite length_repeat Hfs_old flat_map_concat_map
+                                                   length_arep_flags_size sum_list_with_list_sum.
+      subst fs_old.
+      rename fs2 into fs.
+      symmetry in Hfs.
+      clear Hfs_old.
+
+      rewrite load_common.update_path_words_first load_common.update_path_words_empty_2
+        load_common.update_path_words_succ.
+      assert (0 + length (concat (map serialize_atom os)) <= length ws).
+      { by rewrite length_concat map_map (load_common.has_areps_size ιs). }
+      apply load_common.updating_words in H as (ws1 & ws_old & ws2 & -> & -> & H2 & H3).
+      apply nil_length_inv in H3 as ->.
+      rewrite app_nil_l.
+      rewrite app_nil_l length_app in Hws_len, Hws_lb.
+      rewrite H2 in Hws_len, Hws_lb.
+      rewrite app_nil_l in Hws_ints.
+      apply Forall_cons in Hws_ints as [_ Hws_ints].
+      apply Forall_app in Hws_ints as [_ Hws_ints].
+      clear H2 ws_old.
+      rewrite -flat_map_concat_map.
+      rewrite -flat_map_concat_map in Hws_len, Hws_lb.
+      apply Arith_base.plus_minus_stt in Hws_len as Hws_len'.
+      rename ws2 into ws.
+
+      iDestruct "Hrt" as
+        "(% & % & % & Hθ' & Hrm & Hlm & Hhm & Hrti & %Hinj & %Hrootok & Hrtmem & %Hlayoutok &
+          %Hheapok & Hheapmem)".
+      iAssert (⌜lm !! ℓ = Some (FlagInt :: flat_map arep_flags ιs ++ fs)⌝%I) with "[Hlayout Hlm]"
+        as "%Hlmℓ"; first iApply (ghost_map_lookup with "[$] [$]").
+      iAssert (⌜hm !! ℓ = Some (WordInt (Wasm_int.N_of_uint i32m (Wasm_int.Int32.repr i)) ::
+                                  flat_map serialize_atom os ++ ws)⌝%I)
+        with "[Hheap Hhm]" as "%Hhmℓ"; first iApply (ghost_map_lookup with "[$] [$]").
+      assert (Hlayout_all : layout_ok lpall lm hm).
+      {
+        intros ℓ'. specialize (Hlayoutok ℓ'). destruct (decide (ℓ' = ℓ)); subst => //=.
+        - rewrite Hlmℓ; rewrite Hhmℓ. constructor. intros Hℓ. apply Forall2_cons. split; first done.
+          apply Forall2_app.
+          + rewrite flat_map_concat_map. apply has_areps_imp_word_has_flag. by exists os.
+          + apply Forall_Forall2_repeat.
+            * rewrite Hws_len'. unfold areps_size. cbn.
+              erewrite <- load_common.has_areps_size; last done. by rewrite length_flat_map.
+            * eapply Forall_impl; first done. intros w' Hw'. by destruct w'.
+        - inversion Hlayoutok; last constructor. constructor. intros Hℓ'. by apply H1.
+      }
+      clear Hlayoutok.
+
+      iAssert (rt_token rti sr lpall θ') with "[Hθ' Hrm Hlm Hhm Hrti Hrtmem Hheapmem]" as "Hrt".
+      { iExists rm, lm, hm. by iFrame. }
+      clear dependent rm.
+      clear dependent lm.
+      clear dependent hm.
+      clear Hinj.
+
+      iMod (na_inv_alloc logrel_nais _ (ns_ref ℓ) with "[Hlayout Hheap]") as "#Hinv".
+      { iModIntro. iAccu. }
+
       iApply (cwp_local_get with "[-Hf Hrun] [$Hf] [$Hrun]").
       { unfold set. by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq. }
-
       iModIntro.
+
+      iAssert (type_interp rti sr (VariantT (MEMTYPE (SumS σs) (ref_flag_lub ξs)) τs') se
+                 (SWords (WordInt (Wasm_int.N_of_uint i32m (Wasm_int.Int32.repr i))
+                            :: flat_map serialize_atom os ++ ws)))
+        with "[Hos]" as "Hvariant".
+      {
+        rewrite (type_interp_eq _ _ (VariantT _ _)).
+        iExists (SMEMTYPE (S (list_max ns)) (ref_flag_lub ξs)).
+        iSplitR.
+        { iPureIntro. apply (path.eval_sizes_emptyenv (se' := se)) in Hns. cbn. by rewrite Hns. }
+        iSplitR.
+        {
+          iPureIntro. split.
+          - cbn. f_equal. by rewrite length_app.
+          - apply Forall_cons. split; first done.
+            apply Forall_app. split.
+            + rewrite flat_map_concat_map. apply forall_ptr_atom_to_word_ref_flag_interp.
+              destruct Hsv as [Hareps Hrfs].
+              cbn in Hrfs.
+              eapply Forall_impl; first done.
+              intros o Ho.
+              destruct o; try done.
+              cbn.
+              cbn in Ho.
+              eapply ref_flag_ptr_interp_le; last done.
+              apply ref_flag_lub_ub.
+              apply list_elem_of_lookup.
+              by exists i.
+            + eapply Forall_impl; first done. intros w' Hw'. destruct w'; last done.
+              destruct p; [by destruct (ref_flag_lub ξs)|inversion Hw'].
+        }
+        cbn.
+        iExists i, (Z.to_N (Wasm_int.Int32.Z_mod_modulus i)), (flat_map serialize_atom os), ws.
+        iSplitR.
+        {
+          iPureIntro.
+          rewrite Wasm_int.Int32.Z_mod_modulus_id; first (unfold N_nat_repr; lia).
+          split; [lia|by rewrite -Z.ltb_lt].
+        }
+        iSplitR; first done.
+        iSplitR.
+        { iPureIntro. eapply Forall_impl; first done. intros w' Hw'. by destruct w'. }
+        change (list_lookup i (map (type_interp rti sr) τs')) with (map (type_interp rti sr) τs' !! i).
+        erewrite map_lookup_helper_forwards; last done.
+        rewrite (type_interp_eq _ _ (SerT _ _)).
+        iExists (SMEMTYPE (areps_size ιs) ξ).
+        iSplitR.
+        { iPureIntro. apply eval_rep_emptyenv with (se := se) in Hιs. cbn. by rewrite Hιs. }
+        iSplitR.
+        {
+          iPureIntro. destruct Hsv as [Hareps Hrfs]. split.
+          - unfold areps_size. cbn. erewrite <- load_common.has_areps_size; last done.
+            by rewrite length_flat_map.
+          - rewrite flat_map_concat_map. by apply forall_ptr_atom_to_word_ref_flag_interp.
+        }
+        iExists _. by iFrame.
+      }
+
       iSplitR; last iSplitL "Hframe"; last iSplitR "Hrt Hown"; last iSplitL "Hrt"; last done.
-      + admit.
-      + admit.
-      + iExists [PtrA (PtrHeap MemMM ℓ)]. admit.
-      + iExists θ'. admit.
+      + iPureIntro. split; last by (unfold set; destruct Hfrel as [_ <-]).
+          apply frame_rel_mask_mono with (lmask' := lmask) in Hfrel; last first.
+          { intros x Hx Hcontra. unfold lmask, wlmask in Hx. rewrite elem_of_seq in Hcontra. lia. }
+          intros x Hx. unfold set. rewrite !list_lookup_insert_ne.
+          -- destruct Hfrel as [H _]. by apply H.
+          -- subst laddr. cbn [localimm]. rewrite app_nil_r length_app !length_map.
+             intros Hcontra. unfold lmask, wlmask in Hx. lia.
+          -- subst ltag. cbn [localimm]. rewrite app_nil_r app_nil_l !length_app !length_map.
+             intros Hcontra. unfold lmask, wlmask in Hx. lia.
+      + unfold WL. rewrite !app_nil_l (app_assoc [W.T_i32]) (app_assoc wl).
+          iApply frame_interp_update_frame; last done.
+          -- cbn [length app plus].
+             by rewrite !length_app !length_map Nat.add_assoc -fe_wlocal_offset_length.
+          -- instantiate (1 := [VAL_int32 ta32; VAL_int32 (Wasm_int.int_of_Z i32m i)]).
+             constructor.
+             ++ rewrite list_lookup_insert_ne; last first.
+                {
+                  intros H. apply Hladdr_ltag_ne. rewrite H. subst laddr.
+                  by rewrite app_nil_r !length_app !length_map Nat.add_assoc.
+                }
+                unfold set. subst laddr. cbn. rewrite app_nil_r length_app !length_map Nat.add_assoc.
+                rewrite list_lookup_insert_eq; first done.
+                by rewrite app_nil_r length_app !length_map Nat.add_assoc in Hladdr_lt.
+             ++ constructor; last done. subst ltag.
+                rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc Nat.add_1_r.
+                unfold set. rewrite list_lookup_insert_eq; first done.
+                rewrite length_insert.
+                by rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc Nat.add_1_r
+                  in Hltag_lt.
+          -- constructor; first by eexists. by constructor; first eexists.
+          -- split; last done. intros x Hx. unfold set. cbn.
+             apply notin_seq_S in Hx as [H Hx1].
+             apply notin_seq_S in H as [_ Hx0].
+             rewrite Nat.add_0_r in Hx0.
+             rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_ne; first done.
+             ++ subst laddr. symmetry. by rewrite app_nil_r !length_app !length_map !Nat.add_assoc.
+             ++ subst ltag. symmetry.
+                by rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc.
+      + iExists [PtrA (PtrHeap MemMM ℓ)].
+        iSplitR "Hvs Haddr".
+        * rewrite values_interp_one_eq value_interp_eq. iExists (SVALTYPE [PtrR] AnyRefs).
+          iSplitR; first done. iSplitR.
+          {
+            iPureIntro. split.
+            - eexists. split; first done. repeat constructor.
+            - repeat constructor.
+          }
+          cbn.
+          iExists _, _, _.
+          iSplitR; first done.
+          iSplitR; first done.
+          by iModIntro.
+        * cbn. iSplitL; last done. iExists _, _. iSplitR; first done.
+          iSplitR; first done. iExists (RootHeap MemMM a). by iFrame.
+      + by iExists θ'.
     - (* GC *)
       assert (κr = VALTYPE (AtomR PtrR) GCRefs) by by inversion Href_kind.
       subst κr.
