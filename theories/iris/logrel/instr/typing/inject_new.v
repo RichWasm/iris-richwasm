@@ -94,6 +94,16 @@ Section inject_new.
         * done.
   Qed.
 
+  Lemma rt_addr_lookup lmask θ ℓ a :
+    rt_token rti sr lmask θ -∗
+    ℓ ↦addr (MemMM, a) -∗
+    ⌜θ !! ℓ = Some (MemMM, a)⌝.
+  Proof.
+    iIntros "Hrt Hℓ".
+    open_rt "Hrt".
+    by iDestruct (ghost_map_lookup with "Haddr Hℓ") as "%H".
+  Qed.
+
   Lemma compat_inject_new M F L wt wt' wtf wl wl' wlf es' μ i τ τs κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -343,6 +353,7 @@ Section inject_new.
       }
 
       iIntros (??) "[-> ->] Hf Hrun".
+      iDestruct (rt_addr_lookup with "Hrt Haddr") as "%Hθ'_ℓ".
       eapply cwp_set_pointer_flags in Hcg_flags as (_ & -> & -> & Hes12).
       rewrite app_assoc.
       iApply (cwp_seq with "[Hrt Hown Hlayout Hf Hrun]").
@@ -351,7 +362,7 @@ Section inject_new.
         iApply (Hes12 with "[$Hlayout] [$Hrt] [] [$Hown] [$Hf] [$Hrun]").
         - done.
         - by intros H.
-        - admit.
+        - inversion Hta. by constructor.
         - by rewrite list_lookup_insert_eq.
         - done.
         - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & (_ & _ & H & _) & _)".
@@ -417,12 +428,13 @@ Section inject_new.
       subst os'.
       clear Hos'.
       iIntros (??) "(-> & -> & Hheap & Haddr & Hrt) Hf Hrun".
+      iDestruct (atoms_interp_to_weak_memMM with "Hrt Hvs") as "[Hrt Hvs]".
       rewrite app_nil_l.
       eapply wp_store_strong_mm in Hcg_store as (_ & -> & -> & Hes21); last first.
       { by rewrite Hxs length_map length_seq. }
-      iApply (cwp_seq with "[Hheap Haddr Hrt Hf Hrun]").
+      iApply (cwp_seq with "[Hheap Haddr Hrt Hf Hrun Hvs]").
       {
-        iApply (Hes21 with "[$Hf] [$Hrun] [$Hheap] [$Haddr] [] [$Hrt]").
+        iApply (Hes21 with "[$Hf] [$Hrun] [$Hheap] [$Haddr] [] [$Hrt] [] [] [] [] [] [] [] [] [] [Hvs]").
         - iPureIntro. by intro.
         - iPureIntro. unfold set.
           by rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_eq.
@@ -445,7 +457,7 @@ Section inject_new.
         - done.
         - done.
         - unfold set. destruct Hfrel as [_ <-]. by iDestruct "Hinst" as "(_ & _ & _ & _ & H & _)".
-        - admit.
+        - done.
         - iIntros "Hheap Haddr Hrt".
           instantiate
             (1 := fun f' vs' =>
@@ -639,7 +651,7 @@ Section inject_new.
              ++ subst ltag. symmetry.
                 by rewrite app_nil_r app_nil_l !length_app !length_map !Nat.add_assoc.
       + iExists [PtrA (PtrHeap MemMM ℓ)].
-        iSplitR "Hvs Haddr".
+        iSplitR "Haddr".
         * rewrite values_interp_one_eq value_interp_eq. iExists (SVALTYPE [PtrR] AnyRefs).
           iSplitR; first done. iSplitR.
           {
@@ -1059,6 +1071,6 @@ Section inject_new.
       + done.
       + unfold set. destruct Hfrel as [_ <-].
         by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & H & _) & _)".
-  Admitted.
+  Qed.
 
 End inject_new.
