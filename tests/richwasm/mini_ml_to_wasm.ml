@@ -7507,7 +7507,7 @@ let%expect_test "examples" =
       (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 1) (param i32) (result i32)
-        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         i32.const 42
         i32.const 1
         i32.shl
@@ -7588,24 +7588,45 @@ let%expect_test "examples" =
             local.get 9
             i32.load offset=3 align=2
             local.tee 10
-            local.set 11
-            i32.const 0
-            block (param i32) (result i32)  ;; label = @3
-              local.get 11
-              i32.const 0
-              i32.ne
-              br_if 0 (;@3;)
-              drop
+          else
+            local.get 9
+            i32.load 1 offset=1 align=2
+            local.set 9
+            local.get 9
+            i32.load 1 offset=1 align=2
+            local.tee 11
+          end
+        end
+        local.set 12
+        i32.const 0
+        block (param i32) (result i32)  ;; label = @1
+          local.get 12
+          i32.const 0
+          i32.ne
+          br_if 0 (;@1;)
+          drop
+          local.get 9
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            unreachable
+          else
+            local.get 9
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
               local.get 9
               i32.load offset=7 align=2
-              local.tee 12
-              local.get 12
+              local.tee 13
+              local.get 13
               i32.const 1
               i32.and
               i32.eqz
               if (param i32) (result i32)  ;; label = @4
               else
-                local.get 12
+                local.get 13
                 i32.const 2
                 i32.and
                 i32.eqz
@@ -7615,39 +7636,9 @@ let%expect_test "examples" =
                   call 5
                 end
               end
-              local.set 2
-              i32.const 0
-              i32.const 1
-              i32.shl
-              local.get 2
-              local.set 13
-              local.get 13
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 13
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 13
-                  call 4
-                else
-                  local.get 13
-                  call 6
-                end
-              end
-            end
-            block (param i32) (result i32)  ;; label = @3
-              local.get 11
-              i32.const 1
-              i32.ne
-              br_if 0 (;@3;)
-              drop
+            else
               local.get 9
-              i32.load offset=7 align=2
+              i32.load 1 offset=5 align=2
               local.tee 14
               local.get 14
               i32.const 1
@@ -7661,242 +7652,197 @@ let%expect_test "examples" =
                 i32.eqz
                 if (param i32) (result i32)  ;; label = @5
                 else
-                  i32.load 1 offset=1 align=2
                   call 5
                 end
               end
-              local.set 3
-              local.get 3
-              local.set 15
+            end
+          end
+          local.set 2
+          i32.const 0
+          i32.const 1
+          i32.shl
+          local.get 2
+          local.set 15
+          local.get 15
+          i32.const 1
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 15
+            i32.const 2
+            i32.and
+            i32.eqz
+            if  ;; label = @3
               local.get 15
+              call 4
+            else
               local.get 15
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 15
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 15
-                  i32.load 1 offset=1 align=2
-                  call 5
-                  local.set 15
-                end
-              end
-              local.get 15
-              local.set 3
-              local.get 3
-              local.set 16
+              call 6
+            end
+          end
+        end
+        block (param i32) (result i32)  ;; label = @1
+          local.get 12
+          i32.const 1
+          i32.ne
+          br_if 0 (;@1;)
+          drop
+          local.get 9
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            unreachable
+          else
+            local.get 9
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              local.get 9
+              i32.load offset=7 align=2
+              local.tee 16
               local.get 16
               i32.const 1
               i32.and
               i32.eqz
-              if  ;; label = @4
+              if (param i32) (result i32)  ;; label = @4
               else
                 local.get 16
                 i32.const 2
                 i32.and
                 i32.eqz
-                if  ;; label = @5
-                  local.get 16
-                  call 4
-                else
-                  local.get 16
-                  call 6
-                end
-              end
-            end
-          else
-            local.get 9
-            i32.load 1 offset=1 align=2
-            local.set 9
-            local.get 9
-            i32.load 1 offset=1 align=2
-            local.tee 17
-            local.set 18
-            i32.const 0
-            block (param i32) (result i32)  ;; label = @3
-              local.get 18
-              i32.const 0
-              i32.ne
-              br_if 0 (;@3;)
-              drop
-              local.get 9
-              i32.load 1 offset=5 align=2
-              local.tee 19
-              local.get 19
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32) (result i32)  ;; label = @4
-              else
-                local.get 19
-                i32.const 2
-                i32.and
-                i32.eqz
                 if (param i32) (result i32)  ;; label = @5
                 else
-                  call 5
-                end
-              end
-              local.set 2
-              i32.const 0
-              i32.const 1
-              i32.shl
-              local.get 2
-              local.set 20
-              local.get 20
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 20
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 20
-                  call 4
-                else
-                  local.get 20
-                  call 6
-                end
-              end
-            end
-            block (param i32) (result i32)  ;; label = @3
-              local.get 18
-              i32.const 1
-              i32.ne
-              br_if 0 (;@3;)
-              drop
-              local.get 9
-              i32.load 1 offset=5 align=2
-              local.tee 21
-              local.get 21
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32) (result i32)  ;; label = @4
-              else
-                local.get 21
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32) (result i32)  ;; label = @5
-                else
-                  call 5
-                end
-              end
-              local.set 3
-              local.get 3
-              local.set 22
-              local.get 22
-              local.get 22
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 22
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 22
                   i32.load 1 offset=1 align=2
                   call 5
-                  local.set 22
                 end
               end
-              local.get 22
-              local.set 3
-              local.get 3
-              local.set 23
-              local.get 23
+            else
+              local.get 9
+              i32.load 1 offset=5 align=2
+              local.tee 17
+              local.get 17
               i32.const 1
               i32.and
               i32.eqz
-              if  ;; label = @4
+              if (param i32) (result i32)  ;; label = @4
               else
-                local.get 23
+                local.get 17
                 i32.const 2
                 i32.and
                 i32.eqz
-                if  ;; label = @5
-                  local.get 23
-                  call 4
+                if (param i32) (result i32)  ;; label = @5
                 else
-                  local.get 23
-                  call 6
+                  call 5
                 end
               end
             end
           end
+          local.set 3
+          local.get 3
+          local.set 18
+          local.get 18
+          local.get 18
+          i32.const 1
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 18
+            i32.const 2
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 18
+              i32.load 1 offset=1 align=2
+              call 5
+              local.set 18
+            end
+          end
+          local.get 18
+          local.set 3
+          local.get 3
+          local.set 19
+          local.get 19
+          i32.const 1
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 19
+            i32.const 2
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+              local.get 19
+              call 4
+            else
+              local.get 19
+              call 6
+            end
+          end
         end
         local.set 4
-        local.set 24
-        local.get 24
+        local.set 20
+        local.get 20
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 24
+          local.get 20
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 24
+            local.get 20
             call 4
           else
-            local.get 24
+            local.get 20
             call 6
           end
         end
         local.get 4
         local.get 1
-        local.set 25
-        local.get 25
+        local.set 21
+        local.get 21
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 25
+          local.get 21
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 25
+            local.get 21
             call 4
           else
-            local.get 25
+            local.get 21
             call 6
           end
         end
         local.get 0
-        local.set 26
-        local.get 26
+        local.set 22
+        local.get 22
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 26
+          local.get 22
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 26
+            local.get 22
             call 4
           else
-            local.get 26
+            local.get 22
             call 6
           end
         end)
@@ -7937,7 +7883,7 @@ let%expect_test "examples" =
       (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 5) (param i32 i32) (result i32)
-        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 1
         local.set 11
         local.get 11
@@ -7978,24 +7924,45 @@ let%expect_test "examples" =
             local.get 12
             i32.load offset=3 align=2
             local.tee 13
-            local.set 14
-            i32.const 0
-            block (param i32) (result i32)  ;; label = @3
-              local.get 14
-              i32.const 0
-              i32.ne
-              br_if 0 (;@3;)
-              drop
+          else
+            local.get 12
+            i32.load 1 offset=1 align=2
+            local.set 12
+            local.get 12
+            i32.load 1 offset=1 align=2
+            local.tee 14
+          end
+        end
+        local.set 15
+        i32.const 0
+        block (param i32) (result i32)  ;; label = @1
+          local.get 15
+          i32.const 0
+          i32.ne
+          br_if 0 (;@1;)
+          drop
+          local.get 12
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            unreachable
+          else
+            local.get 12
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
               local.get 12
               i32.load offset=7 align=2
-              local.tee 15
-              local.get 15
+              local.tee 16
+              local.get 16
               i32.const 1
               i32.and
               i32.eqz
               if (param i32) (result i32)  ;; label = @4
               else
-                local.get 15
+                local.get 16
                 i32.const 2
                 i32.and
                 i32.eqz
@@ -8005,39 +7972,9 @@ let%expect_test "examples" =
                   call 5
                 end
               end
-              local.set 2
-              i32.const 0
-              i32.const 1
-              i32.shl
-              local.get 2
-              local.set 16
-              local.get 16
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 16
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 16
-                  call 4
-                else
-                  local.get 16
-                  call 6
-                end
-              end
-            end
-            block (param i32) (result i32)  ;; label = @3
-              local.get 14
-              i32.const 1
-              i32.ne
-              br_if 0 (;@3;)
-              drop
+            else
               local.get 12
-              i32.load offset=7 align=2
+              i32.load 1 offset=5 align=2
               local.tee 17
               local.get 17
               i32.const 1
@@ -8051,1002 +7988,577 @@ let%expect_test "examples" =
                 i32.eqz
                 if (param i32) (result i32)  ;; label = @5
                 else
-                  i32.load 1 offset=1 align=2
                   call 5
                 end
               end
-              local.set 3
-              i32.const 1
-              i32.const 1
-              i32.shl
-              i32.const 1
-              i32.shr_u
-              i32.const 0
-              call 2
-              local.set 18
+            end
+          end
+          local.set 2
+          i32.const 0
+          i32.const 1
+          i32.shl
+          local.get 2
+          local.set 18
+          local.get 18
+          i32.const 1
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 18
+            i32.const 2
+            i32.and
+            i32.eqz
+            if  ;; label = @3
               local.get 18
-              call 5
-              i32.const 0
-              global.get 1
-              i32.add
-              local.set 20
-              local.set 19
-              i32.const 2
-              call 2
-              local.set 21
-              local.get 21
-              i32.const 0
-              i32.const 1
-              call 3
-              local.get 21
-              i32.const 1
-              i32.const 0
-              call 3
-              local.get 21
-              local.get 19
+              call 4
+            else
+              local.get 18
+              call 6
+            end
+          end
+        end
+        block (param i32) (result i32)  ;; label = @1
+          local.get 15
+          i32.const 1
+          i32.ne
+          br_if 0 (;@1;)
+          drop
+          local.get 12
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            unreachable
+          else
+            local.get 12
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              local.get 12
+              i32.load offset=7 align=2
+              local.tee 19
               local.get 19
               i32.const 1
               i32.and
               i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=1 align=2
+              if (param i32) (result i32)  ;; label = @4
               else
                 local.get 19
                 i32.const 2
                 i32.and
                 i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=1 align=2
+                if (param i32) (result i32)  ;; label = @5
                 else
                   i32.load 1 offset=1 align=2
-                  i32.store 1 offset=1 align=2
-                  local.get 19
-                  call 6
+                  call 5
                 end
               end
-              local.get 21
+            else
+              local.get 12
+              i32.load 1 offset=5 align=2
+              local.tee 20
               local.get 20
-              i32.store 1 offset=5 align=2
-              local.get 21
-              call 5
-              block (param i32) (result i32)  ;; label = @4
-                local.set 4
-                local.get 4
-                local.set 22
-                local.get 22
-                local.get 22
-                i32.const 1
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                local.get 20
+                i32.const 2
                 i32.and
                 i32.eqz
-                if  ;; label = @5
+                if (param i32) (result i32)  ;; label = @5
                 else
-                  local.get 22
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 22
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 22
-                  end
+                  call 5
                 end
-                local.get 22
-                local.set 4
-                local.tee 23
-                local.get 23
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 23
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 23
-                    i32.load offset=3 align=2
-                    local.tee 24
-                    local.get 24
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 24
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 23
-                    i32.load 1 offset=1 align=2
-                    local.set 23
-                    local.get 23
-                    i32.load 1 offset=1 align=2
-                    local.tee 25
-                    local.get 25
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 25
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 5
-                local.set 26
+              end
+            end
+          end
+          local.set 3
+          i32.const 1
+          i32.const 1
+          i32.shl
+          i32.const 1
+          i32.shr_u
+          i32.const 0
+          call 2
+          local.set 21
+          local.get 21
+          call 5
+          i32.const 0
+          global.get 1
+          i32.add
+          local.set 23
+          local.set 22
+          i32.const 2
+          call 2
+          local.set 24
+          local.get 24
+          i32.const 0
+          i32.const 1
+          call 3
+          local.get 24
+          i32.const 1
+          i32.const 0
+          call 3
+          local.get 24
+          local.get 22
+          local.get 22
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store 1 offset=1 align=2
+          else
+            local.get 22
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (param i32 i32)  ;; label = @3
+              i32.store 1 offset=1 align=2
+            else
+              i32.load 1 offset=1 align=2
+              i32.store 1 offset=1 align=2
+              local.get 22
+              call 6
+            end
+          end
+          local.get 24
+          local.get 23
+          i32.store 1 offset=5 align=2
+          local.get 24
+          call 5
+          block (param i32) (result i32)  ;; label = @2
+            local.set 4
+            local.get 4
+            local.set 25
+            local.get 25
+            local.get 25
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 25
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 25
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 25
+              end
+            end
+            local.get 25
+            local.set 4
+            local.tee 26
+            local.get 26
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 26
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
                 local.get 26
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 26
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 26
-                    call 4
-                  else
-                    local.get 26
-                    call 6
-                  end
-                end
-                local.get 5
-                local.set 6
-                local.get 4
-                local.set 27
-                local.get 27
+                i32.load offset=3 align=2
+                local.tee 27
                 local.get 27
                 i32.const 1
                 i32.and
                 i32.eqz
-                if  ;; label = @5
+                if (param i32) (result i32)  ;; label = @5
                 else
                   local.get 27
                   i32.const 2
                   i32.and
                   i32.eqz
-                  if  ;; label = @6
+                  if (param i32) (result i32)  ;; label = @6
                   else
-                    local.get 27
                     i32.load 1 offset=1 align=2
                     call 5
-                    local.set 27
                   end
                 end
-                local.get 27
-                local.set 4
+              else
+                local.get 26
+                i32.load 1 offset=1 align=2
+                local.set 26
+                local.get 26
+                i32.load 1 offset=1 align=2
                 local.tee 28
                 local.get 28
                 i32.const 1
                 i32.and
                 i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
+                if (param i32) (result i32)  ;; label = @5
                 else
                   local.get 28
                   i32.const 2
                   i32.and
                   i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 28
-                    i32.load offset=7 align=2
-                    local.tee 29
+                  if (param i32) (result i32)  ;; label = @6
                   else
-                    local.get 28
-                    i32.load 1 offset=1 align=2
-                    local.set 28
-                    local.get 28
-                    i32.load 1 offset=5 align=2
-                    local.tee 30
+                    call 5
                   end
                 end
-                local.set 7
+              end
+            end
+            local.set 5
+            local.set 29
+            local.get 29
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 29
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 29
+                call 4
+              else
+                local.get 29
+                call 6
+              end
+            end
+            local.get 5
+            local.set 6
+            local.get 4
+            local.set 30
+            local.get 30
+            local.get 30
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 30
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 30
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 30
+              end
+            end
+            local.get 30
+            local.set 4
+            local.tee 31
+            local.get 31
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 31
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
+                local.get 31
+                i32.load offset=7 align=2
+                local.tee 32
+              else
+                local.get 31
+                i32.load 1 offset=1 align=2
                 local.set 31
                 local.get 31
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 31
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 31
-                    call 4
-                  else
-                    local.get 31
-                    call 6
-                  end
-                end
-                local.get 7
-                local.set 8
-                local.get 6
-                local.set 32
-                local.get 32
-                local.get 32
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 32
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 32
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 32
-                  end
-                end
-                local.get 32
-                local.set 6
-                local.get 3
-                local.set 33
-                local.get 33
-                local.get 33
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 33
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 33
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 33
-                  end
-                end
-                local.get 33
-                local.set 3
-                local.tee 34
+                i32.load 1 offset=5 align=2
+                local.tee 33
+              end
+            end
+            local.set 7
+            local.set 34
+            local.get 34
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 34
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
                 local.get 34
+                call 4
+              else
+                local.get 34
+                call 6
+              end
+            end
+            local.get 7
+            local.set 8
+            local.get 6
+            local.set 35
+            local.get 35
+            local.get 35
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 35
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 35
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 35
+              end
+            end
+            local.get 35
+            local.set 6
+            local.get 3
+            local.set 36
+            local.get 36
+            local.get 36
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 36
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 36
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 36
+              end
+            end
+            local.get 36
+            local.set 3
+            local.tee 37
+            local.get 37
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 37
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
+                local.get 37
+                i32.load offset=7 align=2
+                local.tee 38
+                local.get 38
                 i32.const 1
                 i32.and
                 i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
+                if (param i32) (result i32)  ;; label = @5
                 else
-                  local.get 34
+                  local.get 38
                   i32.const 2
                   i32.and
                   i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 34
-                    i32.load offset=7 align=2
-                    local.tee 35
-                    local.get 35
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 35
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
+                  if (param i32) (result i32)  ;; label = @6
                   else
-                    local.get 34
                     i32.load 1 offset=1 align=2
-                    local.set 34
-                    local.get 34
-                    i32.load 1 offset=5 align=2
-                    local.tee 36
-                    local.get 36
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 36
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
+                    call 5
                   end
                 end
-                local.set 9
+              else
+                local.get 37
+                i32.load 1 offset=1 align=2
                 local.set 37
                 local.get 37
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 37
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 37
-                    call 4
-                  else
-                    local.get 37
-                    call 6
-                  end
-                end
-                local.get 9
-                local.get 8
-                local.set 38
-                local.get 38
-                local.get 38
-                local.set 8
-                call_indirect (type 5)
-                local.get 8
-                drop
-                local.get 6
-                local.set 39
+                i32.load 1 offset=5 align=2
+                local.tee 39
                 local.get 39
                 i32.const 1
                 i32.and
                 i32.eqz
-                if  ;; label = @5
+                if (param i32) (result i32)  ;; label = @5
                 else
                   local.get 39
                   i32.const 2
                   i32.and
                   i32.eqz
-                  if  ;; label = @6
-                    local.get 39
-                    call 4
+                  if (param i32) (result i32)  ;; label = @6
                   else
-                    local.get 39
-                    call 6
-                  end
-                end
-                local.get 4
-                local.set 40
-                local.get 40
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 40
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 40
-                    call 4
-                  else
-                    local.get 40
-                    call 6
+                    call 5
                   end
                 end
               end
-              i32.const 1
-              i32.shr_u
-              i32.add
-              i32.const 1
-              i32.shl
-              local.get 3
-              local.set 41
-              local.get 41
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 41
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 41
-                  call 4
-                else
-                  local.get 41
-                  call 6
-                end
-              end
             end
-          else
-            local.get 12
-            i32.load 1 offset=1 align=2
-            local.set 12
-            local.get 12
-            i32.load 1 offset=1 align=2
-            local.tee 42
-            local.set 43
-            i32.const 0
-            block (param i32) (result i32)  ;; label = @3
-              local.get 43
-              i32.const 0
-              i32.ne
-              br_if 0 (;@3;)
-              drop
-              local.get 12
-              i32.load 1 offset=5 align=2
-              local.tee 44
-              local.get 44
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32) (result i32)  ;; label = @4
-              else
-                local.get 44
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32) (result i32)  ;; label = @5
-                else
-                  call 5
-                end
-              end
-              local.set 2
-              i32.const 0
-              i32.const 1
-              i32.shl
-              local.get 2
-              local.set 45
-              local.get 45
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 45
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 45
-                  call 4
-                else
-                  local.get 45
-                  call 6
-                end
-              end
-            end
-            block (param i32) (result i32)  ;; label = @3
-              local.get 43
-              i32.const 1
-              i32.ne
-              br_if 0 (;@3;)
-              drop
-              local.get 12
-              i32.load 1 offset=5 align=2
-              local.tee 46
-              local.get 46
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32) (result i32)  ;; label = @4
-              else
-                local.get 46
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32) (result i32)  ;; label = @5
-                else
-                  call 5
-                end
-              end
-              local.set 3
-              i32.const 1
-              i32.const 1
-              i32.shl
-              i32.const 1
-              i32.shr_u
-              i32.const 0
-              call 2
-              local.set 47
-              local.get 47
-              call 5
-              i32.const 0
-              global.get 1
-              i32.add
-              local.set 49
-              local.set 48
+            local.set 9
+            local.set 40
+            local.get 40
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 40
               i32.const 2
-              call 2
-              local.set 50
-              local.get 50
-              i32.const 0
-              i32.const 1
-              call 3
-              local.get 50
-              i32.const 1
-              i32.const 0
-              call 3
-              local.get 50
-              local.get 48
-              local.get 48
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=1 align=2
-              else
-                local.get 48
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=1 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=1 align=2
-                  local.get 48
-                  call 6
-                end
-              end
-              local.get 50
-              local.get 49
-              i32.store 1 offset=5 align=2
-              local.get 50
-              call 5
-              block (param i32) (result i32)  ;; label = @4
-                local.set 4
-                local.get 4
-                local.set 51
-                local.get 51
-                local.get 51
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 51
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 51
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 51
-                  end
-                end
-                local.get 51
-                local.set 4
-                local.tee 52
-                local.get 52
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 52
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 52
-                    i32.load offset=3 align=2
-                    local.tee 53
-                    local.get 53
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 53
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 52
-                    i32.load 1 offset=1 align=2
-                    local.set 52
-                    local.get 52
-                    i32.load 1 offset=1 align=2
-                    local.tee 54
-                    local.get 54
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 54
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 5
-                local.set 55
-                local.get 55
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 55
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 55
-                    call 4
-                  else
-                    local.get 55
-                    call 6
-                  end
-                end
-                local.get 5
-                local.set 6
-                local.get 4
-                local.set 56
-                local.get 56
-                local.get 56
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 56
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 56
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 56
-                  end
-                end
-                local.get 56
-                local.set 4
-                local.tee 57
-                local.get 57
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 57
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 57
-                    i32.load offset=7 align=2
-                    local.tee 58
-                  else
-                    local.get 57
-                    i32.load 1 offset=1 align=2
-                    local.set 57
-                    local.get 57
-                    i32.load 1 offset=5 align=2
-                    local.tee 59
-                  end
-                end
-                local.set 7
-                local.set 60
-                local.get 60
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 60
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 60
-                    call 4
-                  else
-                    local.get 60
-                    call 6
-                  end
-                end
-                local.get 7
-                local.set 8
-                local.get 6
-                local.set 61
-                local.get 61
-                local.get 61
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 61
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 61
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 61
-                  end
-                end
-                local.get 61
-                local.set 6
-                local.get 3
-                local.set 62
-                local.get 62
-                local.get 62
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 62
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 62
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 62
-                  end
-                end
-                local.get 62
-                local.set 3
-                local.tee 63
-                local.get 63
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 63
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 63
-                    i32.load offset=7 align=2
-                    local.tee 64
-                    local.get 64
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 64
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 63
-                    i32.load 1 offset=1 align=2
-                    local.set 63
-                    local.get 63
-                    i32.load 1 offset=5 align=2
-                    local.tee 65
-                    local.get 65
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 65
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 9
-                local.set 66
-                local.get 66
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 66
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 66
-                    call 4
-                  else
-                    local.get 66
-                    call 6
-                  end
-                end
-                local.get 9
-                local.get 8
-                local.set 67
-                local.get 67
-                local.get 67
-                local.set 8
-                call_indirect (type 5)
-                local.get 8
-                drop
-                local.get 6
-                local.set 68
-                local.get 68
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 68
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 68
-                    call 4
-                  else
-                    local.get 68
-                    call 6
-                  end
-                end
-                local.get 4
-                local.set 69
-                local.get 69
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 69
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 69
-                    call 4
-                  else
-                    local.get 69
-                    call 6
-                  end
-                end
-              end
-              i32.const 1
-              i32.shr_u
-              i32.add
-              i32.const 1
-              i32.shl
-              local.get 3
-              local.set 70
-              local.get 70
-              i32.const 1
               i32.and
               i32.eqz
               if  ;; label = @4
+                local.get 40
+                call 4
               else
-                local.get 70
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 70
-                  call 4
-                else
-                  local.get 70
-                  call 6
-                end
+                local.get 40
+                call 6
               end
+            end
+            local.get 9
+            local.get 8
+            local.set 41
+            local.get 41
+            local.get 41
+            local.set 8
+            call_indirect (type 5)
+            local.get 8
+            drop
+            local.get 6
+            local.set 42
+            local.get 42
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 42
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 42
+                call 4
+              else
+                local.get 42
+                call 6
+              end
+            end
+            local.get 4
+            local.set 43
+            local.get 43
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 43
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 43
+                call 4
+              else
+                local.get 43
+                call 6
+              end
+            end
+          end
+          i32.const 1
+          i32.shr_u
+          i32.add
+          i32.const 1
+          i32.shl
+          local.get 3
+          local.set 44
+          local.get 44
+          i32.const 1
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 44
+            i32.const 2
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+              local.get 44
+              call 4
+            else
+              local.get 44
+              call 6
             end
           end
         end
         local.set 10
-        local.set 71
-        local.get 71
+        local.set 45
+        local.get 45
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 71
+          local.get 45
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 71
+            local.get 45
             call 4
           else
-            local.get 71
+            local.get 45
             call 6
           end
         end
         local.get 10
         local.get 0
-        local.set 72
-        local.get 72
+        local.set 46
+        local.get 46
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 72
+          local.get 46
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 72
+            local.get 46
             call 4
           else
-            local.get 72
+            local.get 46
             call 6
           end
         end
         local.get 1
-        local.set 73
-        local.get 73
+        local.set 47
+        local.get 47
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 73
+          local.get 47
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 73
+            local.get 47
             call 4
           else
-            local.get 73
+            local.get 47
             call 6
           end
         end)
@@ -9552,7 +9064,7 @@ let%expect_test "examples" =
       (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 5) (param i32 i32) (result i32)
-        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 1
         local.set 19
         local.get 19
@@ -9749,2269 +9261,1258 @@ let%expect_test "examples" =
             local.get 28
             i32.load offset=3 align=2
             local.tee 29
-            local.set 30
-            i32.const 0
-            block (param i32) (result i32)  ;; label = @3
-              local.get 30
-              i32.const 0
-              i32.ne
-              br_if 0 (;@3;)
-              drop
-              local.get 28
-              i32.load offset=7 align=2
-              local.tee 31
-              local.get 31
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32) (result i32)  ;; label = @4
-              else
-                local.get 31
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32) (result i32)  ;; label = @5
-                else
-                  i32.load 1 offset=1 align=2
-                  call 5
-                end
-              end
-              local.set 4
-              i32.const 0
-              call 2
-              local.set 32
-              local.get 32
-              call 5
-              local.set 33
-              i32.const 2
-              call 2
-              local.set 34
-              local.get 34
-              i32.const 1
-              i32.const 1
-              call 3
-              i32.const 0
-              local.set 35
-              local.get 34
-              local.get 35
-              i32.store 1 offset=1 align=2
-              local.get 34
-              local.get 33
-              local.get 33
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=5 align=2
-              else
-                local.get 33
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=5 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=5 align=2
-                  local.get 33
-                  call 6
-                end
-              end
-              local.get 34
-              call 5
-              nop
-              local.get 4
-              local.set 36
-              local.get 36
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 36
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 36
-                  call 4
-                else
-                  local.get 36
-                  call 6
-                end
-              end
-            end
-            block (param i32) (result i32)  ;; label = @3
-              local.get 30
-              i32.const 1
-              i32.ne
-              br_if 0 (;@3;)
-              drop
-              local.get 28
-              i32.load offset=7 align=2
-              local.tee 37
-              local.get 37
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32) (result i32)  ;; label = @4
-              else
-                local.get 37
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32) (result i32)  ;; label = @5
-                else
-                  i32.load 1 offset=1 align=2
-                  call 5
-                end
-              end
-              local.set 5
-              local.get 2
-              local.set 38
-              local.get 38
-              local.get 38
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 38
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 38
-                  i32.load 1 offset=1 align=2
-                  call 5
-                  local.set 38
-                end
-              end
-              local.get 38
-              local.set 2
-              block (param i32) (result i32)  ;; label = @4
-                local.set 6
-                local.get 6
-                local.set 39
-                local.get 39
-                local.get 39
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 39
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 39
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 39
-                  end
-                end
-                local.get 39
-                local.set 6
-                local.tee 40
-                local.get 40
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 40
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 40
-                    i32.load offset=3 align=2
-                    local.tee 41
-                    local.get 41
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 41
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 40
-                    i32.load 1 offset=1 align=2
-                    local.set 40
-                    local.get 40
-                    i32.load 1 offset=1 align=2
-                    local.tee 42
-                    local.get 42
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 42
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 7
-                local.set 43
-                local.get 43
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 43
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 43
-                    call 4
-                  else
-                    local.get 43
-                    call 6
-                  end
-                end
-                local.get 7
-                local.set 8
-                local.get 6
-                local.set 44
-                local.get 44
-                local.get 44
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 44
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 44
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 44
-                  end
-                end
-                local.get 44
-                local.set 6
-                local.tee 45
-                local.get 45
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 45
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 45
-                    i32.load offset=7 align=2
-                    local.tee 46
-                  else
-                    local.get 45
-                    i32.load 1 offset=1 align=2
-                    local.set 45
-                    local.get 45
-                    i32.load 1 offset=5 align=2
-                    local.tee 47
-                  end
-                end
-                local.set 9
-                local.set 48
-                local.get 48
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 48
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 48
-                    call 4
-                  else
-                    local.get 48
-                    call 6
-                  end
-                end
-                local.get 9
-                local.set 10
-                local.get 8
-                local.set 49
-                local.get 49
-                local.get 49
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 49
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 49
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 49
-                  end
-                end
-                local.get 49
-                local.set 8
-                local.get 5
-                local.set 50
-                local.get 50
-                local.get 50
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 50
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 50
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 50
-                  end
-                end
-                local.get 50
-                local.set 5
-                local.tee 51
-                local.get 51
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 51
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 51
-                    i32.load offset=3 align=2
-                    local.tee 52
-                    local.get 52
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 52
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 51
-                    i32.load 1 offset=1 align=2
-                    local.set 51
-                    local.get 51
-                    i32.load 1 offset=1 align=2
-                    local.tee 53
-                    local.get 53
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 53
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 11
-                local.set 54
-                local.get 54
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 54
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 54
-                    call 4
-                  else
-                    local.get 54
-                    call 6
-                  end
-                end
-                local.get 11
-                local.get 10
-                local.set 55
-                local.get 55
-                local.get 55
-                local.set 10
-                call_indirect (type 5)
-                local.get 10
-                drop
-                local.get 8
-                local.set 56
-                local.get 56
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 56
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 56
-                    call 4
-                  else
-                    local.get 56
-                    call 6
-                  end
-                end
-                local.get 6
-                local.set 57
-                local.get 57
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 57
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 57
-                    call 4
-                  else
-                    local.get 57
-                    call 6
-                  end
-                end
-              end
-              i32.const 0
-              call 2
-              local.set 58
-              local.get 58
-              call 5
-              i32.const 0
-              global.get 1
-              i32.add
-              local.set 60
-              local.set 59
-              i32.const 2
-              call 2
-              local.set 61
-              local.get 61
-              i32.const 0
-              i32.const 1
-              call 3
-              local.get 61
-              i32.const 1
-              i32.const 0
-              call 3
-              local.get 61
-              local.get 59
-              local.get 59
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=1 align=2
-              else
-                local.get 59
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=1 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=1 align=2
-                  local.get 59
-                  call 6
-                end
-              end
-              local.get 61
-              local.get 60
-              i32.store 1 offset=5 align=2
-              local.get 61
-              call 5
-              block (param i32) (result i32)  ;; label = @4
-                local.set 12
-                local.get 12
-                local.set 62
-                local.get 62
-                local.get 62
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 62
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 62
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 62
-                  end
-                end
-                local.get 62
-                local.set 12
-                local.tee 63
-                local.get 63
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 63
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 63
-                    i32.load offset=3 align=2
-                    local.tee 64
-                    local.get 64
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 64
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 63
-                    i32.load 1 offset=1 align=2
-                    local.set 63
-                    local.get 63
-                    i32.load 1 offset=1 align=2
-                    local.tee 65
-                    local.get 65
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 65
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 13
-                local.set 66
-                local.get 66
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 66
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 66
-                    call 4
-                  else
-                    local.get 66
-                    call 6
-                  end
-                end
-                local.get 13
-                local.set 14
-                local.get 12
-                local.set 67
-                local.get 67
-                local.get 67
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 67
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 67
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 67
-                  end
-                end
-                local.get 67
-                local.set 12
-                local.tee 68
-                local.get 68
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 68
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 68
-                    i32.load offset=7 align=2
-                    local.tee 69
-                  else
-                    local.get 68
-                    i32.load 1 offset=1 align=2
-                    local.set 68
-                    local.get 68
-                    i32.load 1 offset=5 align=2
-                    local.tee 70
-                  end
-                end
-                local.set 15
-                local.set 71
-                local.get 71
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 71
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 71
-                    call 4
-                  else
-                    local.get 71
-                    call 6
-                  end
-                end
-                local.get 15
-                local.set 16
-                local.get 14
-                local.set 72
-                local.get 72
-                local.get 72
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 72
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 72
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 72
-                  end
-                end
-                local.get 72
-                local.set 14
-                local.get 2
-                local.set 73
-                local.get 73
-                local.get 73
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 73
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 73
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 73
-                  end
-                end
-                local.get 73
-                local.set 2
-                local.get 5
-                local.set 74
-                local.get 74
-                local.get 74
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 74
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 74
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 74
-                  end
-                end
-                local.get 74
-                local.set 5
-                local.tee 75
-                local.get 75
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 75
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 75
-                    i32.load offset=7 align=2
-                    local.tee 76
-                    local.get 76
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 76
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 75
-                    i32.load 1 offset=1 align=2
-                    local.set 75
-                    local.get 75
-                    i32.load 1 offset=5 align=2
-                    local.tee 77
-                    local.get 77
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 77
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 17
-                local.set 78
-                local.get 78
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 78
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 78
-                    call 4
-                  else
-                    local.get 78
-                    call 6
-                  end
-                end
-                local.get 17
-                local.set 80
-                local.set 79
-                i32.const 2
-                call 2
-                local.set 81
-                local.get 81
-                i32.const 0
-                i32.const 1
-                call 3
-                local.get 81
-                i32.const 1
-                i32.const 1
-                call 3
-                local.get 81
-                local.get 79
-                local.get 79
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=1 align=2
-                else
-                  local.get 79
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (param i32 i32)  ;; label = @6
-                    i32.store 1 offset=1 align=2
-                  else
-                    i32.load 1 offset=1 align=2
-                    i32.store 1 offset=1 align=2
-                    local.get 79
-                    call 6
-                  end
-                end
-                local.get 81
-                local.get 80
-                local.get 80
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=5 align=2
-                else
-                  local.get 80
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (param i32 i32)  ;; label = @6
-                    i32.store 1 offset=5 align=2
-                  else
-                    i32.load 1 offset=1 align=2
-                    i32.store 1 offset=5 align=2
-                    local.get 80
-                    call 6
-                  end
-                end
-                local.get 81
-                call 5
-                local.get 16
-                local.set 82
-                local.get 82
-                local.get 82
-                local.set 16
-                call_indirect (type 5)
-                local.get 16
-                drop
-                local.get 14
-                local.set 83
-                local.get 83
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 83
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 83
-                    call 4
-                  else
-                    local.get 83
-                    call 6
-                  end
-                end
-                local.get 12
-                local.set 84
-                local.get 84
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 84
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 84
-                    call 4
-                  else
-                    local.get 84
-                    call 6
-                  end
-                end
-              end
-              local.set 86
-              local.set 85
-              i32.const 2
-              call 2
-              local.set 87
-              local.get 87
-              i32.const 0
-              i32.const 1
-              call 3
-              local.get 87
-              i32.const 1
-              i32.const 1
-              call 3
-              local.get 87
-              local.get 85
-              local.get 85
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=1 align=2
-              else
-                local.get 85
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=1 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=1 align=2
-                  local.get 85
-                  call 6
-                end
-              end
-              local.get 87
-              local.get 86
-              local.get 86
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=5 align=2
-              else
-                local.get 86
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=5 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=5 align=2
-                  local.get 86
-                  call 6
-                end
-              end
-              local.get 87
-              call 5
-              local.set 88
-              i32.const 2
-              call 2
-              local.set 89
-              local.get 89
-              i32.const 1
-              i32.const 1
-              call 3
-              i32.const 1
-              local.set 90
-              local.get 89
-              local.get 90
-              i32.store 1 offset=1 align=2
-              local.get 89
-              local.get 88
-              local.get 88
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=5 align=2
-              else
-                local.get 88
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=5 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=5 align=2
-                  local.get 88
-                  call 6
-                end
-              end
-              local.get 89
-              call 5
-              nop
-              local.get 5
-              local.set 91
-              local.get 91
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 91
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 91
-                  call 4
-                else
-                  local.get 91
-                  call 6
-                end
-              end
-            end
           else
             local.get 28
             i32.load 1 offset=1 align=2
             local.set 28
             local.get 28
             i32.load 1 offset=1 align=2
-            local.tee 92
-            local.set 93
-            i32.const 0
-            block (param i32) (result i32)  ;; label = @3
-              local.get 93
-              i32.const 0
-              i32.ne
-              br_if 0 (;@3;)
-              drop
+            local.tee 30
+          end
+        end
+        local.set 31
+        i32.const 0
+        block (param i32) (result i32)  ;; label = @1
+          local.get 31
+          i32.const 0
+          i32.ne
+          br_if 0 (;@1;)
+          drop
+          local.get 28
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            unreachable
+          else
+            local.get 28
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
               local.get 28
-              i32.load 1 offset=5 align=2
-              local.tee 94
-              local.get 94
+              i32.load offset=7 align=2
+              local.tee 32
+              local.get 32
               i32.const 1
               i32.and
               i32.eqz
               if (param i32) (result i32)  ;; label = @4
               else
-                local.get 94
+                local.get 32
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  i32.load 1 offset=1 align=2
+                  call 5
+                end
+              end
+            else
+              local.get 28
+              i32.load 1 offset=5 align=2
+              local.tee 33
+              local.get 33
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                local.get 33
                 i32.const 2
                 i32.and
                 i32.eqz
                 if (param i32) (result i32)  ;; label = @5
                 else
                   call 5
-                end
-              end
-              local.set 4
-              i32.const 0
-              call 2
-              local.set 95
-              local.get 95
-              call 5
-              local.set 96
-              i32.const 2
-              call 2
-              local.set 97
-              local.get 97
-              i32.const 1
-              i32.const 1
-              call 3
-              i32.const 0
-              local.set 98
-              local.get 97
-              local.get 98
-              i32.store 1 offset=1 align=2
-              local.get 97
-              local.get 96
-              local.get 96
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=5 align=2
-              else
-                local.get 96
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=5 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=5 align=2
-                  local.get 96
-                  call 6
-                end
-              end
-              local.get 97
-              call 5
-              nop
-              local.get 4
-              local.set 99
-              local.get 99
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 99
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 99
-                  call 4
-                else
-                  local.get 99
-                  call 6
-                end
-              end
-            end
-            block (param i32) (result i32)  ;; label = @3
-              local.get 93
-              i32.const 1
-              i32.ne
-              br_if 0 (;@3;)
-              drop
-              local.get 28
-              i32.load 1 offset=5 align=2
-              local.tee 100
-              local.get 100
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32) (result i32)  ;; label = @4
-              else
-                local.get 100
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32) (result i32)  ;; label = @5
-                else
-                  call 5
-                end
-              end
-              local.set 5
-              local.get 2
-              local.set 101
-              local.get 101
-              local.get 101
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 101
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 101
-                  i32.load 1 offset=1 align=2
-                  call 5
-                  local.set 101
-                end
-              end
-              local.get 101
-              local.set 2
-              block (param i32) (result i32)  ;; label = @4
-                local.set 6
-                local.get 6
-                local.set 102
-                local.get 102
-                local.get 102
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 102
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 102
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 102
-                  end
-                end
-                local.get 102
-                local.set 6
-                local.tee 103
-                local.get 103
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 103
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 103
-                    i32.load offset=3 align=2
-                    local.tee 104
-                    local.get 104
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 104
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 103
-                    i32.load 1 offset=1 align=2
-                    local.set 103
-                    local.get 103
-                    i32.load 1 offset=1 align=2
-                    local.tee 105
-                    local.get 105
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 105
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 7
-                local.set 106
-                local.get 106
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 106
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 106
-                    call 4
-                  else
-                    local.get 106
-                    call 6
-                  end
-                end
-                local.get 7
-                local.set 8
-                local.get 6
-                local.set 107
-                local.get 107
-                local.get 107
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 107
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 107
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 107
-                  end
-                end
-                local.get 107
-                local.set 6
-                local.tee 108
-                local.get 108
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 108
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 108
-                    i32.load offset=7 align=2
-                    local.tee 109
-                  else
-                    local.get 108
-                    i32.load 1 offset=1 align=2
-                    local.set 108
-                    local.get 108
-                    i32.load 1 offset=5 align=2
-                    local.tee 110
-                  end
-                end
-                local.set 9
-                local.set 111
-                local.get 111
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 111
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 111
-                    call 4
-                  else
-                    local.get 111
-                    call 6
-                  end
-                end
-                local.get 9
-                local.set 10
-                local.get 8
-                local.set 112
-                local.get 112
-                local.get 112
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 112
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 112
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 112
-                  end
-                end
-                local.get 112
-                local.set 8
-                local.get 5
-                local.set 113
-                local.get 113
-                local.get 113
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 113
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 113
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 113
-                  end
-                end
-                local.get 113
-                local.set 5
-                local.tee 114
-                local.get 114
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 114
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 114
-                    i32.load offset=3 align=2
-                    local.tee 115
-                    local.get 115
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 115
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 114
-                    i32.load 1 offset=1 align=2
-                    local.set 114
-                    local.get 114
-                    i32.load 1 offset=1 align=2
-                    local.tee 116
-                    local.get 116
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 116
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 11
-                local.set 117
-                local.get 117
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 117
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 117
-                    call 4
-                  else
-                    local.get 117
-                    call 6
-                  end
-                end
-                local.get 11
-                local.get 10
-                local.set 118
-                local.get 118
-                local.get 118
-                local.set 10
-                call_indirect (type 5)
-                local.get 10
-                drop
-                local.get 8
-                local.set 119
-                local.get 119
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 119
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 119
-                    call 4
-                  else
-                    local.get 119
-                    call 6
-                  end
-                end
-                local.get 6
-                local.set 120
-                local.get 120
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 120
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 120
-                    call 4
-                  else
-                    local.get 120
-                    call 6
-                  end
-                end
-              end
-              i32.const 0
-              call 2
-              local.set 121
-              local.get 121
-              call 5
-              i32.const 0
-              global.get 1
-              i32.add
-              local.set 123
-              local.set 122
-              i32.const 2
-              call 2
-              local.set 124
-              local.get 124
-              i32.const 0
-              i32.const 1
-              call 3
-              local.get 124
-              i32.const 1
-              i32.const 0
-              call 3
-              local.get 124
-              local.get 122
-              local.get 122
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=1 align=2
-              else
-                local.get 122
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=1 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=1 align=2
-                  local.get 122
-                  call 6
-                end
-              end
-              local.get 124
-              local.get 123
-              i32.store 1 offset=5 align=2
-              local.get 124
-              call 5
-              block (param i32) (result i32)  ;; label = @4
-                local.set 12
-                local.get 12
-                local.set 125
-                local.get 125
-                local.get 125
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 125
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 125
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 125
-                  end
-                end
-                local.get 125
-                local.set 12
-                local.tee 126
-                local.get 126
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 126
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 126
-                    i32.load offset=3 align=2
-                    local.tee 127
-                    local.get 127
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 127
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 126
-                    i32.load 1 offset=1 align=2
-                    local.set 126
-                    local.get 126
-                    i32.load 1 offset=1 align=2
-                    local.tee 128
-                    local.get 128
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 128
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 13
-                local.set 129
-                local.get 129
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 129
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 129
-                    call 4
-                  else
-                    local.get 129
-                    call 6
-                  end
-                end
-                local.get 13
-                local.set 14
-                local.get 12
-                local.set 130
-                local.get 130
-                local.get 130
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 130
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 130
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 130
-                  end
-                end
-                local.get 130
-                local.set 12
-                local.tee 131
-                local.get 131
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 131
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 131
-                    i32.load offset=7 align=2
-                    local.tee 132
-                  else
-                    local.get 131
-                    i32.load 1 offset=1 align=2
-                    local.set 131
-                    local.get 131
-                    i32.load 1 offset=5 align=2
-                    local.tee 133
-                  end
-                end
-                local.set 15
-                local.set 134
-                local.get 134
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 134
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 134
-                    call 4
-                  else
-                    local.get 134
-                    call 6
-                  end
-                end
-                local.get 15
-                local.set 16
-                local.get 14
-                local.set 135
-                local.get 135
-                local.get 135
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 135
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 135
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 135
-                  end
-                end
-                local.get 135
-                local.set 14
-                local.get 2
-                local.set 136
-                local.get 136
-                local.get 136
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 136
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 136
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 136
-                  end
-                end
-                local.get 136
-                local.set 2
-                local.get 5
-                local.set 137
-                local.get 137
-                local.get 137
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 137
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                  else
-                    local.get 137
-                    i32.load 1 offset=1 align=2
-                    call 5
-                    local.set 137
-                  end
-                end
-                local.get 137
-                local.set 5
-                local.tee 138
-                local.get 138
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (result i32)  ;; label = @5
-                  unreachable
-                else
-                  local.get 138
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (result i32)  ;; label = @6
-                    local.get 138
-                    i32.load offset=7 align=2
-                    local.tee 139
-                    local.get 139
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 139
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        i32.load 1 offset=1 align=2
-                        call 5
-                      end
-                    end
-                  else
-                    local.get 138
-                    i32.load 1 offset=1 align=2
-                    local.set 138
-                    local.get 138
-                    i32.load 1 offset=5 align=2
-                    local.tee 140
-                    local.get 140
-                    i32.const 1
-                    i32.and
-                    i32.eqz
-                    if (param i32) (result i32)  ;; label = @7
-                    else
-                      local.get 140
-                      i32.const 2
-                      i32.and
-                      i32.eqz
-                      if (param i32) (result i32)  ;; label = @8
-                      else
-                        call 5
-                      end
-                    end
-                  end
-                end
-                local.set 17
-                local.set 141
-                local.get 141
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 141
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 141
-                    call 4
-                  else
-                    local.get 141
-                    call 6
-                  end
-                end
-                local.get 17
-                local.set 143
-                local.set 142
-                i32.const 2
-                call 2
-                local.set 144
-                local.get 144
-                i32.const 0
-                i32.const 1
-                call 3
-                local.get 144
-                i32.const 1
-                i32.const 1
-                call 3
-                local.get 144
-                local.get 142
-                local.get 142
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=1 align=2
-                else
-                  local.get 142
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (param i32 i32)  ;; label = @6
-                    i32.store 1 offset=1 align=2
-                  else
-                    i32.load 1 offset=1 align=2
-                    i32.store 1 offset=1 align=2
-                    local.get 142
-                    call 6
-                  end
-                end
-                local.get 144
-                local.get 143
-                local.get 143
-                i32.const 1
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=5 align=2
-                else
-                  local.get 143
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if (param i32 i32)  ;; label = @6
-                    i32.store 1 offset=5 align=2
-                  else
-                    i32.load 1 offset=1 align=2
-                    i32.store 1 offset=5 align=2
-                    local.get 143
-                    call 6
-                  end
-                end
-                local.get 144
-                call 5
-                local.get 16
-                local.set 145
-                local.get 145
-                local.get 145
-                local.set 16
-                call_indirect (type 5)
-                local.get 16
-                drop
-                local.get 14
-                local.set 146
-                local.get 146
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 146
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 146
-                    call 4
-                  else
-                    local.get 146
-                    call 6
-                  end
-                end
-                local.get 12
-                local.set 147
-                local.get 147
-                i32.const 1
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                else
-                  local.get 147
-                  i32.const 2
-                  i32.and
-                  i32.eqz
-                  if  ;; label = @6
-                    local.get 147
-                    call 4
-                  else
-                    local.get 147
-                    call 6
-                  end
-                end
-              end
-              local.set 149
-              local.set 148
-              i32.const 2
-              call 2
-              local.set 150
-              local.get 150
-              i32.const 0
-              i32.const 1
-              call 3
-              local.get 150
-              i32.const 1
-              i32.const 1
-              call 3
-              local.get 150
-              local.get 148
-              local.get 148
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=1 align=2
-              else
-                local.get 148
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=1 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=1 align=2
-                  local.get 148
-                  call 6
-                end
-              end
-              local.get 150
-              local.get 149
-              local.get 149
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=5 align=2
-              else
-                local.get 149
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=5 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=5 align=2
-                  local.get 149
-                  call 6
-                end
-              end
-              local.get 150
-              call 5
-              local.set 151
-              i32.const 2
-              call 2
-              local.set 152
-              local.get 152
-              i32.const 1
-              i32.const 1
-              call 3
-              i32.const 1
-              local.set 153
-              local.get 152
-              local.get 153
-              i32.store 1 offset=1 align=2
-              local.get 152
-              local.get 151
-              local.get 151
-              i32.const 1
-              i32.and
-              i32.eqz
-              if (param i32 i32)  ;; label = @4
-                i32.store 1 offset=5 align=2
-              else
-                local.get 151
-                i32.const 2
-                i32.and
-                i32.eqz
-                if (param i32 i32)  ;; label = @5
-                  i32.store 1 offset=5 align=2
-                else
-                  i32.load 1 offset=1 align=2
-                  i32.store 1 offset=5 align=2
-                  local.get 151
-                  call 6
-                end
-              end
-              local.get 152
-              call 5
-              nop
-              local.get 5
-              local.set 154
-              local.get 154
-              i32.const 1
-              i32.and
-              i32.eqz
-              if  ;; label = @4
-              else
-                local.get 154
-                i32.const 2
-                i32.and
-                i32.eqz
-                if  ;; label = @5
-                  local.get 154
-                  call 4
-                else
-                  local.get 154
-                  call 6
                 end
               end
             end
           end
+          local.set 4
+          i32.const 0
+          call 2
+          local.set 34
+          local.get 34
+          call 5
+          local.set 35
+          i32.const 2
+          call 2
+          local.set 36
+          local.get 36
+          i32.const 1
+          i32.const 1
+          call 3
+          i32.const 0
+          local.set 37
+          local.get 36
+          local.get 37
+          i32.store 1 offset=1 align=2
+          local.get 36
+          local.get 35
+          local.get 35
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store 1 offset=5 align=2
+          else
+            local.get 35
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (param i32 i32)  ;; label = @3
+              i32.store 1 offset=5 align=2
+            else
+              i32.load 1 offset=1 align=2
+              i32.store 1 offset=5 align=2
+              local.get 35
+              call 6
+            end
+          end
+          local.get 36
+          call 5
+          nop
+          local.get 4
+          local.set 38
+          local.get 38
+          i32.const 1
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 38
+            i32.const 2
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+              local.get 38
+              call 4
+            else
+              local.get 38
+              call 6
+            end
+          end
+        end
+        block (param i32) (result i32)  ;; label = @1
+          local.get 31
+          i32.const 1
+          i32.ne
+          br_if 0 (;@1;)
+          drop
+          local.get 28
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            unreachable
+          else
+            local.get 28
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              local.get 28
+              i32.load offset=7 align=2
+              local.tee 39
+              local.get 39
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                local.get 39
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  i32.load 1 offset=1 align=2
+                  call 5
+                end
+              end
+            else
+              local.get 28
+              i32.load 1 offset=5 align=2
+              local.tee 40
+              local.get 40
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                local.get 40
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  call 5
+                end
+              end
+            end
+          end
+          local.set 5
+          local.get 2
+          local.set 41
+          local.get 41
+          local.get 41
+          i32.const 1
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 41
+            i32.const 2
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 41
+              i32.load 1 offset=1 align=2
+              call 5
+              local.set 41
+            end
+          end
+          local.get 41
+          local.set 2
+          block (param i32) (result i32)  ;; label = @2
+            local.set 6
+            local.get 6
+            local.set 42
+            local.get 42
+            local.get 42
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 42
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 42
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 42
+              end
+            end
+            local.get 42
+            local.set 6
+            local.tee 43
+            local.get 43
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 43
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
+                local.get 43
+                i32.load offset=3 align=2
+                local.tee 44
+                local.get 44
+                i32.const 1
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  local.get 44
+                  i32.const 2
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    i32.load 1 offset=1 align=2
+                    call 5
+                  end
+                end
+              else
+                local.get 43
+                i32.load 1 offset=1 align=2
+                local.set 43
+                local.get 43
+                i32.load 1 offset=1 align=2
+                local.tee 45
+                local.get 45
+                i32.const 1
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  local.get 45
+                  i32.const 2
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    call 5
+                  end
+                end
+              end
+            end
+            local.set 7
+            local.set 46
+            local.get 46
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 46
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 46
+                call 4
+              else
+                local.get 46
+                call 6
+              end
+            end
+            local.get 7
+            local.set 8
+            local.get 6
+            local.set 47
+            local.get 47
+            local.get 47
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 47
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 47
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 47
+              end
+            end
+            local.get 47
+            local.set 6
+            local.tee 48
+            local.get 48
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 48
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
+                local.get 48
+                i32.load offset=7 align=2
+                local.tee 49
+              else
+                local.get 48
+                i32.load 1 offset=1 align=2
+                local.set 48
+                local.get 48
+                i32.load 1 offset=5 align=2
+                local.tee 50
+              end
+            end
+            local.set 9
+            local.set 51
+            local.get 51
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 51
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 51
+                call 4
+              else
+                local.get 51
+                call 6
+              end
+            end
+            local.get 9
+            local.set 10
+            local.get 8
+            local.set 52
+            local.get 52
+            local.get 52
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 52
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 52
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 52
+              end
+            end
+            local.get 52
+            local.set 8
+            local.get 5
+            local.set 53
+            local.get 53
+            local.get 53
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 53
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 53
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 53
+              end
+            end
+            local.get 53
+            local.set 5
+            local.tee 54
+            local.get 54
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 54
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
+                local.get 54
+                i32.load offset=3 align=2
+                local.tee 55
+                local.get 55
+                i32.const 1
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  local.get 55
+                  i32.const 2
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    i32.load 1 offset=1 align=2
+                    call 5
+                  end
+                end
+              else
+                local.get 54
+                i32.load 1 offset=1 align=2
+                local.set 54
+                local.get 54
+                i32.load 1 offset=1 align=2
+                local.tee 56
+                local.get 56
+                i32.const 1
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  local.get 56
+                  i32.const 2
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    call 5
+                  end
+                end
+              end
+            end
+            local.set 11
+            local.set 57
+            local.get 57
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 57
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 57
+                call 4
+              else
+                local.get 57
+                call 6
+              end
+            end
+            local.get 11
+            local.get 10
+            local.set 58
+            local.get 58
+            local.get 58
+            local.set 10
+            call_indirect (type 5)
+            local.get 10
+            drop
+            local.get 8
+            local.set 59
+            local.get 59
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 59
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 59
+                call 4
+              else
+                local.get 59
+                call 6
+              end
+            end
+            local.get 6
+            local.set 60
+            local.get 60
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 60
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 60
+                call 4
+              else
+                local.get 60
+                call 6
+              end
+            end
+          end
+          i32.const 0
+          call 2
+          local.set 61
+          local.get 61
+          call 5
+          i32.const 0
+          global.get 1
+          i32.add
+          local.set 63
+          local.set 62
+          i32.const 2
+          call 2
+          local.set 64
+          local.get 64
+          i32.const 0
+          i32.const 1
+          call 3
+          local.get 64
+          i32.const 1
+          i32.const 0
+          call 3
+          local.get 64
+          local.get 62
+          local.get 62
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store 1 offset=1 align=2
+          else
+            local.get 62
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (param i32 i32)  ;; label = @3
+              i32.store 1 offset=1 align=2
+            else
+              i32.load 1 offset=1 align=2
+              i32.store 1 offset=1 align=2
+              local.get 62
+              call 6
+            end
+          end
+          local.get 64
+          local.get 63
+          i32.store 1 offset=5 align=2
+          local.get 64
+          call 5
+          block (param i32) (result i32)  ;; label = @2
+            local.set 12
+            local.get 12
+            local.set 65
+            local.get 65
+            local.get 65
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 65
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 65
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 65
+              end
+            end
+            local.get 65
+            local.set 12
+            local.tee 66
+            local.get 66
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 66
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
+                local.get 66
+                i32.load offset=3 align=2
+                local.tee 67
+                local.get 67
+                i32.const 1
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  local.get 67
+                  i32.const 2
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    i32.load 1 offset=1 align=2
+                    call 5
+                  end
+                end
+              else
+                local.get 66
+                i32.load 1 offset=1 align=2
+                local.set 66
+                local.get 66
+                i32.load 1 offset=1 align=2
+                local.tee 68
+                local.get 68
+                i32.const 1
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  local.get 68
+                  i32.const 2
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    call 5
+                  end
+                end
+              end
+            end
+            local.set 13
+            local.set 69
+            local.get 69
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 69
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 69
+                call 4
+              else
+                local.get 69
+                call 6
+              end
+            end
+            local.get 13
+            local.set 14
+            local.get 12
+            local.set 70
+            local.get 70
+            local.get 70
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 70
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 70
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 70
+              end
+            end
+            local.get 70
+            local.set 12
+            local.tee 71
+            local.get 71
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 71
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
+                local.get 71
+                i32.load offset=7 align=2
+                local.tee 72
+              else
+                local.get 71
+                i32.load 1 offset=1 align=2
+                local.set 71
+                local.get 71
+                i32.load 1 offset=5 align=2
+                local.tee 73
+              end
+            end
+            local.set 15
+            local.set 74
+            local.get 74
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 74
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 74
+                call 4
+              else
+                local.get 74
+                call 6
+              end
+            end
+            local.get 15
+            local.set 16
+            local.get 14
+            local.set 75
+            local.get 75
+            local.get 75
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 75
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 75
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 75
+              end
+            end
+            local.get 75
+            local.set 14
+            local.get 2
+            local.set 76
+            local.get 76
+            local.get 76
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 76
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 76
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 76
+              end
+            end
+            local.get 76
+            local.set 2
+            local.get 5
+            local.set 77
+            local.get 77
+            local.get 77
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 77
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 77
+                i32.load 1 offset=1 align=2
+                call 5
+                local.set 77
+              end
+            end
+            local.get 77
+            local.set 5
+            local.tee 78
+            local.get 78
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (result i32)  ;; label = @3
+              unreachable
+            else
+              local.get 78
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (result i32)  ;; label = @4
+                local.get 78
+                i32.load offset=7 align=2
+                local.tee 79
+                local.get 79
+                i32.const 1
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  local.get 79
+                  i32.const 2
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    i32.load 1 offset=1 align=2
+                    call 5
+                  end
+                end
+              else
+                local.get 78
+                i32.load 1 offset=1 align=2
+                local.set 78
+                local.get 78
+                i32.load 1 offset=5 align=2
+                local.tee 80
+                local.get 80
+                i32.const 1
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  local.get 80
+                  i32.const 2
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    call 5
+                  end
+                end
+              end
+            end
+            local.set 17
+            local.set 81
+            local.get 81
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 81
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 81
+                call 4
+              else
+                local.get 81
+                call 6
+              end
+            end
+            local.get 17
+            local.set 83
+            local.set 82
+            i32.const 2
+            call 2
+            local.set 84
+            local.get 84
+            i32.const 0
+            i32.const 1
+            call 3
+            local.get 84
+            i32.const 1
+            i32.const 1
+            call 3
+            local.get 84
+            local.get 82
+            local.get 82
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (param i32 i32)  ;; label = @3
+              i32.store 1 offset=1 align=2
+            else
+              local.get 82
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (param i32 i32)  ;; label = @4
+                i32.store 1 offset=1 align=2
+              else
+                i32.load 1 offset=1 align=2
+                i32.store 1 offset=1 align=2
+                local.get 82
+                call 6
+              end
+            end
+            local.get 84
+            local.get 83
+            local.get 83
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (param i32 i32)  ;; label = @3
+              i32.store 1 offset=5 align=2
+            else
+              local.get 83
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (param i32 i32)  ;; label = @4
+                i32.store 1 offset=5 align=2
+              else
+                i32.load 1 offset=1 align=2
+                i32.store 1 offset=5 align=2
+                local.get 83
+                call 6
+              end
+            end
+            local.get 84
+            call 5
+            local.get 16
+            local.set 85
+            local.get 85
+            local.get 85
+            local.set 16
+            call_indirect (type 5)
+            local.get 16
+            drop
+            local.get 14
+            local.set 86
+            local.get 86
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 86
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 86
+                call 4
+              else
+                local.get 86
+                call 6
+              end
+            end
+            local.get 12
+            local.set 87
+            local.get 87
+            i32.const 1
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+            else
+              local.get 87
+              i32.const 2
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+                local.get 87
+                call 4
+              else
+                local.get 87
+                call 6
+              end
+            end
+          end
+          local.set 89
+          local.set 88
+          i32.const 2
+          call 2
+          local.set 90
+          local.get 90
+          i32.const 0
+          i32.const 1
+          call 3
+          local.get 90
+          i32.const 1
+          i32.const 1
+          call 3
+          local.get 90
+          local.get 88
+          local.get 88
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store 1 offset=1 align=2
+          else
+            local.get 88
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (param i32 i32)  ;; label = @3
+              i32.store 1 offset=1 align=2
+            else
+              i32.load 1 offset=1 align=2
+              i32.store 1 offset=1 align=2
+              local.get 88
+              call 6
+            end
+          end
+          local.get 90
+          local.get 89
+          local.get 89
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store 1 offset=5 align=2
+          else
+            local.get 89
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (param i32 i32)  ;; label = @3
+              i32.store 1 offset=5 align=2
+            else
+              i32.load 1 offset=1 align=2
+              i32.store 1 offset=5 align=2
+              local.get 89
+              call 6
+            end
+          end
+          local.get 90
+          call 5
+          local.set 91
+          i32.const 2
+          call 2
+          local.set 92
+          local.get 92
+          i32.const 1
+          i32.const 1
+          call 3
+          i32.const 1
+          local.set 93
+          local.get 92
+          local.get 93
+          i32.store 1 offset=1 align=2
+          local.get 92
+          local.get 91
+          local.get 91
+          i32.const 1
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store 1 offset=5 align=2
+          else
+            local.get 91
+            i32.const 2
+            i32.and
+            i32.eqz
+            if (param i32 i32)  ;; label = @3
+              i32.store 1 offset=5 align=2
+            else
+              i32.load 1 offset=1 align=2
+              i32.store 1 offset=5 align=2
+              local.get 91
+              call 6
+            end
+          end
+          local.get 92
+          call 5
+          nop
+          local.get 5
+          local.set 94
+          local.get 94
+          i32.const 1
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 94
+            i32.const 2
+            i32.and
+            i32.eqz
+            if  ;; label = @3
+              local.get 94
+              call 4
+            else
+              local.get 94
+              call 6
+            end
+          end
         end
         local.set 18
-        local.set 155
-        local.get 155
+        local.set 95
+        local.get 95
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 155
+          local.get 95
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 155
+            local.get 95
             call 4
           else
-            local.get 155
+            local.get 95
             call 6
           end
         end
         local.get 18
         local.get 2
-        local.set 156
-        local.get 156
+        local.set 96
+        local.get 96
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 156
+          local.get 96
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 156
+            local.get 96
             call 4
           else
-            local.get 156
+            local.get 96
             call 6
           end
         end
         local.get 3
-        local.set 157
-        local.get 157
+        local.set 97
+        local.get 97
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 157
+          local.get 97
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 157
+            local.get 97
             call 4
           else
-            local.get 157
+            local.get 97
             call 6
           end
         end
         local.get 0
-        local.set 158
-        local.get 158
+        local.set 98
+        local.get 98
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 158
+          local.get 98
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 158
+            local.get 98
             call 4
           else
-            local.get 158
+            local.get 98
             call 6
           end
         end
         local.get 1
-        local.set 159
-        local.get 159
+        local.set 99
+        local.get 99
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 159
+          local.get 99
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 159
+            local.get 99
             call 4
           else
-            local.get 159
+            local.get 99
             call 6
           end
         end)

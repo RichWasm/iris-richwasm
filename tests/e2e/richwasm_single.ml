@@ -212,7 +212,7 @@ let simple_tests =
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "42" );
-    ( "case load br 1 right direction CURRENTLY BUGGED!!",
+    ( "case load br 1 right direction",
       {|
         ((imports ())
          (functions
