@@ -212,6 +212,31 @@ let simple_tests =
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "42" );
+    ( "case load br 1 right direction CURRENTLY BUGGED!!",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+       (
+              (Block (ValType ((Num (Int I32)))) (LocalFx ())
+                ((NumConst (Int I32) -1)
+                (InjectNew GC 0 ((Num (Int I32))))
+                (CaseLoad (ValType ((Num (Int I32)))) (LocalFx ())
+                ((
+                    (NumConst (Int I32) 10)
+                    (Br 1)
+                )))
+                drop
+                drop
+                (NumConst (Int I32) 89)
+              ))
+
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "10" );
     ( "boxed sum",
       {|
       ((imports ())
