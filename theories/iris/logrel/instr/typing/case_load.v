@@ -15,6 +15,134 @@ Section case_load.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma stupid ns n i : ns !! i = Some n -> n ≤ list_max ns.
+  Proof.
+    generalize dependent i; generalize dependent n.
+    induction ns.
+    - done.
+    - intros n i; destruct i.
+      + cbn. intros H; inversion H; subst; clear H.
+        apply Nat.le_max_l.
+      + cbn. intros H; specialize (IHns n i H).
+        unfold list_max in IHns.
+        lia.
+  Qed.
+
+  Lemma variant_inner_type_less_than_outer_n F σ ξ τs_ser n i k τ_ser (se:semantic_env (Σ:=Σ)) n_τ ξ_τ:
+    has_kind F (VariantT (MEMTYPE σ ξ) τs_ser) (MEMTYPE σ ξ) ->
+    eval_size EmptyEnv σ = Some n ->
+    τs_ser !! i = Some (SerT k τ_ser) ->
+    eval_kind se k = Some (SMEMTYPE n_τ ξ_τ) ->
+    n_τ < n.
+  Proof.
+    intros Hκ Heval_outer Hτsi Heval_inner.
+    inversion Hκ; subst.
+    pose proof (@eval_size_emptyenv Σ _ _ Heval_outer se); clear Heval_outer; rename H into Heval_outer.
+    cbn in Heval_outer.
+    apply bind_Some in Heval_outer.
+    destruct Heval_outer as (ns & Hns & Hmax).
+    inversion Hmax; clear Hmax; rename H0 into Hmax.
+    destruct k as [a b | σ_τ ξ_τ'].
+    { cbn in Heval_inner. apply bind_Some in Heval_inner. destruct Heval_inner as (x & y & z). inversion z. }
+    cbn in Heval_inner.
+    apply bind_Some in Heval_inner as (n_τ' & Heval_στ & toinv).
+    inversion toinv; subst; clear toinv.
+    assert (σs !! i = Some σ_τ). {
+      pose proof (Forall3_lookup_l _ _ _ _ _ _ H1 Hτsi).
+      destruct H as (σ_τ' & ξ_τ' & Hσ' & Hξ' & Hkindthing).
+      inversion Hkindthing; subst. done.
+    }
+    pose proof (mapM_lookup _ σs ns i Hns).
+    rewrite H in H0. cbn in H0.
+    rewrite Heval_στ in H0.
+    symmetry in H0.
+    apply stupid in H0.
+    lia.
+
+  Qed.
+
+  Lemma type_rep_type_skind F τ_ser ρ ιs (se:semantic_env (Σ:=Σ)) ιs' ξ :
+    sem_env_interp F se ->
+    type_rep (fe_type_vars (fe_of_context F)) τ_ser = Some ρ ->
+    eval_rep EmptyEnv ρ = Some ιs ->
+    type_skind se τ_ser = Some (SVALTYPE ιs' ξ) ->
+    ιs = ιs'.
+  Proof.
+    intros Hse Hrep Heval Hsk.
+    pose proof (@eval_rep_emptyenv Σ _ _ Heval se); clear Heval; rename H into Heval.
+
+    destruct τ_ser; try (destruct k; cbn in Hrep; inversion Hrep); subst;
+      try (cbn in Hsk; rewrite Heval in Hsk; inversion Hsk; done).
+    cbn in Hsk. cbn in Hrep.
+    destruct Hse as (_ & Hse).
+    unfold type_ctx_interp in Hse.
+    cbn in Hse.
+    apply bind_Some in Hrep as (κ & HFn & Hrep).
+    apply fmap_Some in Hsk as (skT & Hsen & Hsk).
+    pose proof (Forall2_lookup_lr _ _ _ _ _ _ Hse HFn Hsen).
+    cbn in H.
+    destruct skT. destruct o0.
+    destruct H as (H & _ & _).
+    cbn in *. subst.
+    destruct κ as [ρ' ξ' | a b]; cbn in Hrep; inversion Hrep. subst. clear Hrep.
+    cbn in H.
+    rewrite Heval in H. cbn in H.
+    inversion H; done.
+  Qed.
+
+  Lemma atom_interp_from_copyable_for_variants F (se:semantic_env (Σ:=Σ)) τs κs i k τ_ser ιs ξ_ser os vs :
+    sem_env_interp F se ->
+    Forall (λ τ, has_ref_flag F τ GCRefs) τs ->
+    (zip_with SerT κs τs) !! i = Some (SerT k τ_ser) ->
+    type_skind se τ_ser = Some (SVALTYPE ιs ξ_ser) ->
+    Forall (forall_ptr_atom (ref_flag_ptr_interp ξ_ser)) os ->
+    ⊢ ([∗ list] o;v ∈ os;vs, ⌜atom_copyable o⌝ -∗ atom_interp o v) -∗
+      ([∗ list] o;v ∈ os;vs, atom_interp o v).
+  Proof.
+    intros Hse Hgc Hi Hskind Hint.
+    apply lookup_zip_with_Some in Hi.
+    destruct Hi as (k' & t' & toinv & Hκi & Hτi).
+    inversion toinv; subst; clear toinv.
+    pose proof (Forall_lookup_1 _ _ _ _ Hgc Hτi).
+    inversion H; subst. clear dependent k'. rename x into k'.
+    destruct H0 as [Hkind Hrefflag].
+    assert (∃ ρ, k' = VALTYPE ρ ξ_ser). {
+      destruct t'; inversion Hkind; subst.
+      all: try by (subst κ; cbn in *; inversion Hskind; subst; eexists; done).
+      all: try by (subst κ; cbn in *; apply bind_Some in Hskind as (ιs' & Hevalreps & toinv);
+                  inversion toinv; subst; eexists; done).
+      all: try by (destruct k' as [ρ' ξ' | σ' ξ']; cbn in *;
+                   apply bind_Some in Hskind as (g & h & j); inversion j; try (subst; eexists; done)).
+      cbn in *. destruct Hse as (_ & Hse); unfold type_ctx_interp in Hse.
+      apply fmap_Some in Hskind as (skT & Hsen & Hsk).
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ Hse H1 Hsen).
+      cbn in H; destruct skT as (sk & skT); destruct skT as (skT & T).
+      destruct H0 as (H0 & _ & _). cbn in *; subst.
+      destruct k' as [ρ' ξ' | a b]; last first.
+      { cbn in *. apply bind_Some in H0 as (g & h & j). inversion j. }
+      cbn in *. apply bind_Some in H0 as (ιs' & H4 & H5). inversion H5; subst.
+      eexists; done.
+    }
+    destruct H0 as [ρ ->]. cbn in Hrefflag.
+    (* I think we now finally dib;t beed abttgubg wutg regards to t' *)
+    clear dependent t'. clear dependent τs. clear ρ.
+    (* I think it's finally iris time *)
+    iIntros "H".
+    iPoseProof (big_sepL2_length with "H") as "%hlen".
+    iApply (big_sepL2_wand with "[] [$]").
+    iApply big_sepL2_pure.
+    iPureIntro.
+    (* no more iris time :crab: *)
+    split; first done.
+    intros n o v Ho Hv. clear dependent v.
+    pose proof (Forall_lookup_1 _ _ _ _ Hint Ho).
+    destruct ξ_ser.
+    - destruct o; try done. destruct p; try done.
+    - destruct o; try done.
+    - inversion Hrefflag.
+  Qed.
+
+
   Lemma compat_case_load M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' μ κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -172,6 +300,7 @@ Section case_load.
       rename H1 into Hmod5. rename H4 into Hnonzero.
 
       (* Apply case ptr lemma *)
+      move Hcg at bottom.
       apply cwp_case_ptr in Hcg as (? & ? & ? & ? & ? & ? & ? & ? & ? &
                                       Hcg_unr & Hcg_mm & Hcg_gc & -> & -> & Hcwp).
 
@@ -182,7 +311,6 @@ Section case_load.
       iApply (Hcwp with "[$Hfr] [$Hrun]");
         [by instantiate (1:=[]) | done | done | done | done | ].
       iIntros "!> Hfr Hrun".
-      clear Hcwp Hcg_gc. (* potentially not gc but I think we're good *)
 
       (* dig into Hcg *)
       inv_cg_emit Hcg_unr.
@@ -203,6 +331,8 @@ Section case_load.
       (* rename es5 into es_save_stack. *)
       (* rename es7 into es_defaults. *)
       (* rename es8 into es_case_blocks. *)
+      clear Hcwp Hcg_gc. (* potentially not gc but I think we're good *)
+      rename x2 into wt_gc. rename x5 into wl_gc.
 
 
       (* first: load tag *)
@@ -400,7 +530,7 @@ Section case_load.
       rewrite Hτ in Heq_some1; inversion Heq_some1; subst; clear Heq_some1.
       rewrite type_interp_eq. iEval (cbn) in "Hos".
       iDestruct "Hos" as "(%sκ_τ & %Heval_k_τ & %Hsksv & (%os & %ToInv & Hos))".
-      destruct sκ_τ as [ιs_τ ξ_τ | n_τ σ_τ]; cbn in Hsksv; try by inversion Hsksv.
+      destruct sκ_τ as [ιs_τ ξ_τ | n_τ ξ_τ]; cbn in Hsksv; try by inversion Hsksv.
       inversion ToInv; subst; clear ToInv.
       destruct Hsksv as [Hn_τ Hrefinterp].
 
@@ -413,12 +543,10 @@ Section case_load.
       (* iDestruct "Hos" as "(%sκ_τ)" *)
       Transparent type_skind.
 
-      (* Lemma yeah: *)
-      (*   has_kind (VariantT (MEMTYPE σ ξ) τs_ser) (MEMTYPE σ ξ) -> *)
-      (*   eval_size EmptyEnv σ = Some n (or length words) -> *)
-      (*   τs_ser !! i = Some (SerT k τ_ser) -> *)
-      (*   eval_kind se k = Some (SMEMTYPE n_τ σ_τ) -> *)
-      (*   n_τ <= n. *)
+      assert (n_τ < length (WordInt iN :: flat_map serialize_atom os ++ ws_padding)). {
+        cbn; rewrite length_app; cbn.
+        lia.
+      }
 
       (* need to open the invariant again~ *)
       iApply fupd_cwp.
@@ -426,6 +554,20 @@ Section case_load.
       iDestruct "U" as "(Hlh & Hown & Hclose)".
       iModIntro.
       iMod "Hlh". iDestruct "Hlh" as "(Hlayout & Hheap)".
+      (* I need the Hos stuff *)
+      iDestruct "Hos" as "(%sκ0' & %Htorewrite & %Hareps & Hos)".
+      destruct sκ0' as [ιs' ξ_ser | g h]; try by inversion Hareps.
+      cbn in Heq_some3.
+      assert (ιs' = ιs). {
+        (* this hsould be a lemma nvm *)
+        symmetry.
+        eapply type_rep_type_skind; try done.
+      }
+
+      subst.
+      destruct Hareps as (Hareps & Hrefosinterp).
+      unfold has_areps in Hareps.
+      destruct Hareps as (os' & toinv & Hareps); inversion toinv; subst os'; clear toinv.
 
       iApply (cwp_seq with "[Hfr Hrun Hown Haddr Hrt Hheap Hclose Hlayout]"). {
 
@@ -436,80 +578,102 @@ Section case_load.
         - done.
         - (* yeah kinding quarantine *)
           (* this seems annoying. need to prove that the inner things fit in the bigger *)
+          (* need has_areps ιs \os and has_arep_serialize_length which is in type_eq rn *)
+          (* I have all the info tho for sure (aside from a type_eq import) *)
           admit.
         - instantiate (1:= os).
+          done.
+        - (* pathing and serializing *)
+          (* this I haven't thought about enough to know if I have everything but I guess yes *)
+          (* although I am pretty sure I'll want the has_arep_serialize_length fact from above here too
+            so it should probably be outside the iApply *)
           admit.
-        - admit.
         - clear_frame_things Hflen locsz WL. (* more frame things *)
           lia.
-        - admit.
+        - (* some frame preserving stuff *)
+          cbn.
+          rewrite !length_app; cbn.
+          rewrite list_lookup_insert_ne; try lia.
+          rewrite list_lookup_insert_ne; try lia.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          lia.
         - clear_frame_things Hflen locsz WL.
           lia.
         - done.
-        - (* oh not pure thing *)
-          admit.
-        - admit.
+        - cbn.
+          iDestruct "Hinst" as "(_ & _ & _ & _ & this & that)".
+          done.
+        - cbn.
+          iDestruct "Hinst" as "(_ & _ & _ & _ & this & that)".
+          done.
         - iIntros (???) "-> @@@@@@@".
           iClear "Hregf".
-          admit.
+          (* close invariant *)
+          iSpecialize ("Hclose" with "[Hlayout Hptr Hown]"); first iFrame.
+          (* task 1: use Hgcref to get atoms_interp os vs *)
+          pose proof (atom_interp_from_copyable_for_variants F se τs κs i k τ_ser ιs ξ_ser os vs Hse Hgcref Hτ Htorewrite Hrefosinterp).
+          iPoseProof (H0 with "[$Hos]") as "Hos". clear H0.
+
+          (* the types got weird to set printing all *)
+          instantiate (1 := fun f'' vs =>
+            (∃ (vsf:list value), (
+                    ⌜f'' = ((mk_load_frame (fe_of_context F)
+          (@set frame (list value) f_locs (fun (f : forall _ : list value, list value) (x0 : frame) => Build_frame (f (f_locs x0)) (f_inst x0))
+             (@insert nat value (list value) (@list_insert value)
+                (Init.Nat.add (fe_wlocal_offset fe)
+                   (@length prelude.W.value_type
+                      (@app prelude.W.value_type wl
+                         (@app W.value_type (@cons W.value_type W.T_i32 (@nil W.value_type))
+                            (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type))))))
+                (VAL_int32 (Wasm_int.Int32.repr (Z.of_nat i))))
+             (mk_load1_frame (fe_of_context F)
+                (W.Build_frame (@insert nat value (list value) (@list_insert value) x (VAL_int32 n32) (f_locs fr)) (f_inst fr))
+                (@length prelude.W.value_type (@app prelude.W.value_type wl (@cons W.value_type W.T_i32 (@nil W.value_type)))) vf))
+          (@app prelude.W.value_type wl
+             (@app W.value_type (@cons W.value_type W.T_i32 (@nil W.value_type))
+                (@app W.value_type (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type)) wl_pre)))
+          vsf))⌝ ∗
+                    ([∗ list] o;v ∈ os;vs, atom_interp o v) ∗
+                    ℓ ↦addr (MemMM, a) ∗
+                    rt_token rti sr lpall θ ∗
+                    |={⊤}=> na_own logrel_nais ⊤))%I).
+          iExists vsf.
+          iFrame. done.
       }
 
+      iIntros (f vs) "(%vsf & -> & Hvs & Haddr & Hrt & Hown) Hfr Hrun".
+      iApply fupd_cwp.
+      iMod "Hown".
+      iModIntro.
 
+      (* now we have to finally actually apply the inductive hypothesis. good times *)
+      move IH at bottom.
+      pose proof Hτ as Hτcopy.
+      apply lookup_zip_with_Some in Hτcopy as (kk & tt & toinv & Hki & Hti).
+      inversion toinv; subst kk tt; clear toinv.
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ IH Hti Hess_i).
+      move Hcg_case at bottom.
 
-      (* Save stack time! *)
-      (* unsure if this is necessary but likely helpful, given what I've seen elsewhere *)
-    (*   assert (wt6 = []). { *)
-    (*     cbn in Hcg_savestack. inversion Hcg_savestack; subst; done. *)
-    (*   } *)
-    (*   subst. *)
-    (*   apply cwp_save_stack1 in Hcg_savestack. *)
-    (*   destruct Hcg_savestack as (Hn0 & -> & Hcg_savestack). *)
-    (*   iEval (rewrite app_assoc). *)
-    (*   iApply (cwp_seq with "[Hfr Hrun]"). { *)
-    (*     iApply (Hcg_savestack with "[$Hfr] [$Hrun]"). *)
-    (*     - cbn. *)
-    (*       clear_frame_things Hflen locsz WL. *)
-    (*       lia. *)
-    (*     - apply Is_true_true. apply has_values_to_consts. *)
-    (*     - by instantiate (1 := fun f vs => *)
-    (*         ((⌜vs = []⌝ ∗ *)
-    (*                 ⌜f = (mk_load1_frame (fe_of_context F) *)
-    (*                         {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |} *)
-    (*                         (length (wl ++ [W.T_i32])) vf <| *)
-    (*                       f_locs ::= <[localimm (prelude.W.Mk_localidx n0):=VAL_int32 (Wasm_int.int_of_Z i32m i)]> *)
-    (*                       |>)⌝ )%I)). *)
-    (*   } *)
+      Opaque have_instr_type_sem.
+      simpl in H0.
+      Transparent have_instr_type_sem.
+      specialize H0 with (wtf:=(wt_post ++ wt_gc ++ wtf)).
+      specialize H0 with (wlf:=(wl_post ++ wl_gc ++ wlf)).
+      apply H0 in Hcg_case.
 
-    (*   iIntros (??) "(-> & ->) Hfr Hrun". *)
-    (*   clear_nils. *)
-
-    (* (* this is (I believe) the final form of the frame, so make it shorter for *)
-    (*   convenient *) *)
-    (*   set (fr' := (mk_load1_frame (fe_of_context F) *)
-    (*                  {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |} *)
-    (*                  (length (wl ++ [W.T_i32])) vf <| *)
-    (*                f_locs ::= *)
-    (*                <[localimm (prelude.W.Mk_localidx n0):=VAL_int32 (Wasm_int.int_of_Z i32m i)]> *)
-    (*                |>)) in *. *)
-
-    (*   (* time for create defaults *) *)
-    (*   (* first state for the sake of simplicity *) *)
-    (*   apply run_codegen_create_defaults in Hcg_defaults as Hdef_state. *)
-    (*   destruct Hdef_state as (_ & -> & -> & ->). *)
-    (*   clear_nils. *)
-    (*   (* now the cwp *) *)
-    (*   eapply cwp_create_defaults in Hcg_defaults. *)
-    (*   destruct Hcg_defaults as (_ & _ & _ & Hcg_defaults). *)
-
-    (*   iApply (cwp_seq with "[Hfr Hrun]"). { *)
-    (*     iApply (Hcg_defaults with "[$Hfr] [$Hrun]"). *)
-    (*     by instantiate (1 := fun f vs => *)
-    (*         ((⌜vs = (map default_of_value_type ts)⌝ ∗ ⌜f = fr'⌝ )%I)). *)
-    (*   } *)
-
-    (*   iIntros (??) "(-> & ->) Hfr Hrun". *)
-    (*   (* a bit of cleanup *) *)
-    (*   clear Hcg_defaults Hcg_savestack. *)
+      (* hmmmmmmmmmmm ok *)
+      unfold have_instr_type_sem in Hcg_case.
+      unfold fvs_combine.
+      set (final_fr := (mk_load_frame (fe_of_context F)
+                     (mk_load1_frame (fe_of_context F) {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |}
+                        (length (wl ++ [W.T_i32])) vf <|
+                      f_locs ::= <[fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R]):=VAL_int32 (Wasm_int.Int32.repr i)]>
+                      |>)
+                     (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_pre) vsf)) in *.
+      (* I think this will have to be a wand thingy *)
+      unfold labels_interp.
+      (* specialize (Hcg_case se final_fr os vs (to_consts vs) θ *)
 
 
 

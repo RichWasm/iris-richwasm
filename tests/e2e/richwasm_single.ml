@@ -137,6 +137,81 @@ let simple_tests =
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "67" );
+    ( "simple inject new",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+             (
+              (NumConst (Int I32) -1)
+              (InjectNew GC 0 ((Num (Int I32))))
+              drop
+              (NumConst (Int I32) 67)
+              return
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "67" );
+    ( "case load br simple 0",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+             (
+              (NumConst (Int I32) -1)
+              (InjectNew GC 0 ((Num (Int I32))))
+              (CaseLoad (ValType ((Num (Int I32)))) (LocalFx ())
+               ((
+                 (NumConst (Int I32) 34)
+                 (Br 0)
+                )
+               )
+              )
+            drop
+            drop
+            (NumConst (Int I32) 42)
+              return
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "42" );
+    ( "case load br 2 wrong direction",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+             (
+              (NumConst (Int I32) -1)
+              (InjectNew GC 0 ((Num (Int I32))))
+              (CaseLoad (ValType ((Num (Int I32)))) (LocalFx ())
+               ((
+
+                (Block (ValType ((Num (Int I32)))) (LocalFx ()) (
+
+                    (Block (ValType ((Num (Int I32)))) (LocalFx ()) (
+                        (NumConst (Int I32) 67)
+                        (Br 2))
+                    )
+                    (NumConst (Int I32) 67)
+                    return)
+                )
+                 return
+               )
+              ))
+            drop
+            drop
+            (NumConst (Int I32) 42)
+              return
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "42" );
     ( "boxed sum",
       {|
       ((imports ())
