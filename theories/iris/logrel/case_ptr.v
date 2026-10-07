@@ -386,6 +386,8 @@ Section case_ptr.
   (*   a <> 0%N -> *)
   (*   ptr_shaped (PtrHeap μ ℓ) (tag_address μ a). *)
 
+  (* NOTE: this lemma is specifically for situations where the code inside the
+   case_ptr is not doing any breaks.*)
   Lemma cwp_case_ptr {A B} (c1 : codegen B) (c2: base_memory -> codegen A) idx
     wt wt' wl wl' ts1 ts2 es x y z :
     run_codegen (memory.case_ptr idx (Tf ts1 ts2) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->

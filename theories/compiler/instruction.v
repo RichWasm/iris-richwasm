@@ -195,12 +195,14 @@ Section Compiler.
     | Copy => emit (W.BI_tee_local (localimm a))
     | Move => emit (W.BI_set_local (localimm a))
     end;;
-    let do_case μ c i :=
+    let do_case c i :=
       τ ← try_option EFail (τs !! i);
       τ0 ← try_option EFail (match τ with SerT _ t => Some t | _ => None end);
       ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ0);
       ιs ← try_option EFail (eval_rep EmptyEnv ρ);
-      load mr fe μ con a 1 ιs;;
+      case_ptr a (W.Tf [] res)
+        (emit W.BI_unreachable)
+        (fun μ => load mr fe μ con a 1 ιs);;
       c
     in
     let cleanup :=
@@ -211,12 +213,12 @@ Section Compiler.
                free mr
       end
     in
-    ignore $ case_ptr a (W.Tf [] res)
+    case_ptr a (W.Tf [] [W.T_i32])
       (emit W.BI_unreachable)
       (fun μ => root_to_heap mr μ a;;
-             load1 mr fe μ Copy a 0 I32R;;
-             case_switch fe res (map (do_case μ) cases);;
-             cleanup).
+             load1 mr fe μ Copy a 0 I32R);;
+    case_switch fe res (map (do_case) cases);;
+    cleanup.
 
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
