@@ -1872,7 +1872,6 @@ Section CodeGen.
           nat_i32_repr i tag ->
           has_values evs [VAL_int32 tag] ->
           let itag := fe_wlocal_offset fe + length wl in
-          (*(forall fr vs, Φ fr vs ⊢ ⌜fr.(f_locs) !! itag = Some (VAL_int32 tag)⌝ ∗ ⌜length vs = length ts⌝) ->*)
           ↪[frame] fr -∗
           ↪[RUN] -∗
           (↪[frame] fr <| f_locs ::= <[ itag := VAL_int32 tag ]> |> -∗
