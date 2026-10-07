@@ -1872,7 +1872,7 @@ Section CodeGen.
           nat_i32_repr i tag ->
           has_values evs [VAL_int32 tag] ->
           let itag := fe_wlocal_offset fe + length wl in
-          (forall fr vs, Φ fr vs ⊢ ⌜fr.(f_locs) !! itag = Some (VAL_int32 tag)⌝ ∗ ⌜length vs = length ts⌝) ->
+          (*(forall fr vs, Φ fr vs ⊢ ⌜fr.(f_locs) !! itag = Some (VAL_int32 tag)⌝ ∗ ⌜length vs = length ts⌝) ->*)
           ↪[frame] fr -∗
           ↪[RUN] -∗
           (↪[frame] fr <| f_locs ::= <[ itag := VAL_int32 tag ]> |> -∗
@@ -1903,7 +1903,7 @@ Section CodeGen.
     split; first by (rewrite !app_assoc).
 
 
-    iIntros (??????? Hwl Hi_tag Hevs ? HΦ_props) "Hfr Hrun Hes2".
+    iIntros (??????? Hwl Hi_tag Hevs ?) "Hfr Hrun Hes2".
     apply cwp_save_stack1 in Hcg_save as (-> & -> & Hes).
     rewrite app_assoc.
     iApply (cwp_seq with "[-Hes2]").
@@ -1994,21 +1994,20 @@ Section CodeGen.
 
     iIntros (??) "HΦ Hfr Hrun".
     clear Hes3.
-    iDestruct (HΦ_props with "HΦ") as "[%Hf_tag %Hvs_len]".
     iApply (cwp_wand with "[-HΦ]").
     {
+      (* TODO This is the wrong lemma to use here. Need a cwp_case_blocks_success... -Ryan *)
       eapply cwp_case_blocks_fail in Hcg2.
       - iApply (Hcg2 with "[$Hfr] [$Hrun]").
       - left. instantiate (1 := i). rewrite -Hi. lia.
       - rewrite Hi_tag Z2Nat.id. all: apply Wasm_int.Int32.unsigned_range.
       - rewrite length_app in Hlen_cases. cbn in *.
         by rewrite -Nat2Z.inj_add Nat.add_succ_comm.
-      - done.
-      - rewrite Hi_tag Hf_tag Z2Nat.id; last apply Wasm_int.Int32.unsigned_range.
-        by rewrite Wasm_int.Int32.repr_unsigned.
+      - admit.
+      - admit.
     }
 
     by iIntros (??) "[-> ->]".
-  Qed.
+  Admitted.
 
 End CodeGen.
