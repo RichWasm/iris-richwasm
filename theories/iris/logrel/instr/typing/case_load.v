@@ -191,9 +191,10 @@ Section case_load.
     inv_cg_try_option Hts.
     apply wp_wlalloc in Hx as (-> & -> & -> & ->).
     inv_cg_emit Hsetx.
-    inv_cg_ret Hret.
-    subst wt0 wl0 es wt2 wl2 es1 wt9 wl9 es8 wt7 wl7 es6 wt5 wl5 es4 es2 es0 es' wt3 wl3 wt1 wl1 wt' wl' wt4 wl4 es3 wt8 wl8 es7 wt11 wl11 es10.
-    clear Hretval Hretval0 Hretval1.
+    subst.
+    (* subst wt0 wl0 es wt2 wl2 es1 wt9 wl9 es8 wt7 wl7 es6 wt5 wl5 es4 es2 es0 es' wt3 wl3 wt1 wl1 wt' wl' wt4 wl4 es3 wt8 wl8 es7 wt11 wl11 es10. *)
+    rename Hret into Hcg_case_switch.
+    clear Hretval Hretval0.
     clear_nils.
 
     (**  BEGIN IRIS PROOF **)
@@ -253,17 +254,6 @@ Section case_load.
     (* FUTURE KINDING QUARANTINE GOES HERE *)
 
 
-    (* we can process tee local before we split *)
-    rewrite app_assoc.
-    iApply (cwp_seq with "[Hfr Hrun]").
-    {
-      iApply (cwp_local_tee with "[] [$Hfr] [$Hrun]").
-      - subst x. done.
-      - by instantiate (1 := fun fr' vs => (⌜fr' = Build_frame (<[ x := v ]> fr.(f_locs)) fr.(f_inst)⌝ ∗
-                                           ⌜vs = [v]⌝)%I).
-    }
-
-    iIntros (??) "[-> ->] Hfr Hrun".
 
     (* convenient spot for frame facts so things aren't clogged up elsewhere *)
     assert (Hlookup_x: f_locs {| W.f_locs := <[x:=v]> (f_locs fr); W.f_inst := f_inst fr |}
@@ -299,47 +289,37 @@ Section case_load.
       subst a0. clear H3 H0 H.
       rename H1 into Hmod5. rename H4 into Hnonzero.
 
-      (* Apply case ptr lemma *)
+      (* tee local, with Hos to clear the later *)
+      rewrite app_assoc.
+      iApply (cwp_seq with "[Hfr Hrun Hos]").
+      {
+        iApply (cwp_local_tee with "[Hos] [$Hfr] [$Hrun]").
+        - subst x. done.
+        - iModIntro.
+          instantiate (1 := fun fr' vs => (⌜fr' = Build_frame (<[ x := (VAL_int32 n32) ]> fr.(f_locs)) fr.(f_inst)⌝ ∗
+                                             ⌜vs = [VAL_int32 n32]⌝ ∗ (type_interp rti sr (VariantT (MEMTYPE σ ξ) τs_ser) se (SWords ws)))%I).
+          iFrame.
+          iSplitR; done.
+      }
+
+      iIntros (??) "[-> [-> Hos]] Hfr Hrun".
+
+      (* Case ptr (now separate from everything else) *)
+      (* I do the apply and some of the other work before the cwp_seq for the purpose of less evar weirdness *)
+      (* I do literally AS much as possible here *)
       move Hcg at bottom.
       apply cwp_case_ptr in Hcg as (? & ? & ? & ? & ? & ? & ? & ? & ? &
                                       Hcg_unr & Hcg_mm & Hcg_gc & -> & -> & Hcwp).
-
-      (* hide the value, bc the case ptr itself doesn't take any args *)
-      iApply cwp_val_app; first by apply has_values_to_consts.
-      (* now apply *)
-      rewrite <- (app_nil_l es9).
-      iApply (Hcwp with "[$Hfr] [$Hrun]");
-        [by instantiate (1:=[]) | done | done | done | done | ].
-      iIntros "!> Hfr Hrun".
-
-      (* dig into Hcg *)
       inv_cg_emit Hcg_unr.
-      inv_cg_bind Hcg_mm [] ?wt ?wt ?wl ?wl ?es ?es Hcg_root Hcg.
-      inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_tag Hcg_case_switch.
-      inv_cg_bind Hcg_case_switch [] ?wt ?wt ?wl ?wl ?es ?es Hcg_case_switch Hcg_null.
-      (* inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg Hcg_case. *)
-      (* inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_savestack Hcg. *)
-      (* inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcg_defaults Hcg_caseblocks. *)
-      (* cbn in Hcg_case; inversion Hcg_case. *)
-      cbn in Hcg_null; inversion Hcg_null; subst; clear Hcg_null; clear_nils.
-      clear Hretval.
-      cbn in Hcg_root; inversion Hcg_root; subst; clear Hcg_root.
-      (* use wp_root_to_heap in GC *)
-      clear_nils.
-      rename es1 into es_load_tag.
-      rename es3 into es_case_switch.
-      (* rename es5 into es_save_stack. *)
-      (* rename es7 into es_defaults. *)
-      (* rename es8 into es_case_blocks. *)
-      clear Hcwp Hcg_gc. (* potentially not gc but I think we're good *)
-      rename x2 into wt_gc. rename x5 into wl_gc.
-
-
-      (* first: load tag *)
+      subst; clear_nils; clear Hretval.
+      inv_cg_bind Hcg_mm [] ?wt ?wt ?wl ?wl ?es ?es Hcg_root Hcg_tag.
+      subst; clear_nils. rename es into es_root_to_heap. rename es0 into es_load_tag.
+      rename x2 into wt_gc; rename x5 into wl_gc; rename x8 into es_gc.
+      cbn in Hcg_root. inversion Hcg_root; subst; clear Hcg_root. (* this will be different in gc *)
       apply wp_mem_load1_cg_state in Hcg_tag as Hstate; try done.
       destruct Hstate as (_ & -> & ->).
 
-      (* quick frame fact, now that some other things are known *)
+      (* frame fact *)
       assert (Hxextrafr:
         fe_wlocal_offset (fe_of_context F) + length (wl ++ [W.T_i32]) + length [translate_arep I32R]
         ≤ length (f_locs {| W.f_locs := <[x:=(VAL_int32 n32)]> (f_locs fr);
@@ -348,20 +328,15 @@ Section case_load.
         lia.
       }
 
+      (* int he cwp_seq, we will be loading the tag. For that, we need to dig into
+       the invariant/type interp. I will do that here *)
       (* we need things in the invariant, so we must open the invariant *)
       iApply fupd_cwp.
       iMod (na_inv_acc with "Hinv Hown") as "U"; eauto.
       iDestruct "U" as "(Hlh & Hown & Hclose)".
       iModIntro.
       iMod "Hlh". iDestruct "Hlh" as "(Hlayout & Hheap)".
-      (* note to self: close invariant all the way at the end? *)
-
-      (* now time to find out some facts about the variant! *)
-      (* facts I need:
-         - 1 <= length ws
-         - serialize_atom ?o = get_path_words 0 (arep_size I32R) ws
-         - to get that o, I need to convert i into an i32 (nat -> i32 or N to i32)
-       *)
+      (* factssss *)
       rewrite type_interp_eq.
       iEval (cbn) in "Hos".
       pose proof (eval_size_emptyenv _ _ Heq_some se) as Hevalσ.
@@ -378,10 +353,19 @@ Section case_load.
       assert (i < length τs_ser) as Hi_lt.
       { apply lookup_lt_is_Some. by eexists. }
 
-      (* for other places, we need some other facts *)
 
-      (* load the tag! *)
+      (* Do I have enough now? Alright, seq-ing time *)
+      clear_nils; iEval (rewrite app_assoc).
       iApply (cwp_seq with "[Hfr Hrun Hv1 Hown Hheap Hrt Hclose Hlayout]"). {
+        (* hide the value, bc the case ptr itself doesn't take any args *)
+        iApply cwp_val_app; first by apply has_values_to_consts.
+        (* now apply *)
+        rewrite <- (app_nil_l es9).
+        iApply (Hcwp with "[$Hfr] [$Hrun]");
+          [by instantiate (1:=[]) | done | done | done | done | ].
+        iIntros "!> Hfr Hrun". clear_nils.
+
+
         eapply wp_load1_copy_mm in Hcg_tag as H_tag.
         iPoseProof H_tag as "H_tag". clear H_tag.
         iSpecialize ("H_tag" with "[$Hfr] [$Hrun] [$Hheap] [$Hv1]").
@@ -409,7 +393,7 @@ Section case_load.
           iDestruct "Ho" as "->".
 
           instantiate (1 := fun f vs =>
-            (∃ vf, (⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))]⌝ ∗
+            (∃ vf, (⌜vs = [VAL_int32 n32] ++ [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))]⌝ ∗
                     ⌜f = mk_load1_frame (fe_of_context F)
                       {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |}
                       (length (wl ++ [W.T_i32])) vf⌝ ∗
@@ -422,34 +406,40 @@ Section case_load.
           iSplitR; first done; iSplitR; first done.
           apply Is_true_true in Hvf.
           done.
+
       }
 
       iIntros (??) "Rest Hfr Hrun".
       iDestruct "Rest" as "(%vf & -> & -> & %Hvf & Haddr & Hrt & Hown)".
       iApply fupd_cwp.
       iMod "Hown". iModIntro.
-      clear_nils.
+      clear_nils. clear Hcwp Hcg_tag. clear Hcg_gc. (* I think that's fine at least *)
 
       (* case switch~ *)
       (* for some reason rocq hates cwp_case_switch so long and annoying lol *)
       pose proof cwp_case_switch.
       move Hcg_case_switch at bottom.
-      rename wt4 into wt_case_switch; rename wl4 into wl_case_switch.
-      specialize (H wt wt_case_switch (wl ++ [W.T_i32] ++ [translate_arep I32R]) wl_case_switch).
+      inv_cg_bind Hcg_case_switch [] ?wt ?wt ?wl ?wl ?es ?es Hcg_case_switch Hempty.
+      cbn in Hempty; inversion Hempty; subst; clear_nils; clear Hempty.
+
+      rename wt0 into wt_case_switch; rename wl0 into wl_case_switch. rename es into es_case_switch.
+      specialize (H (wt ++ wt_gc) wt_case_switch (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc) wl_case_switch).
       specialize (H fe ts).
-      set (on_each_case := ((λ (c : codegen ()) (i0 : nat),
-          try_option EFail (τs_ser !! i0)
-          ≫= λ τ0 : type,
-               try_option EFail match τ0 with
-                                | SerT _ t => Some t
-                                | _ => None
-                                end
-               ≫= λ τ1 : type,
-                    try_option EFail (type_rep (fe_type_vars fe) τ1)
-                    ≫= λ ρ : representation,
-                         try_option EFail (eval_rep EmptyEnv ρ)
-                         ≫= λ ιs : list atomic_rep,
-                              memory.load mr fe MemMM Copy (Mk_localidx x) 1 ιs ≫= λ _ : (), c))) in *.
+      set (on_each_case := ((λ (c : codegen ()) (i : nat),
+               try_option EFail (τs_ser !! i)
+               ≫= λ τ : type,
+                    try_option EFail match τ with
+                                     | SerT _ t => Some t
+                                     | _ => None
+                                     end
+                    ≫= λ τ0 : type,
+                         try_option EFail (type_rep (fe_type_vars fe) τ0)
+                         ≫= λ ρ : representation,
+                              try_option EFail (eval_rep EmptyEnv ρ)
+                              ≫= λ ιs : list atomic_rep,
+                                   memory.case_ptr (Mk_localidx x) (W.Tf [] ts) (emit W.BI_unreachable)
+                                     (λ μ : base_memory, memory.load mr fe μ Copy (Mk_localidx x) 1 ιs)
+                                   ≫= λ _ : () * (() * ()), c))) in *.
       set (cases := ((map
             on_each_case
             ((fix compile_cases
@@ -485,11 +475,13 @@ Section case_load.
 
       specialize (H cases (on_each_case (compile_instrs mr fe es))).
       specialize (H i es_case_switch ltac:(auto) ltac:(auto)).
-      (* NOTE: I think es_case_switch needs to be slightly more precise with wt_c
-       cuz currently they're just floating around with no context *)
       apply H in Hcg_case_switch; clear H.
       destruct Hcg_case_switch as (?wt_pre & ?wt_c & ?wt_post & ?wl_pre & ?wl_c & ?wl_post &
                                      es_case & Hcg_case & -> & -> & Hcg_case_switch).
+      (* I have to hide the n32 again *)
+      change (to_consts (?x ++ ?y)) with ((to_consts x) ++ (to_consts y)).
+      rewrite <- app_assoc.
+      iApply cwp_val_app; first by apply has_values_to_consts.
 
       iApply (Hcg_case_switch with "[$] [$] [-]").
       { admit. } (* wl interp, later *)
@@ -517,14 +509,25 @@ Section case_load.
       inv_cg_bind Hcg0 ιs ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
       inv_cg_try_option Hcg.
       inv_cg_bind Hcg0 [] ?wt ?wt ?wl ?wl ?es ?es Hcg_load_tag Hcg_case.
-      clear_nils; subst.
+      clear_nils; subst. destruct u; destruct p. destruct u, u0.
 
       destruct τ_ser; cbn in Heq_some2; inversion Heq_some2.
       subst τ0; clear Heq_some2.
       rename es8 into es_load; rename es10 into es_compiled.
-      eapply wp_mem_load_copy_mm in Hcg_load_tag.
-      destruct Hcg_load_tag as (_ & -> & -> & Hcg_load_payload).
+
+      (* SAVE *)
+      (* now we case ptr to load tag instead of just load copy thing *)
+
+      apply cwp_case_ptr in Hcg_load_tag as (? & ? & ? & ? & ? & ? & ? & ? & ? &
+                                      Hcg_unr & Hcg_mm & Hcg_gc & -> & -> & Hcwp).
+      inv_cg_emit Hcg_unr.
+      subst; clear_nils; clear Hretval.
+      rename x1 into wt_mm_load; rename x4 into wl_mm_load; rename x7 into es_mm_load.
+      rename x2 into wt_gc_load; rename x5 into wl_gc_load; rename x8 into es_gc_load.
+      eapply wp_mem_load_copy_mm in Hcg_mm.
+      destruct Hcg_mm as (_ & -> & -> & Hcg_load_payload).
       clear_nils.
+      (* before actually doing the cwp_seq with case ptr and load, get as much info as I can now *)
 
       (* time to dig into SerT k τ_ser. This can't be earlier lol *)
       rewrite Hτ in Heq_some1; inversion Heq_some1; subst; clear Heq_some1.
@@ -540,7 +543,6 @@ Section case_load.
       rewrite type_interp_eq.
       Opaque type_skind.
       iEval (cbn) in "Hos".
-      (* iDestruct "Hos" as "(%sκ_τ)" *)
       Transparent type_skind.
 
       assert (n_τ < length (WordInt iN :: flat_map serialize_atom os ++ ws_padding)). {
@@ -559,7 +561,6 @@ Section case_load.
       destruct sκ0' as [ιs' ξ_ser | g h]; try by inversion Hareps.
       cbn in Heq_some3.
       assert (ιs' = ιs). {
-        (* this hsould be a lemma nvm *)
         symmetry.
         eapply type_rep_type_skind; try done.
       }
@@ -570,6 +571,20 @@ Section case_load.
       destruct Hareps as (os' & toinv & Hareps); inversion toinv; subst os'; clear toinv.
 
       iApply (cwp_seq with "[Hfr Hrun Hown Haddr Hrt Hheap Hclose Hlayout]"). {
+
+        rewrite <- (app_nil_l es_load).
+        iApply (Hcwp with "[$Hfr] [$Hrun]");
+          [by instantiate (1:=[]) | done | done | done |  | ].
+        { iPureIntro.
+          cbn.
+          rewrite !length_app; cbn.
+          rewrite list_lookup_insert_ne; try lia.
+          rewrite list_lookup_insert_ne; try lia.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          lia.
+        }
+        iIntros "!> Hfr Hrun". clear_nils.
 
         iApply (Hcg_load_payload with "[$] [$] [$] [$] [$] [$] [] [%] [%] [%]
              [%] [%] [//] [%] [%] [%] [%] [//] [//] [//] [] [] [-]"); clear Hcg_load_payload.
@@ -614,26 +629,26 @@ Section case_load.
           (* task 1: use Hgcref to get atoms_interp os vs *)
           pose proof (atom_interp_from_copyable_for_variants F se τs κs i k τ_ser ιs ξ_ser os vs Hse Hgcref Hτ Htorewrite Hrefosinterp).
           iPoseProof (H0 with "[$Hos]") as "Hos". clear H0.
-
           (* the types got weird to set printing all *)
           instantiate (1 := fun f'' vs =>
             (∃ (vsf:list value), (
-                    ⌜f'' = ((mk_load_frame (fe_of_context F)
+                    ⌜f'' = (mk_load_frame (fe_of_context F)
           (@set frame (list value) f_locs (fun (f : forall _ : list value, list value) (x0 : frame) => Build_frame (f (f_locs x0)) (f_inst x0))
              (@insert nat value (list value) (@list_insert value)
                 (Init.Nat.add (fe_wlocal_offset fe)
                    (@length prelude.W.value_type
                       (@app prelude.W.value_type wl
                          (@app W.value_type (@cons W.value_type W.T_i32 (@nil W.value_type))
-                            (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type))))))
+                            (@app prelude.W.value_type (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type)) wl_gc)))))
                 (VAL_int32 (Wasm_int.Int32.repr (Z.of_nat i))))
              (mk_load1_frame (fe_of_context F)
                 (W.Build_frame (@insert nat value (list value) (@list_insert value) x (VAL_int32 n32) (f_locs fr)) (f_inst fr))
                 (@length prelude.W.value_type (@app prelude.W.value_type wl (@cons W.value_type W.T_i32 (@nil W.value_type)))) vf))
           (@app prelude.W.value_type wl
              (@app W.value_type (@cons W.value_type W.T_i32 (@nil W.value_type))
-                (@app W.value_type (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type)) wl_pre)))
-          vsf))⌝ ∗
+                (@app prelude.W.value_type (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type))
+                   (@app prelude.W.value_type wl_gc wl_pre))))
+          vsf)⌝ ∗
                     ([∗ list] o;v ∈ os;vs, atom_interp o v) ∗
                     ℓ ↦addr (MemMM, a) ∗
                     rt_token rti sr lpall θ ∗
@@ -646,6 +661,7 @@ Section case_load.
       iApply fupd_cwp.
       iMod "Hown".
       iModIntro.
+      clear Hcwp Hcg_load_payload.
 
       (* now we have to finally actually apply the inductive hypothesis. good times *)
       move IH at bottom.
@@ -672,7 +688,6 @@ Section case_load.
                       |>)
                      (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_pre) vsf)) in *.
       (* I think this will have to be a wand thingy *)
-      unfold labels_interp.
       (* specialize (Hcg_case se final_fr os vs (to_consts vs) θ *)
 
 
