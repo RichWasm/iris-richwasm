@@ -488,7 +488,15 @@ Section case_load.
         + apply Nat2Z.inj_lt. exact Hi_lt.
         + done. }
       { apply Is_true_true. apply has_values_to_consts. }
-      { admit. } (* TODO NOTE soemthing is a bit weird here!!!! *)
+      { (* TODO NOTE soemthing is a bit weird here!!!! *)
+        clear_nils.
+        iIntros (fr' vs) "(%Hmask & Hframe & (%os' & Hvs & Hos') & Htok & Hown)".
+        iSplit.
+        - (* I don't think this is provable -  Ryan *)
+          admit.
+        - (* This one is true though *)
+          admit.
+      }
 
 
       iIntros "Hfr Hrun".
