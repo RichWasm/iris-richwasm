@@ -1,6 +1,6 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.load_common.
-From RichWasm.iris.logrel Require Import case_ptr roots load_copy.
+From RichWasm.iris.logrel Require Import case_ptr roots load_copy copy.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -88,6 +88,41 @@ Section case_load.
     cbn in H.
     rewrite Heval in H. cbn in H.
     inversion H; done.
+  Qed.
+
+  Lemma kinding_info_for_τ_ser F (se:semantic_env (Σ:=Σ)) τs κs i k τ_ser ιs ξ_ser :
+    sem_env_interp F se ->
+    Forall (λ τ, has_ref_flag F τ GCRefs) τs ->
+    (zip_with SerT κs τs) !! i = Some (SerT k τ_ser) ->
+    type_skind se τ_ser = Some (SVALTYPE ιs ξ_ser) ->
+    (∃ ρ, has_kind F τ_ser (VALTYPE ρ ξ_ser)) /\ ref_flag_le ξ_ser GCRefs.
+  Proof.
+    intros Hse Hgc Hi Hskind.
+    apply lookup_zip_with_Some in Hi.
+    destruct Hi as (k' & t' & toinv & Hκi & Hτi).
+    inversion toinv; subst; clear toinv.
+    pose proof (Forall_lookup_1 _ _ _ _ Hgc Hτi).
+    inversion H; subst. clear dependent k'. rename x into k'.
+    destruct H0 as [Hkind Hrefflag].
+    assert (∃ ρ, k' = VALTYPE ρ ξ_ser). {
+      destruct t'; inversion Hkind; subst.
+      all: try by (subst κ; cbn in *; inversion Hskind; subst; eexists; done).
+      all: try by (subst κ; cbn in *; apply bind_Some in Hskind as (ιs' & Hevalreps & toinv);
+                  inversion toinv; subst; eexists; done).
+      all: try by (destruct k' as [ρ' ξ' | σ' ξ']; cbn in *;
+                   apply bind_Some in Hskind as (g & h & j); inversion j; try (subst; eexists; done)).
+      cbn in *. destruct Hse as (_ & Hse); unfold type_ctx_interp in Hse.
+      apply fmap_Some in Hskind as (skT & Hsen & Hsk).
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ Hse H1 Hsen).
+      cbn in H; destruct skT as (sk & skT); destruct skT as (skT & T).
+      destruct H0 as (H0 & _ & _). cbn in *; subst.
+      destruct k' as [ρ' ξ' | a b]; last first.
+      { cbn in *. apply bind_Some in H0 as (g & h & j). inversion j. }
+      cbn in *. apply bind_Some in H0 as (ιs' & H4 & H5). inversion H5; subst.
+      eexists; done.
+    }
+    destruct H0 as [ρ ->]. cbn in Hrefflag.
+    split; first (exists ρ; done); done.
   Qed.
 
   Lemma atom_interp_from_copyable_for_variants F (se:semantic_env (Σ:=Σ)) τs κs i k τ_ser ιs ξ_ser os vs :
@@ -740,7 +775,19 @@ Section case_load.
         eexists; split; done.
       }
 
-      (* HERE: it's being eaten, but I need a copy *)
+      (* Hcg_case is about to eat the val interp, but we need it later, so duplicate *)
+      iAssert ((let T := values_interp rti sr se [τ_ser] os in T ∗ T)%I) with "[Hos]" as "[Hos Hos']". {
+        rewrite values_interp_one_eq.
+        Transparent value_interp.
+        unfold value_interp.
+        Opaque value_interp.
+        cbn.
+        pose proof (kinding_info_for_τ_ser F se τs κs i k τ_ser ιs ξ_ser).
+        specialize (H1 ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto)).
+        destruct H1 as [[ρ' Hkind] Hrefle].
+        iApply (type_dup with "[$]"); done.
+      }
+
       iSpecialize ("Hcg_case" with "[$Hos]").
 
       iAssert (frame_interp rti sr se (typing.fc_locals F') L WL final_fr) with "[Hframe]" as "Hframe". {
@@ -748,14 +795,11 @@ Section case_load.
         admit.
       }
       iSpecialize ("Hcg_case" with "[$Hframe] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
-      (* QUESTION: the addr is still there. Is that an issue. Or is that okay. *)
 
       iApply (cwp_wand with "[$Hcg_case] [-]").
 
       iIntros (f vs_res) "(Hframerel & Hframe & Hos & Hrt & Hown)".
       iFrame.
-      (* oh wait might be perfect to keep the addr here *)
-      (* and the frame rels should be fine too, might be a lemma from frame_interp above *)
 
       (* NOTE: o = PtrA (PtrHeap MemMM ℓ) *)
       (* I am scared about reestablishing value interp and atoms interp *)
@@ -766,21 +810,35 @@ Section case_load.
 
       iExists ((PtrA (PtrHeap MemMM ℓ)) :: os_res).
       (* the addr goes with atom interp *)
-      iSplitL "Hos".
-      - change ([?x;?y]) with ([x] ++ [y]). change (?x::?y) with ([x]++y).
-        iApply (values_interp_app with "[] [$]").
-        clear_nils.
-        rewrite values_interp_one_eq.
-        rewrite value_interp_eq.
+      iSplitL "Hos Hos'".
+      - iEval (change (?x::?y) with ([x]++y)).
+        iApply (values_interp_app with "[Hos'] [$Hos]").
+        iEval (rewrite values_interp_one_eq).
+        iEval (rewrite value_interp_eq).
         iExists _.
         iSplitR; first done. iSplitR; first done.
         iEval (cbn).
         rewrite evalμ.
-        (* hm.. yeah the type interp for the variant is gone... where... *)
-        (* found it above, eaten by Hcg_case *)
-        (* this should be fine, I just need to duplicate it in the HERE and then build
-         it all the way back up *)
-        admit.
+        iExists _, _, _. iSplitR; first done; iSplitR; first done.
+        iModIntro.
+        rewrite type_interp_eq.
+        iExists (SMEMTYPE (length (WordInt iN :: flat_map serialize_atom os ++ ws_padding)) ξ).
+        iSplitR; first (cbn; rewrite Hevalσ; cbn; done).
+        iSplitR; first done.
+        iEval (cbn).
+        iExists _, iN, (flat_map serialize_atom os), ws_padding.
+        iSplitR; first done. iSplitR; first done. iSplitR; first done.
+        assert (list_lookup i (map (type_interp rti sr) τs_ser) = Some (type_interp rti sr (SerT k τ_ser))). {
+          apply map_lookup_helper_forwards. done.
+        }
+        rewrite H1. clear H1.
+        rewrite type_interp_eq.
+        iExists _. iSplitR; first done. iSplitR; first done.
+        iEval (cbn).
+        iExists _; iSplitR; first done.
+        (* okay FINALLY enough unwrapping *)
+        rewrite values_interp_one_eq.
+        iFrame.
       - change (?x :: ?y) with ([x] ++ y).
         iApply (atoms_interp_app_split_r with "[Haddr] [$]").
         clear_nils.
