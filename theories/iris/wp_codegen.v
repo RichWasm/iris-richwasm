@@ -1874,6 +1874,7 @@ Section CodeGen.
           let itag := fe_wlocal_offset fe + length wl in
           ↪[frame] fr -∗
           ↪[RUN] -∗
+          (∀ fr vs, Φ fr vs -∗ ⌜fr.(f_locs) !! itag = Some (VAL_int32 tag)⌝ ∗ ⌜length vs = length ts⌝) -∗
           (↪[frame] fr <| f_locs ::= <[ itag := VAL_int32 tag ]> |> -∗
            ↪[RUN] -∗
            CWP es_c UNDER (length ts, Φ) :: B; R {{ Φ }}) -∗
@@ -1902,10 +1903,10 @@ Section CodeGen.
     split; first by (rewrite !app_assoc).
 
 
-    iIntros (??????? Hwl Hi_tag Hevs ?) "Hfr Hrun Hes2".
+    iIntros (??????? Hwl Hi_tag Hevs ?) "Hfr Hrun Htag Hes2".
     apply cwp_save_stack1 in Hcg_save as (-> & -> & Hes).
     rewrite app_assoc.
-    iApply (cwp_seq with "[-Hes2]").
+    iApply (cwp_seq with "[-Hes2 Htag]").
     {
       iApply (Hes with "[$Hfr] [$Hrun]").
       - destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
@@ -1925,7 +1926,7 @@ Section CodeGen.
     iIntros (??) "[-> ->] Hfr Hrun".
     clear Hes.
     rewrite app_assoc.
-    iApply (cwp_seq with "[-Hes2]").
+    iApply (cwp_seq with "[-Hes2 Htag]").
     {
       eapply cwp_create_defaults in Hcg_def as (_ & Hwt2 & Hwl2 & Hes1).
       iApply (Hes1 with "[$Hfr] [$Hrun]").
@@ -1938,7 +1939,7 @@ Section CodeGen.
     iIntros (??) "[-> ->] Hfr Hrun".
     clear Hcg_def.
     rewrite app_assoc.
-    iApply (cwp_seq with "[-Hes2]").
+    iApply (cwp_seq with "[-Hes2 Htag]").
     {
       eapply cwp_case_blocks_fail in Hcg1.
       - iApply (Hcg1 with "[$Hfr] [$Hrun]").
@@ -1966,7 +1967,7 @@ Section CodeGen.
     iIntros (??) "[-> ->] Hfr Hrun".
     clear Hcg1.
     rewrite app_assoc.
-    iApply (cwp_seq with "[-]").
+    iApply (cwp_seq with "[-Htag]").
     {
       iApply (Hes3 with "[$Hfr] [$Hrun]").
       - rewrite Hi Hi_tag.
@@ -1993,20 +1994,29 @@ Section CodeGen.
 
     iIntros (??) "HΦ Hfr Hrun".
     clear Hes3.
+    iPoseProof ("Htag" with "HΦ") as "[%Htag %Htvs]".
     iApply (cwp_wand with "[-HΦ]").
     {
-      (* TODO This is the wrong lemma to use here. Need a cwp_case_blocks_success... -Ryan *)
       eapply cwp_case_blocks_fail in Hcg2.
       - iApply (Hcg2 with "[$Hfr] [$Hrun]").
       - left. instantiate (1 := i). rewrite -Hi. lia.
       - rewrite Hi_tag Z2Nat.id. all: apply Wasm_int.Int32.unsigned_range.
       - rewrite length_app in Hlen_cases. cbn in *.
         by rewrite -Nat2Z.inj_add Nat.add_succ_comm.
-      - admit.
-      - admit.
+      - apply Htvs.
+      - unfold itag in Htag.
+        cbn.
+        rewrite Htag.
+        rewrite Hi_tag.
+        do 2 f_equal.
+        cbn.
+        Set Printing Coercions.
+        rewrite Z2Nat.id; [|by apply Wasm_int.Int32.unsigned_range].
+        Unset Printing Coercions.
+        by rewrite (Wasm_int.Int32.repr_unsigned tag).
     }
 
     by iIntros (??) "[-> ->]".
-  Admitted.
+  Qed.
 
 End CodeGen.

@@ -455,7 +455,7 @@ Section case_load.
       cbn in Hempty; inversion Hempty; subst; clear_nils; clear Hempty.
 
       rename wt0 into wt_case_switch; rename wl0 into wl_case_switch. rename es into es_case_switch.
-      specialize (H mr sr rti (wt ++ wt_gc) wt_case_switch (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc) wl_case_switch).
+      specialize (H (wt ++ wt_gc) wt_case_switch (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc) wl_case_switch).
       specialize (H fe ts).
       set (on_each_case := ((λ (c : codegen ()) (i : nat),
                try_option EFail (τs_ser !! i)
@@ -515,7 +515,7 @@ Section case_load.
       rewrite <- app_assoc.
       iApply cwp_val_app; first by apply has_values_to_consts.
 
-      iApply (Hcg_case_switch with "[$] [$] [-]").
+      iApply (Hcg_case_switch with "[$] [$] [] [-]").
       { admit. } (* wl interp, later *)
       { instantiate (1 := Wasm_int.Int32.repr (Z.of_nat i)).
         apply nat_repr_i32repr.
@@ -523,6 +523,8 @@ Section case_load.
         + apply Nat2Z.inj_lt. exact Hi_lt.
         + done. }
       { apply Is_true_true. apply has_values_to_consts. }
+      { (* need a more specific lmask here, I think *)
+        admit. }
 
       iIntros "Hfr Hrun".
       clear Hcg_case_switch.
