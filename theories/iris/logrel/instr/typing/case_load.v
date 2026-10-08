@@ -515,6 +515,26 @@ Section case_load.
       rewrite <- app_assoc.
       iApply cwp_val_app; first by apply has_values_to_consts.
 
+      (* A slightly stronger postcondition. *)
+      set (Φ' := (λ fr_final vs,
+        ⌜f_locs fr_final !! (fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc))%nat =
+         Some (VAL_int32 (Wasm_int.Int32.repr i))⌝ ∗
+        ⌜length vs = length ts⌝ ∗
+         fvs_combine
+           (λ (fr' : frame) (vs' : list value),
+             ⌜frame_rel lmask fr fr'⌝ ∗
+              frame_interp rti sr se (typing.fc_locals F) L' WL fr' ∗
+              (∃ os' : leibnizO (list atom),
+                 values_interp rti sr se [RefT κr μ Imm (VariantT (MEMTYPE σ ξ) τs_ser); τ'] os' ∗
+                 atoms_interp os' vs') ∗
+              (∃ θ' : address_map, rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)
+           [VAL_int32 n32] fr_final vs)%I).
+      iApply (cwp_wand _ _ _ _ _ Φ' with "[-]"); swap 1 2.
+      {
+        iIntros (f' v') "(%Hmask & %Hvs & H)".
+        iApply "H".
+      }
+
       iApply (Hcg_case_switch with "[$] [$] [] [-]").
       { admit. } (* wl interp, later *)
       { instantiate (1 := Wasm_int.Int32.repr (Z.of_nat i)).
@@ -523,8 +543,11 @@ Section case_load.
         + apply Nat2Z.inj_lt. exact Hi_lt.
         + done. }
       { apply Is_true_true. apply has_values_to_consts. }
-      { (* need a more specific lmask here, I think *)
-        admit. }
+      {
+        unfold fvs_combine.
+        iIntros (fr' vs') "(Hlookup & Hvs & Hrest)".
+        eauto.
+      }
 
       iIntros "Hfr Hrun".
       clear Hcg_case_switch.
@@ -875,6 +898,7 @@ Section case_load.
 
         (* o = PtrA (PtrHeap MemMM ℓ) *)
         iDestruct "Hos" as "(%os_res & Hos & Hvs)".
+        iSplit.
 
         iExists ((PtrA (PtrHeap MemMM ℓ)) :: os_res).
         (* the addr goes with atom interp *)
