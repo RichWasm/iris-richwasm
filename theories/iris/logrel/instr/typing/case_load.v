@@ -630,6 +630,9 @@ Section case_load.
             rename x1 into wt_mm_load; rename x4 into wl_mm_load; rename x7 into es_mm_load.
             rename x2 into wt_gc_load; rename x5 into wl_gc_load; rename x8 into es_gc_load.
             eapply wp_mem_load_copy_mm in Hcg_mm.
+            Search ιs.
+            Search ρ.
+            Search σ.
             destruct Hcg_mm as (_ & -> & -> & Hcg_load_payload).
             clear_nils.
             iApply (Hcwp [] with "[$] [$] [] [-]").
@@ -650,9 +653,14 @@ Section case_load.
             - iIntros "!> Hf Hrun".
               iApply (Hcg_load_payload with "[$] [$] [$] [$] [$] [$]").
               + cbn.
-                admit.
-              + admit.
-              + admit.
+                iDestruct "Hinst" as "(Hinst0 & Hinstrt & Hinst1)".
+                iDestruct "Hinstrt" as "(Hrt1 & Hrt2 & Hrt3 & Hrt4 & Hrt5 & Hrt')".
+                iApply "Hrt5".
+              + solve_ndisj.
+              + solve_ndisj.
+              + iPureIntro.
+                cbn.
+
               + admit.
               + admit.
               + admit.
