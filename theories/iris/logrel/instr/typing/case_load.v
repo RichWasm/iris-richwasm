@@ -714,6 +714,7 @@ Section case_load.
       apply H0 in Hcg_case.
 
       (* hmmmmmmmmmmm ok *)
+
       unfold have_instr_type_sem in Hcg_case.
       unfold fvs_combine.
       set (final_fr := (mk_load_frame (fe_of_context F)
@@ -724,19 +725,49 @@ Section case_load.
                       <[fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc):=
                       VAL_int32 (Wasm_int.Int32.repr i)]> |>)
                      (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ wl_pre) vsf)) in *.
-      set (final_B := (length ts,
-             (λ (f : frame) (vs0 : list value), ⌜frame_rel lmask fr f⌝ ∗
-               frame_interp rti sr se (typing.fc_locals F) L' WL f ∗
-               (∃ os' : leibnizO (list atom),
-                  values_interp rti sr se [RefT κr μ Imm (VariantT (MEMTYPE σ ξ) τs_ser); τ']
-                    os' ∗
-                  atoms_interp os' ([VAL_int32 n32] ++ vs0)) ∗
-               (∃ θ' : address_map, rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I)
-                        :: B) in *.
+      set (final_B := (@cons (prod nat (forall (_ : frame) (_ : list value), uPred (iResUR Σ)))
+          (@pair nat (forall (_ : frame) (_ : list value), uPred (iResUR Σ)) (@length prelude.W.value_type ts)
+             (fun (f : frame) (vs0 : list value) =>
+              @bi_sep (uPredI (iResUR Σ)) (@bi_pure (uPredI (iResUR Σ)) (frame_rel lmask fr f))
+                (@bi_sep (uPredI (iResUR Σ))
+                   (@ofe_mor_car _ _ _
+                      (@ofe_mor_car _ _ _
+                         (@ofe_mor_car _ _ _
+                            (@ofe_mor_car _ _ _ (@frame_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr se) (typing.fc_locals F)) L')
+                         WL)
+                      f)
+                   (@bi_sep (uPredI (iResUR Σ))
+                      (@bi_exist (uPredI (iResUR Σ))
+                         (@ofe_car _
+                            (@Ofe natSI (list atom) (@equivL (list atom)) (@discrete_dist natSI (list atom) (@equivL (list atom)))
+                               (@discrete_ofe_mixin natSI (list atom) (@equivL (list atom)) (@eq_equivalence (list atom)))))
+                         (fun
+                            os' : @ofe_car _
+                                    (@Ofe natSI (list atom) (@equivL (list atom)) (@discrete_dist natSI (list atom) (@equivL (list atom)))
+                                       (@discrete_ofe_mixin natSI (list atom) (@equivL (list atom)) (@eq_equivalence (list atom)))) =>
+                          @bi_sep (uPredI (iResUR Σ))
+                            (@ofe_mor_car _ _ _
+                               (@ofe_mor_car _ _ _ (@ofe_mor_car _ _ _ (@values_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr) se)
+                                  (@cons type (RefT κr μ Imm (VariantT (MEMTYPE σ ξ) τs_ser)) (@cons type τ' (@nil type))))
+                               os')
+                            (@ofe_mor_car _ _ _ (@atoms_interp Σ richwasmG0 os') (@app value (@cons value (VAL_int32 n32) (@nil value)) vs0))))
+                      (@bi_sep (uPredI (iResUR Σ))
+                         (@bi_exist (uPredI (iResUR Σ)) address_map (fun θ' : address_map => @rt_token Σ wasmG0 richwasmG0 rti sr lpall θ'))
+                         (@na_own Σ (@logrel_na_invG Σ logrel_na_invs0) (@logrel_nais Σ logrel_na_invs0) (@top coPset coPset_top)))))))
+          B)) in *.
+      (* NOTE: we need to use something like cwp_frame_ctx1 (but more general) *)
+      set (mini_B := (length ts,
+        λ (f : frame) (vs0 : list value),
+          (⌜frame_rel lmask fr f⌝ ∗ frame_interp rti sr se (typing.fc_locals F) L' WL f ∗
+            (∃ os' : leibnizO (list atom),
+              values_interp rti sr se [τ'] os' ∗
+              atoms_interp os' (vs0)) ∗
+            (∃ θ' : address_map, rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I)
+        :: B).
 
       (* Start specializing the IH! *)
       iPoseProof Hcg_case as "Hcg_case"; clear Hcg_case.
-      iSpecialize ("Hcg_case" $! se final_fr os vs (to_consts vs) θ final_B R).
+      iSpecialize ("Hcg_case" $! se final_fr os vs (to_consts vs) θ mini_B R).
       clear_nils. fold WT. fold WL.
       set (WT_pre := wt ++ wt_gc ++ wt_pre ++ wt_gc_load) in *.
       set (WL_pre := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load) in *.
@@ -745,7 +776,7 @@ Section case_load.
       iSpecialize ("Hcg_case" $! ltac:(auto) ltac:(apply has_values_to_consts) ltac:(auto)).
 
       iAssert (labels_interp rti sr se (typing.fc_locals F') final_fr WL
-                 (wlmask (fe_of_context F') WL_pre) (fc_labels F') final_B) as "Hlabelnew". {
+                 (wlmask (fe_of_context F') WL_pre) (fc_labels F') mini_B) as "Hlabelnew". {
         (* I think this is doable *)
         iClear "Hcg_case Hinv Hreturn Hinst".
         assert (typing.fc_locals F' = typing.fc_locals F) by (subst F'; unfold set; cbn; done).
@@ -755,22 +786,17 @@ Section case_load.
         }
         rewrite H2. fold fe.
         subst F'.
-        unfold final_B.
         iApply (labels_interp_cons with "[] [Hlabels]"); try done.
         - move Heq_some0 at bottom.
           unfold prelude.translate_types. cbn.
           rewrite Heq_some0. cbn. clear_nils. done.
-        - (* wait that is NOT good *)
-          (* this is basically asking to do  *)
-          (* the same thing that the proof is needing me to do at point P1
-             search for easy access. However, this will require the addr
-             (for atom interp of the ref variant), and that is not duplicable *)
-          (* did something go wrong? Or is something being done poorly? *)
-          (* TODO *)
-
+        - iModIntro. iIntros (fr' vs') "(%Hrel & Hframe & Hosvs & Hrt & Hown)". iFrame.
+          iPureIntro.
+          (* yeah this is good I think *)
 
           admit.
-        - admit.
+        - (* I haven't looked closely yet but I think labels_interp_mono should be enough *)
+          admit.
       }
       iClear "Hlabels".
       iSpecialize ("Hcg_case" with "[$Hlabelnew]").
@@ -836,55 +862,102 @@ Section case_load.
       }
       iSpecialize ("Hcg_case" with "[$Hframe] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
 
-      iApply (cwp_wand with "[$Hcg_case] [-]").
-
-      (* NOTE: see this proof state for comment above P1 *)
-      iIntros (f vs_res) "(Hframerel & Hframe & Hos & Hrt & Hown)".
-      iFrame.
-
-      (* o = PtrA (PtrHeap MemMM ℓ) *)
-      iDestruct "Hos" as "(%os_res & Hos & Hvs)".
-
-      iSplitL "Hframerel".
-      { admit. (* should be simple *) }
-
-      iExists ((PtrA (PtrHeap MemMM ℓ)) :: os_res).
-      (* the addr goes with atom interp *)
-      iSplitL "Hos Hos'".
-      - iEval (change (?x::?y) with ([x]++y)).
-        iApply (values_interp_app with "[Hos'] [$Hos]").
-        iEval (rewrite values_interp_one_eq).
-        iEval (rewrite value_interp_eq).
-        iExists _.
-        iSplitR; first done. iSplitR; first done.
-        iEval (cbn).
-        rewrite evalμ.
-        iExists _, _, _. iSplitR; first done; iSplitR; first done.
-        iModIntro.
-        rewrite type_interp_eq.
-        iExists (SMEMTYPE (length (WordInt iN :: flat_map serialize_atom os ++ ws_padding)) ξ).
-        iSplitR; first (cbn; rewrite Hevalσ; cbn; done).
-        iSplitR; first done.
-        iEval (cbn).
-        iExists _, iN, (flat_map serialize_atom os), ws_padding.
-        iSplitR; first done. iSplitR; first done. iSplitR; first done.
-        assert (list_lookup i (map (type_interp rti sr) τs_ser) = Some (type_interp rti sr (SerT k τ_ser))). {
-          apply map_lookup_helper_forwards. done.
-        }
-        rewrite H1. clear H1.
-        rewrite type_interp_eq.
-        iExists _. iSplitR; first done. iSplitR; first done.
-        iEval (cbn).
-        iExists _; iSplitR; first done.
-        (* okay FINALLY enough unwrapping *)
-        rewrite values_interp_one_eq.
+      (* Now, we use cwp_frame_ctx! *)
+      unfold mini_B, final_B.
+      (* oh yeah wait the return might not be some, need a different cwp_frame_ctx *)
+      iApply (cwp_frame_ctx_no_R_change with "[$Hcg_case] [Haddr Hos'] [] []").
+      { iAccu. }
+      (* TODO lemmify some of this? I basically copy-pasted *)
+      - iIntros (f vs_res) "(Haddr & Hos') (Hframerel & Hframe & Hos & Hrt & Hown)".
         iFrame.
-      - change (?x :: ?y) with ([x] ++ y).
-        iApply (atoms_interp_app_split_r with "[Haddr] [$]").
-        clear_nils.
-        cbn. iSplitL; last done.
-        iExists _, n32; iSplitR; first done; iSplitR; first done.
-        iExists _; iSplitR; try done.
+
+        (* o = PtrA (PtrHeap MemMM ℓ) *)
+        iDestruct "Hos" as "(%os_res & Hos & Hvs)".
+
+        iExists ((PtrA (PtrHeap MemMM ℓ)) :: os_res).
+        (* the addr goes with atom interp *)
+        iSplitL "Hos Hos'".
+        + iEval (change (?x::?y) with ([x]++y)).
+          iApply (values_interp_app with "[Hos'] [$Hos]").
+          iEval (rewrite values_interp_one_eq).
+          iEval (rewrite value_interp_eq).
+          iExists _.
+          iSplitR; first done. iSplitR; first done.
+          iEval (cbn).
+          rewrite evalμ.
+          iExists _, _, _. iSplitR; first done; iSplitR; first done.
+          iModIntro.
+          rewrite type_interp_eq.
+          iExists (SMEMTYPE (length (WordInt iN :: flat_map serialize_atom os ++ ws_padding)) ξ).
+          iSplitR; first (cbn; rewrite Hevalσ; cbn; done).
+          iSplitR; first done.
+          iEval (cbn).
+          iExists _, iN, (flat_map serialize_atom os), ws_padding.
+          iSplitR; first done. iSplitR; first done. iSplitR; first done.
+          assert (list_lookup i (map (type_interp rti sr) τs_ser) = Some (type_interp rti sr (SerT k τ_ser))). {
+            apply map_lookup_helper_forwards. done.
+          }
+          rewrite H1. clear H1.
+          rewrite type_interp_eq.
+          iExists _. iSplitR; first done. iSplitR; first done.
+          iEval (cbn).
+          iExists _; iSplitR; first done.
+          (* okay FINALLY enough unwrapping *)
+          rewrite values_interp_one_eq.
+          iFrame.
+        + change (?x :: ?y) with ([x] ++ y).
+          iApply (atoms_interp_app_split_r with "[Haddr] [$]").
+          clear_nils.
+          cbn. iSplitL; last done.
+          iExists _, n32; iSplitR; first done; iSplitR; first done.
+          iExists _; iSplitR; try done.
+
+      - iIntros (f vs_res) "(Haddr & Hos') (Hframerel & Hframe & Hos & Hrt & Hown)".
+        iFrame.
+
+        (* o = PtrA (PtrHeap MemMM ℓ) *)
+        iDestruct "Hos" as "(%os_res & Hos & Hvs)".
+
+        iSplitL "Hframerel".
+        { (* check if this is normal *) admit. }
+
+        iExists ((PtrA (PtrHeap MemMM ℓ)) :: os_res).
+        (* the addr goes with atom interp *)
+        iSplitL "Hos Hos'".
+        + iEval (change (?x::?y) with ([x]++y)).
+          iApply (values_interp_app with "[Hos'] [$Hos]").
+          iEval (rewrite values_interp_one_eq).
+          iEval (rewrite value_interp_eq).
+          iExists _.
+          iSplitR; first done. iSplitR; first done.
+          iEval (cbn).
+          rewrite evalμ.
+          iExists _, _, _. iSplitR; first done; iSplitR; first done.
+          iModIntro.
+          rewrite type_interp_eq.
+          iExists (SMEMTYPE (length (WordInt iN :: flat_map serialize_atom os ++ ws_padding)) ξ).
+          iSplitR; first (cbn; rewrite Hevalσ; cbn; done).
+          iSplitR; first done.
+          iEval (cbn).
+          iExists _, iN, (flat_map serialize_atom os), ws_padding.
+          iSplitR; first done. iSplitR; first done. iSplitR; first done.
+          assert (list_lookup i (map (type_interp rti sr) τs_ser) = Some (type_interp rti sr (SerT k τ_ser))). {
+            apply map_lookup_helper_forwards. done.
+          }
+          rewrite H1. clear H1.
+          rewrite type_interp_eq.
+          iExists _. iSplitR; first done. iSplitR; first done.
+          iEval (cbn).
+          iExists _; iSplitR; first done.
+          (* okay FINALLY enough unwrapping *)
+          rewrite values_interp_one_eq.
+          iFrame.
+        + change (?x :: ?y) with ([x] ++ y).
+          iApply (atoms_interp_app_split_r with "[Haddr] [$]").
+          clear_nils.
+          cbn. iSplitL; last done.
+          iExists _, n32; iSplitR; first done; iSplitR; first done.
+          iExists _; iSplitR; try done.
     }
 
     [MemGC]: {
