@@ -679,6 +679,8 @@ Section case_load.
                 (@app prelude.W.value_type (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type))
                    (@app prelude.W.value_type wl_gc wl_pre))))
           vsf)⌝ ∗
+                    ⌜Forall2 (λ (ι : atomic_rep) (vf : value), is_true (types_agree (translate_arep ι) vf)) ιs
+      vsf⌝ ∗
                     ([∗ list] o;v ∈ os;vs, atom_interp o v) ∗
                     ℓ ↦addr (MemMM, a) ∗
                     rt_token rti sr lpall θ ∗
@@ -687,7 +689,7 @@ Section case_load.
           iFrame. done.
       }
 
-      iIntros (f vs) "(%vsf & -> & Hvs & Haddr & Hrt & Hown) Hfr Hrun".
+      iIntros (f vs) "(%vsf & -> & %Hvsf & Hvs & Haddr & Hrt & Hown) Hfr Hrun".
       iApply fupd_cwp.
       iMod "Hown".
       iModIntro.
@@ -746,7 +748,29 @@ Section case_load.
                  (wlmask (fe_of_context F') WL_pre) (fc_labels F') final_B) as "Hlabelnew". {
         (* I think this is doable *)
         iClear "Hcg_case Hinv Hreturn Hinst".
-        admit.
+        assert (typing.fc_locals F' = typing.fc_locals F) by (subst F'; unfold set; cbn; done).
+        rewrite H1.
+        assert (fe_of_context F' = fe_of_context F). {
+          subst F'; unfold set; cbn. done.
+        }
+        rewrite H2. fold fe.
+        subst F'.
+        unfold final_B.
+        iApply (labels_interp_cons with "[] [Hlabels]"); try done.
+        - move Heq_some0 at bottom.
+          unfold prelude.translate_types. cbn.
+          rewrite Heq_some0. cbn. clear_nils. done.
+        - (* wait that is NOT good *)
+          (* this is basically asking to do  *)
+          (* the same thing that the proof is needing me to do at point P1
+             search for easy access. However, this will require the addr
+             (for atom interp of the ref variant), and that is not duplicable *)
+          (* did something go wrong? Or is something being done poorly? *)
+          (* TODO *)
+
+
+          admit.
+        - admit.
       }
       iClear "Hlabels".
       iSpecialize ("Hcg_case" with "[$Hlabelnew]").
@@ -782,17 +806,43 @@ Section case_load.
 
       iAssert (frame_interp rti sr se (typing.fc_locals F') L WL final_fr) with "[Hframe]" as "Hframe". {
         (* this will be ANNOYING *)
+        Opaque frame_interp. subst F'. iEval (unfold set; cbn). Transparent frame_interp.
+        subst final_fr.
+        iClear "Hinst Hreturn Hinv Hlabelnew".
+        subst WL.
+        set (temp_fr := ((mk_load1_frame (fe_of_context F)
+          {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr); W.f_inst := f_inst fr |}
+          (length (wl ++ [W.T_i32])) vf <|
+        f_locs ::=
+        <[fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc):=
+            VAL_int32 (Wasm_int.Int32.repr i)]> |>))) in *.
+        replace ((wl ++
+                [W.T_i32] ++
+                [translate_arep I32R] ++
+                wl_gc ++
+                wl_pre ++ map translate_arep ιs ++ wl_gc_load ++ wl9 ++ wl_post ++ wlf)) with
+               (((wl ++
+                [W.T_i32] ++
+                [translate_arep I32R] ++
+                wl_gc ++
+                wl_pre) ++ map translate_arep ιs ++ (wl_gc_load ++ wl9 ++ wl_post ++ wlf))).
+        2: by rewrite !app_assoc.
+        iApply (load_restore_frame_one_step with "[Hframe] []"); try done.
+        unfold temp_fr.
+        Opaque frame_interp. cbn. Transparent frame_interp.
+        (* I think I just have to do it one at a time given the update frame we have *)
+        (* smidge annoying but doable *)
         admit.
       }
       iSpecialize ("Hcg_case" with "[$Hframe] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
 
       iApply (cwp_wand with "[$Hcg_case] [-]").
 
+      (* NOTE: see this proof state for comment above P1 *)
       iIntros (f vs_res) "(Hframerel & Hframe & Hos & Hrt & Hown)".
       iFrame.
 
-      (* NOTE: o = PtrA (PtrHeap MemMM ℓ) *)
-      (* I am scared about reestablishing value interp and atoms interp *)
+      (* o = PtrA (PtrHeap MemMM ℓ) *)
       iDestruct "Hos" as "(%os_res & Hos & Hvs)".
 
       iSplitL "Hframerel".
