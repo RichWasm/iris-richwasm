@@ -550,7 +550,7 @@ Section case_load.
         eauto.
       }
 
-      iIntros "Hfr Hrun".
+      iIntros "Hfr %Hfrtag Hrun".
       clear Hcg_case_switch.
 
       (* time to dig into what happens in each case! *)
@@ -571,7 +571,6 @@ Section case_load.
       subst τ0; clear Heq_some2.
       rename es8 into es_load; rename es10 into es_compiled.
 
-      (* SAVE *)
       (* now we case ptr to load tag instead of just load copy thing *)
 
       apply cwp_case_ptr in Hcg_load_tag as (? & ? & ? & ? & ? & ? & ? & ? & ? &
@@ -703,7 +702,8 @@ Section case_load.
           (@app prelude.W.value_type wl
              (@app W.value_type (@cons W.value_type W.T_i32 (@nil W.value_type))
                 (@app prelude.W.value_type (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type))
-                   (@app prelude.W.value_type wl_gc wl_pre))))
+                   (@app prelude.W.value_type wl_gc
+                      (@app prelude.W.value_type (@cons prelude.W.value_type prelude.W.T_i32 (@nil prelude.W.value_type)) wl_pre)))))
           vsf)⌝ ∗
                     ⌜Forall2 (λ (ι : atomic_rep) (vf : value), is_true (types_agree (translate_arep ι) vf)) ιs
       vsf⌝ ∗
@@ -734,9 +734,9 @@ Section case_load.
       Transparent have_instr_type_sem.
       subst WL WT; clear_nils.
       set (WT := wt ++ wt_gc ++ wt_pre ++ wt_gc_load ++ wt9 ++ wt_post ++ wtf) in *.
-      set (WL := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load ++ wl9 ++ wl_post ++ wlf) in *.
+      set (WL := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ [prelude.W.T_i32] ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load ++ wl9 ++ wl_post ++ wlf) in *.
       set (WT_pre := wt ++ wt_gc ++ wt_pre ++ wt_gc_load) in *.
-      set (WL_pre := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load) in *.
+      set (WL_pre := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ [prelude.W.T_i32] ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load) in *.
       specialize H0 with (wtf:=(wt_post ++ wtf)).
       specialize H0 with (wlf:=(wl_post ++ wlf)).
       apply H0 in Hcg_case.
@@ -752,37 +752,7 @@ Section case_load.
                       f_locs ::=
                       <[fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc):=
                       VAL_int32 (Wasm_int.Int32.repr i)]> |>)
-                     (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ wl_pre) vsf)) in *.
-      set (final_B := (@cons (prod nat (forall (_ : frame) (_ : list value), uPred (iResUR Σ)))
-          (@pair nat (forall (_ : frame) (_ : list value), uPred (iResUR Σ)) (@length prelude.W.value_type ts)
-             (fun (f : frame) (vs0 : list value) =>
-              @bi_sep (uPredI (iResUR Σ)) (@bi_pure (uPredI (iResUR Σ)) (frame_rel lmask fr f))
-                (@bi_sep (uPredI (iResUR Σ))
-                   (@ofe_mor_car _ _ _
-                      (@ofe_mor_car _ _ _
-                         (@ofe_mor_car _ _ _
-                            (@ofe_mor_car _ _ _ (@frame_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr se) (typing.fc_locals F)) L')
-                         WL)
-                      f)
-                   (@bi_sep (uPredI (iResUR Σ))
-                      (@bi_exist (uPredI (iResUR Σ))
-                         (@ofe_car _
-                            (@Ofe natSI (list atom) (@equivL (list atom)) (@discrete_dist natSI (list atom) (@equivL (list atom)))
-                               (@discrete_ofe_mixin natSI (list atom) (@equivL (list atom)) (@eq_equivalence (list atom)))))
-                         (fun
-                            os' : @ofe_car _
-                                    (@Ofe natSI (list atom) (@equivL (list atom)) (@discrete_dist natSI (list atom) (@equivL (list atom)))
-                                       (@discrete_ofe_mixin natSI (list atom) (@equivL (list atom)) (@eq_equivalence (list atom)))) =>
-                          @bi_sep (uPredI (iResUR Σ))
-                            (@ofe_mor_car _ _ _
-                               (@ofe_mor_car _ _ _ (@ofe_mor_car _ _ _ (@values_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr) se)
-                                  (@cons type (RefT κr μ Imm (VariantT (MEMTYPE σ ξ) τs_ser)) (@cons type τ' (@nil type))))
-                               os')
-                            (@ofe_mor_car _ _ _ (@atoms_interp Σ richwasmG0 os') (@app value (@cons value (VAL_int32 n32) (@nil value)) vs0))))
-                      (@bi_sep (uPredI (iResUR Σ))
-                         (@bi_exist (uPredI (iResUR Σ)) address_map (fun θ' : address_map => @rt_token Σ wasmG0 richwasmG0 rti sr lpall θ'))
-                         (@na_own Σ (@logrel_na_invG Σ logrel_na_invs0) (@logrel_nais Σ logrel_na_invs0) (@top coPset coPset_top)))))))
-          B)) in *.
+                     (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ [prelude.W.T_i32] ++ wl_pre) vsf)) in *.
       (* NOTE: we need to use something like cwp_frame_ctx1 (but more general) *)
       set (mini_B := (length ts,
         λ (f : frame) (vs0 : list value),
@@ -900,12 +870,12 @@ Section case_load.
         replace ((wl ++
                 [W.T_i32] ++
                 [translate_arep I32R] ++
-                wl_gc ++
+                wl_gc ++ [prelude.W.T_i32] ++
                 wl_pre ++ map translate_arep ιs ++ wl_gc_load ++ wl9 ++ wl_post ++ wlf)) with
                (((wl ++
                 [W.T_i32] ++
                 [translate_arep I32R] ++
-                wl_gc ++
+                wl_gc ++ [prelude.W.T_i32] ++
                 wl_pre) ++ map translate_arep ιs ++ (wl_gc_load ++ wl9 ++ wl_post ++ wlf))).
         2: by rewrite !app_assoc.
         iApply (load_restore_frame_one_step with "[Hframe] []"); try done.
@@ -918,11 +888,11 @@ Section case_load.
       iSpecialize ("Hcg_case" with "[$Hframe] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
 
       (* Now, we use cwp_frame_ctx! *)
-      unfold mini_B, final_B.
+      unfold mini_B.
       (* oh yeah wait the return might not be some, need a different cwp_frame_ctx *)
       iApply (cwp_frame_ctx_no_R_change with "[$Hcg_case] [Haddr Hos'] [] []").
       { iAccu. }
-      (* TODO lemmify some of this? I basically copy-pasted *)
+      (* TODO lemmify some of this? It's basically perfectly duplicated *)
       - iIntros (f vs_res) "(Haddr & Hos') (%Hframerel & Hframe & Hos & Hrt & Hown)".
         iFrame.
         clear_nils. fold WL.
@@ -935,14 +905,22 @@ Section case_load.
         iAssert (⌜length vs_res = length ts⌝%I) with "[Hvs Hos]" as "%Hvsreslen". {
           iPoseProof (atoms_interp_length with "[$Hvs]") as "%Hosreslen".
           rewrite values_interp_one_eq.
-          admit.
+          move Heq_some0 at bottom.
+          assert (translate_type se τ' = Some ts). {
+            eapply translate_type_comp_sem; first done.
+            done.
+          }
+          iPoseProof (translate_type_interp_length rti sr se τ' ts os_res H1 with "[$Hos]") as "%Hlents".
+          iPureIntro.
+          by rewrite <- Hosreslen.
         }
 
         iSplit.
         {
-          (* NOTE:  HEREthis is where things used to be suspicious, but it's much more doable now, except for some off by ones *)
+          (* NOTE: HERE this is where things used to be suspicious, but its now good with wl_pre being more precise :D *)
           (* the key is that we have Hframerel *)
           iPureIntro.
+          move Hfrtag at bottom.
           destruct Hframerel as [Hf1 Hf2].
           unfold mask_locs_eq in Hf1.
           set (TheI := fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc)) in *.
@@ -951,18 +929,15 @@ Section case_load.
           { unfold wlmask, WL_pre, TheI. rewrite !length_app.
             assert ((fe_of_context (F <| fc_labels ::= cons ([τ'], L') |>)) = fe) by (unfold set; cbn; done).
             unfold F'; rewrite !H1. split; try lia.
-            cbn.
-            (* oh I need ιs to be length at least one? *)
-            admit.
+            cbn. lia.
           }
           unfold final_fr, TheI.
           rewrite mk_load_frame_stable_part; last first.
-          { (* hm and here wl_pre needs to be nonempty which is suspicious as it shouldn't depend on that *) admit. }
+          { rewrite !length_app. cbn. lia. }
           cbn.
           apply list_lookup_insert_eq.
           clear_frame_things Hflen locsz WL.
-          (* once again requires ιs to be length at least one, but then that's it *)
-          admit.
+          cbn; lia.
         }
         iSplitR; first done.
         iSplitR.
@@ -1022,12 +997,39 @@ Section case_load.
 
 
         iSplitR.
-        { (* identical to above, which isn't fully proven yet *) admit. }
+        { (* identical to above *)
+          iPureIntro.
+          move Hfrtag at bottom.
+          destruct Hframerel as [Hf1 Hf2].
+          unfold mask_locs_eq in Hf1.
+          set (TheI := fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc)) in *.
+          specialize (Hf1 TheI).
+          rewrite <- Hf1; last first.
+          { unfold wlmask, WL_pre, TheI. rewrite !length_app.
+            assert ((fe_of_context (F <| fc_labels ::= cons ([τ'], L') |>)) = fe) by (unfold set; cbn; done).
+            unfold F'; rewrite !H1. split; try lia.
+            cbn. lia.
+          }
+          unfold final_fr, TheI.
+          rewrite mk_load_frame_stable_part; last first.
+          { rewrite !length_app. cbn. lia. }
+          cbn.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          cbn; lia.
+        }
 
         iAssert (⌜length vs_res = length ts⌝%I) with "[Hvs Hos]" as "%Hvsreslen". {
           iPoseProof (atoms_interp_length with "[$Hvs]") as "%Hosreslen".
           rewrite values_interp_one_eq.
-          admit.
+          move Heq_some0 at bottom.
+          assert (translate_type se τ' = Some ts). {
+            eapply translate_type_comp_sem; first done.
+            done.
+          }
+          iPoseProof (translate_type_interp_length rti sr se τ' ts os_res H1 with "[$Hos]") as "%Hlents".
+          iPureIntro.
+          by rewrite <- Hosreslen.
         }
 
         iSplitR; first done.
