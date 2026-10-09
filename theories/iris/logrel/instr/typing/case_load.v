@@ -577,11 +577,17 @@ Section case_load.
           rewrite -Hlen.
           rewrite insert_app_r.
           rewrite insert_app_r.
-          replace (length wl) with (length vs1 + 0) by admit.
+          replace (length wl) with (length vs1 + 0); swap 1 2.
+          {
+            erewrite <- Forall2_length; eauto; lia.
+          }
           rewrite length_app.
           rewrite <- !app_assoc.
           rewrite insert_app_r; cbn.
-          replace (length wl) with (length vs1) by admit.
+          replace (length wl) with (length vs1); swap 1 2.
+          {
+            by erewrite <- Forall2_length.
+          }
           rewrite insert_app_r; cbn.
           done.
         - apply Forall2_app; try auto.
