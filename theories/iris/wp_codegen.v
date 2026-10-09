@@ -1865,8 +1865,8 @@ Section CodeGen.
     cases !! i = Some case ->
     run_codegen (case_switch fe ts cases) wt wl = inr (tt, wt', wl', es_s) ->
     exists wt_pre wt_c wt_post wl_pre wl_c wl_post es_c,
-      run_codegen (case i) (wt ++ wt_pre) (wl ++ wl_pre) = inr (tt, wt_c, wl_c, es_c) /\
-      wt' = wt_pre ++ wt_c ++ wt_post /\ wl' = wl_pre ++ wl_c ++ wl_post /\
+      run_codegen (case i) (wt ++ wt_pre) (wl ++ [prelude.W.T_i32] ++ wl_pre) = inr (tt, wt_c, wl_c, es_c) /\
+      wt' = wt_pre ++ wt_c ++ wt_post /\ wl' = [prelude.W.T_i32] ++ wl_pre ++ wl_c ++ wl_post /\
         forall wlf fr tag evs B R Φ,
           wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
           nat_i32_repr i tag ->
@@ -1876,6 +1876,7 @@ Section CodeGen.
           ↪[RUN] -∗
           (∀ fr vs, Φ fr vs -∗ ⌜fr.(f_locs) !! itag = Some (VAL_int32 tag)⌝ ∗ ⌜length vs = length ts⌝) -∗
           (↪[frame] fr <| f_locs ::= <[ itag := VAL_int32 tag ]> |> -∗
+           ⌜(fr <| f_locs ::= <[ itag := VAL_int32 tag ]> |>).(f_locs) !! itag = Some (VAL_int32 tag)⌝ -∗
            ↪[RUN] -∗
            CWP es_c UNDER (length ts, Φ) :: B; R {{ Φ }}) -∗
           CWP evs ++ es_s UNDER B; R {{ Φ }}.
@@ -1896,15 +1897,13 @@ Section CodeGen.
         (?es & Hcg_case & Hes3).
     repeat rewrite -app_assoc in Hcg_case.
     rewrite plus_O_n in Hcg_case.
-    (* exists (wt ++ wt0 ++ wt2 ++ wt1), wt4, (wl ++ wl0 ++ wl2 ++ wl1), wl4, es2. *)
-    exists (wt0 ++ wt2 ++ wt1), wt4, wt5, (wl0 ++ wl2 ++ wl1), wl4, wl5, es2.
+    apply cwp_save_stack1 in Hcg_save as (-> & -> & Hes).
+    exists (wt0 ++ wt2 ++ wt1), wt4, wt5, (wl2 ++ wl1), wl4, wl5, es2.
     split; first by rewrite -Hi.
     split; first by (rewrite !app_assoc).
     split; first by (rewrite !app_assoc).
 
-
     iIntros (??????? Hwl Hi_tag Hevs ?) "Hfr Hrun Htag Hes2".
-    apply cwp_save_stack1 in Hcg_save as (-> & -> & Hes).
     rewrite app_assoc.
     iApply (cwp_seq with "[-Hes2 Htag]").
     {
@@ -1989,7 +1988,18 @@ Section CodeGen.
         rewrite -Hvs__wl.
         cbn.
         lia.
-      - iIntros "Hfr Hrun". iApply ("Hes2" with "[$Hfr] [$Hrun]").
+      - iIntros "Hfr Hrun". iApply ("Hes2" with "[$Hfr] [] [$Hrun]").
+        iPureIntro.
+        apply list_lookup_insert_eq.
+        destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen & Hvs__wl).
+        subst itag.
+        rewrite -Hlen Hlocs.
+        apply Forall2_length in Hvs__wl.
+        rewrite length_app in Hvs__wl.
+        rewrite length_app length_app.
+        rewrite -Hvs__wl.
+        cbn.
+        lia.
     }
 
     iIntros (??) "HΦ Hfr Hrun".

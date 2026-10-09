@@ -515,6 +515,26 @@ Section case_load.
       rewrite <- app_assoc.
       iApply cwp_val_app; first by apply has_values_to_consts.
 
+      (* A slightly stronger postcondition. *)
+      set (Φ' := (λ fr_final vs,
+        ⌜f_locs fr_final !! (fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc))%nat =
+         Some (VAL_int32 (Wasm_int.Int32.repr i))⌝ ∗
+        ⌜length vs = length ts⌝ ∗
+         fvs_combine
+           (λ (fr' : frame) (vs' : list value),
+             ⌜frame_rel lmask fr fr'⌝ ∗
+              frame_interp rti sr se (typing.fc_locals F) L' WL fr' ∗
+              (∃ os' : leibnizO (list atom),
+                 values_interp rti sr se [RefT κr μ Imm (VariantT (MEMTYPE σ ξ) τs_ser); τ'] os' ∗
+                 atoms_interp os' vs') ∗
+              (∃ θ' : address_map, rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)
+           [VAL_int32 n32] fr_final vs)%I).
+      iApply (cwp_wand _ _ _ _ _ Φ' with "[-]"); swap 1 2.
+      {
+        iIntros (f' v') "(%Hmask & %Hvs & H)".
+        iApply "H".
+      }
+
       iApply (Hcg_case_switch with "[$] [$] [] [-]").
       { admit. } (* wl interp, later *)
       { instantiate (1 := Wasm_int.Int32.repr (Z.of_nat i)).
@@ -523,10 +543,14 @@ Section case_load.
         + apply Nat2Z.inj_lt. exact Hi_lt.
         + done. }
       { apply Is_true_true. apply has_values_to_consts. }
-      { (* need a more specific lmask here, I think *)
-        admit. }
+      {
+        unfold fvs_combine.
+        iIntros (fr' vs') "(Hlookup & Hvs & Hrest)".
+        unfold lmask.
+        eauto.
+      }
 
-      iIntros "Hfr Hrun".
+      iIntros "Hfr %Hfrtag Hrun".
       clear Hcg_case_switch.
 
       (* time to dig into what happens in each case! *)
@@ -547,7 +571,6 @@ Section case_load.
       subst τ0; clear Heq_some2.
       rename es8 into es_load; rename es10 into es_compiled.
 
-      (* SAVE *)
       (* now we case ptr to load tag instead of just load copy thing *)
 
       apply cwp_case_ptr in Hcg_load_tag as (? & ? & ? & ? & ? & ? & ? & ? & ? &
@@ -679,7 +702,8 @@ Section case_load.
           (@app prelude.W.value_type wl
              (@app W.value_type (@cons W.value_type W.T_i32 (@nil W.value_type))
                 (@app prelude.W.value_type (@cons prelude.W.value_type (translate_arep I32R) (@nil prelude.W.value_type))
-                   (@app prelude.W.value_type wl_gc wl_pre))))
+                   (@app prelude.W.value_type wl_gc
+                      (@app prelude.W.value_type (@cons prelude.W.value_type prelude.W.T_i32 (@nil prelude.W.value_type)) wl_pre)))))
           vsf)⌝ ∗
                     ⌜Forall2 (λ (ι : atomic_rep) (vf : value), is_true (types_agree (translate_arep ι) vf)) ιs
       vsf⌝ ∗
@@ -710,7 +734,9 @@ Section case_load.
       Transparent have_instr_type_sem.
       subst WL WT; clear_nils.
       set (WT := wt ++ wt_gc ++ wt_pre ++ wt_gc_load ++ wt9 ++ wt_post ++ wtf) in *.
-      set (WL := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load ++ wl9 ++ wl_post ++ wlf) in *.
+      set (WL := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ [prelude.W.T_i32] ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load ++ wl9 ++ wl_post ++ wlf) in *.
+      set (WT_pre := wt ++ wt_gc ++ wt_pre ++ wt_gc_load) in *.
+      set (WL_pre := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ [prelude.W.T_i32] ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load) in *.
       specialize H0 with (wtf:=(wt_post ++ wtf)).
       specialize H0 with (wlf:=(wl_post ++ wlf)).
       apply H0 in Hcg_case.
@@ -726,56 +752,45 @@ Section case_load.
                       f_locs ::=
                       <[fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc):=
                       VAL_int32 (Wasm_int.Int32.repr i)]> |>)
-                     (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ wl_pre) vsf)) in *.
-      set (final_B := (@cons (prod nat (forall (_ : frame) (_ : list value), uPred (iResUR Σ)))
-          (@pair nat (forall (_ : frame) (_ : list value), uPred (iResUR Σ)) (@length prelude.W.value_type ts)
-             (fun (f : frame) (vs0 : list value) =>
-              @bi_sep (uPredI (iResUR Σ)) (@bi_pure (uPredI (iResUR Σ)) (frame_rel lmask fr f))
-                (@bi_sep (uPredI (iResUR Σ))
-                   (@ofe_mor_car _ _ _
-                      (@ofe_mor_car _ _ _
-                         (@ofe_mor_car _ _ _
-                            (@ofe_mor_car _ _ _ (@frame_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr se) (typing.fc_locals F)) L')
-                         WL)
-                      f)
-                   (@bi_sep (uPredI (iResUR Σ))
-                      (@bi_exist (uPredI (iResUR Σ))
-                         (@ofe_car _
-                            (@Ofe natSI (list atom) (@equivL (list atom)) (@discrete_dist natSI (list atom) (@equivL (list atom)))
-                               (@discrete_ofe_mixin natSI (list atom) (@equivL (list atom)) (@eq_equivalence (list atom)))))
-                         (fun
-                            os' : @ofe_car _
-                                    (@Ofe natSI (list atom) (@equivL (list atom)) (@discrete_dist natSI (list atom) (@equivL (list atom)))
-                                       (@discrete_ofe_mixin natSI (list atom) (@equivL (list atom)) (@eq_equivalence (list atom)))) =>
-                          @bi_sep (uPredI (iResUR Σ))
-                            (@ofe_mor_car _ _ _
-                               (@ofe_mor_car _ _ _ (@ofe_mor_car _ _ _ (@values_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr) se)
-                                  (@cons type (RefT κr μ Imm (VariantT (MEMTYPE σ ξ) τs_ser)) (@cons type τ' (@nil type))))
-                               os')
-                            (@ofe_mor_car _ _ _ (@atoms_interp Σ richwasmG0 os') (@app value (@cons value (VAL_int32 n32) (@nil value)) vs0))))
-                      (@bi_sep (uPredI (iResUR Σ))
-                         (@bi_exist (uPredI (iResUR Σ)) address_map (fun θ' : address_map => @rt_token Σ wasmG0 richwasmG0 rti sr lpall θ'))
-                         (@na_own Σ (@logrel_na_invG Σ logrel_na_invs0) (@logrel_nais Σ logrel_na_invs0) (@top coPset coPset_top)))))))
-          B)) in *.
+                     (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ [prelude.W.T_i32] ++ wl_pre) vsf)) in *.
       (* NOTE: we need to use something like cwp_frame_ctx1 (but more general) *)
       set (mini_B := (length ts,
         λ (f : frame) (vs0 : list value),
-          (⌜frame_rel lmask fr f⌝ ∗ frame_interp rti sr se (typing.fc_locals F) L' WL f ∗
+          (⌜frame_rel (wlmask (fe_of_context F') WL_pre) final_fr f⌝ ∗ frame_interp rti sr se (typing.fc_locals F') L' WL f ∗
             (∃ os' : leibnizO (list atom),
               values_interp rti sr se [τ'] os' ∗
               atoms_interp os' (vs0)) ∗
             (∃ θ' : address_map, rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I)
         :: B).
 
+      (* useful fact for a few places *)
+      assert (Hrelfrfinal: frame_rel lmask fr final_fr). {
+        unfold final_fr.
+        unfold frame_rel.
+        rewrite load_frame_inst.
+        split; last done.
+        unfold mask_locs_eq.
+        intros ii [Hii1 Hii2].
+        symmetry. rewrite mk_load_frame_stable_part; last first.
+        { rewrite !length_app. cbn; cbn in Hii2. lia. }
+        Opaque fe_wlocal_offset. cbn.
+        rewrite list_lookup_insert_ne; last (rewrite !length_app; cbn; cbn in Hii2; lia).
+        rewrite list_lookup_insert_ne; last first.
+        { rewrite !length_app; cbn; cbn in Hii2. fold fe. lia. }
+        rewrite list_lookup_insert_ne; try done.
+        subst x.
+        Transparent fe_wlocal_offset.
+        lia.
+      }
+
       (* Start specializing the IH! *)
       iPoseProof Hcg_case as "Hcg_case"; clear Hcg_case.
       iSpecialize ("Hcg_case" $! se final_fr os vs (to_consts vs) θ mini_B R).
       clear_nils. fold WT. fold WL.
-      set (WT_pre := wt ++ wt_gc ++ wt_pre ++ wt_gc_load) in *.
-      set (WL_pre := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ wl_pre ++ map translate_arep ιs ++ wl_gc_load) in *.
 
       (* time to slowly start specializing *)
       iSpecialize ("Hcg_case" $! ltac:(auto) ltac:(apply has_values_to_consts) ltac:(auto)).
+
 
       iAssert (labels_interp rti sr se (typing.fc_locals F') final_fr WL
                  (wlmask (fe_of_context F') WL_pre) (fc_labels F') mini_B) as "Hlabelnew". {
@@ -794,13 +809,20 @@ Section case_load.
           rewrite Heq_some0. cbn. clear_nils. done.
         - iModIntro. iIntros (fr' vs') "(%Hrel & Hframe & Hosvs & Hrt & Hown)". iFrame.
           iPureIntro.
-          (* yeah this is good I think *)
-
-          admit.
+          assert ((fe_of_context (F <| fc_labels ::= cons ([τ'], L') |>)) = fe) by (unfold set; cbn; done).
+          rewrite H3. done.
         - (* I haven't looked closely yet but I think labels_interp_mono should be enough *)
-          admit.
+          iApply (labels_interp_mono with "[$]").
+          + done.
+          + intros ii Hii. unfold lmask in Hii; unfold wlmask in *; subst WL_pre.
+            destruct Hii as [Hii1 Hii2].
+            split; first done.
+            rewrite !length_app.
+            lia.
       }
       iClear "Hlabels".
+      assert (HWLstupid: WL_pre ++ wl9 ++ wl_post ++ wlf = WL) by (subst WL_pre; clear_nils; done).
+      rewrite !HWLstupid.
       iSpecialize ("Hcg_case" with "[$Hlabelnew]").
       iSpecialize ("Hcg_case" $! ltac:(auto)).
       iSpecialize ("Hcg_case" with "[$Hvs]").
@@ -825,6 +847,7 @@ Section case_load.
         Opaque value_interp.
         cbn.
         pose proof (kinding_info_for_τ_ser F se τs κs i k τ_ser ιs ξ_ser).
+
         specialize (H1 ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto)).
         destruct H1 as [[ρ' Hkind] Hrefle].
         iApply (type_dup with "[$]"); done.
@@ -847,12 +870,12 @@ Section case_load.
         replace ((wl ++
                 [W.T_i32] ++
                 [translate_arep I32R] ++
-                wl_gc ++
+                wl_gc ++ [prelude.W.T_i32] ++
                 wl_pre ++ map translate_arep ιs ++ wl_gc_load ++ wl9 ++ wl_post ++ wlf)) with
                (((wl ++
                 [W.T_i32] ++
                 [translate_arep I32R] ++
-                wl_gc ++
+                wl_gc ++ [prelude.W.T_i32] ++
                 wl_pre) ++ map translate_arep ιs ++ (wl_gc_load ++ wl9 ++ wl_post ++ wlf))).
         2: by rewrite !app_assoc.
         iApply (load_restore_frame_one_step with "[Hframe] []"); try done.
@@ -865,16 +888,66 @@ Section case_load.
       iSpecialize ("Hcg_case" with "[$Hframe] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
 
       (* Now, we use cwp_frame_ctx! *)
-      unfold mini_B, final_B.
+      unfold mini_B.
       (* oh yeah wait the return might not be some, need a different cwp_frame_ctx *)
       iApply (cwp_frame_ctx_no_R_change with "[$Hcg_case] [Haddr Hos'] [] []").
       { iAccu. }
-      (* TODO lemmify some of this? I basically copy-pasted *)
-      - iIntros (f vs_res) "(Haddr & Hos') (Hframerel & Hframe & Hos & Hrt & Hown)".
+      (* TODO lemmify some of this? It's basically perfectly duplicated *)
+      - iIntros (f vs_res) "(Haddr & Hos') (%Hframerel & Hframe & Hos & Hrt & Hown)".
+        iFrame.
+        clear_nils. fold WL.
         iFrame.
 
         (* o = PtrA (PtrHeap MemMM ℓ) *)
         iDestruct "Hos" as "(%os_res & Hos & Hvs)".
+
+        (* fact while we have our stuff *)
+        iAssert (⌜length vs_res = length ts⌝%I) with "[Hvs Hos]" as "%Hvsreslen". {
+          iPoseProof (atoms_interp_length with "[$Hvs]") as "%Hosreslen".
+          rewrite values_interp_one_eq.
+          move Heq_some0 at bottom.
+          assert (translate_type se τ' = Some ts). {
+            eapply translate_type_comp_sem; first done.
+            done.
+          }
+          iPoseProof (translate_type_interp_length rti sr se τ' ts os_res H1 with "[$Hos]") as "%Hlents".
+          iPureIntro.
+          by rewrite <- Hosreslen.
+        }
+
+        iSplit.
+        {
+          (* NOTE: HERE this is where things used to be suspicious, but its now good with wl_pre being more precise :D *)
+          (* the key is that we have Hframerel *)
+          iPureIntro.
+          move Hfrtag at bottom.
+          destruct Hframerel as [Hf1 Hf2].
+          unfold mask_locs_eq in Hf1.
+          set (TheI := fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc)) in *.
+          specialize (Hf1 TheI).
+          rewrite <- Hf1; last first.
+          { unfold wlmask, WL_pre, TheI. rewrite !length_app.
+            assert ((fe_of_context (F <| fc_labels ::= cons ([τ'], L') |>)) = fe) by (unfold set; cbn; done).
+            unfold F'; rewrite !H1. split; try lia.
+            cbn. lia.
+          }
+          unfold final_fr, TheI.
+          rewrite mk_load_frame_stable_part; last first.
+          { rewrite !length_app. cbn. lia. }
+          cbn.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          cbn; lia.
+        }
+        iSplitR; first done.
+        iSplitR.
+        {
+          iPureIntro.
+          eapply frame_rel_trans; first exact Hrelfrfinal.
+          eapply frame_rel_wlmask_mono; last exact Hframerel.
+          subst WL_pre; rewrite !length_app; lia.
+        }
+
 
         iExists ((PtrA (PtrHeap MemMM ℓ)) :: os_res).
         (* the addr goes with atom interp *)
@@ -914,14 +987,58 @@ Section case_load.
           iExists _, n32; iSplitR; first done; iSplitR; first done.
           iExists _; iSplitR; try done.
 
-      - iIntros (f vs_res) "(Haddr & Hos') (Hframerel & Hframe & Hos & Hrt & Hown)".
+      - iIntros (f vs_res) "(Haddr & Hos') (%Hframerel & Hframe & Hos & Hrt & Hown)".
+        iFrame.
+        clear_nils. fold WL.
         iFrame.
 
         (* o = PtrA (PtrHeap MemMM ℓ) *)
         iDestruct "Hos" as "(%os_res & Hos & Hvs)".
 
-        iSplitL "Hframerel".
-        { (* check if this is normal *) admit. }
+
+        iSplitR.
+        { (* identical to above *)
+          iPureIntro.
+          move Hfrtag at bottom.
+          destruct Hframerel as [Hf1 Hf2].
+          unfold mask_locs_eq in Hf1.
+          set (TheI := fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc)) in *.
+          specialize (Hf1 TheI).
+          rewrite <- Hf1; last first.
+          { unfold wlmask, WL_pre, TheI. rewrite !length_app.
+            assert ((fe_of_context (F <| fc_labels ::= cons ([τ'], L') |>)) = fe) by (unfold set; cbn; done).
+            unfold F'; rewrite !H1. split; try lia.
+            cbn. lia.
+          }
+          unfold final_fr, TheI.
+          rewrite mk_load_frame_stable_part; last first.
+          { rewrite !length_app. cbn. lia. }
+          cbn.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          cbn; lia.
+        }
+
+        iAssert (⌜length vs_res = length ts⌝%I) with "[Hvs Hos]" as "%Hvsreslen". {
+          iPoseProof (atoms_interp_length with "[$Hvs]") as "%Hosreslen".
+          rewrite values_interp_one_eq.
+          move Heq_some0 at bottom.
+          assert (translate_type se τ' = Some ts). {
+            eapply translate_type_comp_sem; first done.
+            done.
+          }
+          iPoseProof (translate_type_interp_length rti sr se τ' ts os_res H1 with "[$Hos]") as "%Hlents".
+          iPureIntro.
+          by rewrite <- Hosreslen.
+        }
+
+        iSplitR; first done.
+        iSplitR.
+        { iPureIntro.
+          eapply frame_rel_trans; first exact Hrelfrfinal.
+          eapply frame_rel_wlmask_mono; last exact Hframerel.
+          subst WL_pre; rewrite !length_app; lia.
+        }
 
         iExists ((PtrA (PtrHeap MemMM ℓ)) :: os_res).
         (* the addr goes with atom interp *)
