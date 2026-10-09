@@ -206,21 +206,6 @@ Section swap.
     done.
   Qed.
 
-  (* this honestly might not be useful elsewhere *)
-  Lemma get_path_words_grab_inner ws1 off sz wsinner ws2 result:
-    get_path_words off sz (ws1 ++ wsinner ++ ws2) = result ->
-    length ws1 = off -> length wsinner = sz ->
-    wsinner = result.
-  Proof.
-    intros * Hres Hlen1 Hleninner.
-    unfold get_path_words in Hres.
-    subst off.
-    rewrite drop_app_length in Hres.
-    subst sz.
-    rewrite take_app_length in Hres.
-    done.
-  Qed.
-
 
   Lemma compat_swap M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
      let fe := fe_of_context F in

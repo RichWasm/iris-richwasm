@@ -1716,5 +1716,19 @@ Section PathFacts.
       eapply IHHresolves; done.
   Qed.
 
+  Lemma get_path_words_grab_inner ws1 off sz wsinner ws2 result:
+    get_path_words off sz (ws1 ++ wsinner ++ ws2) = result ->
+    length ws1 = off -> length wsinner = sz ->
+    wsinner = result.
+  Proof.
+    intros * Hres Hlen1 Hleninner.
+    unfold get_path_words in Hres.
+    subst off.
+    rewrite drop_app_length in Hres.
+    subst sz.
+    rewrite take_app_length in Hres.
+    done.
+  Qed.
+
 
 End PathFacts.

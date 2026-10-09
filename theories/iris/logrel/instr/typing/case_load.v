@@ -1,6 +1,6 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.load_common.
-From RichWasm.iris.logrel Require Import case_ptr roots load_copy copy.
+From RichWasm.iris.logrel Require Import case_ptr roots load_copy copy type_eq.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -88,6 +88,17 @@ Section case_load.
     cbn in H.
     rewrite Heval in H. cbn in H.
     inversion H; done.
+  Qed.
+
+  Lemma arep_size_serialize_atom ιs os :
+    Forall2 has_arep ιs os -> (sum_list_with arep_size ιs = length (flat_map serialize_atom os)).
+  Proof.
+    intros H.
+    induction H as [| ι o ιs os].
+    - done.
+    - cbn. rewrite length_app. rewrite IHForall2.
+      pose proof (has_arep_serialize_length _ _ H).
+      rewrite H1. done.
   Qed.
 
   Lemma kinding_info_for_τ_ser F (se:semantic_env (Σ:=Σ)) τs κs i k τ_ser ιs ξ_ser :
@@ -641,23 +652,20 @@ Section case_load.
         }
         iIntros "!> Hfr Hrun". clear_nils.
 
+        pose proof (arep_size_serialize_atom ιs os Hareps) as Hιsos.
+
         iApply (Hcg_load_payload with "[$] [$] [$] [$] [$] [$] [] [%] [%] [%]
              [%] [%] [//] [%] [%] [%] [%] [//] [//] [//] [] [] [-]"); clear Hcg_load_payload.
         - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & that & _) & _)".
         - eauto with ndisj.
         - done.
-        - (* yeah kinding quarantine *)
-          (* this seems annoying. need to prove that the inner things fit in the bigger *)
-          (* need has_areps ιs \os and has_arep_serialize_length which is in type_eq rn *)
-          (* I have all the info tho for sure (aside from a type_eq import) *)
-          admit.
+        - cbn; rewrite !length_app. rewrite Hιsos. lia.
         - instantiate (1:= os).
           done.
-        - (* pathing and serializing *)
-          (* this I haven't thought about enough to know if I have everything but I guess yes *)
-          (* although I am pretty sure I'll want the has_arep_serialize_length fact from above here too
-            so it should probably be outside the iApply *)
-          admit.
+        - eapply ser_offsets; try done.
+          unfold path.get_path_words.
+          cbn.
+          rewrite take_app_length. done.
         - clear_frame_things Hflen locsz WL. (* more frame things *)
           lia.
         - (* some frame preserving stuff *)
@@ -729,6 +737,8 @@ Section case_load.
       pose proof (Forall2_lookup_lr _ _ _ _ _ _ IH Hti Hess_i).
       move Hcg_case at bottom.
 
+      (* time to set up variables for the IH *)
+
       Opaque have_instr_type_sem.
       simpl in H0.
       Transparent have_instr_type_sem.
@@ -741,8 +751,6 @@ Section case_load.
       specialize H0 with (wlf:=(wl_post ++ wlf)).
       apply H0 in Hcg_case.
 
-      (* hmmmmmmmmmmm ok *)
-
       unfold have_instr_type_sem in Hcg_case.
       unfold fvs_combine.
       set (final_fr := (mk_load_frame (fe_of_context F)
@@ -753,7 +761,6 @@ Section case_load.
                       <[fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc):=
                       VAL_int32 (Wasm_int.Int32.repr i)]> |>)
                      (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ wl_gc ++ [prelude.W.T_i32] ++ wl_pre) vsf)) in *.
-      (* NOTE: we need to use something like cwp_frame_ctx1 (but more general) *)
       set (mini_B := (length ts,
         λ (f : frame) (vs0 : list value),
           (⌜frame_rel (wlmask (fe_of_context F') WL_pre) final_fr f⌝ ∗ frame_interp rti sr se (typing.fc_locals F') L' WL f ∗
