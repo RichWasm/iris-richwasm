@@ -547,7 +547,56 @@ Section case_load.
       }
 
       iApply (Hcg_case_switch with "[$] [$] [] [-]").
-      { admit. } (* wl interp, later *)
+      {
+        rewrite <- !app_assoc.
+        move Hwl at bottom.
+        instantiate (1 := wlf).
+        destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen  & Hwl).
+        unfold WL in Hwl. clear_nils.
+        unfold result_type_interp in Hwl.
+        apply Forall2_app_inv_l in Hwl.
+        destruct Hwl as (vs1 & vs2 & Hvs1 & Hvs2 & ->).
+        apply Forall2_app_inv_l in Hvs2.
+        destruct Hvs2 as (vs2' & vs3 & Hvs2 & Hvs3 & ->).
+        rename vs2' into vs2.
+        apply Forall2_app_inv_l in Hvs3.
+        destruct Hvs3 as (vs3' & vs4 & Hvs3 & Hvs4 & ->).
+        rename vs3' into vs3.
+        exists vs.
+        unfold mk_load1_frame.
+        exists (vs1 ++ [VAL_int32 n32] ++ [vf] ++ vs4).
+        exists vs'.
+        inversion Hvs2; subst.
+        inversion H3; subst.
+        inversion Hvs3; subst.
+        inversion H5; subst.
+        split; [|split]; eauto.
+        - cbn.
+          rewrite Hlocs.
+          unfold fe_wlocal_offset in Hlen.
+          rewrite -Hlen.
+          rewrite insert_app_r.
+          rewrite insert_app_r.
+          replace (length wl) with (length vs1 + 0) by admit.
+          rewrite length_app.
+          rewrite <- !app_assoc.
+          rewrite insert_app_r; cbn.
+          replace (length wl) with (length vs1) by admit.
+          rewrite insert_app_r; cbn.
+          done.
+        - apply Forall2_app; try auto.
+          apply Forall2_app; try auto.
+          {
+            constructor; eauto.
+            cbn.
+            eexists; eauto.
+          }
+          apply Forall2_app; try auto.
+          constructor; eauto.
+          cbn.
+          destruct vf; try inversion Hvf.
+          eexists; eauto.
+      }
       { instantiate (1 := Wasm_int.Int32.repr (Z.of_nat i)).
         apply nat_repr_i32repr.
         eapply Z.lt_le_trans.
