@@ -188,6 +188,15 @@ Section case_load.
     - inversion Hrefflag.
   Qed.
 
+  Lemma Forall2_has_prims_length_concat ηss vss :
+    Forall2 has_prims ηss vss ->
+    length (concat ηss) = length (concat vss).
+  Proof.
+    revert vss. induction ηss.
+    - intros vss H. by inversion H.
+    - intros vss H. inversion H. subst a l vss. rename l' into vss. cbn. rewrite !length_app.
+      apply Forall2_length in H2. rewrite H2. f_equal. by apply IHηss.
+  Qed.
 
   Lemma compat_case_load M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' μ κr κv κs :
     let fe := fe_of_context F in
@@ -945,7 +954,37 @@ Section case_load.
         Opaque frame_interp. cbn. Transparent frame_interp.
         (* I think I just have to do it one at a time given the update frame we have *)
         (* smidge annoying but doable *)
-        admit.
+        iDestruct "Hframe" as
+          "(%oss & %vss_L & %vs_WL & %Hlocs & %Hprims & %Hresult & Hatoms & Hlocals)".
+        iExists oss, vss_L,
+           (<[ length (wl ++ W.T_i32 :: prelude.W.T_i32 :: wl_gc) := VAL_int32 (Wasm_int.Int32.repr i) ]>
+              (<[ length (wl ++ [W.T_i32]) := vf ]>
+                 (<[ length wl := VAL_int32 n32 ]> vs_WL))).
+        iFrame "%∗". iPureIntro. cbn. rewrite Hlocs.
+        rewrite sum_list_with_length_concat.
+        apply Forall2_has_prims_length_concat in Hprims.
+        rewrite Hprims.
+        rewrite !insert_app_r.
+        split; first done.
+        unfold result_type_interp.
+        set WL := ((wl ++ W.T_i32 :: prelude.W.T_i32 :: wl_gc ++ prelude.W.T_i32 :: wl_pre) ++
+                     map translate_arep ιs ++ wl_gc_load ++ wl9 ++ wl_post ++ wlf).
+        assert (WL = <[ length (wl ++ W.T_i32 :: W.T_i32 :: wl_gc) := W.T_i32 ]>
+                       (<[ length (wl ++ [W.T_i32]) := W.T_i32 ]>
+                          (<[ length wl := W.T_i32 ]> WL))) as ->.
+        {
+          rewrite insert_app_l; last (rewrite length_app; cbn; lia).
+          rewrite (plus_n_O (length wl)) insert_app_r. cbn.
+          rewrite !length_app. cbn.
+          rewrite -app_assoc insert_app_r. cbn.
+          rewrite insert_app_r. cbn.
+          rewrite (plus_n_O (length wl_gc)) -app_assoc insert_app_r. cbn.
+          subst WL.
+          by rewrite -app_assoc -!app_comm_cons -app_assoc -app_comm_cons.
+        }
+        apply Forall2_insert; last by eexists.
+        apply Forall2_insert; last (destruct vf; inversion Hvf; by eexists).
+        by apply Forall2_insert; last eexists.
       }
       iSpecialize ("Hcg_case" with "[$Hframe] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
 
