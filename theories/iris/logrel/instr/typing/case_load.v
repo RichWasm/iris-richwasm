@@ -1183,7 +1183,7 @@ Section case_load.
     [MemGC]: {
       (* dig into v now that we know μ is GC *)
       iEval (cbn) in "Hos".
-      iDestruct "Hos" as "(% & % & % & %Toinv & #Hos)".
+      iDestruct "Hos" as "(% & % & % & %Toinv & #Hinv)".
       inversion Toinv; subst o; clear Toinv.
       iPoseProof (atom_interp_ptr_shaped with "Hvs") as
         "(%nn & %n32 & %Hn32 & -> & %Hnshp & %rp & %Hreproot & Hv1)".
@@ -1200,9 +1200,918 @@ Section case_load.
       subst a0. clear H3 H0 H.
       rename H1 into Hmod5. rename H4 into Hnonzero.
 
-      admit.
-    }
+      (* Open the invariant. *)
+      iApply fupd_cwp.
+      iMod (na_inv_acc with "Hinv Hown") as "(Hos & Hown & Hclose)"; first done; first done.
+      iModIntro.
 
+      (* tee local, with Hos to clear the later *)
+      rewrite app_assoc.
+      iApply (cwp_seq with "[Hfr Hrun Hos]").
+      {
+        iApply (cwp_local_tee with "[Hos] [$Hfr] [$Hrun]").
+        - subst x. done.
+        - iModIntro.
+          instantiate
+            (1 := fun fr' vs =>
+                    (⌜fr' = Build_frame (<[ x := (VAL_int32 n32) ]> fr.(f_locs)) fr.(f_inst)⌝ ∗
+                       ⌜vs = [VAL_int32 n32]⌝ ∗
+                       (ℓ ↦layout fs ∗ ℓ ↦heap ws ∗
+                          ▷ type_interp rti sr (VariantT (MEMTYPE σ ξ) τs_ser) se (SWords ws)))%I).
+          iFrame.
+          by iSplitR.
+      }
+
+      iIntros (??) "(-> & -> & Hlayout & Hheap & Hos) Hfr Hrun".
+
+      (* Case ptr (now separate from everything else) *)
+      (* I do the apply and some of the other work before the cwp_seq for the purpose of less evar weirdness *)
+      (* I do literally AS much as possible here *)
+      move Hcg at bottom.
+      apply cwp_case_ptr in Hcg as (? & ? & ? & ? & ? & ? & ? & ? & ? &
+                                      Hcg_unr & Hcg_mm & Hcg_gc & -> & -> & Hcwp).
+      inv_cg_emit Hcg_unr.
+      subst; clear_nils; clear Hretval.
+      inv_cg_bind Hcg_gc [] ?wt ?wt ?wl ?wl ?es ?es Hcg_root Hcg_tag.
+      subst; clear_nils. rename es into es_root_to_heap. rename es0 into es_load_tag.
+      rename x1 into wt_mm. rename x4 into wl_mm. rename x7 into es_mm.
+      inversion Hcg_mm. subst wt_mm wl_mm es_mm. clear Hcg_mm.
+      iDestruct "Hrt" as
+        "(% & % & % & Hθ & Hrm & Hlm & Hhm & Hrti & %Hinj & %Hroot_ok &
+          Hrootmem & %Hlayout_ok & %Hheap_ok & Hheapmem)".
+      eapply wp_root_to_heap in Hcg_root as Hcwp_root; eauto.
+      eapply wp_root_to_heap_gc in Hcg_root as (_ & -> & ->).
+      apply wp_mem_load1_cg_state in Hcg_tag as Hstate; try done.
+      destruct Hstate as (_ & -> & ->).
+
+      (* frame fact *)
+      assert (Hxextrafr:
+        fe_wlocal_offset (fe_of_context F) + length (wl ++ [W.T_i32] ++ [translate_arep I32R]) + length [translate_arep I32R]
+        ≤ length (f_locs {| W.f_locs := <[x:=(VAL_int32 n32)]> (f_locs fr);
+                          W.f_inst := f_inst fr |})). {
+        clear_frame_things Hflen locsz WL.
+        lia.
+      }
+
+      clear_nils; iEval (rewrite app_assoc).
+      iApply (cwp_seq with "[-Hclose]").
+      {
+        (* hide the value, bc the case ptr itself doesn't take any args *)
+        iApply cwp_val_app; first by apply has_values_to_consts.
+        (* now apply *)
+        rewrite <- (app_nil_l es9).
+        iApply (Hcwp with "[$Hfr] [$Hrun]");
+          [by instantiate (1:=[]) | done | done | done | done | ].
+        iIntros "!> Hfr Hrun". clear_nils.
+
+        iApply (cwp_seq with "[-]").
+        {
+          iApply (Hcwp_root with "[$Hfr] [$Hrun] [] [] [$Hv1] [$Hrm] [$Hrootmem]").
+          - iPureIntro. by rewrite list_lookup_insert_eq.
+          - by iDestruct "Hinst" as "(_ & _ & _ & _ & _ & %H)".
+          - iIntros "!> !> !>" (??) "%Hah32 %Hah Hv1 Hrm Hrootmem".
+            instantiate
+              (1 :=
+                 fun fr' (vs' : list value) =>
+                   (∃ ah ah32,
+                     ⌜fr' = {|
+                             W.f_locs :=
+                               <[localimm (Mk_localidx x):=VAL_int32 ah32]>
+                                 (f_locs {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr);
+                                            W.f_inst := f_inst fr |});
+                             W.f_inst := f_inst {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr);
+                                                   W.f_inst := f_inst fr |}
+                           |}⌝ ∗
+                      ⌜vs' = []⌝ ∗
+                      ⌜N_i32_repr ah ah32⌝ ∗
+                      ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
+                      frame_interp rti sr se (typing.fc_locals F) L WL fr ∗
+                      ghost_map_auth rw_addr (1 / 2) θ ∗
+                      ghost_map_auth rw_layout (1 / 2) lm ∗
+                      ghost_map_auth rw_heap 1 hm ∗
+                      rti θ rm lm ∗
+                      heap_memory sr θ hm ∗
+                      na_own logrel_nais (⊤ ∖ ↑ns_ref ℓ) ∗
+                      ℓ ↦layout fs ∗
+                      ℓ ↦heap ws ∗
+                      type_interp rti sr (VariantT (MEMTYPE σ ξ) τs_ser) se (SWords ws) ∗
+                      a ↦root ℓ ∗
+                      ghost_map_auth rw_root (1 / 2) rm ∗
+                      root_memory sr θ rm)%I).
+            iExists _, _. by iFrame.
+        }
+
+        iIntros (??)
+          "(%ah & %ah32 & %Hf & -> & %Hah32 & %Hah & Hframe & Hθ & Hlm & Hhm & Hrti & Hheapmem &
+            Hown & Hlayout & Hheap & Hos & Hv1 & Hrm & Hrootmem) Hfr Hrun".
+        rewrite !app_nil_l.
+        clear Hcwp_root.
+        inversion Hah.
+        subst ah ℓ0 μ0 θ0.
+        rename a0 into ah.
+
+        (* in the cwp_seq, we will be loading the tag. For that, we need to dig into
+           the type interp. I will do that here *)
+        rewrite type_interp_eq.
+        iEval (cbn) in "Hos".
+        pose proof (eval_size_emptyenv _ _ Heq_some se) as Hevalσ.
+        rewrite Hevalσ.
+        iEval (cbn) in "Hos".
+        iDestruct "Hos" as "(%sκ_var & %ToInv & %Hvar_sksv & Hos)".
+        inversion ToInv; subst; clear ToInv.
+        destruct Hvar_sksv as [Hws_len Hws_refflag].
+        iDestruct "Hos" as "(%i & %iN & %ws0 & %ws_padding & %Hnati & %ToInv & %Hpad & Hos)".
+        inversion ToInv; subst; clear ToInv.
+        destruct (list_lookup i (map (type_interp rti sr) τs_ser)) as [τ0|] eqn:Hlookup;
+        rewrite Hlookup; last done.
+        apply map_lookup_helper_backwards in Hlookup as (τ & Hτ & ->).
+        assert (i < length τs_ser) as Hi_lt.
+        { apply lookup_lt_is_Some. by eexists. }
+
+        eapply wp_load1_copy_gc in Hcg_tag as H_tag.
+        iApply (H_tag with "[$Hfr] [$Hrun] [$Hheap] [//] [$Hown]
+                            [Hθ Hlm Hhm Hrti Hheapmem Hrm Hrootmem]").
+        - iFrame "%∗". iExact "Hrti".
+        - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & H & _) & _)".
+        - solve_ndisj.
+        - done.
+        - iPureIntro. cbn. lia.
+        - by instantiate (1 := I32A (Wasm_int.int_of_Z i32m (Z.of_nat i))).
+        - iPureIntro. cbn. rewrite take_0. do 2 f_equal. rewrite <- Hnati.
+          rewrite Wasm_int.Int32.Z_mod_modulus_id.
+          { rewrite <- Z_nat_N. by rewrite Nat2Z.id. }
+          split; first lia. rewrite Nat2Z.inj_lt in Hi_lt.
+          eapply Z.lt_le_trans; [apply Hi_lt|apply Hlength].
+        - by iDestruct "Hinst" as "(_ & _ & _ & _ & a & b)".
+        - iPureIntro. by rewrite length_insert.
+        - iPureIntro. rewrite list_lookup_insert_eq; first done. rewrite length_insert.
+          subst x. cbn. clear_frame_things Hflen locsz WL. lia.
+        - done.
+        - done.
+        - done.
+        - done.
+        - by iDestruct "Hinst" as "(_ & _ & _ & _ & H & _)".
+        - by iDestruct "Hinst" as "(_ & _ & _ & _ & _ & H)".
+        - iIntros "!>" (???) "@@@@@_@".
+          iSpecialize ("Ho" with "[//]"). iDestruct "Ho" as "->".
+          instantiate (
+              1 :=
+                fun f vs =>
+                  (∃ vf τ ah ah32 i iN ws0 ws_padding,
+                      (⌜vs = [VAL_int32 n32] ++ [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))]⌝ ∗
+                         ⌜f = mk_load1_frame
+                                (fe_of_context F)
+                                {| W.f_locs :=
+                                    <[localimm (Mk_localidx x):=VAL_int32 ah32]>
+                                      (f_locs {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr);
+                                                 W.f_inst := f_inst fr |});
+                                   W.f_inst := f_inst {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr);
+                                                         W.f_inst := f_inst fr |} |}
+                                (length (wl ++ [W.T_i32] ++ [translate_arep I32R])) vf⌝ ∗
+                    ⌜types_agree (translate_arep I32R) vf⌝ ∗
+                    ⌜ws = WordInt iN :: ws0 ++ ws_padding⌝ ∗
+                    ⌜repr_pointer θ (PtrHeap MemGC ℓ) (tag_address MemGC ah)⌝ ∗
+                    ⌜N_i32_repr (tag_address MemGC ah) ah32⌝ ∗
+                    ⌜θ !! ℓ = Some (MemGC, ah)⌝ ∗
+                    ⌜(ah `mod` 4)%N = 0%N⌝ ∗
+                    ⌜ah ≠ 0%N⌝ ∗
+                    ⌜Forall (forall_ptr_word (ref_flag_ptr_interp ξ)) (WordInt iN :: ws0 ++ ws_padding)⌝ ∗
+                    ⌜eval_size se σ = Some (length (WordInt iN :: ws0 ++ ws_padding))⌝ ∗
+                    ⌜N_nat_repr i iN⌝ ∗
+                    ⌜Forall (forall_ptr_word norefs_ptr_interp) ws_padding⌝ ∗
+                    ⌜τs_ser !! i = Some τ⌝ ∗
+                    ⌜i < length τs_ser⌝ ∗
+                    frame_interp rti sr se (typing.fc_locals F) L WL fr ∗
+                    ℓ ↦layout fs ∗
+                    type_interp rti sr τ se (SWords ws0) ∗
+                    a ↦root ℓ ∗
+                    ℓ ↦heap (WordInt iN :: ws0 ++ ws_padding) ∗
+                    na_own logrel_nais (⊤ ∖ ↑ns_ref ℓ) ∗
+                    rt_token rti sr lpall θ))%I
+            ).
+          iExists vf, τ, ah, ah32, i, iN, ws0, ws_padding.
+          do 2 (iSplitR; first done).
+          iSplitR; first (iPureIntro; by apply Is_true_true).
+          do 12 (iSplitR; first done).
+          iFrame.
+      }
+
+      iIntros (??) "(% & % & % & % & % & % & % & % & -> & %Hf & %Hvf & -> & %Hℓ & %Hah32 & %Hah &
+                     %Hah_mod4 & %Hah_0 & %Hrflags & %Hσ & %HiN & %Hnorefs & %Hτ & %Hi_lt & Hframe &
+                     Hlayout & Hos & Hroot & Hheap & Hown & Hrt) Hfr Hrun".
+      clear Hcg_tag Hcwp Hcwp_root.
+
+      (* case switch~ *)
+      (* for some reason rocq hates cwp_case_switch so long and annoying lol *)
+      pose proof cwp_case_switch.
+      move Hcg_case_switch at bottom.
+      inv_cg_bind Hcg_case_switch [] ?wt ?wt ?wl ?wl ?es ?es Hcg_case_switch Hempty.
+      cbn in Hempty; inversion Hempty; subst; clear_nils; clear Hempty.
+
+      rename wt0 into wt_case_switch; rename wl0 into wl_case_switch. rename es into es_case_switch.
+      specialize (H wt wt_case_switch (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ [translate_arep I32R]) wl_case_switch).
+      specialize (H fe ts).
+      set (on_each_case := ((λ (c : codegen ()) (i : nat),
+               try_option EFail (τs_ser !! i)
+               ≫= λ τ : type,
+                    try_option EFail match τ with
+                                     | SerT _ t => Some t
+                                     | _ => None
+                                     end
+                    ≫= λ τ0 : type,
+                         try_option EFail (type_rep (fe_type_vars fe) τ0)
+                         ≫= λ ρ : representation,
+                              try_option EFail (eval_rep EmptyEnv ρ)
+                              ≫= λ ιs : list atomic_rep,
+                                   memory.case_ptr (Mk_localidx x) (W.Tf [] ts) (emit W.BI_unreachable)
+                                     (λ μ : base_memory, memory.load mr fe μ Copy (Mk_localidx x) 1 ιs)
+                                   ≫= λ _ : () * (() * ()), c))) in *.
+      set (cases := ((map
+            on_each_case
+            ((fix compile_cases
+                (fe : function_env) (ess : list (list instruction)) {struct ess} :
+                  list (codegen ()) :=
+                match ess with
+                | [] => []
+                | es :: ess' => mapM_ (compile_instr mr fe) es :: compile_cases fe ess'
+                end)
+               fe ess)))) in *.
+
+      apply Forall2_length in IH as Hlen_τs_ess.
+      assert (length τs = length τs_ser) as Hlen_τs_ser. {
+        by rewrite length_zip_with Hlenκsτs Nat.min_id.
+      }
+      assert (is_Some (ess !! i)) as Hess_i. {
+        apply lookup_lt_is_Some. by rewrite -Hlen_τs_ess Hlen_τs_ser.
+      }
+      destruct Hess_i as [es Hess_i].
+
+      assert (Hlencases: (length cases ≤ Wasm_int.Int32.modulus)%Z). {
+        subst cases.
+        by rewrite length_map -compile_cases_length -Hlen_τs_ess Hlen_τs_ser.
+      }
+
+      assert (cases !! i = Some (on_each_case (compile_instrs mr fe es))) as Hcase_i. {
+        subst cases.
+        apply (compile_cases_lookup mr fe) in Hess_i as Hcomes.
+        cbn in Hcomes.
+        pose proof (map_lookup_helper_forwards on_each_case _ _ _ Hcomes).
+        done.
+      }
+
+      specialize (H cases (on_each_case (compile_instrs mr fe es))).
+      specialize (H i es_case_switch ltac:(auto) ltac:(auto)).
+      apply H in Hcg_case_switch; clear H.
+      destruct Hcg_case_switch as (?wt_pre & ?wt_c & ?wt_post & ?wl_pre & ?wl_c & ?wl_post &
+                                     es_case & Hcg_case & -> & -> & Hcg_case_switch).
+      (* I have to hide the n32 again *)
+      change (to_consts (?x ++ ?y)) with ((to_consts x) ++ (to_consts y)).
+      rewrite <- app_assoc.
+      iApply cwp_val_app; first by apply has_values_to_consts.
+
+      (* A slightly stronger postcondition. *)
+      set (Φ' := (λ fr_final vs,
+        ⌜f_locs fr_final !! (fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ [translate_arep I32R]))%nat =
+         Some (VAL_int32 (Wasm_int.Int32.repr i))⌝ ∗
+        ⌜length vs = length ts⌝ ∗
+         fvs_combine
+           (λ (fr' : frame) (vs' : list value),
+             ⌜frame_rel lmask fr fr'⌝ ∗
+              frame_interp rti sr se (typing.fc_locals F) L' WL fr' ∗
+              (∃ os' : leibnizO (list atom),
+                 values_interp rti sr se [RefT κr μ Imm (VariantT (MEMTYPE σ ξ) τs_ser); τ'] os' ∗
+                 atoms_interp os' vs') ∗
+              (∃ θ' : address_map, rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)
+           [VAL_int32 n32] fr_final vs)%I).
+      iApply (cwp_wand _ _ _ _ _ Φ' with "[-]"); swap 1 2.
+      {
+        iIntros (f' v') "(%Hmask & %Hvs & H)".
+        iApply "H".
+      }
+
+      iApply (Hcg_case_switch with "[$] [$] [] [-]").
+      {
+        rewrite <- !app_assoc.
+        move Hwl at bottom.
+        instantiate (1 := wlf).
+        destruct Hwl as (vs & vs__wl & vs' & Hlocs & Hlen  & Hwl).
+        unfold WL in Hwl. clear_nils.
+        unfold result_type_interp in Hwl.
+        apply Forall2_app_inv_l in Hwl.
+        destruct Hwl as (vs1 & vs2 & Hvs1 & Hvs2 & ->).
+        apply Forall2_app_inv_l in Hvs2.
+        destruct Hvs2 as (vs2' & vs3 & Hvs2 & Hvs3 & ->).
+        rename vs2' into vs2.
+        apply Forall2_app_inv_l in Hvs3.
+        destruct Hvs3 as (vs3' & vs4 & Hvs3 & Hvs4 & ->).
+        rename vs3' into vs3.
+        apply Forall2_app_inv_l in Hvs4.
+        destruct Hvs4 as (vs4' & vs5 & Hvs4 & Hvs5 & ->).
+        rename vs4' into vs4.
+        exists vs.
+        unfold mk_load1_frame.
+        exists (vs1 ++ [VAL_int32 ah32] ++ vs3 ++ [vf] ++ vs5).
+        exists vs'.
+        inversion Hvs2; subst.
+        inversion H3; subst.
+        inversion Hvs3; subst.
+        inversion H5; subst.
+        inversion Hvs4. subst.
+        inversion H7. subst.
+        split; [|split]; eauto.
+        - cbn.
+          rewrite Hlocs.
+          unfold fe_wlocal_offset in Hlen.
+          rewrite -Hlen.
+          rewrite insert_app_r.
+          rewrite insert_app_r.
+          replace (length wl) with (length vs1 + 0); swap 1 2.
+          {
+            erewrite <- Forall2_length; eauto; lia.
+          }
+          rewrite length_app.
+          rewrite <- !app_assoc.
+          rewrite insert_app_r; cbn.
+          replace (length wl) with (length vs1); swap 1 2.
+          {
+            by erewrite <- Forall2_length.
+          }
+          rewrite insert_app_r; cbn.
+          by rewrite !insert_app_r.
+        - apply Forall2_app; try auto.
+          apply Forall2_app; try auto.
+          {
+            constructor; eauto.
+            cbn.
+            eexists; eauto.
+          }
+          apply Forall2_app; try auto.
+          constructor; eauto.
+          cbn.
+          destruct vf; try inversion Hvf.
+          eexists; eauto.
+      }
+      { instantiate (1 := Wasm_int.Int32.repr (Z.of_nat i)).
+        apply nat_repr_i32repr.
+        eapply Z.lt_le_trans.
+        + apply Nat2Z.inj_lt. exact Hi_lt.
+        + done. }
+      { apply Is_true_true. apply has_values_to_consts. }
+      {
+        unfold fvs_combine.
+        iIntros (fr' vs') "(Hlookup & Hvs & Hrest)".
+        unfold lmask.
+        eauto.
+      }
+
+      iIntros "Hfr %Hfrtag Hrun".
+      clear Hcg_case_switch.
+
+      (* time to dig into what happens in each case! *)
+      unfold on_each_case in Hcg_case.
+
+      inv_cg_bind Hcg_case τ_ser ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
+      inv_cg_try_option Hcg.
+      inv_cg_bind Hcg0 τ0 ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
+      inv_cg_try_option Hcg.
+      inv_cg_bind Hcg0 ρ ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
+      inv_cg_try_option Hcg.
+      inv_cg_bind Hcg0 ιs ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
+      inv_cg_try_option Hcg.
+      inv_cg_bind Hcg0 [] ?wt ?wt ?wl ?wl ?es ?es Hcg_load_tag Hcg_case.
+      clear_nils; subst. destruct u; destruct p. destruct u, u0.
+
+      destruct τ_ser; cbn in Heq_some2; inversion Heq_some2.
+      subst τ0; clear Heq_some2.
+      rename es8 into es_load; rename es10 into es_compiled.
+
+      (* now we case ptr to load tag instead of just load copy thing *)
+
+      apply cwp_case_ptr in Hcg_load_tag as (? & ? & ? & ? & ? & ? & ? & ? & ? &
+                                      Hcg_unr & Hcg_mm & Hcg_gc & -> & -> & Hcwp).
+      inv_cg_emit Hcg_unr.
+      subst; clear_nils; clear Hretval.
+      rename x1 into wt_mm_load; rename x4 into wl_mm_load; rename x7 into es_mm_load.
+      rename x2 into wt_gc_load; rename x5 into wl_gc_load; rename x8 into es_gc_load.
+      eapply wp_mem_load_copy_gc in Hcg_gc.
+      destruct Hcg_gc as (_ & -> & -> & Hcg_load_payload).
+      clear_nils.
+      (* before actually doing the cwp_seq with case ptr and load, get as much info as I can now *)
+
+      (* time to dig into SerT k τ_ser. This can't be earlier lol *)
+      rewrite Hτ in Heq_some1; inversion Heq_some1; subst; clear Heq_some1.
+      rewrite type_interp_eq. iEval (cbn) in "Hos".
+      iDestruct "Hos" as "(%sκ_τ & %Heval_k_τ & %Hsksv & (%os & %ToInv & Hos))".
+      destruct sκ_τ as [ιs_τ ξ_τ | n_τ ξ_τ]; cbn in Hsksv; try by inversion Hsksv.
+      inversion ToInv; subst; clear ToInv.
+      destruct Hsksv as [Hn_τ Hrefinterp].
+
+      (* now to dig into τ_ser. the most important fact to find is that
+       length (flat_map serialize_atom os) = sum_list_with arep_flags ιs and
+       that should just be through Forall2 has_arep ιs os or smthn like that *)
+      rewrite type_interp_eq.
+      Opaque type_skind.
+      iEval (cbn) in "Hos".
+      Transparent type_skind.
+
+      assert (n_τ < length (WordInt iN :: flat_map serialize_atom os ++ ws_padding)). {
+        cbn; rewrite length_app; cbn.
+        lia.
+      }
+
+      (* I need the Hos stuff *)
+      iDestruct "Hos" as "(%sκ0' & %Htorewrite & %Hareps & Hos)".
+      destruct sκ0' as [ιs' ξ_ser | g h]; try by inversion Hareps.
+      cbn in Heq_some3.
+      assert (ιs' = ιs). {
+        symmetry.
+        eapply type_rep_type_skind; try done.
+      }
+
+      subst.
+      destruct Hareps as (Hareps & Hrefosinterp).
+      unfold has_areps in Hareps.
+      destruct Hareps as (os' & toinv & Hareps); inversion toinv; subst os'; clear toinv.
+
+      iApply (cwp_seq with "[-]").
+      {
+        rewrite <- (app_nil_l es_load).
+        iApply (Hcwp with "[$Hfr] [$Hrun]").
+        { by instantiate (1 := []). }
+        { done. }
+        {
+          instantiate (2 := PtrHeap MemGC ℓ). instantiate (1 := tag_address MemGC ah).
+          by constructor.
+        }
+        { done. }
+        {
+          iPureIntro.
+          cbn.
+          rewrite !length_app; cbn.
+          rewrite list_lookup_insert_ne; try lia.
+          rewrite list_lookup_insert_ne; try lia.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          lia.
+        }
+        iIntros "!> Hfr Hrun". clear_nils.
+
+        pose proof (arep_size_serialize_atom ιs os Hareps) as Hιsos.
+
+        iApply (Hcg_load_payload with "[$] [$] [$] [//] [$] [$] [] [%] [%] [%]
+             [%] [%] [//] [%] [%] [%] [%] [//] [//] [//] [] [] [-]"); clear Hcg_load_payload.
+        - by iDestruct "Hinst" as "(_ & (_ & _ & _ & _ & that & _) & _)".
+        - eauto with ndisj.
+        - done.
+        - cbn; rewrite !length_app. rewrite Hιsos. lia.
+        - instantiate (1:= os).
+          done.
+        - eapply ser_offsets; try done.
+          unfold path.get_path_words.
+          cbn.
+          rewrite take_app_length. done.
+        - clear_frame_things Hflen locsz WL. (* more frame things *)
+          lia.
+        - (* some frame preserving stuff *)
+          cbn.
+          rewrite !length_app; cbn.
+          rewrite list_lookup_insert_ne; try lia.
+          rewrite list_lookup_insert_ne; try lia.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          lia.
+        - clear_frame_things Hflen locsz WL.
+          lia.
+        - done.
+        - cbn.
+          iDestruct "Hinst" as "(_ & _ & _ & _ & this & that)".
+          done.
+        - cbn.
+          iDestruct "Hinst" as "(_ & _ & _ & _ & this & that)".
+          done.
+        - iIntros "!>" (???) "@@@@@_ Hvs".
+
+          (* The invariant is about to eat the type interp, but we need it later, so duplicate *)
+          iAssert ((let T := values_interp rti sr se [τ_ser] os in T ∗ T)%I) with "[Hos]" as "[Hos Hos']". {
+            rewrite values_interp_one_eq.
+            Transparent value_interp.
+            unfold value_interp.
+            Opaque value_interp.
+            cbn.
+            pose proof (kinding_info_for_τ_ser F se τs κs i k τ_ser ιs ξ_ser).
+            specialize (H0 ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto)).
+            destruct H0 as [[ρ' Hkind] Hrefle].
+            iApply (type_dup with "[Hos]").
+            1, 2, 3: done.
+            rewrite type_interp_eq.
+            iExists _.
+            iSplitR; first done.
+            by iSplitR; first (iPureIntro; split; first eexists).
+          }
+
+          (* close invariant *)
+          iSpecialize ("Hclose" with "[Hlayout Hptr Hown Hos']").
+          {
+            iFrame. iIntros "!> !>". iExists _.
+            iSplitR; first by (cbn; rewrite Hσ).
+            iSplitR; first done.
+            iExists _, _, _, _.
+            do 3 (iSplitR; first done).
+            change (list_lookup i (map (type_interp rti sr) τs_ser)) with
+              (map (type_interp rti sr) τs_ser !! i).
+            erewrite map_lookup_helper_forwards; last done.
+            rewrite type_interp_eq.
+            iExists _.
+            iSplitR; first by cbn in Heval_k_τ.
+            iSplitR; first done.
+            iExists os.
+            iSplitR; first done.
+            rewrite type_interp_eq.
+            iExists _.
+            iSplitR; first done.
+            rewrite values_interp_one_eq.
+            rewrite value_interp_eq.
+            iDestruct "Hos'" as "(% & %Hsκ0 & %Hos & Hos)".
+            by iSplitR; first (iPureIntro; split; first eexists).
+          }
+
+          (* task 1: use Hgcref to get atoms_interp os vs *)
+          pose proof (atom_interp_from_copyable_for_variants F se τs κs i k τ_ser ιs ξ_ser os vs Hse Hgcref Hτ Htorewrite Hrefosinterp).
+          iPoseProof (H0 with "[$Hvs]") as "Hvs". clear H0.
+          rewrite values_interp_one_eq.
+
+          instantiate
+            (1 :=
+               fun f' vs' =>
+                 (∃ vs vsf,
+                     ⌜f' =
+                        mk_load_frame (fe_of_context F)
+                          (mk_load1_frame
+                             (fe_of_context F)
+                             {| W.f_locs :=
+                                 <[localimm (Mk_localidx x) := VAL_int32 ah32]>
+                                   (f_locs {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr);
+                                              W.f_inst := f_inst fr |});
+                                W.f_inst := f_inst {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr);
+                                                      W.f_inst := f_inst fr |} |}
+                             (length (wl ++ [W.T_i32] ++ [translate_arep I32R]))
+                             vf
+                             <| f_locs ::= <[(fe_wlocal_offset fe +
+                                                length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++
+                                                          [translate_arep I32R]))%nat :=
+                                               VAL_int32 (Wasm_int.Int32.repr i)]> |>)
+                          (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ [translate_arep I32R] ++
+                             [prelude.W.T_i32] ++ wl_pre ++ wl_mm_load)
+                          vsf⌝ ∗
+                       ⌜vs' = vs⌝ ∗
+                       ⌜Forall2 (fun ι vf => is_true (types_agree (translate_arep ι) vf)) ιs vsf⌝ ∗
+                       frame_interp rti sr se F.(typing.fc_locals) L WL fr ∗
+                       a ↦root ℓ ∗
+                       rt_token rti sr lpall θ ∗
+                       value_interp rti sr se τ_ser (SAtoms os) ∗
+                       (|={⊤}=> na_own logrel_nais ⊤) ∗
+                       atoms_interp os vs)%I).
+          iExists vs, vsf. by iFrame.
+      }
+
+      iIntros (??) "(% & % & %Hf & -> & %Hvsf & Hframe & Hroot & Hrt & Hos & Hown & Hvs) Hfr Hrun".
+      rename vs0 into vs.
+      iApply fupd_cwp.
+      iMod "Hown".
+      iModIntro.
+      clear Hcwp Hcg_load_payload.
+
+      (* now we have to finally actually apply the inductive hypothesis. good times *)
+      move IH at bottom.
+      pose proof Hτ as Hτcopy.
+      apply lookup_zip_with_Some in Hτcopy as (kk & tt & toinv & Hki & Hti).
+      inversion toinv; subst kk tt; clear toinv.
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ IH Hti Hess_i).
+      move Hcg_case at bottom.
+
+      (* time to set up variables for the IH *)
+
+      Opaque have_instr_type_sem.
+      simpl in H0.
+      Transparent have_instr_type_sem.
+      subst WL WT; clear_nils.
+      set (WT := wt ++ wt_pre ++ wt_mm_load ++ wt9 ++ wt_post ++ wtf) in *.
+      set (WL := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ [translate_arep I32R] ++ [prelude.W.T_i32] ++ wl_pre ++ wl_mm_load ++ map translate_arep ιs ++ wl9 ++ wl_post ++ wlf) in *.
+      set (WT_pre := wt ++ wt_pre ++ wt_mm_load) in *.
+      set (WL_pre := wl ++ [W.T_i32] ++ [translate_arep I32R] ++ [translate_arep I32R] ++ [prelude.W.T_i32] ++ wl_pre ++ wl_mm_load ++ map translate_arep ιs) in *.
+      specialize H0 with (wtf:=(wt_post ++ wtf)).
+      specialize H0 with (wlf:=(wl_post ++ wlf)).
+      apply H0 in Hcg_case.
+
+      unfold have_instr_type_sem in Hcg_case.
+      unfold fvs_combine.
+      set (final_fr :=
+             mk_load_frame (fe_of_context F)
+               (mk_load1_frame
+                  (fe_of_context F)
+                  {| W.f_locs :=
+                      <[localimm (Mk_localidx x):=VAL_int32 ah32]>
+                        (f_locs {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr);
+                                   W.f_inst := f_inst fr |});
+                    W.f_inst := f_inst {| W.f_locs := <[x:=VAL_int32 n32]> (f_locs fr);
+                                          W.f_inst := f_inst fr |} |}
+                  (length (wl ++ [W.T_i32] ++ [translate_arep I32R]))
+                  vf <| f_locs ::= <[ fe_wlocal_offset fe +
+                                        length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++
+                                                  [translate_arep I32R]) :=
+                                        VAL_int32 (Wasm_int.Int32.repr i)]> |>)
+               (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ [translate_arep I32R] ++
+                  [prelude.W.T_i32] ++ wl_pre ++ wl_mm_load)
+               vsf) in *.
+      set (mini_B := (length ts,
+        λ (f : frame) (vs0 : list value),
+          (⌜frame_rel (wlmask (fe_of_context F') WL_pre) final_fr f⌝ ∗ frame_interp rti sr se (typing.fc_locals F') L' WL f ∗
+            (∃ os' : leibnizO (list atom),
+              values_interp rti sr se [τ'] os' ∗
+              atoms_interp os' (vs0)) ∗
+            (∃ θ' : address_map, rt_token rti sr lpall θ') ∗ na_own logrel_nais ⊤)%I)
+        :: B).
+
+      (* useful fact for a few places *)
+      assert (Hrelfrfinal: frame_rel lmask fr final_fr). {
+        unfold final_fr.
+        unfold frame_rel.
+        rewrite load_frame_inst.
+        split; last done.
+        unfold mask_locs_eq.
+        intros ii [Hii1 Hii2].
+        symmetry. rewrite mk_load_frame_stable_part; last first.
+        { rewrite !length_app. cbn; cbn in Hii2. lia. }
+        Opaque fe_wlocal_offset. cbn.
+        rewrite list_lookup_insert_ne; last (rewrite !length_app; cbn; cbn in Hii2; lia).
+        rewrite list_lookup_insert_ne; last first.
+        { rewrite !length_app; cbn; cbn in Hii2. fold fe. lia. }
+        rewrite list_lookup_insert_ne; first rewrite list_lookup_insert_ne; first done; lia.
+      }
+
+      (* Start specializing the IH! *)
+      iPoseProof Hcg_case as "Hcg_case"; clear Hcg_case.
+      iSpecialize ("Hcg_case" $! se final_fr os vs (to_consts vs) θ mini_B R).
+      clear_nils. fold WT. fold WL.
+
+      (* time to slowly start specializing *)
+      iSpecialize ("Hcg_case" $! ltac:(auto) ltac:(apply has_values_to_consts) ltac:(auto)).
+
+
+      iAssert (labels_interp rti sr se (typing.fc_locals F') final_fr WL
+                 (wlmask (fe_of_context F') WL_pre) (fc_labels F') mini_B) as "Hlabelnew". {
+        (* I think this is doable *)
+        iClear "Hcg_case Hinv Hreturn Hinst".
+        assert (typing.fc_locals F' = typing.fc_locals F) by (subst F'; unfold set; cbn; done).
+        rewrite H1.
+        assert (fe_of_context F' = fe_of_context F). {
+          subst F'; unfold set; cbn. done.
+        }
+        rewrite H2. fold fe.
+        subst F'.
+        iApply (labels_interp_cons with "[] [Hlabels]"); try done.
+        - move Heq_some0 at bottom.
+          unfold prelude.translate_types. cbn.
+          rewrite Heq_some0. cbn. clear_nils. done.
+        - iModIntro. iIntros (fr' vs') "(%Hrel & Hframe & Hosvs & Hrt & Hown)". iFrame.
+          iPureIntro.
+          assert ((fe_of_context (F <| fc_labels ::= cons ([τ'], L') |>)) = fe) by (unfold set; cbn; done).
+          rewrite H3. done.
+        - (* I haven't looked closely yet but I think labels_interp_mono should be enough *)
+          iApply (labels_interp_mono with "[$]").
+          + done.
+          + intros ii Hii. unfold lmask in Hii; unfold wlmask in *; subst WL_pre.
+            destruct Hii as [Hii1 Hii2].
+            split; first done.
+            rewrite !length_app.
+            lia.
+      }
+      iClear "Hlabels".
+      assert (HWLstupid: WL_pre ++ wl9 ++ wl_post ++ wlf = WL) by (subst WL_pre; clear_nils; done).
+      rewrite !HWLstupid.
+      iSpecialize ("Hcg_case" with "[$Hlabelnew]").
+      iSpecialize ("Hcg_case" $! ltac:(auto)).
+      iSpecialize ("Hcg_case" with "[$Hvs]").
+
+      iAssert (values_interp rti sr se [τ_ser] os) with "[Hos]" as "Hos".
+      { by rewrite values_interp_one_eq. }
+
+      iSpecialize ("Hcg_case" with "[$Hos]").
+
+      iAssert (frame_interp rti sr se (typing.fc_locals F') L WL final_fr) with "[Hframe]" as "Hframe". {
+        (* this will be ANNOYING *)
+        Opaque frame_interp. subst F'. iEval (unfold set; cbn). Transparent frame_interp.
+        subst final_fr.
+        iClear "Hinst Hreturn Hinv Hlabelnew".
+        subst WL.
+        replace ((wl ++
+                [W.T_i32] ++
+                [translate_arep I32R] ++
+                [translate_arep I32R] ++
+                [prelude.W.T_i32] ++
+                wl_pre ++ wl_mm_load ++ map translate_arep ιs ++ wl9 ++ wl_post ++ wlf)) with
+               (((wl ++
+                [W.T_i32] ++
+                [translate_arep I32R] ++
+                [translate_arep I32R] ++ [prelude.W.T_i32] ++
+                wl_pre ++ wl_mm_load) ++ map translate_arep ιs ++ (wl9 ++ wl_post ++ wlf))).
+        2: by rewrite !app_assoc.
+        iApply (load_restore_frame_one_step with "[Hframe] []"); try done.
+        Opaque frame_interp. cbn. Transparent frame_interp.
+        (* I think I just have to do it one at a time given the update frame we have *)
+        (* smidge annoying but doable *)
+        iDestruct "Hframe" as
+          "(%oss & %vss_L & %vs_WL & %Hlocs & %Hprims & %Hresult & Hatoms & Hlocals)".
+        iExists oss, vss_L,
+           (<[ length (wl ++ [W.T_i32; prelude.W.T_i32; prelude.W.T_i32]) := VAL_int32 (Wasm_int.Int32.repr i) ]>
+              (<[ length (wl ++ [W.T_i32; prelude.W.T_i32]) := vf ]>
+                 (<[ length wl := VAL_int32 ah32 ]> (<[ length wl := VAL_int32 n32 ]> vs_WL)))).
+        iFrame "%∗". iPureIntro. cbn. rewrite Hlocs.
+        Transparent fe_wlocal_offset.
+        cbn.
+        rewrite sum_list_with_length_concat.
+        apply Forall2_has_prims_length_concat in Hprims.
+        rewrite Hprims.
+        rewrite !insert_app_r.
+        split; first done.
+        unfold result_type_interp.
+        set WL := ((wl ++ W.T_i32 :: prelude.W.T_i32 :: prelude.W.T_i32 :: prelude.W.T_i32 :: wl_pre ++ wl_mm_load) ++
+                     map translate_arep ιs ++ wl9 ++ wl_post ++ wlf).
+        assert (WL = <[ length (wl ++ [W.T_i32; W.T_i32; W.T_i32]) := W.T_i32 ]>
+                       (<[ length (wl ++ [W.T_i32; W.T_i32]) := W.T_i32 ]>
+                          (<[ length wl := W.T_i32 ]> (<[ length wl := W.T_i32 ]> WL)))) as ->.
+        {
+          rewrite insert_app_l; last (rewrite length_app; cbn; lia).
+          rewrite (plus_n_O (length wl)) insert_app_r. cbn.
+          rewrite !length_app. cbn.
+          rewrite -app_assoc insert_app_r. cbn.
+          rewrite insert_app_r. cbn.
+          rewrite insert_app_r. cbn.
+          rewrite -app_assoc.
+          subst WL.
+          by rewrite -app_assoc -!app_comm_cons -app_assoc.
+        }
+        apply Forall2_insert; last by eexists.
+        apply Forall2_insert; last (destruct vf; inversion Hvf; by eexists).
+        apply Forall2_insert; last by eexists.
+        by apply Forall2_insert; last eexists.
+      }
+
+      subst f.
+      iSpecialize ("Hcg_case" with "[$Hframe] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
+
+      (* Now, we use cwp_frame_ctx! *)
+      unfold mini_B.
+      (* oh yeah wait the return might not be some, need a different cwp_frame_ctx *)
+      iApply (cwp_frame_ctx_no_R_change with "[$Hcg_case] [Hroot] [] []").
+      { iAccu. }
+      (* TODO lemmify some of this? It's basically perfectly duplicated *)
+      - iIntros (f vs_res) "Hroot (%Hframerel & Hframe & Hos & Hrt & Hown)".
+        iFrame.
+        clear_nils. fold WL.
+        iFrame.
+
+        (* o = PtrA (PtrHeap MemMM ℓ) *)
+        iDestruct "Hos" as "(%os_res & Hos & Hvs)".
+
+        (* fact while we have our stuff *)
+        iAssert (⌜length vs_res = length ts⌝%I) with "[Hvs Hos]" as "%Hvsreslen". {
+          iPoseProof (atoms_interp_length with "[$Hvs]") as "%Hosreslen".
+          rewrite values_interp_one_eq.
+          move Heq_some0 at bottom.
+          assert (translate_type se τ' = Some ts). {
+            eapply translate_type_comp_sem; first done.
+            done.
+          }
+          iPoseProof (translate_type_interp_length rti sr se τ' ts os_res H1 with "[$Hos]") as "%Hlents".
+          iPureIntro.
+          by rewrite <- Hosreslen.
+        }
+
+        iSplit.
+        {
+          (* NOTE: HERE this is where things used to be suspicious, but its now good with wl_pre being more precise :D *)
+          (* the key is that we have Hframerel *)
+          iPureIntro.
+          move Hfrtag at bottom.
+          destruct Hframerel as [Hf1 Hf2].
+          unfold mask_locs_eq in Hf1.
+          set (TheI := fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ [translate_arep I32R])) in *.
+          specialize (Hf1 TheI).
+          rewrite <- Hf1; last first.
+          { unfold wlmask, WL_pre, TheI. rewrite !length_app.
+            assert ((fe_of_context (F <| fc_labels ::= cons ([τ'], L') |>)) = fe) by (unfold set; cbn; done).
+            unfold F'; rewrite !H1. split; try lia.
+            cbn. lia.
+          }
+          unfold final_fr, TheI.
+          rewrite mk_load_frame_stable_part; last first.
+          { rewrite !length_app. cbn. lia. }
+          cbn.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          cbn; lia.
+        }
+        iSplitR; first done.
+        iSplitR.
+        {
+          iPureIntro.
+          eapply frame_rel_trans; first exact Hrelfrfinal.
+          eapply frame_rel_wlmask_mono; last exact Hframerel.
+          subst WL_pre; rewrite !length_app; lia.
+        }
+
+
+        iExists ((PtrA (PtrHeap MemGC ℓ)) :: os_res).
+        (* the addr goes with atom interp *)
+        iSplitL "Hos".
+        + iEval (change (?x::?y) with ([x]++y)).
+          iApply (values_interp_app with "[] [$Hos]").
+          iEval (rewrite values_interp_one_eq).
+          iEval (rewrite value_interp_eq).
+          iExists _.
+          iSplitR; first done. iSplitR; first done.
+          iEval (cbn).
+          rewrite evalμ.
+          iExists _, _, _. by iSplitR.
+        + change (PtrA (PtrHeap MemGC ℓ) :: os_res) with ([PtrA (PtrHeap MemGC ℓ)] ++ os_res).
+          iApply (atoms_interp_app_split_r with "[Hroot] [Hvs]").
+          * cbn. iSplitL; last done.
+            iExists _, _. instantiate (2 := n32). do 2 (iSplitR; first done).
+            iExists _. iSplitR; first done. iFrame.
+          * done.
+      - iIntros (f vs_res) "Hroot (%Hframerel & Hframe & Hos & Hrt & Hown)".
+        iFrame.
+        clear_nils. fold WL.
+        iFrame.
+
+        (* o = PtrA (PtrHeap MemMM ℓ) *)
+        iDestruct "Hos" as "(%os_res & Hos & Hvs)".
+
+
+        iSplitR.
+        { (* identical to above *)
+          iPureIntro.
+          move Hfrtag at bottom.
+          destruct Hframerel as [Hf1 Hf2].
+          unfold mask_locs_eq in Hf1.
+          set (TheI := fe_wlocal_offset fe + length (wl ++ [W.T_i32] ++ [translate_arep I32R] ++ [translate_arep I32R])) in *.
+          specialize (Hf1 TheI).
+          rewrite <- Hf1; last first.
+          { unfold wlmask, WL_pre, TheI. rewrite !length_app.
+            assert ((fe_of_context (F <| fc_labels ::= cons ([τ'], L') |>)) = fe) by (unfold set; cbn; done).
+            unfold F'; rewrite !H1. split; try lia.
+            cbn. lia.
+          }
+          unfold final_fr, TheI.
+          rewrite mk_load_frame_stable_part; last first.
+          { rewrite !length_app. cbn. lia. }
+          cbn.
+          apply list_lookup_insert_eq.
+          clear_frame_things Hflen locsz WL.
+          cbn; lia.
+        }
+
+        iAssert (⌜length vs_res = length ts⌝%I) with "[Hvs Hos]" as "%Hvsreslen". {
+          iPoseProof (atoms_interp_length with "[$Hvs]") as "%Hosreslen".
+          rewrite values_interp_one_eq.
+          move Heq_some0 at bottom.
+          assert (translate_type se τ' = Some ts). {
+            eapply translate_type_comp_sem; first done.
+            done.
+          }
+          iPoseProof (translate_type_interp_length rti sr se τ' ts os_res H1 with "[$Hos]") as "%Hlents".
+          iPureIntro.
+          by rewrite <- Hosreslen.
+        }
+
+        iSplitR; first done.
+        iSplitR.
+        { iPureIntro.
+          eapply frame_rel_trans; first exact Hrelfrfinal.
+          eapply frame_rel_wlmask_mono; last exact Hframerel.
+          subst WL_pre; rewrite !length_app; lia.
+        }
+
+        iExists ((PtrA (PtrHeap MemGC ℓ)) :: os_res).
+        (* the addr goes with atom interp *)
+        iSplitL "Hos".
+        + iEval (change (?x::?y) with ([x]++y)).
+          iApply (values_interp_app with "[] [$Hos]").
+          iEval (rewrite values_interp_one_eq).
+          iEval (rewrite value_interp_eq).
+          iExists _.
+          iSplitR; first done. iSplitR; first done.
+          iEval (cbn).
+          rewrite evalμ.
+          iExists _, _, _. by iSplitR.
+        + change (PtrA (PtrHeap MemGC ℓ) :: os_res) with ([PtrA (PtrHeap MemGC ℓ)] ++ os_res).
+          iApply (atoms_interp_app_split_r with "[Hroot] [$]").
+          clear_nils.
+          cbn. iSplitL; last done.
+          iExists _, n32; iSplitR; first done; iSplitR; first done.
+          iExists _; iSplitR; try done.
+    }
   Admitted.
 
 End case_load.
