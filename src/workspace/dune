@@ -1,0 +1,19 @@
+(library
+ (name richwasm_workspace)
+ (public_name iris-richwasm.workspace)
+ (modules richwasm_workspace)
+ (libraries sexplib0 parsexp)
+ (preprocess
+  (pps ppx_sexp_conv)))
+
+(library
+ (name richwasm_build)
+ (public_name iris-richwasm.build)
+ (modules richwasm_build)
+ (libraries
+  base
+  parsexp
+  iris-richwasm.workspace
+  iris-richwasm.common
+  iris-richwasm.mini-ml
+  iris-richwasm.lin-lang))

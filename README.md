@@ -61,7 +61,11 @@ There is also a CLI exposing the compiler pipeline, invoked as `just cli <subcom
 
 Every subcommand reads the given file, or stdin if the argument is `-` or omitted. `mml2rw`, `ll2rw`, and `rw-elab` accept `-pp {pp|sexp|rocq}` to select the output format and `-elab {true|false}` (default `true`) to toggle elaboration of the output.
 
-`rw2wasm` and `run` use the typechecker and compiler extracted from the Rocq development.
+- `run-dir <dir>` -- compile every `.mml`, `.ll`, `.rw` (sexp), and `.wat` file in `dir`, link them as `dir/links.sexp` says, and run the one exporting `_start`
+
+A module is named after its file without the extension, and each entry of `links.sexp`, `((importer m) (index i) (provider p) (export e))`, fills import `i` of module `m` with export `e` of module `p`.
+
+`rw2wasm`, `run`, and `run-dir` use the typechecker and compiler extracted from the Rocq development.
 
 For example:
 

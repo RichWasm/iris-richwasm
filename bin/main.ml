@@ -20,6 +20,11 @@ module SingleRW = Run_rw.SingleRichWasm (struct
   let host_runtime_path = runtime_asset_dir ^/ "host_single.ts"
 end)
 
+module DirRW = Run_rw.DirRichWasm (struct
+  let rw_runtime_path = runtime_asset_dir ^/ "richwasm.wasm"
+  let host_runtime_path = runtime_asset_dir ^/ "host_link.ts"
+end)
+
 let pp_rwasm = function
   | `pp -> RichWasm.Module.pp
   | `sexp -> RichWasm.Module.pp_sexp
@@ -102,6 +107,12 @@ let rw2wasm =
        |> wasm_pipeline_ann
        |> print_endline)
 
+let print_or_exit = function
+  | Ok output -> print_endline output
+  | Error err ->
+      eprintf "%s@." err;
+      exit 1
+
 let run =
   Command.basic
     ~summary:
@@ -116,12 +127,15 @@ let run =
        | Error e ->
            eprintf "wat2wasm: %s@." e;
            exit 1
-       | Ok wasm ->
-           (match SingleRW.run_wasm ?start_type wasm with
-           | Ok output -> print_endline output
-           | Error err ->
-               eprintf "%s@." err;
-               exit 1))
+       | Ok wasm -> print_or_exit (SingleRW.run_wasm ?start_type wasm))
+
+let run_dir =
+  Command.basic
+    ~summary:
+      "Compile the modules in a directory, link them as its links.sexp says, \
+       and run the one exporting _start."
+    (let%map_open.Command dir = anon ("dir" %: Filename_unix.arg_type) in
+     fun () -> print_or_exit (DirRW.run_dir dir))
 
 let command =
   Command.group ~summary:"iris-richwasm"
@@ -131,6 +145,7 @@ let command =
       ("rw-elab", rw_elab);
       ("rw2wasm", rw2wasm);
       ("run", run);
+      ("run-dir", run_dir);
     ]
 
 let () = Command_unix.run command

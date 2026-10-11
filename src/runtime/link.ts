@@ -1,5 +1,6 @@
-import { instantiate, lookupExport } from "./instance.ts";
+import { callStart, instantiate, lookupExport } from "./instance.ts";
 import type { Runtime } from "./interface.d.ts";
+import { renderStart } from "./walker.ts";
 
 export interface LinkModule {
   name: string;
@@ -41,4 +42,37 @@ export async function link(
   };
   for (const m of modules) await visit(m.name);
   return instances;
+}
+
+export interface RunSpec {
+  modules: { name: string; startType?: string }[];
+  links: Link[];
+}
+
+const raw = (value: unknown): string =>
+  value === undefined ? "()" : Array.isArray(value) ? value.map(raw).join(" ") : String(value);
+
+export async function runLinked(
+  rw: Runtime,
+  spec: RunSpec,
+  wasms: Uint8Array[],
+): Promise<{ typed: boolean; output: string }> {
+  if (wasms.length !== spec.modules.length) {
+    throw new Error(`${spec.modules.length} modules but ${wasms.length} binaries`);
+  }
+  const instances = await link(
+    rw,
+    spec.modules.map((m, i) => ({ name: m.name, wasm: wasms[i] })),
+    spec.links,
+  );
+  const entries = spec.modules.filter((m) => instances.get(m.name)!.exports._start !== undefined);
+  if (entries.length === 0) throw new Error("no module exports `_start`");
+  if (entries.length > 1) {
+    throw new Error(`several modules export \`_start\`: ${entries.map((m) => m.name).join(", ")}`);
+  }
+  const [{ name, startType }] = entries;
+  const result = callStart(instances.get(name)!, `\`${name}\``);
+  return startType === undefined
+    ? { typed: false, output: raw(result) }
+    : { typed: true, output: renderStart(result, startType, rw, { showAddrs: false }) };
 }

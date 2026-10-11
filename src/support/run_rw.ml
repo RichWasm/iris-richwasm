@@ -81,6 +81,62 @@ end) : Runner3 = struct
       ()
 end
 
+module type RunnerDir = sig
+  val run_dir : String.t -> (String.t, String.t) Result.t
+end
+
+module DirRichWasm (Config : sig
+  val rw_runtime_path : string
+  val host_runtime_path : string
+end) : RunnerDir = struct
+  module W = Richwasm_workspace
+
+  module Build = Richwasm_build.Make (struct
+    type wasm = String.t
+
+    let wat2wasm wat = Wat2wasm.wat2wasm wat
+    let wasm2wat wasm = Wasm2wat.wasm2wat ~pretty:true wasm
+  end)
+
+  let ( let* ) r f = Result.bind r ~f
+
+  let run_dir dir =
+    let open Config in
+    let read file = In_channel.read_all (Filename.concat dir file) in
+    let files =
+      Stdlib.Sys.readdir dir
+      |> Array.to_list
+      |> List.sort ~compare:String.compare
+    in
+    let* modules =
+      List.filter_map files ~f:(fun file ->
+          Option.map (W.lang_of_path file) ~f:(fun lang ->
+              match Build.compile lang (read file) with
+              | _, Ok (wasm, start_type) ->
+                  Ok (W.module_name file, wasm, start_type)
+              | _, Error (stage, message) ->
+                  Error (sprintf "%s: %s failed:\n%s" file stage message)))
+      |> Result.all
+    in
+    let* links =
+      if List.mem files W.links_file ~equal:String.equal then
+        W.parse_links (read W.links_file)
+      else
+        Ok []
+    in
+    let spec =
+      W.run_spec
+        ~modules:(List.map modules ~f:(fun (name, _, t) -> (name, t)))
+        ~links
+    in
+    Process_utils.Process_capture.run_concat
+      ~env:(`Extend (runtime_env rw_runtime_path))
+      ~inputs:(List.map modules ~f:(fun (_, wasm, _) -> wasm))
+      ~prog:"node"
+      ~args:(node_args ~host_runtime_path [ spec ])
+      ()
+end
+
 module UnnanotatedRW = Richwasm_common.Syntax
 module AnnotatedRW = Richwasm_common.Annotated_syntax
 
