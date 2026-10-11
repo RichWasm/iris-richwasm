@@ -130,6 +130,17 @@ Section function.
   Lemma atom_plug se ιs :
     ⊢ type_interp rti sr (type_plug_prim (map arep_to_prim ιs)) se (SAtoms (map atom_zero ιs)).
   Proof.
+    iIntros. rewrite type_interp_eq. iExists (SVALTYPE ιs NoRefs).
+    iPureIntro. split; last split; last done; last split.
+    - rewrite bind_Some. exists ιs. split; last done. rewrite eval_rep_prod_atoms. f_equal.
+      (* nope *)
+      admit.
+    - induction ιs; first by eexists. eexists. split; first done.
+      apply Forall2_cons. split; first by destruct a.
+      destruct IHιs as (? & ? & ?). inversion H. by subst x.
+    - induction ιs; first constructor.
+      apply Forall_cons. split; first by destruct a.
+      apply IHιs.
   Admitted.
 
   Lemma atomss_plug se ιss :
