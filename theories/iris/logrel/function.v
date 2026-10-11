@@ -40,13 +40,12 @@ Section function.
     destruct c; cbn; intros Heq; by inversion Heq.
   Qed.
 
-  Definition atom_zero (ι : atomic_rep) : atom :=
-    match ι with
-    | PtrR => PtrA (PtrInt 0%N)
-    | I32R => I32A (Wasm_int.int_zero i32m)
-    | I64R => I64A (Wasm_int.int_zero i64m)
-    | F32R => F32A (Wasm_float.float_zero f32m)
-    | F64R => F64A (Wasm_float.float_zero f64m)
+  Definition prim_zero (η : primitive) : atom :=
+    match η with
+    | I32P => I32A (Wasm_int.int_zero i32m)
+    | I64P => I64A (Wasm_int.int_zero i64m)
+    | F32P => F32A (Wasm_float.float_zero f32m)
+    | F64P => F64A (Wasm_float.float_zero f64m)
     end.
 
   Lemma big_sepL2_concat_inv_l {X Y} {P : X → Y → iProp Σ} xss ys :
@@ -92,65 +91,71 @@ Section function.
     function_env_ok locs (K <| kc_size_vars ::= S |>) ϕ fe →
     function_env_ok locs K (ForallSizeT ϕ) fe.
 
-  Lemma atom_interp_atom_zero ι :
-    ⊢ atom_interp (atom_zero ι) (bitzero (translate_arep ι)).
+  Lemma atom_interp_prim_zero ι :
+    ⊢ atom_interp (prim_zero (arep_to_prim ι)) (bitzero (translate_arep ι)).
   Proof.
-    destruct ι; cbn; iStartProof; try done; [].
-    iExists 0%N, Wasm_int.Int32.zero.
-    iSplit; first done.
-    iSplit; first done.
-    iExists (RootInt 0).
-    iPureIntro.
-    split; last done.
-    by constructor.
+    by destruct ι; iStartProof.
   Qed.
 
-  Lemma atoms_interp_atom_zero ιs :
-    ⊢ atoms_interp (map atom_zero ιs) (map bitzero (map translate_arep ιs)).
+  Lemma atoms_interp_prim_zero ιs :
+    ⊢ atoms_interp (map (prim_zero ∘ arep_to_prim) ιs) (map bitzero (map translate_arep ιs)).
   Proof.
     induction ιs as [|ι ιs].
     - done.
     - cbn -[atom_interp].
-      iPoseProof (atom_interp_atom_zero ι) as "H".
+      iPoseProof (atom_interp_prim_zero ι) as "H".
       iPoseProof IHιs as "IH".
       iFrame "H IH".
   Qed.
 
-  Lemma atomss_interp_atom_zero ιss :
-    ⊢ [∗ list] ιs ∈ ιss, atoms_interp (map atom_zero ιs) (map bitzero (map translate_arep ιs)).
+  Lemma atomss_interp_prim_zero ιss :
+    ⊢ [∗ list] ιs ∈ ιss,
+      atoms_interp (map (prim_zero ∘ arep_to_prim) ιs) (map bitzero (map translate_arep ιs)).
   Proof.
     induction ιss as [|ιs ιss].
     - done.
     - cbn -[atom_interp].
-      iPoseProof (atoms_interp_atom_zero ιs) as "H".
+      iPoseProof (atoms_interp_prim_zero ιs) as "H".
       iPoseProof IHιss as "IH".
       iFrame "H IH".
   Qed.
 
-  Lemma atom_plug se ιs :
-    ⊢ type_interp rti sr (type_plug_prim (map arep_to_prim ιs)) se (SAtoms (map atom_zero ιs)).
+  Lemma has_areps_prim_zero ηs :
+    has_areps (map prim_to_arep ηs) (SAtoms (map prim_zero ηs)).
   Proof.
-    iIntros. rewrite type_interp_eq. iExists (SVALTYPE ιs NoRefs).
+    induction ηs; first by eexists. eexists. split; first done.
+    apply Forall2_cons. split; first by destruct a.
+    destruct IHηs as (os & Hos & Hreps). inversion Hos. by subst os.
+  Qed.
+
+  Lemma no_refs_prim_zero ηs :
+    ref_flag_atoms_interp NoRefs (SAtoms (map prim_zero ηs)).
+  Proof.
+    induction ηs; first by cbn.
+    apply Forall_cons. split; first by destruct a.
+    apply IHηs.
+  Qed.
+
+  Lemma atom_plug se ηs :
+    ⊢ type_interp rti sr (type_plug_prim ηs) se (SAtoms (map prim_zero ηs)).
+  Proof.
+    iStartProof. rewrite type_interp_eq. iExists (SVALTYPE (map prim_to_arep ηs) NoRefs).
     iPureIntro. split; last split; last done; last split.
-    - rewrite bind_Some. exists ιs. split; last done. rewrite eval_rep_prod_atoms. f_equal.
-      (* nope *)
-      admit.
-    - induction ιs; first by eexists. eexists. split; first done.
-      apply Forall2_cons. split; first by destruct a.
-      destruct IHιs as (? & ? & ?). inversion H. by subst x.
-    - induction ιs; first constructor.
-      apply Forall_cons. split; first by destruct a.
-      apply IHιs.
-  Admitted.
+    - rewrite bind_Some. exists (map prim_to_arep ηs). split; last done. by rewrite eval_rep_prod_atoms.
+    - apply has_areps_prim_zero.
+    - apply no_refs_prim_zero.
+  Qed.
 
   Lemma atomss_plug se ιss :
-    ⊢ [∗ list] τ; os ∈ map type_plug_prim (map (map arep_to_prim) ιss); map (map atom_zero) ιss,
+    ⊢ [∗ list] τ; os ∈ map type_plug_prim (map (map arep_to_prim) ιss);
+                       map (map (prim_zero ∘ arep_to_prim)) ιss,
         type_interp rti sr τ se (SAtoms os).
   Proof.
     induction ιss as [| ιs ιss]; try done.
-    iPoseProof IHιss as "IH".
-    iPoseProof (atom_plug se ιs) as "H".
-    iFrame "H IH".
+    iStartProof.
+    iSplitR.
+    - rewrite -map_map. iApply atom_plug.
+    - iApply IHιss.
   Qed.
 
   Lemma has_reps_type_reps_agree F τs ρs ρs' κs :
@@ -443,12 +448,12 @@ Section function.
             apply Forall_Forall2_diag.
             apply Forall_true.
             intros [| | |]; cbn; eauto.
-          + instantiate (1 := map (map atom_zero) ιs).
+          + instantiate (1 := map (map (prim_zero ∘ arep_to_prim)) ιs).
             iApply (big_sepL2_app with "Hvss").
             rewrite !big_sepL2_fmap_l.
             rewrite !big_sepL2_fmap_r.
             iApply big_sepL_sepL2_diag.
-            iApply (atomss_interp_atom_zero ιs).
+            iApply (atomss_interp_prim_zero ιs).
           + iApply (big_sepL2_app with "Hvs").
             subst ηss_L.
             iApply atomss_plug.
