@@ -45,11 +45,7 @@ module Process_capture = struct
         List.iteri extra ~f:(fun i (_, (r, _)) ->
             dup2_keep ~src:r ~dst:(Core_unix.File_descr.of_int (3 + i)));
 
-        Core_unix.close stdin_r;
-        Core_unix.close stdout_w;
-        Core_unix.close stderr_w;
-        List.iter extra ~f:(fun (_, (r, _)) -> Core_unix.close r);
-
+        (* NOTE: sources are close-on-exec; closing stdin_r can clobber fd 3 *)
         Core_unix.exec ~prog ~argv:(prog :: args) ~env () |> Core.never_returns
     | `In_the_parent pid ->
         Core_unix.close stdin_r;
