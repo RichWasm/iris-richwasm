@@ -613,4 +613,6 @@ Section function.
     - by apply fe_of_mod_func_ok.
   Qed.
 
+  Print Assumptions fundamental_function.
+
 End function.
