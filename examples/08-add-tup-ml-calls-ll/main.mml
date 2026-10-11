@@ -1,0 +1,3 @@
+(import (add_tup2 : (() (ref (* int int)) -> int)))
+
+(app add_tup2 () (new (tup 5 7)))

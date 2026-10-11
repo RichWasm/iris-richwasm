@@ -1,0 +1,17 @@
+((imports
+  ((FunctionType () ((Ref (Base GC) Imm (Struct ())) (Ref (Base GC) Mut (Ser (Ref (Base GC) Imm (Struct ((Ser I31) (Ser I31))))))) (I31))))
+ (functions
+  (((typ (FunctionType ()
+      ((Prod ((Ref (Base MM) Mut (Ser (Prod ()))) (Ref (Base MM) Mut (Struct ((Ser (Num (Int I32))) (Ser (Num (Int I32))))))))) ((Num (Int I32)))))
+    (locals ((Atom I32) (Atom I32) (Atom I32)))
+    (body
+     ((LocalGet 0 Move) Ungroup (LocalSet 1) Drop
+      (Group 0) (New GC Imm) (Cast (Ref (Base GC) Imm (Struct ())))
+      (LocalGet 1 Move) (Load (Path (0)) Copy) (LocalSet 2) (Load (Path (1)) Copy) (LocalSet 3) Drop
+      (LocalGet 2 Move) Tag (LocalGet 3 Move) Tag (Group 2)
+      (New GC Imm)
+      (Cast (Ref (Base GC) Imm (Struct ((Ser I31) (Ser I31)))))
+      (New GC Mut)
+      (Call 0 ())
+      Untag)))))
+ (table ()) (exports (((name add_tup_wrapped) (desc (Func 1))))))

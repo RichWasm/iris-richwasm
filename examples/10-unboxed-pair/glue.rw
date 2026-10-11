@@ -1,0 +1,16 @@
+((imports
+  ((FunctionType ()
+    ((Prod ((Ref (Base MM) Mut (Ser (Prod ()))) (Num (Int I32))))) ((Ref (Base MM) Mut (Ser (Prod ((Num (Int I32)) (Num (Int I32))))))))))
+ (functions
+  (((typ (FunctionType () ((Ref (Base GC) Imm (Struct ())) I31) ((Ref (Base MM) Mut (Ser (Prod (I31 I31)))))))
+    (locals ((Prod ((Atom I32) (Atom I32))) (Atom Ptr)))
+    (body
+     ((LocalGet 0 Move) Drop
+      (Group 0) (New MM Mut)
+      (LocalGet 1 Move) Untag
+      (Group 2)
+      (Call 0 ())
+      (Load (Path ()) Move) (LocalSet 2) Drop (LocalGet 2 Move)
+                Ungroup Tag (LocalSet 3) Tag (LocalGet 3 Move) (Group 2)
+                (New MM Mut))))))
+ (table ()) (exports (((name mk_wrapped) (desc (Func 1))))))

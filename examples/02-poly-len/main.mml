@@ -1,0 +1,14 @@
+(export (len : ((a) (rec (b) (+ (*) (* a b))) -> int))
+  (fun (a) (x : (rec (b) (+ (*) (* a b)))) : int
+    (cases (unfold x)
+      ((_ : (*)) 0)
+      ((y : (* a (rec (b) (+ (*) (* a b)))))
+        (op + 1 (app len (a) (proj 1 y)))))))
+
+(app len (int)
+  (fold (rec (b) (+ (*) (* int b)))
+    (inj 1
+      (tup 1
+        (fold (rec (b) (+ (*) (* int b)))
+          (inj 0 (tup) : (+ (*) (* int (rec (b) (+ (*) (* int b))))))))
+      : (+ (*) (* int (rec (b) (+ (*) (* int b))))))))

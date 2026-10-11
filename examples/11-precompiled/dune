@@ -1,0 +1,7 @@
+; Example 05 with its MiniML provider compiled ahead of time.
+
+(copy_files
+ (files ../05-add3-ll-calls-ml/{glue.rw,main.ll,links.sexp,expected}))
+
+(copy_files
+ (files prebuilt/provider.wat))

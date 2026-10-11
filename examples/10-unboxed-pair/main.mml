@@ -1,0 +1,9 @@
+(import (mk : (() int -> (lin-ref (*# int int)))))
+
+(split# ((r : (lin-ref (*# int int))) (p : (*# int int)))
+        (! (app mk () 4))
+  (split# ((a : int) (b : int)) p
+    (split# ((r2 : (lin-ref (*# int int))) (q : (*# int int)))
+            (! (assign r (tup# (op + a b) (op * a b))))
+      (split# ((c : int) (d : int)) q
+        (op + (op + a b) (op + c d))))))

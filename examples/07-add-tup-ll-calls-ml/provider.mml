@@ -1,0 +1,4 @@
+(export (add_tup : (() (ref (* int int)) -> int))
+  (fun () (r : (ref (* int int))) : int
+    (let (x : (* int int)) (! r)
+      (op + (proj 0 x) (proj 1 x)))))

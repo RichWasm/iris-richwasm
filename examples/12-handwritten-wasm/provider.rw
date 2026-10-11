@@ -1,0 +1,15 @@
+((imports ())
+ (functions
+  (((typ
+     (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
+      ((Var 0))
+      ((Ref (Base GC) Imm (Struct ((Ser (Var 0)) (Ser (Var 0))))))))
+    (locals ())
+    (body
+     ((LocalGet 0 Move)
+      Copy
+      (Group 2)
+      (New GC Imm)
+      (Cast (Ref (Base GC) Imm (Struct ((Ser (Var 0)) (Ser (Var 0)))))))))))
+ (table ())
+ (exports (((name dup) (desc (Func 0))))))

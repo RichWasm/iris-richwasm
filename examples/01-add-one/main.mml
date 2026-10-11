@@ -1,0 +1,5 @@
+(export (add1 : (() int -> int))
+  (fun () (x : int) : int
+    (op + x 1)))
+
+(app add1 () 41)

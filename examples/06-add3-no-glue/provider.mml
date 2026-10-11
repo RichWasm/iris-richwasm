@@ -1,0 +1,3 @@
+(export (add3 : (() int -> int))
+  (fun () (i : int) : int
+    (op + i 3)))

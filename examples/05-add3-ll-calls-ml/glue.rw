@@ -1,0 +1,13 @@
+((imports
+  ((FunctionType () ((Ref (Base GC) Imm (Struct ())) I31) (I31))))
+ (functions
+  (((typ (FunctionType ()
+      ((Prod ((Ref (Base MM) Mut (Ser (Prod ()))) (Num (Int I32))))) ((Num (Int I32)))))
+    (locals ((Atom I32) ))
+    (body
+     ((LocalGet 0 Move) Ungroup (LocalSet 1) Drop
+      (Group 0) (New GC Imm) (Cast (Ref (Base GC) Imm (Struct ())))
+      (LocalGet 1 Move) Tag
+      (Call 0 ())
+      Untag)))))
+ (table ()) (exports (((name add3_wrapped) (desc (Func 1))))))

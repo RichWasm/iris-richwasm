@@ -1,0 +1,30 @@
+(library
+ (name richwasm_examples)
+ (modules richwasm_examples))
+
+(rule
+ (target richwasm_examples.ml)
+ (deps
+  (glob_files_rec *.{mml,ll,rw,wat,sexp,md})
+  (glob_files_rec expected))
+ (action
+  (with-stdout-to
+   %{target}
+   (run embed/embed.exe .))))
+
+(test
+ (name check)
+ (modules check)
+ (libraries core iris-richwasm.support iris-richwasm.workspace)
+ (deps
+  (glob_files_rec *.{mml,ll,rw,wat,sexp})
+  (glob_files_rec expected)
+  (glob_files ../src/runtime/*.ts))
+ (action
+  (setenv
+   RW_RUNTIME_WASM_PATH
+   %{lib:iris-richwasm.runtime:richwasm.wasm}
+   (setenv
+    HOST_LINK_PATH
+    %{dep:../src/runtime/host_link.ts}
+    (run %{test})))))

@@ -1,0 +1,1 @@
+(inj 1 (tup 2 (inj 1 (tup 3 (inj 0)))))

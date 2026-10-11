@@ -1,0 +1,35 @@
+; Compile 05's MiniML provider with the CLI, as a separate build would.
+
+(rule
+ (with-stdout-to
+  provider.ugly.wat
+  (pipe-stdout
+   (run
+    %{exe:../../../bin/main.exe}
+    mml2rw
+    -pp
+    sexp
+    %{dep:../../05-add3-ll-calls-ml/provider.mml})
+   (run %{exe:../../../bin/main.exe} rw2wasm))))
+
+(rule
+ (action
+  (run
+   wat2wasm
+   --enable-multi-memory
+   %{dep:provider.ugly.wat}
+   -o
+   provider.wasm))
+ (targets provider.wasm))
+
+(rule
+ (with-stdout-to
+  provider.wat
+  (run
+   wasm2wat
+   --enable-multi-memory
+   --generate-names
+   --fold-exprs
+   --inline-exports
+   --inline-imports
+   %{dep:provider.wasm})))

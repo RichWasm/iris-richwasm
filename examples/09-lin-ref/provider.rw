@@ -1,0 +1,16 @@
+((imports ())
+ (functions
+  (((typ
+     (FunctionType ()
+      ((Ref (Base GC) Imm (Struct ())) I31)
+      ((Ref (Base MM) Mut (Ser I31)))))
+    (locals ())
+    (body
+     ((LocalGet 0 Move)
+      ;; drop the unit env; the i31 arrives as the 2nd arg
+      Drop
+      ;; allocate the linear cell
+      (LocalGet 1 Move)
+      (New MM Mut))))))
+ (table ())
+ (exports (((name mk) (desc (Func 0))))))
