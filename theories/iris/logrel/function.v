@@ -177,13 +177,6 @@ Section function.
       rewrite Hρ' in H0; inversion H0; subst; done.
   Qed.
 
-  Lemma translate_types_agree τs κs se ts :
-    type_ctx_interp κs se →
-    prelude.translate_types κs τs = Some ts →
-    translate_types (Σ := Σ) se τs = Some ts.
-  Proof.
-  Admitted.
-
   Lemma mapM_fmap {X Y Z} (xs : list X) (f : X → option Y) (g : Y → Z) :
     mapM (λ x, g <$> f x) xs = map g <$> mapM f xs.
   Proof.
@@ -349,15 +342,16 @@ Section function.
       cbn -[atoms_interp values_interp1 translate_types].
       cbn in Hf.
       cbn -[atom_interp translate_types].
+      assert (sem_env_interp F0 se) as Hse by done.
       assert (translate_types (Σ:=Σ) se τs1 = prelude.translate_types κs τs1) as Htrans1.
       {
         rewrite Ht1.
-        eapply translate_types_agree; eauto.
+        eapply translate_types_comp_sem; eauto.
       }
       assert (translate_types (Σ:=Σ) se τs2 = prelude.translate_types κs τs2) as Htrans2.
       {
         rewrite Ht2.
-        eapply translate_types_agree; eauto.
+        eapply translate_types_comp_sem; eauto.
       }
       iSplitR; last iSplitR.
       { by rewrite Htrans1. }
@@ -420,7 +414,6 @@ Section function.
           iAssert (⌜Forall2 has_prims ηss_P vss⌝%I) with "[Hvs Hvss]" as "%Hhasprims".
           {
             iApply (has_repss_has_primss with "Hvss Hvs"); eauto.
-            split; cbn; done.
           }
           iExists (oss ++ _).
           iExists (vss ++ _).
