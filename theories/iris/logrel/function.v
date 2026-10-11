@@ -173,26 +173,6 @@ Section function.
   Proof.
   Admitted.
 
-  Lemma eval_rep_arep_to_prim locs ιss ηss :
-    mapM (eval_rep EmptyEnv) locs = Some ιss →
-    mapM (eval_rep_prim EmptyEnv) locs = Some ηss →
-    ηss = map (map arep_to_prim) ιss.
-  Proof.
-    revert ιss ηss.
-    induction locs as [| loc locs]; intros *; cbn; intros Hreps Hprims.
-    - inversion Hreps. inversion Hprims.
-      done.
-    - apply bind_Some in Hreps.
-      destruct Hreps as (ιs & Hrep & Hreps).
-      apply bind_Some in Hreps.
-      destruct Hreps as (ιss' & Hreps & Heq); inversion Heq; clear Heq.
-      apply bind_Some in Hprims.
-      destruct Hprims as (ηs & Hprim & Hprims).
-      apply bind_Some in Hprims.
-      destruct Hprims as (ηss' & Hprims & Heq); inversion Heq; clear Heq.
-      cbn.
-  Admitted.
-
   Lemma mapM_fmap {X Y Z} (xs : list X) (f : X → option Y) (g : Y → Z) :
     mapM (λ x, g <$> f x) xs = map g <$> mapM f xs.
   Proof.
