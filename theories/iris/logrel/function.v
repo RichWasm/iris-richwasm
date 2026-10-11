@@ -168,7 +168,14 @@ Section function.
     - inversion Hτs; subst. cbn in Hrep. inversion Hrep; done.
     - inversion Hτs; subst. rename a into τ; rename y into ρ; rename l' into ρs.
       cbn in Hrep.
-  Admitted.
+      apply bind_Some in Hrep as (ρ' & Hρ' & Hrep).
+      apply bind_Some in Hrep as (ρs'' & Hρs' & toinv). inversion toinv; subst ρs'; rename ρs'' into ρs'; clear toinv.
+      specialize (IHτs _ _ (fc_type_vars F) H3 eq_refl Hρs').
+      rewrite IHτs.
+      inversion H1; subst.
+      pose proof (type_rep_has_kind_agree _ _ _ _ H).
+      rewrite Hρ' in H0; inversion H0; subst; done.
+  Qed.
 
   Lemma translate_types_agree τs κs se ts :
     type_ctx_interp κs se →
