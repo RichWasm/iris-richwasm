@@ -84,23 +84,6 @@ end
 module UnnanotatedRW = Richwasm_common.Syntax
 module AnnotatedRW = Richwasm_common.Annotated_syntax
 
-(** Serialize [_start]'s result types (sexp) for the host walker; [None] if no
-    [_start]. *)
-let start_type_sexp (m : UnnanotatedRW.Module.t) : String.t option =
-  let open UnnanotatedRW in
-  let num_imports = List.length m.Module.imports in
-  List.find_map m.Module.exports ~f:(fun (e : Module.Export.t) ->
-      match e.Module.Export.desc with
-      | Module.Export.Desc.Func idx
-        when String.equal e.Module.Export.name "_start" ->
-          List.nth m.Module.functions (idx - num_imports)
-          |> Option.map ~f:(fun (f : Module.Function.t) ->
-              let (FunctionType.FunctionType (_, _, results)) =
-                f.Module.Function.typ
-              in
-              Sexp.to_string ([%sexp_of: Type.t list] results))
-      | _ -> None)
-
 module EndToEnd = struct
   (* need rank2 polymorphism *)
   type asprintf = { asprintf : 'a. ('a, formatter, unit, string) format4 -> 'a }
@@ -136,7 +119,7 @@ module EndToEnd = struct
         | Surface err -> fprintf ff "Surface:@ %a" Surface.CompilerError.pp err
         | Elaborate err -> fprintf ff "Elaborate:@ %a" Elaborate.Err.pp err
         | Typecheck err ->
-            fprintf ff "Typecheck:@ %a" Pipeline.pp_typecheck_errors err
+            fprintf ff "Typecheck:@ %a" Main.pp_typecheck_errors err
         | RichWasm err ->
             fprintf ff "RichWasm:@ %a" Extract_compat.CompilerError.pp err
         | Wat2WasmUnchecked err -> fprintf ff "Wat2WasmUnchecked:@ %s" err
@@ -182,7 +165,7 @@ module EndToEnd = struct
         map_error_into E2Err.surface
           (Surface.compile_to_richwasm ?info:prefix ~asprintf src)
       in
-      let start_type = start_type_sexp rwmod in
+      let start_type = Main.start_type_sexp rwmod in
       let* wasm =
         ret rwmod
         >>?! ( stage "elaborate",

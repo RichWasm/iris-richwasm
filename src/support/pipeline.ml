@@ -36,33 +36,9 @@ let parse_richwasm_ann s =
       Richwasm_common.Annotated_syntax.Module.t_of_sexp sexp
   | sexp -> Richwasm_common.Syntax.Module.t_of_sexp sexp |> elab_pipeline
 
-let rec pp_typecheck_error ff =
-  let open Richwasm_common.Annotated_syntax in
-  let open Richwasm_extract.Typechecker in
-  function
-  | NormalError s -> fprintf ff "%s" s
-  | FrameError (s, a, b) ->
-      let pp_it = InstructionType.pp in
-      fprintf ff
-        "@[<v 2>Frame error: %s@,@[<2>1st instr: %a@]@,@[<2>2nd instr: %a@]@]" s
-        pp_it a pp_it b
-  | LocalCtxSynthError (s, l, l', errs) ->
-      let pp_lctx = pp_rocq_list Type.pp in
-      fprintf ff
-        "@[<v 2>Local ctx synth error: %s @,\
-         @[<2>initial lctx: %a@]@,\
-         @[<2>synthed lctx: %a@]@,\
-         %a@]"
-        s pp_lctx l pp_lctx l' pp_typecheck_errors errs
-  | HasKindError (s, errs) ->
-      fprintf ff "@[<v 2>Has kind error: %s @,%a@]" s pp_typecheck_errors errs
-
-and pp_typecheck_errors ff =
-  let pp_list = pp_print_list ~pp_sep:(fun ff () -> fprintf ff "@;") in
-  fprintf ff "@[<2>%a@]" (pp_list pp_typecheck_error)
-
 let pp_typecheck_errors_prefix ff =
-  fprintf ff "Typechecker failed with error(s):@.%a" pp_typecheck_errors
+  fprintf ff "Typechecker failed with error(s):@.%a"
+    Richwasm_common.Main.pp_typecheck_errors
 
 let wasm_pipeline_ann x =
   Richwasm_common.Main.typecheck x

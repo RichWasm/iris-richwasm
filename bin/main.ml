@@ -110,7 +110,7 @@ let run =
      fun () ->
        let src = get_contents richwasm in
        let rwmod = parse_richwasm src in
-       let start_type = Run_rw.start_type_sexp rwmod in
+       let start_type = Richwasm_common.Main.start_type_sexp rwmod in
        let wat = wasm_pipeline rwmod in
        match Wat2wasm.wat2wasm wat with
        | Error e ->
