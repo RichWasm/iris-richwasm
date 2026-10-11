@@ -860,8 +860,10 @@ Section case_load.
       clear_nils. fold WT. fold WL.
 
       (* time to slowly start specializing *)
-      iSpecialize ("Hcg_case" $! ltac:(auto) ltac:(apply has_values_to_consts) ltac:(auto)).
-
+      iSpecialize ("Hcg_case" with "[//]").
+      iSpecialize ("Hcg_case" $! ltac:(apply has_values_to_consts)).
+      iSpecialize ("Hcg_case" with "[Hinst]").
+      { destruct Hrelfrfinal as [_ ->]. subst WT WT_pre. by rewrite -!app_assoc. }
 
       iAssert (labels_interp rti sr se (typing.fc_locals F') final_fr WL
                  (wlmask (fe_of_context F') WL_pre) (fc_labels F') mini_B) as "Hlabelnew". {
@@ -895,7 +897,7 @@ Section case_load.
       assert (HWLstupid: WL_pre ++ wl9 ++ wl_post ++ wlf = WL) by (subst WL_pre; clear_nils; done).
       rewrite !HWLstupid.
       iSpecialize ("Hcg_case" with "[$Hlabelnew]").
-      iSpecialize ("Hcg_case" $! ltac:(auto)).
+      iSpecialize ("Hcg_case" with "[$Hreturn]").
       iSpecialize ("Hcg_case" with "[$Hvs]").
 
       iAssert (values_interp rti sr se [τ_ser] os) with "[Hos]" as "Hos". {
@@ -1855,8 +1857,10 @@ Section case_load.
       clear_nils. fold WT. fold WL.
 
       (* time to slowly start specializing *)
-      iSpecialize ("Hcg_case" $! ltac:(auto) ltac:(apply has_values_to_consts) ltac:(auto)).
-
+      iSpecialize ("Hcg_case" with "[//]").
+      iSpecialize ("Hcg_case" $! ltac:(apply has_values_to_consts)).
+      iSpecialize ("Hcg_case" with "[Hinst]").
+      { destruct Hrelfrfinal as [_ ->]. subst WT WT_pre. by rewrite -!app_assoc. }
 
       iAssert (labels_interp rti sr se (typing.fc_locals F') final_fr WL
                  (wlmask (fe_of_context F') WL_pre) (fc_labels F') mini_B) as "Hlabelnew". {
@@ -1890,7 +1894,7 @@ Section case_load.
       assert (HWLstupid: WL_pre ++ wl9 ++ wl_post ++ wlf = WL) by (subst WL_pre; clear_nils; done).
       rewrite !HWLstupid.
       iSpecialize ("Hcg_case" with "[$Hlabelnew]").
-      iSpecialize ("Hcg_case" $! ltac:(auto)).
+      iSpecialize ("Hcg_case" with "[$Hreturn]").
       iSpecialize ("Hcg_case" with "[$Hvs]").
 
       iAssert (values_interp rti sr se [τ_ser] os) with "[Hos]" as "Hos".
@@ -2112,6 +2116,6 @@ Section case_load.
           iExists _, n32; iSplitR; first done; iSplitR; first done.
           iExists _; iSplitR; try done.
     }
-  Admitted.
+  Qed.
 
 End case_load.
