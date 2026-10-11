@@ -1,0 +1,204 @@
+/* Catppuccin Latte / Mocha: editors on base, panels on mantle, chrome on crust */
+:root {
+  color-scheme: light dark;
+  --bg: #eff1f5;
+  --bg-panel: #e6e9ef;
+  --bg-chrome: #dce0e8;
+  --fg: #4c4f69;
+  --muted: #8c8fa1;
+  --line: #ccd0da;
+  --accent: #8839ef;
+  --selection: rgb(124 127 147 / 25%);
+  --keyword: #8839ef;
+  --type: #df8e1d;
+  --number: #fe640b;
+  --string: #40a02b;
+  --comment: #7c7f93;
+  --parameter: #e64553;
+  --property: #1e66f5;
+  --function: #1e66f5;
+  --operator: #04a5e5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e2e;
+    --bg-panel: #181825;
+    --bg-chrome: #11111b;
+    --fg: #cdd6f4;
+    --muted: #7f849c;
+    --line: #313244;
+    --accent: #cba6f7;
+    --selection: rgb(147 153 178 / 25%);
+    --keyword: #cba6f7;
+    --type: #f9e2af;
+    --number: #fab387;
+    --string: #a6e3a1;
+    --comment: #9399b2;
+    --parameter: #eba0ac;
+    --property: #89b4fa;
+    --function: #89b4fa;
+    --operator: #89dceb;
+  }
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-chrome);
+  color: var(--fg);
+  font:
+    14px system-ui,
+    sans-serif;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+}
+header h1 {
+  font-size: 1.1rem;
+  margin: 0 1rem 0 0;
+}
+select,
+button {
+  background: var(--bg-panel);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  font: inherit;
+}
+button:disabled {
+  color: var(--muted);
+}
+.status {
+  color: var(--muted);
+}
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 13rem 1fr 1fr;
+  gap: 2px;
+  min-height: 0;
+}
+section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--bg);
+}
+.workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-panel);
+  padding: 0.4rem 0;
+}
+.files {
+  flex: 1;
+  overflow: auto;
+}
+.file {
+  display: flex;
+}
+.file button {
+  background: none;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  padding: 0.2rem 0.75rem;
+  font:
+    13px ui-monospace,
+    monospace;
+  cursor: pointer;
+}
+.file button:first-child {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  color: var(--fg);
+}
+.file button.active {
+  background: var(--selection);
+}
+.file .mark {
+  color: var(--muted);
+}
+.file .delete {
+  color: var(--muted);
+  visibility: hidden;
+}
+.file:hover .delete {
+  visibility: visible;
+}
+.new-file {
+  margin: 0.4rem 0.75rem;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font:
+    13px ui-monospace,
+    monospace;
+}
+.editor {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.tabs {
+  display: flex;
+  background: var(--bg-chrome);
+}
+.tabs button {
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+.tabs button.active {
+  background: var(--bg);
+  color: var(--fg);
+}
+.tabs .title {
+  color: var(--fg);
+  padding: 0.35rem 0.9rem;
+}
+.output {
+  height: 30%;
+  padding: 0.5rem 0.9rem;
+  background: var(--bg-panel);
+  overflow: auto;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-content: start;
+  gap: 0.3rem 1.25rem;
+}
+.output .label {
+  color: var(--muted);
+}
+.output pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font:
+    13px ui-monospace,
+    monospace;
+}
+.editor .cm-scroller {
+  font:
+    13px ui-monospace,
+    monospace;
+}
+* {
+  scrollbar-color: var(--line) transparent;
+}

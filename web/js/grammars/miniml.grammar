@@ -1,0 +1,69 @@
+// MiniML, following the forms src/mini-ml/parse.ml accepts.
+
+@top Module { item* }
+
+item { Import | Export | Private | expr }
+
+Import { "(" kw<"import"> Binding ")" }
+Export { "(" kw<"export"> Binding expr ")" }
+Private { "(" kw<"private"> Binding expr ")" }
+
+Binding { "(" Definition Colon type ")" }
+Definition { Identifier }
+
+type { Int | TypeVariable | ProdType | UProdType | SumType | USumType | RecType | RefType | LinRefType | FunType }
+Int { kw<"int"> }
+TypeVariable { Identifier }
+ProdType { "(" kw<"*"> type* ")" }
+UProdType { "(" kw<"*#"> type* ")" }
+SumType { "(" kw<"+"> type* ")" }
+USumType { "(" kw<"+#"> type* ")" }
+RecType { "(" kw<"rec"> "(" TypeVariable ")" type ")" }
+RefType { "(" kw<"ref"> type ")" }
+LinRefType { "(" kw<"lin-ref"> type ")" }
+FunType { "(" TypeParams type kw<"->"> type ")" }
+TypeParams { "(" TypeVariable* ")" }
+TypeArgs { "(" type* ")" }
+
+expr {
+  Number | Variable | Tuple | UTuple | Inj | UInj | App | Proj | Op | If | New | Deref |
+  Assign | Swap | Fold | Unfold | Let | Split | Fun | Cases | UCases
+}
+Variable { Identifier }
+Tuple { "(" kw<"tup"> expr* ")" }
+UTuple { "(" kw<"tup#"> expr* ")" }
+Inj { "(" kw<"inj"> Number expr Colon type ")" }
+UInj { "(" kw<"inj#"> Number expr Colon type ")" }
+App { "(" kw<"app"> expr TypeArgs expr ")" }
+Proj { "(" kw<"proj"> Number expr ")" }
+Op { "(" kw<"op"> Operator expr expr ")" }
+Operator { kw<"+"> | kw<"-"> | kw<"*"> | kw<"/"> }
+If { "(" kw<"if"> expr expr expr ")" }
+New { "(" kw<"new"> expr ")" }
+Deref { "(" kw<"!"> expr ")" }
+Assign { "(" kw<"assign"> expr expr ")" }
+Swap { "(" kw<"swap"> expr expr ")" }
+Fold { "(" kw<"fold"> type expr ")" }
+Unfold { "(" kw<"unfold"> expr ")" }
+Let { "(" kw<"let"> Binding expr expr ")" }
+Split { "(" kw<"split#"> "(" Binding* ")" expr expr ")" }
+Fun { "(" (kw<"fun"> | kw<"lam">) TypeParams Binding Colon type expr ")" }
+Cases { "(" kw<"cases"> expr Branch* ")" }
+UCases { "(" kw<"case#"> expr Branch* ")" }
+Branch { "(" Binding expr ")" }
+
+kw<term> { @specialize[@name=Keyword]<Identifier, term> }
+
+@skip { space | LineComment }
+
+@tokens {
+  space { $[ \t\n\r]+ }
+  LineComment { ";" ![\n]* }
+  Colon { ":" }
+  Number { "-"? @digit+ }
+  Identifier { ![ \t\n\r();:]+ }
+  @precedence { Number, Identifier }
+  "(" ")"
+}
+
+@detectDelim

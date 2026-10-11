@@ -1,0 +1,32 @@
+// The RichWasm printers' output (Syntax.Module.pp, Annotated_syntax.Module.pp).
+
+@top Program { item* }
+
+item { Form | Type | Instruction | Atom | Number | String | Separator }
+
+Form { "(" kw<"module" | "func" | "table" | "export" | "import" | "local"> item* ")" }
+Type { "(" (typeItem item*)? ")" }
+typeItem { Type | Atom | Number | String | Separator }
+
+kw<term> { @specialize[@name=Keyword]<Atom, term> }
+
+@skip { space | BlockComment }
+
+@tokens {
+  space { $[ \t\n\r]+ }
+  BlockComment { "(;" blockCommentRest }
+  blockCommentRest { ![;] blockCommentRest | ";" blockCommentAfterSemi }
+  blockCommentAfterSemi { ")" | ";" blockCommentAfterSemi | ![;)] blockCommentRest }
+  atomChar { ![ \t\n\r()";] }
+  Instruction { "\n" $[ \t]* atomChar+ }
+  Atom { atomChar+ }
+  Separator { ";" }
+  Number { "-"? @digit+ }
+  String { '"' (!["\\] | "\\" _)* '"' }
+  @precedence { BlockComment, "(" }
+  @precedence { Instruction, space }
+  @precedence { Number, Atom }
+  "(" ")"
+}
+
+@detectDelim

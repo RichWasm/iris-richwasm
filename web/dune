@@ -1,0 +1,27 @@
+(library
+ (name richwasm_web_protocol)
+ (modules protocol)
+ (libraries brr sexplib0 parsexp iris-richwasm.workspace)
+ (preprocess
+  (pps ppx_sexp_conv)))
+
+(executable
+ (name compiler_worker)
+ (modes js)
+ (modules compiler_worker wabt)
+ (libraries
+  base
+  brr
+  zarith_stubs_js
+  richwasm_web_protocol
+  iris-richwasm.common
+  iris-richwasm.build
+  richwasm_examples)
+ (preprocess
+  (pps ppx_sexp_conv)))
+
+(executable
+ (name page)
+ (modes js)
+ (modules page codemirror)
+ (libraries brr richwasm_web_protocol iris-richwasm.workspace))

@@ -1,0 +1,28 @@
+// RichWasm's input syntax: the sexps ppx_sexp_conv derives for src/common/syntax.ml.
+
+@top Program { value* }
+
+value { Field | head | Name }
+head { List | Constructor | Instruction | TypeConstructor | Number | String }
+
+Field { "(" FieldName value* ")" }
+FieldName { Name }
+List { "(" (head value* | Field value*)? ")" }
+
+@external specialize { Constructor } classify from "./richwasm_tokens.js" { Instruction, TypeConstructor }
+
+@skip { space | LineComment }
+
+@tokens {
+  space { $[ \t\n\r]+ }
+  LineComment { ";" ![\n]* }
+  atomChar { ![ \t\n\r()";] }
+  Constructor { $[A-Z] atomChar* }
+  Name { ($[a-z_] | "-") atomChar* }
+  Number { "-"? @digit+ }
+  String { '"' (!["\\] | "\\" _)* '"' }
+  @precedence { Number, Name }
+  "(" ")"
+}
+
+@detectDelim

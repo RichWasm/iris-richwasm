@@ -1,0 +1,63 @@
+// LinLang, following the forms src/lin-lang/parse.ml accepts.
+
+@top Module { item* }
+
+item { Import | Function | expr }
+
+Import { "(" kw<"import"> type kw<"as">? Definition ")" }
+Function { "(" kw<"export">? kw<"fun"> Definition Binding returnType expr ")" }
+returnType { Colon type kw<"."> | type }
+
+Binding { "(" Definition Colon? type ")" }
+// LinLang programs use the type words as variable names.
+name { Identifier | kw<"rec"> | kw<"int"> | kw<"sum"> | kw<"prod"> }
+Definition { name }
+
+type { Int | TypeVariable | RefType | ArrowType | ProdType | SumType | RecType | InfixType }
+Int { kw<"int"> }
+TypeVariable { Identifier }
+RefType { "(" kw<"ref"> Number? type ")" }
+ArrowType { "(" type (kw<"->"> | kw<"-o"> | kw<"⊸">) type ")" }
+ProdType { "(" kw<"prod"> type* ")" }
+SumType { "(" kw<"sum"> type* ")" }
+RecType { "(" kw<"rec"> TypeVariable kw<".">? type ")" }
+InfixType { "(" (type ((kw<"*"> | kw<"⊗"> | kw<"+"> | kw<"⊕">) type)*)? ")" }
+
+expr {
+  Number | Variable | App | Let | Split | If0 | Swap | Free | Cases | Unfold | Lam | Tuple | Inj |
+  Fold | New | List
+}
+Variable { name }
+App { "(" kw<"app"> expr expr ")" }
+Let { "(" kw<"let"> Binding (kw<"="> expr kw<"in"> expr | expr expr) ")" }
+Split { "(" kw<"split"> Binding* kw<"="> expr kw<"in">? expr ")" }
+If0 { "(" kw<"if0"> expr (kw<"then"> expr kw<"else"> expr | expr expr) ")" }
+Swap { "(" kw<"swap"> expr expr ")" }
+Free { "(" kw<"free"> expr ")" }
+Cases { "(" kw<"cases"> expr Case* ")" }
+Case { "(" kw<"case"> Binding expr ")" }
+Unfold { "(" kw<"unfold"> type expr ")" }
+Lam { "(" (kw<"lam"> | kw<"λ">) Binding returnType expr ")" }
+Tuple { "(" kw<"tup"> expr* ")" }
+Inj { "(" kw<"inj"> Number expr Colon? type ")" }
+Fold { "(" kw<"fold"> type expr ")" }
+New { "(" kw<"new"> expr+ ")" }
+List { "(" (expr | Operator | Comma)* ")" }
+Operator { kw<"+"> | kw<"-"> | kw<"*"> | kw<"/"> | kw<"×"> | kw<"÷"> }
+
+kw<term> { @specialize[@name=Keyword]<Identifier, term> }
+
+@skip { space | LineComment }
+
+@tokens {
+  space { $[ \t\n\r]+ }
+  LineComment { ";" ![\n]* }
+  Colon { ":" }
+  Comma { "," }
+  Number { "-"? @digit+ }
+  Identifier { ![ \t\n\r();:,]+ }
+  @precedence { Number, Identifier }
+  "(" ")"
+}
+
+@detectDelim

@@ -88,6 +88,10 @@ $ just cli run-dir examples/05-add3-ll-calls-ml
 
 Each example's `expected` file holds its output, and `dune test` checks them all. `11-precompiled` is assembled by dune, so run `_build/default/examples/11-precompiled` instead.
 
+### Web demo
+
+`web/build.sh` (in the dev shell) builds the browser demo into `web/dist`. Serve it over HTTP, e.g. `python3 -m http.server -d web/dist`; Chrome won't load its workers from `file://`. It needs Wasm multi-memory: Chrome 120+ or Firefox 125+, not Safari.
+
 ## Differences between paper and mechanization
 - Kinds are baked into the type syntax to allow the compiler access to them. These kinds are defined to be the most specific kinds, with subkinding allowed only in specific locations. Instruction types are also baked into instruction syntax.
 - Function types: in the paper, a function type is `forall a*.xi`, where a* can be a list of quantifiers in any order. The mechanized syntax differs by ensuring that all `t:kappa` quantifiers are inner-most by stratifying functions types into `function_type` and `inner_function_type`. This was done to simplify flatenning and indexing (as type quantifiers can rely on previously declared variables).

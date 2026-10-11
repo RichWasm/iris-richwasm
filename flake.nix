@@ -112,6 +112,16 @@
             nodejs_24
             ocamlPackages.janeStreet.ppx_expect
           ];
+
+          richwasm-web-deps = [
+            pkgs.esbuild
+          ]
+          ++ (with ocamlPackages; [
+            js_of_ocaml-compiler
+            js_of_ocaml
+            brr
+            zarith_stubs_js
+          ]);
         in
         rec {
           default = iris-richwasm;
@@ -150,7 +160,8 @@
               ]
               ++ iris-richwasm-deps
               ++ richwasm-ocaml-deps
-              ++ richwasm-test-deps;
+              ++ richwasm-test-deps
+              ++ richwasm-web-deps;
 
               passthru.testDeps = richwasm-test-deps;
             }).overrideAttrs

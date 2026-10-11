@@ -31,3 +31,7 @@
 
 .direnv
 result
+/web/dist/
+/web/js/node_modules/
+/web/js/grammars/*.grammar.js
+/web/js/grammars/*.grammar.terms.js
