@@ -16,6 +16,7 @@
  (files
   (richwasm.wasm as runtime/richwasm.wasm)
   (host_common.ts as runtime/host_common.ts)
+  (instance.ts as runtime/instance.ts)
   (host_single.ts as runtime/host_single.ts)
   (host_double.ts as runtime/host_double.ts)
   (host_triple.ts as runtime/host_triple.ts)

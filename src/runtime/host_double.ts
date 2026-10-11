@@ -1,6 +1,7 @@
 import * as assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { loadRuntime, instantiate, lookupExport, runStart } from "./host_common.ts";
+import { loadRuntime, runStart } from "./host_common.ts";
+import { instantiate, lookupExport } from "./instance.ts";
 
 const [providerExport, entryArg] = process.argv.slice(2);
 assert.strict(providerExport, "host_double expects the provider export name as argv[2]");
@@ -15,10 +16,11 @@ const bufs = await Promise.all([
 
 // provider (the non-entry module) is instantiated first; the entry imports it
 const providerIdx = entry === 2 ? 1 : 2;
-const provider = await instantiate(rwExports, bufs[providerIdx - 1], null);
+const provider = await instantiate(rwExports, bufs[providerIdx - 1], [], `module ${providerIdx}`);
 const entryInst = await instantiate(
   rwExports,
   bufs[entry - 1],
-  lookupExport(provider, providerExport, `module ${providerIdx}`),
+  [lookupExport(provider, providerExport, `module ${providerIdx}`)],
+  `module ${entry}`,
 );
 runStart(entryInst, rwExports, `module ${entry}`);

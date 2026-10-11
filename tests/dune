@@ -10,7 +10,8 @@
  (deps
   %{dep:../src/runtime/tableset.ts}
   %{dep:../src/runtime/walker.ts}
-  %{dep:../src/runtime/host_common.ts})
+  %{dep:../src/runtime/host_common.ts}
+  %{dep:../src/runtime/instance.ts})
  (action
   (setenv
    RW_RUNTIME_WASM_PATH
