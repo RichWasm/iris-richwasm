@@ -158,12 +158,16 @@ Section function.
     - iApply IHιss.
   Qed.
 
-  Lemma has_reps_type_reps_agree F τs ρs ρs' κs :
+  Lemma has_reps_type_reps_agree F τs : ∀ ρs ρs' κs,
     Forall2 (has_rep F) τs ρs →
     fc_type_vars F = κs →
     mapM (type_rep κs) τs = Some ρs' →
     ρs = ρs'.
   Proof.
+    induction τs; intros ρs ρs' κs Hτs Hκs Hrep.
+    - inversion Hτs; subst. cbn in Hrep. inversion Hrep; done.
+    - inversion Hτs; subst. rename a into τ; rename y into ρ; rename l' into ρs.
+      cbn in Hrep.
   Admitted.
 
   Lemma translate_types_agree τs κs se ts :
@@ -186,7 +190,27 @@ Section function.
     atoms_interp os vs -∗
     ⌜has_prims (map arep_to_prim ιs) vs⌝.
   Proof.
-  Admitted.
+    generalize dependent vs; generalize dependent os.
+    induction ιs; intros os vs [os' [toinv Hareps]]; inversion toinv; subst os'; clear toinv.
+    - inversion Hareps; subst.
+      iIntros "Hos".
+      iPoseProof (atoms_interp_nil_l with "[$]") as "->".
+      cbn. iPureIntro.
+      unfold has_prims. done.
+    - inversion Hareps; subst. rename a into ι; rename y into o; rename l' into os.
+      iIntros "Hos".
+      iPoseProof (atoms_interp_cons_l with "[$]") as "(%v & %vs' & -> & Ho & Hos)"; rename vs' into vs.
+      assert (has_areps ιs (SAtoms os)) as Ha by (exists os; split; done).
+      specialize (IHιs _ vs Ha).
+      iPoseProof (IHιs with "[$]") as "%Hf".
+      iAssert (⌜has_prim (arep_to_prim ι) v⌝%I) with "[Ho]" as "%Hg". {
+        destruct ι, v, o; cbn in *; try done.
+        4-15: iDestruct "Ho" as "%Ho"; inversion Ho.
+        all: iDestruct "Ho" as "(%n & %n32 & _ & %Ho & _)"; inversion Ho.
+      }
+      iPureIntro.
+      constructor; done.
+  Qed.
 
   Lemma has_kind_empty_type_skind (se : semantic_env (Σ := Σ)) F τ ρ ξ ιs :
     sem_env_interp F se →
