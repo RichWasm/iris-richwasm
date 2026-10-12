@@ -2,21 +2,42 @@
 
 This is a formalization of RichWasm in Iris based on Iris-Wasm.
 
-## Setup
+## Setup (Kick-the-tires)
 
-This is a Rocq and OCaml hybrid workspace managed by dune.
+This is a Rocq and OCaml hybrid workspace managed by dune. There are several options for working with the codebase:
+1. Docker image
+2. VM image
+3. Nix
+4. Installing from scratch
 
-### Dependencies
+### 1. Docker
+
+### 2. VM image
+
+### 3. Nix
+The flake also builds a Docker image of the `nix develop` shell with a copy of this repository. Build and start it with these commands, using `aarch64-linux` on ARM:
+
+```sh
+nix build .#packages.x86_64-linux.docker
+docker load < result
+docker run -it --name richwasm -p 8000:8000 iris-richwasm
+```
+
+The shell starts in `~/iris-richwasm` with everything `nix develop` provides, so the commands below work there. The image adds neovim, emacs, nano, git, and python3. `-p 8000:8000` lets your browser reach the web demo's server (see Web demo). After you exit, `docker start -ai richwasm` gets back into the same container.
+
+### 4. Installing from scratch
+
+#### Dependencies
 
 Firstly, ensure you have the required system dependencies:
 - `opam`
-- `wabt` (WebAssembly Binary Toolkit) -- the tests and the CLI shell out to `wat2wasm`/`wasm2wat`
-- Node.js (tested with v24) -- runs the runtime for the end-to-end tests and the `run` subcommand
+- `wabt` ([WebAssembly Binary Toolkit](https://github.com/webassembly/wabt) — the tests and the CLI shell out to `wat2wasm`/`wasm2wat`
+- Node.js ([tested with v24](https://nodejs.org/en) — runs the runtime for the end-to-end tests and the `run` subcommand
 - `just` (optional) -- shortcuts for the common commands below
 
 Alternatively there is a nix flake available: `nix develop` enters a shell with all dependencies, `nix build` builds everything, and `nix flake check` builds and runs the tests.
 
-### Opam
+#### Opam
 
 Install the dependencies using opam:
 
@@ -29,21 +50,8 @@ opam install --deps-only .
 
 The last step installs dune (3.23+ is required) along with the Rocq and OCaml dependencies; OCaml 4.14 is required by some of them.
 
-### Docker
 
-The flake also builds a Docker image of the `nix develop` shell with a copy of this repository. Build and start it with these commands, using `aarch64-linux` on ARM:
-
-```sh
-nix build .#packages.x86_64-linux.docker
-docker load < result
-docker run -it --name richwasm -p 8000:8000 iris-richwasm
-```
-
-The shell starts in `~/iris-richwasm` with everything `nix develop` provides, so the commands below work there. The image adds neovim, emacs, nano, git, and python3. `-p 8000:8000` lets your browser reach the web demo's server (see Web demo). After you exit, `docker start -ai richwasm` gets back into the same container.
-
-## Usage
-
-### Build
+#### Build
 
 Then you can build the project with `just build`, or directly with Dune:
 
@@ -51,15 +59,43 @@ Then you can build the project with `just build`, or directly with Dune:
 dune build
 ```
 
-This includes all the Rocq proofs, so this may take a while.
+This includes all the Rocq proofs, so this may take a while. The build process will have warnings regarding notations already being used in scope `subst_scope` and, which are expected and can be ignored. We have included a `Print Assumptions` command in `theories/iris/logrel/instr/typing.v` for `Theorem fundamental_typing`. The expected output for this command is the following:
 
-### Tests
+```
+Section Variables:
+Σ: gFunctors
+wasmG0: wasmG Σ
+sr: store_runtime
+rti: rt_invariant Σ
+richwasmG0: richwasmG Σ
+mr: module_runtime
+logrel_na_invs0: logrel_na_invs Σ
+Axioms:
+ClassicalDedekindReals.sig_not_dec : ∀ P : Prop, {¬ ¬ P} + {¬ P}
+ClassicalDedekindReals.sig_forall_dec :
+  ∀ P : nat → Prop,
+    (∀ n : nat, {P n} + {¬ P n}) → {n : nat | ¬ P n} + {∀ n : nat, P n}
+FunctionalExtensionality.functional_extensionality_dep :
+  ∀ (A : Type) (B : A → Type) (f g : ∀ x : A, B x),
+    (∀ x : A, f x = g x) → f = g
+Eqdep.Eq_rect_eq.eq_rect_eq :
+  ∀ (U : Type) (p : U) (Q : U → Type) (x : Q p) (h : p = p),
+    x = eq_rect p Q x p h
+Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
+```
+
+#### Tests
 
 Run both unit tests and end to end tests with `just test`, or:
 
 ```sh
 dune test
 ```
+The expected output is all tests succeeding with `[OK]`.
+
+**At this point, Kick-the-tires is concluded.**
+
+## Usage
 
 ### CLI
 
@@ -147,4 +183,7 @@ This overview will focus on the most important files and folders, as it relates 
 `src` contains our case study compilers, and `tests` test case study + RichWasm compilers all together. `tests/e2e/main.ml` has the glue code and linking type examples.
 
 `theories/examples`: the two proofs of linking with external Wasm.
+
+### Our Axioms
+TODO
 
