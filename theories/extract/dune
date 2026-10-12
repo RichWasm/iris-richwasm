@@ -108,6 +108,7 @@
   elpi_elpi
   stdpp
   RichWasm
+  RichWasm.wasm
   ITree
   Paco
   RecordUpdate

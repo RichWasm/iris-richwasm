@@ -1,5 +1,5 @@
-Require Import RichWasm.iris.logrel.instr.typing.common.
-Require Import RichWasm.iris.numerics.
+Require Import RichWasm.iris.logrel.common.
+Require Import RichWasm.iris.language.numerics.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".

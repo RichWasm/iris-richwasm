@@ -5,6 +5,11 @@
  (theories
   RichWasm
   RichWasm.compiler
-  RichWasm.iris.logrel
+  RichWasm.iris.helpers
+  RichWasm.iris.host
   RichWasm.iris.language
-  RichWasm.iris.rules))
+  RichWasm.iris.language.cwp
+  RichWasm.iris.language.lwp
+  RichWasm.iris.rules
+  RichWasm.named_props
+  RichWasm.wasm))

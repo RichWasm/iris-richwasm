@@ -1,4 +1,6 @@
-From RichWasm.wasm Require Import logrel.iris_logrel.
+From stdpp Require Import base.
+From mathcomp Require Import ssreflect seq.
+From RichWasm.wasm Require Import datatypes.
 Require RichWasm.wasm.opsem.
 
 From RichWasm Require Import obs obs_properties.

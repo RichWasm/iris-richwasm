@@ -1,14 +1,14 @@
 From mathcomp Require Import ssrbool eqtype.
 Require Import RichWasm.compiler.memory.
 Require Import RichWasm.util.
-Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.common.
 Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.roots.
 Require Import RichWasm.iris.logrel.load_common.
 Require Import RichWasm.iris.logrel.store_common.
 Require Import RichWasm.iris.logrel.path.
 Require Import RichWasm.iris.logrel.rt_token.
-Require Import RichWasm.iris.numerics.
+Require Import RichWasm.iris.language.numerics.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".

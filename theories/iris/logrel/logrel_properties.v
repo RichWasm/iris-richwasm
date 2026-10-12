@@ -13,7 +13,7 @@ From RichWasm.compiler Require Export prelude codegen instruction module.
 From RichWasm.iris Require Export autowp memory logrel util numerics.
 From RichWasm.iris.logrel Require Export util.
 From RichWasm.iris.language Require Export cwp logpred.
-Require Export RichWasm.iris.logrel.instr.kinding.
+Require Export RichWasm.iris.logrel.kinding.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".

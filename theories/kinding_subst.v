@@ -1,7 +1,6 @@
 From mathcomp Require Import ssreflect.
 From stdpp Require Import base list.
 From RichWasm Require Import syntax typing util.
-Require RichWasm.iris.logrel.
 Require Import RecordUpdate.RecordUpdate.
 
 Set Bullet Behavior "Strict Subproofs".

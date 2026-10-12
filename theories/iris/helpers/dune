@@ -13,6 +13,9 @@
   -extraction-reserved-identifier)
  (theories
   RichWasm
-  RichWasm.iris.language.iris
+  RichWasm.iris.helpers.lfill_prelude
+  RichWasm.iris.helpers.prelude
   RichWasm.iris.helpers.reduce_det
-  RichWasm.iris.helpers.prelude))
+  RichWasm.iris.language.iris
+  RichWasm.opsem
+  RichWasm.wasm))

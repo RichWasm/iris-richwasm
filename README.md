@@ -134,5 +134,5 @@ Aside from some instruction cases being admitted, we have the following admits:
 - `theories/kinding_subst.v`: lemmas about kinding remaining true through a substitution, modulo the kind getting more specific
 - `theories/iris/logrel/substitution.v`: lemmas related to the type interpretation remaining true through a substitution. Some pertinent cases were verified.
 - `theories/iris/logrel/logrel_properties`: closure interpretation in an empty semantic environment implies closure interpretation in any semantic environment
-- `theories/iris/logrel/function.v`: helper lemmas, mostly about representations
+- `theories/iris/logrel/instr/function.v`: helper lemmas, mostly about representations
 

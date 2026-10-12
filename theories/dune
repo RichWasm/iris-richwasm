@@ -21,4 +21,6 @@
   ExtLib.Core
   ExtLib.Data
   Paco
-  Ltac2))
+  Ltac2
+  RichWasm.syntax
+  RichWasm.wasm))

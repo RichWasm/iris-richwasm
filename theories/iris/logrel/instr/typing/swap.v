@@ -1,11 +1,11 @@
-Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.common.
 Require Import RichWasm.iris.logrel.path.
 Require Import RichWasm.iris.logrel.store_common.
 Require Import RichWasm.iris.logrel.load_common.
 Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.roots.
 Require Import RichWasm.iris.logrel.load_move.
-Require Import RichWasm.iris.numerics.
+Require Import RichWasm.iris.language.numerics.
 Require Import RichWasm.compiler.memory.
 Require Import RichWasm.util.
 

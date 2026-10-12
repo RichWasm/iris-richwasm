@@ -4,7 +4,7 @@ From mathcomp Require Import ssrbool eqtype.
 
 Require Import iris.proofmode.proofmode.
 
-Require Import RichWasm.iris.language.lwp_resources.
+Require Import RichWasm.iris.language.lwp.lwp_resources.
 Require Import RichWasm.iris.language.cwp.def.
 Require Import RichWasm.iris.language.cwp.structural.
 Require Import RichWasm.iris.rules.iris_rules_resources.

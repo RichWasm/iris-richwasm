@@ -11,4 +11,11 @@
   -abstract-large-number
   -w
   -extraction-reserved-identifier)
- (theories RichWasm.iris.language))
+ (theories
+  RichWasm.iris.helpers
+  RichWasm.iris.instantiation
+  RichWasm.iris.language
+  RichWasm.iris.language.iris
+  RichWasm.iris.rules
+  RichWasm.opsem
+  RichWasm.wasm))

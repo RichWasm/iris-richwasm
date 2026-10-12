@@ -4,9 +4,9 @@ Require Import RichWasm.util.
 Require Import RichWasm.compiler.memory.
 Require Import RichWasm.compiler.prelude.
 Require Import RichWasm.compiler.codegen.
-Require Import RichWasm.iris.numerics.
+Require Import RichWasm.iris.language.numerics.
 Require Import RichWasm.iris.memory.
-Require Import RichWasm.iris.language.cwp.
+Require Import RichWasm.iris.language.cwp.cwp.
 Require Import RichWasm.iris.wp_codegen.
 Require Import RichWasm.syntax.
 From iris.proofmode Require Import base proofmode classes.

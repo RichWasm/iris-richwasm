@@ -1,4 +1,4 @@
-Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.common.
 Require Import RichWasm.iris.logrel.load_common.
 From RichWasm.iris.logrel Require Import case_ptr roots load_copy copy type_eq.
 

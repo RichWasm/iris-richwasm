@@ -4,7 +4,8 @@
  (flags :standard -w -ambiguous-paths -w -redundant-canonical-projection)
  (theories
   RichWasm
-  RichWasm.compiler
+  RichWasm.iris
+  RichWasm.iris.language.cwp
   RichWasm.iris.logrel
-  RichWasm.iris.language
-  RichWasm.iris.rules))
+  RichWasm.named_props
+  RichWasm.wasm))

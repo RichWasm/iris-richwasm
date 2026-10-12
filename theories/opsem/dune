@@ -9,4 +9,4 @@
   -notation-incompatible-prefix
   -w
   -notation-overridden)
- (theories RichWasm))
+ (theories RichWasm RichWasm.wasm))

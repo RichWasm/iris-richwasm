@@ -5,8 +5,8 @@ From RichWasm Require Import
 From RichWasm.compiler Require Import
   memory.
 From RichWasm.iris.logrel Require Import
-  instr.kinding
-  instr.typing.common.
+  kinding
+  common.
 
 Set Bullet Behavior "Strict Subproofs".
 (*Stuff to look at
