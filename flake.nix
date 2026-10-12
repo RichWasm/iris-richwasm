@@ -368,14 +368,19 @@
           inherit (pkgs.stdenv.hostPlatform) system;
 
         in
-        {
-          default = pkgs.mkShell {
+        rec {
+          build = pkgs.mkShell {
             packages = [
               rocq
               ocaml
               dune_3_23_1
             ]
-            ++ (with pkgs; [
+            ++ self.packages.${system}.${project}.passthru.devShellDeps;
+          };
+
+          default = pkgs.mkShell {
+            inputsFrom = [ build ];
+            packages = (with pkgs; [
               just
               nixd
               nil
@@ -393,8 +398,7 @@
               ocamlformat
               ocaml-lsp
               utop
-            ])
-            ++ self.packages.${system}.${project}.passthru.devShellDeps;
+            ]);
           };
         }
       );
