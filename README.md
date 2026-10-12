@@ -53,7 +53,7 @@ The last step installs dune (3.23+ is required) along with the Rocq and OCaml de
 
 ### Build
 
-Then you can build the project with `just build`, or directly with Dune:
+After installation, you can build the project with `just build`, or directly with Dune:
 
 ```sh
 dune build
