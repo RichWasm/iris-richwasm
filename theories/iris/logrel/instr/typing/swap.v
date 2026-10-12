@@ -613,7 +613,7 @@ Section swap.
       pose proof (wp_mem_load_move rti sr mr se _ _ _ _ _ _ _ _ _ _ Hcg_load) as Hload_spec.
       destruct Hload_spec as (-> & -> & -> & Hload_spec).
 
-      (* I think I can just go? *)
+      (* Case ptr spec *)
       iApply cwp_val_app; first done.
       unfold fvs_combine; clear_nils.
 
@@ -629,7 +629,6 @@ Section swap.
       iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w)
                  (concat (map arep_flags ιs))
                  (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". {
-        (* hm unsure how this will go *)
         rewrite Hιssz.
         unfold get_path_words.
         rewrite value_interp_eq.
@@ -639,7 +638,6 @@ Section swap.
         inversion Htemp; subst sκ.
         destruct Hyeah as (_ & Hrefflag).
         iEval (cbn) in "Htype".
-        (* I'm scared *)
         iDestruct "Htype" as "(%os & %Hserialized & Htype)".
         rewrite type_interp_eq.
         iEval (cbn -[type_skind pre_type_interp]) in "Htype".
@@ -787,7 +785,7 @@ Section swap.
         intros i idx vx hix hvx hsavedx.
         subst fr_load; cbn.
         rewrite mk_load_frame_stable_part; last first. {
-          (* this is lia action because of hix, idk how to exactly do it *)
+          (* this is lia action because of hix *)
           rewrite list_lookup_fmap in hix. cbn.
           cbn in hix.
           apply fmap_Some in hix.
@@ -989,7 +987,6 @@ Section swap.
         }
 
         iSplitL "Hframe". {
-          (* ugh I don't want to *)
           (* smthn like load_restore_frame but that one is too specific *)
           subst fr_load.
 
@@ -1079,22 +1076,6 @@ Section swap.
 
       (* another improtant thing soon is that lpall ℓ is true *)
       assert (Hlmask: lpall ℓ) by done.
-
-      (* we need that the original fs and ws satisfy layoutok *)
-      (* iAssert (⌜Forall2 word_has_flag fs ws⌝%I) with "[Hℓ_layout Hℓ_heap Hrt]" as "%Hfswsmatch". { *)
-      (*   open_rt "Hrt". *)
-      (*   iPoseProof (ghost_map_lookup with "[$Hlayout] [$Hℓ_layout]") as "%Hθlayout". *)
-      (*   iPoseProof (ghost_map_lookup with "[$Hheap] [$Hℓ_heap]") as "%Hθheap". *)
-      (*   iPureIntro. *)
-      (*   unfold layout_ok in Hlayoutok. *)
-      (*   unfold map_Forall2 in Hlayoutok. *)
-      (*   specialize (Hlayoutok ℓ). *)
-      (*   rewrite Hθlayout in Hlayoutok; rewrite Hθheap in Hlayoutok. *)
-
-      (*   inversion Hlayoutok; subst. *)
-      (*   specialize (H2 ltac:(auto)). *)
-      (*   done. *)
-      (* } *)
 
       (* some kinding facts *)
       iAssert (⌜Forall2 has_arep ιs os2 /\ has_areps ιs (SAtoms os2) /\
@@ -1343,7 +1324,6 @@ Section swap.
 
       pose proof (wp_root_to_heap sr _ _ _ _ _ _ _ Hcg_root) as Hrth_gc.
 
-      (* I think I can just go? *)
       iApply cwp_val_app; first done.
       unfold fvs_combine; clear_nils.
 
@@ -1423,7 +1403,6 @@ Section swap.
                  (concat (map arep_flags ιs))
                  (take (sum_list_with arep_size ιs) (drop off ws))⌝%I)
         with "[Htarget]" as "%Hhasflags". {
-        (* hm unsure how this will go *)
         rewrite Hιssz.
         unfold get_path_words.
         rewrite value_interp_eq.
@@ -1434,7 +1413,6 @@ Section swap.
         inversion Htemp; subst sκ.
         destruct Hyeah as (_ & Hrefflag).
         iEval (cbn) in "Htype".
-        (* I'm scared *)
         rewrite Hser.
         iDestruct "Htype" as "(%os & %Hserialized & Htype)".
         rewrite type_interp_eq.
@@ -1606,10 +1584,6 @@ Section swap.
       iApply cwp_val_app; first (by apply has_values_to_consts).
       unfold fvs_combine.
 
-      (* I'm going to do frame updating here SAVE *)
-
-      (* iPoseProof (atoms_interp_to_weak_memMM with "[$] [$Hvs2]") as "[Hrt Hvs2]". *)
-
       assert (Hfinst_fr'_frload: f_inst f'' = f_inst fr_load). {
         subst fr_load.
         rewrite Hf''.
@@ -1736,7 +1710,7 @@ Section swap.
             done.
           }
           done.
-          (* TODO make the above annoyances helper lemmas *)
+          (* todo make the above things helper lemmas *)
         }
         rewrite H0.
         (* step 2: word has flag *)
@@ -1875,7 +1849,6 @@ Section swap.
         }
 
         iSplitL "Hframe". {
-          (* ugh I don't want to *)
           (* smthn like load_restore_frame but that one is too specific *)
           subst fr_load.
           set (wl_start:= wl ++ wl_save ++ [instruction.W.T_i32] ++

@@ -365,7 +365,6 @@ Section store_strong.
       by constructor.
     }
 
-    (* I'm renaming a few things bc it's confusing *)
     rename os2 into os_τval.
     rename vs2 into vs_τval.
     rename ιs into ιs_τval.
@@ -612,7 +611,6 @@ Section store_strong.
     pose proof (wp_store_strong_mm rti sr _ _ _ _ _ _ _ _ _ _ _ Hstupidlen Hcg_store) as Hstore_spec.
     destruct Hstore_spec as (_ & -> & -> & Hstore_spec).
 
-    (* A cwp_val_app, which I'm confused why it's on the stack at all but oh well *)
     iApply cwp_val_app; first done.
     unfold fvs_combine.
 
@@ -728,8 +726,7 @@ Section store_strong.
           done.
         }
         iSpecialize ("Hcontinuation" with "[$Hnewsert]").
-        (* why do we have the old value_interp still... this feels deeply deeply odd odd *)
-        (* I have confirmed that this is okay *)
+        (* I have confirmed that it is okay that we still have the old val interp *)
         iAccu.
     }
 

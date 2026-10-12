@@ -661,7 +661,6 @@ Section store_weak.
 
 
         (* ws is likely coming from path_spec *)
-        (* I think ℓ might change? Wait I'm getting confused lol *)
         (* and os will be tied to ws *)
 
         (* let's try using the path spec *)
@@ -672,7 +671,6 @@ Section store_weak.
         iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w)
            (concat (map arep_flags ιs))
            (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". {
-          (* hm unsure how this will go *)
           rewrite Hιssz.
           unfold get_path_words.
           rewrite value_interp_eq.
@@ -682,7 +680,6 @@ Section store_weak.
           inversion Htemp; subst sκ.
           destruct Hyeah as (_ & Hrefflag).
           iEval (cbn) in "Htype".
-          (* I'm scared *)
           iDestruct "Htype" as "(%os & %Hserialized & Htype)".
           rewrite type_interp_eq.
           iEval (cbn -[type_skind pre_type_interp]) in "Htype".
@@ -1102,7 +1099,6 @@ Section store_weak.
 
       (* Reestablish ptr_local length *)
       assert (Hptrlocalfrsaved: ptr_local < length (f_locs fr_saved)). {
-        (* If this isn't true this is weird, but seems hardish to prove *)
         subst ptr_local.
         simpl.
         eapply Nat.lt_le_trans; last done.
@@ -1275,7 +1271,7 @@ Section store_weak.
       destruct Hstore_spec as (_ & -> & -> & Hstore_spec).
 
       (* Now we can cwp_seq and use the spec *)
-      (* NOTE: HERE IS WHERE THE STORE SCOPE BEGINS TODO *)
+      (* NOTE: HERE IS WHERE THE STORE SCOPE BEGINS  *)
       iApply (cwp_seq with "[-]").
       {
         iApply (Hcaseptr_spec with "[$] [$] [] [-]").
@@ -1372,8 +1368,6 @@ Section store_weak.
           apply list_insert_insert_eq.
         }
 
-        (* need to reestablish frame_interp TODO *)
-
         (* do some frame interp updating *)
         clear_nils.
         iEval (rewrite app_assoc) in "Hframe".
@@ -1423,12 +1417,9 @@ Section store_weak.
 
         rewrite <- H6 in Hah32.
 
-        (* hm I would *really* like Htarget to not have a later *)
-
         iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w)
            (concat (map arep_flags ιs))
            (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". {
-          (* hm unsure how this will go *)
 
           rewrite Hιssz.
           unfold get_path_words.
@@ -1440,7 +1431,6 @@ Section store_weak.
           inversion Htemp; subst sκ.
           destruct Hyeah as (_ & Hrefflag).
           iEval (cbn) in "Htype".
-          (* I'm scared *)
           rewrite !Hser.
           iDestruct "Htype" as "(%os & %Hserialized & Htype)".
           rewrite type_interp_eq.
@@ -1586,7 +1576,6 @@ Section store_weak.
       iDestruct "rest" as "(Hframe & Hℓ_layout & Hclose & Htarget_OLD & rest )".
       iDestruct "rest" as "(Hℓ_heap & Hown & Hrt & Hvalτ)".
       rewrite <- Hfr_store.
-      (* TODO: apply pointer flags spec, reestablish frame_rel and value_interp. *)
 
             (* in order to use the pointer flags spec, we need to intentionally weaken the rttoken *)
       (* in store strong, the store lemma will weak it for us *)
@@ -1785,11 +1774,9 @@ Section store_weak.
       }
       iSpecialize ("Hclose" with "[$]").
       iMod "Hclose". iModIntro.
-      (* wait it ate my value interp completely????? Huh????? *)
 
       (* need frame interp for iFrame *)
       iFrame.
-      (* well.. let's try reestablishing stuff now then I guess *)
       iSplitR.
       - iPureIntro.
         unfold lmask.
@@ -1830,7 +1817,7 @@ Section store_weak.
           iSplitR; [done|].
           iSplitR.
           * iPureIntro.
-            done. (* note: this won't be as clean in the GC case I think *)
+            done.
           * iExists ℓ, fs.
             iFrame "#".
             done.

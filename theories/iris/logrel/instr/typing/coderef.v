@@ -63,12 +63,6 @@ Section coderef.
       (%i_off & %off & #HTableEntryInterp & %HInstGlobs & #HWGInvariant))".
 
     (* this is necessary for a post condition later *)
-      (* okay so if I don't have the True there, temp has type iProp Σ
-         however, I need temp to have type iPropI Σ. ∗ True forces
-         it to be iPropI Σ.
-         now, I don't get why this works. And this is a bit ugly. But
-         it's hopefully harmless and hopefully one day made better
-       *)
     set (temp := (N.of_nat i_off ↦[wg] {| W.g_mut := MUT_mut; W.g_val := VAL_int32 (Wasm_int.int_of_Z i32m off) |} ∗ True)%I).
 
     (* Opening the invariant before the seq *)
@@ -92,12 +86,6 @@ Section coderef.
         by apply/eqP.
       }
 
-      (* okay so if I don't have the True there, temp has type iProp Σ
-         however, I need temp to have type iPropI Σ. ∗ True forces
-         it to be iPropI Σ.
-         now, I don't get why this works. And this is a bit ugly. But
-         it's hopefully harmless and hopefully one day made better
-       *)
       unfold fvs_combine.
       instantiate (1 :=
         (λ f' vs', (⌜f'=fr⌝ ∗
@@ -116,7 +104,6 @@ Section coderef.
            5. frame resource (framed out)
            6. run resource (framed out)
            so only 3 goals will show up
-           I have a guess to the post condition rn
          *)
         iApply (cwp_global_get with "[$Hwg] [] [$Hfr] [$Hrun]").
         - by apply HInstGlobs.
@@ -151,7 +138,6 @@ Section coderef.
     iSplitR; auto.
     unfold τ.
 
-    (* hm. I'm a bit suspicious. Might be okay? *)
     iExists [I32A _].
     iSplitR; last first.
     - iEval (cbn).
@@ -174,8 +160,6 @@ Section coderef.
         iPoseProof ((big_sepL_lookup _ _ _ _ Htable) with "HTableEntryInterp")
           as "Hϕ".
         iEval (unfold table_entry_interp) in "Hϕ".
-        (* TODO I think table_entry_interp needs a clause about off+i less than 2^32 *)
-        (* or some sort of repr thing for N.of_nat (off + i) *)
         iDestruct "Hϕ" as "(%i' & %cl & %nt & %zt &
           %Hnt & %Hzt & %Hztsmall & #Hclosure & #Hwt & #Hwf)".
 

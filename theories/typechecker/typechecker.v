@@ -14,6 +14,8 @@ Set Bullet Behavior "Strict Subproofs".
 Ltac clear_nils :=
     repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
 
+(* NOTE: in the future, more errors can be added to make better error messages. These were the
+ ones we needed when debugging/testing. *)
 Inductive type_error :=
 | NormalError: string -> type_error
 | FrameError: string -> instruction_type -> instruction_type -> type_error
@@ -145,24 +147,6 @@ Ltac structural_auto :=
 
 
 (** BOOLEAN EQUALITIES **)
-(*
-Scheme Equality for copyability.
-Scheme Equality for dropability.*)
-
-(*
-Lemma copyability_eq_convert :
-  ∀ c1 c2, copyability_beq c1 c2 = true <-> c1 = c2.
-Proof.
-  split; intros;
-    [by apply internal_copyability_dec_bl in H | by apply internal_copyability_dec_lb in H].
-Qed.
-Lemma dropability_eq_convert :
-  ∀ d1 d2, dropability_beq d1 d2 = true <-> d1 = d2.
-Proof.
-  split; intros;
-   [by apply internal_dropability_dec_bl in H | by apply internal_dropability_dec_lb in H].
-Qed.
-*)
 Lemma num_instruction_eq_convert :
   ∀ n1 n2, num_instruction_beq n1 n2 = true <-> n1 = n2.
 Proof.
@@ -435,7 +419,7 @@ Proof.
     [by apply internal_memory_dec_bl in H | by apply internal_memory_dec_lb in H].
 Qed.
 
-(* I'm bad at everything so monomorphic *)
+(* Monomorphize the lemmas just for ease *)
 Lemma list_eq_convert_type :
   ∀ τs1 τs2, list_beq type type_beq τs1 τs2 = true <-> τs1 = τs2.
 Proof.
@@ -1345,70 +1329,6 @@ Definition grab_kind (F:function_ctx) (t:type) : option kind :=
   type_kind (F.(fc_type_vars)) t.
 
 
-
-(* A thing that helps with subkinding *)
-
-(* OBSOLETE *)
-(* Definition check_if_subkind (k1:kind) (k2:kind) : type_checker_res := *)
-(*   match k1, k2 with *)
-(*   | VALTYPE ρ1 ξ1, VALTYPE ρ2 ξ2 => *)
-(*       if representation_beq ρ1 ρ2 *)
-(*       then *)
-(*         match ξ1, ξ2 with *)
-(*         | NoRefs, _ *)
-(*         | GCRefs, GCRefs *)
-(*         | GCRefs, AnyRefs *)
-(*         | AnyRefs, AnyRefs => ok_term *)
-(*         | GCRefs, NoRefs => INR "not subkind (gc no)" *)
-(*         | AnyRefs, NoRefs => INR "not subkind (any no)" *)
-(*         | AnyRefs, GCRefs => INR "not subkind (any gc)" *)
-(*         end *)
-(*       else INR "mismatch in representation for subkinds" *)
-(*   | MEMTYPE σ1 ξ1, MEMTYPE σ2 ξ2 => *)
-(*       if size_beq σ1 σ2 *)
-(*       then *)
-(*         match ξ1, ξ2 with *)
-(*         | NoRefs, _ *)
-(*         | GCRefs, GCRefs *)
-(*         | GCRefs, AnyRefs *)
-(*         | AnyRefs, AnyRefs => ok_term *)
-(*         | GCRefs, NoRefs => INR "not subkind (gc no)" *)
-(*         | AnyRefs, NoRefs => INR "not subkind (any no)" *)
-(*         | AnyRefs, GCRefs => INR "not subkind (any gc)" *)
-(*         end *)
-(*       else INR "mismatch in sizity for subkinds" *)
-(*   | _, _ => INR "mismatch in general kind for subkind" *)
-(*   end. *)
-
-(* Lemma check_if_subkind_works_with_has_kind : *)
-(*   ∀ F τ k1 k2, *)
-(*     check_if_subkind k1 k2 = ok_term -> *)
-(*     has_kind F τ k1 -> *)
-(*     has_kind F τ k2. *)
-(* Proof. *)
-(*   Ltac local_auto := eapply KSub; try constructor; auto. *)
-
-(*   intros. *)
-(*   destruct k1, k2; simpl in H; repeat my_auto2; subst; auto; try (inversion H). *)
-(*   - destruct r2; auto; local_auto. *)
-(*     + by instantiate (1 := NoRefs). *)
-(*     + done. *)
-(*     + by instantiate (1 := NoRefs). *)
-(*     + done. *)
-(*   - local_auto. *)
-(*     + by instantiate (1 := GCRefs). *)
-(*     + done. *)
-(*   - destruct r0; auto; local_auto. *)
-(*     + by instantiate (1 := NoRefs). *)
-(*     + done. *)
-(*     + by instantiate (1 := NoRefs). *)
-(*     + done. *)
-(*   - local_auto. *)
-(*     + by instantiate (1 := GCRefs). *)
-(*     + done. *)
-(* Qed. *)
-
-
 (* foldr2 does not check for equal list length *)
 Fixpoint foldr2 {A B C : Type} (f : B → C → A → A) (a0 : A)
   (lB : list B) (lC : list C) :=
@@ -2286,20 +2206,6 @@ Proof.
   exists s, s0. split; auto.
 Qed.
 
-(*
-Definition grab_copyability F τ : option copyability :=
-  match grab_kind F τ with
-  | Some (VALTYPE _ χ _) => Some χ
-  | _ => None
-  end.
-
-Definition grab_dropability F τ : option dropability :=
-  match grab_kind F τ with
-  | Some (VALTYPE _ _ δ) => Some δ
-  | Some (MEMTYPE _ δ) => Some δ
-  | None => None
-  end.
-*)
 Definition grab_ref_flag F τ : option ref_flag :=
   match grab_kind F τ with
   | Some (VALTYPE _ ξ)
@@ -2307,39 +2213,6 @@ Definition grab_ref_flag F τ : option ref_flag :=
   | None => None
   end.
 
-(*
-Definition has_copyability_checker F τ χ : type_checker_res :=
-  match grab_rep F τ with
-  | Some ρ => has_kind_checker F τ (VALTYPE ρ χ ImDrop)
-  | None => INR "not valtype"
-  end.
-Lemma has_copyability_checker_correct :
-  ∀ F τ χ, has_copyability_checker F τ χ = ok_term -> has_copyability F τ χ.
-Proof.
-  intros; unfold has_copyability_checker in *.
-  repeat my_auto3.
-  apply has_kind_checker_correct in H.
-  apply (CopyVALTYPE _ _ r _ ImDrop); auto.
-Qed.
-
-Definition has_dropability_checker F τ δ : type_checker_res :=
-  match grab_kind F τ with
-  | Some κ =>
-      match κ with
-      | VALTYPE ρ _ _ => has_kind_checker F τ (VALTYPE ρ ImCopy δ)
-      | MEMTYPE σ _ => has_kind_checker F τ (MEMTYPE σ δ)
-      end
-  | None => INR "bad kind"
-  end.
-
-Lemma has_dropability_checker_correct :
-  ∀ F τ δ, has_dropability_checker F τ δ = ok_term -> has_dropability F τ δ.
-Proof.
-  unfold has_dropability_checker; intros. repeat my_auto3; apply has_kind_checker_correct in H.
-  - by apply (DropVALTYPE _ _ r ImCopy _).
-  - by apply (DropMEMTYPE _ _ s _).
-Qed.
-*)
 Definition has_ref_flag_checker F τ ξ : type_checker_res :=
   match has_kind_synther F τ with
   | inl κ =>
@@ -2910,7 +2783,6 @@ Proof.
       rewrite Stupid. auto.
 Qed.
 
-(* TODO: there was an update in resolves path that let's κ and κ' vary. Gotta understand and fix it *)
 Fixpoint resolves_path_checker
   (τ:type) (p:path) (oτ:option type) (pr':path_result) : type_checker_res :=
   match p with
@@ -3784,7 +3656,6 @@ Proof.
   }
   - repeat my_auto4; subst; try by inversion H.
     clear H1 H2 H3.
-    (* todo, add refreshing into mem stuff *)
     constructor; auto.
     by apply refresh_kinds_connect_has_kind_maybe.
   - repeat my_auto4; try inversion H.
@@ -4174,9 +4045,6 @@ with traverse_function_type_find_rep ϕ1 ϕ2 : option representation :=
   | _, _ => None
   end.
 
-(* TODO man I should do some sort of proof about these find reps but oh well *)
-
-(* Technically.... done? *)
 Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_checker_res :=
   match τ2 with
   | ExistsMemT κ' τ' =>
@@ -4632,13 +4500,6 @@ Proof.
     + right; right. by apply type_eq_convert.
 Qed.
 
-
-
-
-(*Definition get_instruction_type_arity (ψ:instruction_type) : nat * nat :=
-  match ψ with
-  | InstrT τs1 τs2 => (Init.Datatypes.length τs1, Init.Datatypes.length τs2)
-  end.*)
 
 (* inl means no error. None just means can't synth (uncreachable,
    break, return). inr means error in synthesizing (possible in
@@ -5258,7 +5119,7 @@ Fixpoint has_instruction_type_checker
         | _ => INR "incorrect instruction type for pack"
         end
       else INR "incorrect instruction type for pack"
-  | IUnpack ψ_inner L_inner es => (* SAVE *)
+  | IUnpack ψ_inner L_inner es =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L_inner L')
       then
         match ψ with
@@ -5266,7 +5127,6 @@ Fixpoint has_instruction_type_checker
             let F' := F <| fc_labels ::= cons (τs2, L') |> in
             match unpacked_existential_getter F' L ψ L' with
             | Some (F0', L0, ψ0, L0') =>
-                (* ISSUE RIGHT HERE: the es should be es0 TODO but bad fixpoint  *)
                 match have_instruction_type_checker M F0' L0 es ψ0 L0' with
                 | inl () => has_instruction_type_ok_checker M F ψ L'
                 | err => err
@@ -5491,7 +5351,6 @@ Fixpoint has_instruction_type_checker
   end.
 
 
-(* TODO at the end make sure this is a direct copy of above *)
 Fixpoint have_instruction_type_checker
     (M:module_ctx) (F:function_ctx) (L:local_ctx)
     (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
@@ -5838,7 +5697,7 @@ Ltac my_auto5 :=
   | H: (unpacked_existential_checker _ _ _ _ _ _ _ _ = ok_term) |- _ => apply unpacked_existential_checker_correct in H; auto
   | H: (unpacked_existential_getter _ _ _ _ = Some (_, _, _, _)) |- _ => apply unpacked_existential_getter_correct in H; auto
 end.
-(* Great. Now through tactics. Let's think *)
+(* Great. Now through tactics *)
 Lemma test_foldr2 F l2 :
   foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true l2 = true ->
   Forall (fun τ => has_ref_flag F τ NoRefs) l2.
@@ -6192,7 +6051,7 @@ Proof.
       eapply TStoreStrong; try done.
       1: econstructor; done.
       assert (exists κ, has_kind F t0 κ) as [κ Ht0]. {
-        (* this is basically quarantine hell using has_instruction_type_ok *)
+        (* this is basically kinding quarantine using has_instruction_type_ok *)
         clear - H0.
         inversion H0.
         inversion H.

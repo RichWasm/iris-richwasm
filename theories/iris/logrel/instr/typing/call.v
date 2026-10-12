@@ -84,51 +84,6 @@ Section call.
     econstructor; done.
   Qed.
 
-  (* should be true, but requires an actual fully fleged subsitution lemma most likely *)
-  (* but for has_kind which. not now. *)
-  (* base case is fine though *)
-  (* Lemma has_kind_ft_from_insts_and_ok M F ixs ϕ τs1 τs2 L : *)
-  (*   function_type_insts F ixs ϕ (InnerFunT (MonoFunT τs1 τs2)) -> *)
-  (*   has_instruction_type_ok M F (InstrT τs1 τs2) L -> *)
-  (*   has_kind_ft F ϕ. *)
-  (* Proof. *)
-  (*   remember (InnerFunT (MonoFunT τs1 τs2)) as ϕ'. *)
-  (*   intros Hfinst. *)
-  (*   induction Hfinst; intros Hok. *)
-  (*   - subst. *)
-  (*     constructor. *)
-  (*     inversion Hok; subst. *)
-  (*     inversion H; subst. *)
-  (*     unfold has_mono_rep in *. *)
-  (*     assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs1). { *)
-  (*       apply Forall_lookup_2. *)
-  (*       intros i τ Hiτ. *)
-  (*       pose proof (Forall_lookup_1 _ _ _ _ H1 Hiτ). *)
-  (*       cbn in H3. *)
-  (*       destruct H3 as (ρ & hrep & hmono). *)
-  (*       inversion hrep; subst. *)
-  (*       eexists; done. *)
-  (*     } *)
-  (*     apply Forall_exists_Forall2_l in H3. *)
-  (*     destruct H3 as (κs1 & Hτs1). clear H1. *)
-  (*     assert (Forall (λ τ, ∃ κ, has_kind F τ κ) τs2). { *)
-  (*       apply Forall_lookup_2. *)
-  (*       intros i τ Hiτ. *)
-  (*       pose proof (Forall_lookup_1 _ _ _ _ H2 Hiτ). *)
-  (*       cbn in H1. *)
-  (*       destruct H1 as (ρ & hrep & hmono). *)
-  (*       inversion hrep; subst. *)
-  (*       eexists; done. *)
-  (*     } *)
-  (*     apply Forall_exists_Forall2_l in H1. *)
-  (*     destruct H1 as (κs2 & Hτs2). clear H2. *)
-  (*     econstructor; done. *)
-  (*   - subst ϕ''. *)
-  (*     specialize (IHHfinst eq_refl Hok). *)
-  (*     rename IHHfinst into Hkind_ϕ'. *)
-  (*     by apply (has_kind_ft_through_inst_backwards F ϕ ϕ' ix H). *)
-  (* Qed. *)
-
   Lemma compat_call M F L wt wt' wtf wl wl' wlf es' i ixs ϕ τs1 τs2 :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -143,8 +98,6 @@ Section call.
   Proof.
     intros fe WT WL lmas ψ Hϕ Hfuntype Hok Hcg.
     cbn in Hcg; inversion Hcg; subst; clear Hcg.
-
-
 
     iIntros (???????? Hse Hevs) "@@@@@@@@@@".
     (** So, first portion: dig into instance interp as much as possible **)
@@ -205,7 +158,7 @@ Section call.
     - iModIntro.
       iIntros "Hfr Hrun nsfun1".
 
-      (* idk if we need to close it now or not but we can lol *)
+      (* idk if we need to close it now or not but we can *)
       iApply fupd_cwp.
       iMod ("Hclose1" with "[$Hown $nsfun1]") as "Hown".
       iModIntro.
