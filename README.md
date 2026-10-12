@@ -161,9 +161,9 @@ This overview will focus on the most important files and folders, as it relates 
 `theories/compiler`: the RichWasm to Wasm compiler.
 
 ### Model
-`theories/iris/logrel.v`: the main logical relation. Line 1033 for type and closure interpretation. Line 1299 for instruction logical relation. Line 1379 for the module interpretation.
+`theories/iris/logrel.v`: the main logical relation. `type_interp` and `closure_interp` for type and closure interpretation. `have_instr_type_sem` for instruction logical relation. `module_interp` for the module interpretation.
 
-`theories/iris/memory.v`: memory model. Line 215 for the run time token.
+`theories/iris/memory.v`: memory model. `rt_token` for the run time token.
 
 `theories/iris/runtime.v`: runtime specifications
 
