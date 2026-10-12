@@ -4,7 +4,7 @@ This is a formalization of RichWasm in Iris based on Iris-Wasm.
 
 ## Setup (Kick-the-tires)
 
-This is a Rocq and OCaml hybrid workspace managed by dune. There are several options for working with the codebase:
+This is a Rocq and OCaml hybrid workspace managed by dune. There are several options for installing the codebase:
 1. Docker image
 2. VM image
 3. Nix
@@ -51,7 +51,7 @@ opam install --deps-only .
 The last step installs dune (3.23+ is required) along with the Rocq and OCaml dependencies; OCaml 4.14 is required by some of them.
 
 
-#### Build
+### Build
 
 Then you can build the project with `just build`, or directly with Dune:
 
@@ -84,7 +84,7 @@ Eqdep.Eq_rect_eq.eq_rect_eq :
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
 ```
 
-#### Tests
+### Tests
 
 Run both unit tests and end to end tests with `just test`, or:
 
