@@ -259,7 +259,7 @@ Proof.
   by apply reflect_iff.
 Qed.
 
-Fixpoint kind_beq (k1:kind) (k2:kind) : bool :=
+Definition kind_beq (k1:kind) (k2:kind) : bool :=
   match k1, k2 with
   | VALTYPE r1 ξ1, VALTYPE r2 ξ2 =>
       andb (representation_beq r1 r2) (ref_flag_beq ξ1 ξ2)
