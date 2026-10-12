@@ -161,12 +161,12 @@ This overview will focus on the most important files and folders, as it relates 
 
 `theories/typing.v`: the type system.
 
-`theories/typechecker/typechecker.v`: typechecker, not fully verified.
+`theories/typechecker/typechecker.v`: typechecker.
 
 `theories/compiler`: the RichWasm to Wasm compiler.
 
 ### Model
-`theories/iris/logrel.v`: the main logical relation. Line 1031 for type and closure interpretation. Line 1297 for instruction logical relation. Line 1377 for the module interpretation.
+`theories/iris/logrel.v`: the main logical relation. Line 1033 for type and closure interpretation. Line 1299 for instruction logical relation. Line 1379 for the module interpretation.
 
 `theories/iris/memory.v`: memory model. Line 215 for the run time token.
 
@@ -177,7 +177,7 @@ This overview will focus on the most important files and folders, as it relates 
 ### FTLR
 `theories/iris/logrel/instr/typing.v`: statement of theorem 5.1
 
-`theories/iris/logrel/instr/typing folder`: proofs of ABI compliance for each RichWasm instruction, supported by helper files in `theories/iris/logrel/instr folder`.
+`theories/iris/logrel/instr/typing folder`: proofs of ABI compliance for each RichWasm instruction, supported by helper files in the `theories/iris/logrel/instr` folder.
 
 ### Examples
 `src` contains our case study compilers, and `tests` test case study + RichWasm compilers all together. `tests/e2e/main.ml` has the glue code and linking type examples.
