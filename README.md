@@ -107,6 +107,11 @@ The web demo runs these examples in the browser. For each module it shows the Ri
 `web/build.sh` builds the demo into `web/dist` from `nix develop` or the Docker image. It fetches its JavaScript dependencies with npm, so it needs network access. Serve `web/dist` over HTTP, for example with `python3 -m http.server -d web/dist`, and open http://localhost:8000. From a `file://` page, Chrome won't start the demo's workers. The demo needs Chrome 120+ or Firefox 125+ for WebAssembly multi-memory. At the time of writing, the latest Safari doesn't have it, though Safari Technology Preview 250+ does.
 
 ## Differences between paper and mechanization
+The paper provided to artifact reviewers is the initial submission, so some differences will not be present in the final paper, and some will remain.
+### Changes that will be incorporated into the final paper
+- The mechanization section in the initial submission mentions some parts of the mechanization that are not complete. In the time since submitting, everything has been finished.
+- `caseloadmove` and `caseloadcopy` have merged into one instruction, `caseload`.
+### Changes that will remain
 - Kinds are baked into the type syntax to allow the compiler access to them. These kinds are defined to be the most specific kinds, with subkinding allowed only in specific locations. Instruction types are also baked into instruction syntax.
 - Function types: in the paper, a function type is `forall a*.xi`, where a* can be a list of quantifiers in any order. The mechanized syntax differs by ensuring that all `t:kappa` quantifiers are inner-most by stratifying functions types into `function_type` and `inner_function_type`. This was done to simplify flatenning and indexing (as type quantifiers can rely on previously declared variables).
 - The live memory resource is named the "runtime token" and is appreviated `RT`.
@@ -142,11 +147,4 @@ This overview will focus on the most important files and folders, as it relates 
 `src` contains our case study compilers, and `tests` test case study + RichWasm compilers all together. `tests/e2e/main.ml` has the glue code and linking type examples.
 
 `theories/examples`: the two proofs of linking with external Wasm.
-
-## Our Admits
-Aside from some instruction cases being admitted, we have the following admits:
-- `theories/kinding_subst.v`: lemmas about kinding remaining true through a substitution, modulo the kind getting more specific
-- `theories/iris/logrel/substitution.v`: lemmas related to the type interpretation remaining true through a substitution. Some pertinent cases were verified.
-- `theories/iris/logrel/logrel_properties`: closure interpretation in an empty semantic environment implies closure interpretation in any semantic environment
-- `theories/iris/logrel/function.v`: helper lemmas, mostly about representations
 
