@@ -59,7 +59,7 @@ Then you can build the project with `just build`, or directly with Dune:
 dune build
 ```
 
-This includes all the Rocq proofs, so this may take a while. The build process will have warnings regarding notations already being used in scope `subst_scope` and, which are expected and can be ignored. We have included a `Print Assumptions` command in `theories/iris/logrel/instr/typing.v` for `Theorem fundamental_typing`. The expected output for this command is the following:
+This includes all the Rocq proofs, so this may take a while. The build process will have warnings regarding notations already being used in scope `subst_scope` and an opacity warning, which are expected and can be ignored. We have included a `Print Assumptions` command in `theories/iris/logrel/instr/typing.v` for `Theorem fundamental_typing`. The expected output for this command is the following:
 
 ```
 Section Variables:
