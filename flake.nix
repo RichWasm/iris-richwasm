@@ -194,6 +194,49 @@
 
             passthru.devShellDeps = iris-richwasm-build.passthru.devShellDeps;
           };
+
+          docker =
+            let
+              shell = pkgs.dockerTools.streamNixShellImage {
+                name = project;
+                tag = "latest";
+                drv = pkgs.mkShell {
+                  name = project;
+                  inputsFrom = [ self.devShells.${system}.default ];
+                  packages = with pkgs; [
+                    less
+                    neovim
+                    emacs-nox
+                    nano
+                    git
+                    which
+                    procps
+                    python3
+                  ];
+                  shellHook = ''
+                    if [ ! -d ~/iris-richwasm ]; then
+                      cp -r ${self} ~/iris-richwasm
+                      chmod -R u+w ~/iris-richwasm
+                    fi
+                    cd ~/iris-richwasm
+                  '';
+                };
+              };
+              # HACK: streamNixShellImage has no /tmp, https://github.com/NixOS/nixpkgs/issues/257172
+              rootLayer = pkgs.runCommand "${project}-root-layer" { nativeBuildInputs = [ pkgs.jq ]; } ''
+                mkdir -p $out root/tmp
+                chmod 1777 root/tmp
+                install -m 644 "$(jq -r .customisation_layer ${shell.conf})/layer.tar" $out/layer.tar
+                tar -rf $out/layer.tar -C root --owner=0 --group=0 --mtime="@$SOURCE_DATE_EPOCH" ./tmp
+                sha256sum $out/layer.tar | cut -d ' ' -f 1 > $out/checksum
+              '';
+              conf = pkgs.runCommand "${project}-conf.json" { nativeBuildInputs = [ pkgs.jq ]; } ''
+                jq --arg layer ${rootLayer} '.customisation_layer = $layer' ${shell.conf} > $out
+              '';
+            in
+            pkgs.runCommand "${project}.tar.gz" { nativeBuildInputs = [ pkgs.pigz ]; } ''
+              ${shell.streamScript} ${conf} | pigz -p$NIX_BUILD_CORES -nTR > $out
+            '';
         }
       );
 

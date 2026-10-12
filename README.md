@@ -29,6 +29,18 @@ opam install --deps-only .
 
 The last step installs dune (3.23+ is required) along with the Rocq and OCaml dependencies; OCaml 4.14 is required by some of them.
 
+### Docker
+
+The flake also builds a Docker image of the `nix develop` shell with a copy of this repository. Build and start it with these commands, using `aarch64-linux` on ARM:
+
+```sh
+nix build .#packages.x86_64-linux.docker
+docker load < result
+docker run -it --name richwasm -p 8000:8000 iris-richwasm
+```
+
+The shell starts in `~/iris-richwasm` with everything `nix develop` provides, so the commands below work there. The image adds neovim, emacs, nano, git, and python3. `-p 8000:8000` lets your browser reach the web demo's server (see Web demo). After you exit, `docker start -ai richwasm` gets back into the same container.
+
 ## Usage
 
 ### Build
@@ -90,7 +102,9 @@ Each example's `expected` file holds its output, and `dune test` checks them all
 
 ### Web demo
 
-`web/build.sh` (in the dev shell) builds the browser demo into `web/dist`. Serve it over HTTP, e.g. `python3 -m http.server -d web/dist`; Chrome won't load its workers from `file://`. It needs Wasm multi-memory: Chrome 120+ or Firefox 125+, not Safari.
+The web demo runs these examples in the browser. For each module it shows the RichWasm, the elaborated RichWasm, and the Wasm that its source compiles to. The Run button links the modules and prints the program's output next to `expected`. You can edit any file or add new ones.
+
+`web/build.sh` builds the demo into `web/dist` from `nix develop` or the Docker image. It fetches its JavaScript dependencies with npm, so it needs network access. Serve `web/dist` over HTTP, for example with `python3 -m http.server -d web/dist`, and open http://localhost:8000. From a `file://` page, Chrome won't start the demo's workers. The demo needs Chrome 120+ or Firefox 125+ for WebAssembly multi-memory. At the time of writing, the latest Safari doesn't have it, though Safari Technology Preview 250+ does.
 
 ## Differences between paper and mechanization
 - Kinds are baked into the type syntax to allow the compiler access to them. These kinds are defined to be the most specific kinds, with subkinding allowed only in specific locations. Instruction types are also baked into instruction syntax.
