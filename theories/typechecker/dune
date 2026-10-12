@@ -2,4 +2,4 @@
  (name RichWasm.typechecker)
  (package iris-richwasm)
  (flags :standard -w -ambiguous-paths)
- (theories RichWasm))
+ (theories RichWasm RichWasm.iris.logrel RichWasm.wasm))

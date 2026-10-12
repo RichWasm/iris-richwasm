@@ -6,7 +6,7 @@ From iris.proofmode Require Import base classes proofmode.
 
 From RichWasm.named_props Require Import named_props custom_syntax.
 Require Import RichWasm.wasm.datatypes.
-From RichWasm.iris Require Import language.cwp logrel memory runtime util.
+From RichWasm.iris Require Import language.cwp.cwp logrel memory runtime util.
 Require Import RichWasm.syntax.
 Require Import RichWasm.iris.logrel.logrel_properties.
 

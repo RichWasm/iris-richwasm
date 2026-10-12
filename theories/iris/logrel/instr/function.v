@@ -9,7 +9,7 @@ From RichWasm.iris Require Import logrel.instr.typing.
 From RichWasm.iris Require Import logrel.env_props.
 From RichWasm.iris Require Import logrel.instr.typing.inst.
 From RichWasm.iris Require Import logrel.logrel_properties.
-From RichWasm.iris Require Import language.cwp.
+From RichWasm.iris Require Import language.cwp.cwp.
 
 Module W := RichWasm.wasm.datatypes.
 

@@ -7,7 +7,7 @@ From mathcomp Require Import ssrfun ssrbool eqtype.
 Require Import RichWasm.wasm.common.
 
 From RichWasm Require Import layout syntax typing util.
-From RichWasm.iris.logrel.instr Require Import kinding.
+From RichWasm.iris.logrel Require Import kinding.
 Set Bullet Behavior "Strict Subproofs".
 
 

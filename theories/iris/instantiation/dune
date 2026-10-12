@@ -12,7 +12,9 @@
   -w
   -extraction-reserved-identifier)
  (theories
-  RichWasm.iris.language
+  RichWasm
   RichWasm.iris.helpers
+  RichWasm.iris.language
+  RichWasm.iris.language.iris
   RichWasm.iris.rules
-  RichWasm))
+  RichWasm.wasm))

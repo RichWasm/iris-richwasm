@@ -1,4 +1,4 @@
-Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.common.
 From mathcomp Require Import ssrbool eqtype.
 
 Set Bullet Behavior "Strict Subproofs".

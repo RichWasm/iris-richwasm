@@ -1,4 +1,4 @@
-Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.common.
 Require Import RichWasm.iris.logrel.store_common.
 
 Set Bullet Behavior "Strict Subproofs".

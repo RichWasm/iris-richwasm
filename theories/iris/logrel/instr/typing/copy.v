@@ -1,4 +1,4 @@
-Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.common.
 Require Import RichWasm.iris.logrel.copy.
 Require Import RichWasm.iris.logrel.logrel_properties.
 Require Import RichWasm.iris.logrel.map_gc_ptr.

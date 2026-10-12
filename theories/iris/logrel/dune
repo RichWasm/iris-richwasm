@@ -2,4 +2,12 @@
  (name RichWasm.iris.logrel)
  (package iris-richwasm)
  (flags :standard -w -ambiguous-paths -w -redundant-canonical-projection)
- (theories RichWasm.compiler))
+ (theories
+  RichWasm
+  RichWasm.compiler
+  RichWasm.iris
+  RichWasm.iris.language
+  RichWasm.iris.language.cwp
+  RichWasm.iris.language.lwp
+  RichWasm.named_props
+  RichWasm.wasm))

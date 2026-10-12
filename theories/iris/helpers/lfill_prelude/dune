@@ -11,4 +11,4 @@
   -abstract-large-number
   -w
   -extraction-reserved-identifier)
- (theories RichWasm))
+ (theories RichWasm RichWasm.opsem RichWasm.wasm))

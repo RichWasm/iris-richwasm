@@ -1,7 +1,7 @@
 Require Import iris.proofmode.proofmode.
 
 From RichWasm.iris.language Require Import iris_wp_def lwp_pure.
-Require Import RichWasm.iris.numerics.
+Require Import RichWasm.iris.language.numerics.
 Require Import RichWasm.iris.language.cwp.def.
 Require Import RichWasm.iris.rules.iris_rules_pure.
 

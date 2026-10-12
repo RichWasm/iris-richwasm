@@ -10,7 +10,7 @@ From RichWasm.named_props Require Export named_props custom_syntax.
 From RichWasm Require Export layout syntax typing util.
 From RichWasm.compiler Require Export prelude codegen instruction module.
 From RichWasm.iris Require Export autowp memory logrel util.
-Require Export RichWasm.iris.logrel.instr.kinding.
+Require Export RichWasm.iris.logrel.kinding.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".

@@ -1,4 +1,4 @@
-Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.common.
 Require Import RichWasm.iris.logrel.substitution. (* TODO: import proper subst file when created *)
 Require Import RichWasm.iris.logrel.env_props.
 Require Import RichWasm.kinding_subst.
