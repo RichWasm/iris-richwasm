@@ -10,10 +10,6 @@ This is a Rocq and OCaml hybrid workspace managed by the dune build system. Ther
 3. Nix
 4. Installing from scratch
 
-### 1. Docker
-
-### 2. VM image
-
 ### 3. Nix
 The flake also builds a Docker image of the `nix develop` shell with a copy of this repository. Build and start it with these commands, using `aarch64-linux` on ARM:
 
