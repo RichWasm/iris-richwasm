@@ -237,6 +237,87 @@
             pkgs.runCommand "${project}.tar.gz" { nativeBuildInputs = [ pkgs.pigz ]; } ''
               ${shell.streamScript} ${conf} | pigz -p$NIX_BUILD_CORES -nTR > $out
             '';
+
+          vm =
+            let
+              nixos = nixpkgs.lib.nixosSystem {
+                specialArgs = { inherit self; };
+                modules = [
+                  { nixpkgs.pkgs = pkgs; }
+                  ./nix/vm.nix
+                ];
+              };
+              inherit (nixos.config.system.build) image;
+              sourceLabel = nixos.config.fileSystems."/mnt/iris-richwasm".label;
+              sourceSize = "1G";
+              # virtualbox is only packaged for x86_64-linux
+              x86 = pkgsFor.x86_64-linux;
+              vbox =
+                {
+                  x86_64-linux = {
+                    platform = "x86";
+                    ostype = "Linux_64";
+                    controller = "SATA";
+                  };
+                  aarch64-linux = {
+                    platform = "arm";
+                    ostype = "Linux_arm64";
+                    controller = "VirtioSCSI";
+                  };
+                }
+                .${system};
+              appliance =
+                x86.runCommand "${project}-appliance-${system}"
+                  {
+                    nativeBuildInputs = with x86; [
+                      zstd
+                      qemu-utils
+                      virtualbox
+                    ];
+                  }
+                  ''
+                    export HOME=$PWD
+                    zstd -d ${image}/${nixos.config.image.fileName} -o disk.raw
+                    qemu-img convert -f raw -O vdi disk.raw disk.vdi
+                    rm disk.raw
+                    VBoxManage modifymedium disk disk.vdi --resize=65536
+                    qemu-img create -q -f vdi source.vdi ${sourceSize}
+                    VBoxManage createvm --name=${project} --platform-architecture=${vbox.platform} \
+                      --ostype=${vbox.ostype} --default --register
+                    VBoxManage modifyvm ${project} --firmware=efi --memory=8192 --cpus=4
+                    VBoxManage storageattach ${project} --storagectl=${vbox.controller} \
+                      --port=0 --device=0 --type=hdd --medium=disk.vdi
+                    VBoxManage storageattach ${project} --storagectl=${vbox.controller} \
+                      --port=1 --device=0 --type=hdd --medium=source.vdi
+                    VBoxManage export ${project} --output=${project}.ova
+                    mkdir $out
+                    tar -xf ${project}.ova -C $out ${project}.ovf ${project}-disk001.vmdk
+                    cd $out && sha1sum --tag ${project}.ovf ${project}-disk001.vmdk > manifest
+                  '';
+              source =
+                x86.runCommand "${project}-source.vmdk"
+                  {
+                    nativeBuildInputs = with x86; [
+                      e2fsprogs
+                      qemu-utils
+                    ];
+                  }
+                  ''
+                    truncate -s ${sourceSize} source.img
+                    mkfs.ext4 -q -L ${sourceLabel} -d ${self} source.img
+                    debugfs -w -R 'rmdir lost+found' source.img
+                    qemu-img convert -f raw -O vmdk -o subformat=streamOptimized source.img $out
+                  '';
+            in
+            x86.runCommand "${project}-vm" { } ''
+              cp ${source} ${project}-disk002.vmdk
+              { cat ${appliance}/manifest; sha1sum --tag ${project}-disk002.vmdk; } > ${project}.mf
+              mkdir $out
+              tar --format=ustar --owner=0 --group=0 --mtime=@$SOURCE_DATE_EPOCH \
+                -cf $out/${project}-${system}.ova \
+                -C ${appliance} ${project}.ovf ${project}-disk001.vmdk \
+                -C $PWD ${project}-disk002.vmdk ${project}.mf
+            '';
         }
       );
 
