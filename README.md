@@ -4,7 +4,7 @@ This is a formalization of RichWasm in Iris based on Iris-Wasm.
 
 ## Setup (Kick-the-tires)
 
-This is a Rocq and OCaml hybrid workspace managed by dune. There are several options for installing the codebase:
+This is a Rocq and OCaml hybrid workspace managed by the dune build system. There are several options for installing the codebase:
 1. Docker image
 2. VM image
 3. Nix
@@ -170,7 +170,7 @@ This overview will focus on the most important files and folders, as it relates 
 `theories/iris/language/cwp/def.v`: definition of the new weakest precondition modality, CWP.
 
 ### FTLR
-`theories/iris/logrel/instr/typing.v`: statement of theorem 5.1
+`theories/iris/logrel/instr/typing.v`: statement of Theorem 5.1
 
 `theories/iris/logrel/instr/typing folder`: proofs of ABI compliance for each RichWasm instruction, supported by helper files in the `theories/iris/logrel/instr` folder.
 
