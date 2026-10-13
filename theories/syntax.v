@@ -3,6 +3,7 @@ Import ListNotations.
 
 Require Import RecordUpdate.RecordUpdate.
 
+#[warnings="-module-not-found"]
 From RichWasm.syntax Require Export module rw.
 
 Inductive primitive :=
