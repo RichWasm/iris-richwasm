@@ -179,6 +179,25 @@ This overview will focus on the most important files and folders, as it relates 
 
 `theories/examples`: the two proofs of linking with external Wasm.
 
-### Our Axioms
-TODO
+### Axioms
 
+We rely on the following additional
+axioms. `ClassicalDedekindReals.sig_not_dec`,
+`ClassicalDedekindReals.sig_forall_dec`,
+`FunctionalExtensionality.functional_extensionality_dep`,
+`Classical_Prop.classic` are used by the definition of floating-point Wasm
+numbers, which we inherit from Iris-Wasm.
+
+```
+ClassicalDedekindReals.sig_not_dec : ∀ P : Prop, {¬ ¬ P} + {¬ P}
+ClassicalDedekindReals.sig_forall_dec :
+  ∀ P : nat → Prop,
+    (∀ n : nat, {P n} + {¬ P n}) → {n : nat | ¬ P n} + {∀ n : nat, P n}
+FunctionalExtensionality.functional_extensionality_dep :
+  ∀ (A : Type) (B : A → Type) (f g : ∀ x : A, B x),
+    (∀ x : A, f x = g x) → f = g
+Eqdep.Eq_rect_eq.eq_rect_eq :
+  ∀ (U : Type) (p : U) (Q : U → Type) (x : Q p) (h : p = p),
+    x = eq_rect p Q x p h
+Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
+```
