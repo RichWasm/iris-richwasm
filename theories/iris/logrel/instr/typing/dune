@@ -1,7 +1,7 @@
 (rocq.theory
  (name RichWasm.iris.logrel.instr.typing)
  (package iris-richwasm)
- (flags :standard -w -ambiguous-paths -w -redundant-canonical-projection)
+ (flags :standard -w -ambiguous-paths -w -redundant-canonical-projection -w -notation-overridden)
  (theories
   RichWasm
   RichWasm.compiler

@@ -117,7 +117,9 @@
   ExtLib.Structures
   ExtLib.Core
   ExtLib.Tactics)
- (flags -w -extraction-reserved-identifier))
+ (flags -w -extraction-reserved-identifier
+        -w -overriding-logical-loadpath
+        -w -extraction-opaque-accessed))
 
 (library
  (name richwasm_extract)
