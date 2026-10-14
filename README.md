@@ -10,16 +10,27 @@ This is a Rocq and OCaml hybrid workspace managed by the dune build system. Ther
 3. Nix
 4. Installing from scratch
 
-### 3. Nix
-The flake also builds a Docker image of the `nix develop` shell with a copy of this repository. Build and start it with these commands, using `aarch64-linux` on ARM:
+### 1. Docker
+The [Zenodo record](https://doi.org/10.5281/zenodo.23196354) has a Docker image of the `nix develop` shell with a copy of this repository. Load and start it with these commands, using `aarch64-linux` on ARM:
 
 ```sh
-nix build .#packages.x86_64-linux.docker
-docker load < result
+docker load < iris-richwasm-docker-x86_64-linux.tar.xz
 docker run -it --name richwasm -p 8000:8000 iris-richwasm
 ```
 
 The shell starts in `~/iris-richwasm` with everything `nix develop` provides, so the commands below work there. The image adds neovim, emacs, nano, git, and python3. `-p 8000:8000` lets your browser reach the web demo's server (see Web demo). After you exit, `docker start -ai richwasm` gets back into the same container.
+
+To build the image yourself, run `nix build .#packages.x86_64-linux.docker` and pass `result` to `docker load` instead of the downloaded file.
+
+### 2. VM image
+Import `iris-richwasm-x86_64-linux.ova` from the Zenodo record into VirtualBox. On an Apple Silicon Mac, use `iris-richwasm-aarch64-linux.ova` with VirtualBox 7.2 or later. The VM has 8 GB of memory and 4 CPUs, which you can change in its settings before starting it. It boots into a KDE desktop logged in as `reviewer` (password `reviewer`, with passwordless `sudo`).
+
+On first boot, the VM copies this repository into `~/iris-richwasm` and commits it to a fresh git repository, so `git diff` shows any changes you make. From a terminal in that directory, `nix develop` enters a shell with all the dependencies, and the commands below work in it. `nix develop` works offline, because the VM's Nix store already has every package the shell uses. The VM has Firefox for the web demo, plus Kate, neovim, emacs, nano, git, and python3.
+
+To build the VMs yourself, run `nix build .#packages.x86_64-linux.vm` or `nix build .#packages.aarch64-linux.vm`. Each puts its OVA in `result`. The Arm one needs an aarch64-linux machine or Nix remote builder.
+
+### 3. Nix
+With Nix installed and flakes enabled, `nix develop` enters a shell with all dependencies, `nix build` builds everything, and `nix flake check` builds and runs the tests.
 
 ### 4. Installing from scratch
 
@@ -30,8 +41,6 @@ Firstly, ensure you have the required system dependencies:
 - `wabt` ([WebAssembly Binary Toolkit](https://github.com/webassembly/wabt) — the tests and the CLI shell out to `wat2wasm`/`wasm2wat`
 - Node.js ([tested with v24](https://nodejs.org/en) — runs the runtime for the end-to-end tests and the `run` subcommand
 - `just` (optional) -- shortcuts for the common commands below
-
-Alternatively there is a nix flake available: `nix develop` enters a shell with all dependencies, `nix build` builds everything, and `nix flake check` builds and runs the tests.
 
 #### Opam
 
